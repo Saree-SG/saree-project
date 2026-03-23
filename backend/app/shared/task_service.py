@@ -174,6 +174,8 @@ async def cascade_delay_from(
     ).all()
 
     for link in dependents_links:
+        if link.dependency_type != "FS":
+            continue
         dep = session.get(Task, link.dependent_task_id)
         if dep is None or dep.status == "done" or dep.id in visited:
             continue

@@ -5,7 +5,7 @@ Project models: Project, TaskLevelConfig.
 import uuid
 from datetime import date, datetime, timezone
 
-from sqlalchemy import DateTime, Text
+from sqlalchemy import JSON, DateTime, Text
 from sqlmodel import Field, Relationship, SQLModel
 
 
@@ -94,9 +94,7 @@ class TaskLevelConfig(SQLModel, table=True):
     requires_proof: bool = False      # Worker must upload proof to mark Done
     can_have_children: bool = True    # If False → leaf node
     max_children: int | None = None   # None = unlimited
-    # JSON array of role IDs that can be assigned tasks at this level
-    # Stored as string; parsed in service layer
-    assignable_role_ids: str | None = Field(default=None, sa_type=Text)
+    assignable_role_ids: list[str] | None = Field(default=None, sa_type=JSON)
 
     project: Project = Relationship(back_populates="level_configs")
 

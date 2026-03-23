@@ -16,16 +16,6 @@ from app.models.user import (  # noqa: F401
     UsersPublic,
 )
 
-# Item (legacy, keep for backward compat with items router)
-from app.models.item import (  # noqa: F401
-    Item,
-    ItemBase,
-    ItemCreate,
-    ItemUpdate,
-    ItemPublic,
-    ItemsPublic,
-)
-
 # Generic response schemas
 from app.models.schemas import (  # noqa: F401
     Token,
@@ -61,9 +51,14 @@ from app.models.task import (  # noqa: F401
     TaskUpdate,
     TaskPublic,
     TasksPublic,
+    TaskChecklist,
+    TaskChecklistCreate,
+    TaskChecklistUpdate,
+    TaskChecklistPublic,
     TaskDependency,
     TaskObserver,
     TaskComment,
+    TaskCommentApprovalUpdate,
     TaskCommentCreate,
     TaskProof,
     TaskProofCreate,

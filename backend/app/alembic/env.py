@@ -21,7 +21,7 @@ fileConfig(config.config_file_name)
 
 # Import all models so Alembic autogenerate can detect all tables
 from sqlmodel import SQLModel  # Fix import error
-from app.models import user, item, org, project, task  # noqa: F401 — registers all tables
+from app.models import user, org, project, task  # noqa: F401 — registers all tables
 from app.core.config import settings  # noqa: F401
 
 target_metadata = SQLModel.metadata
