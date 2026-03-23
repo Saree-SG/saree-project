@@ -113,6 +113,22 @@ def _login_as(
     return {"Authorization": f"Bearer {tokens['access_token']}"}
 
 
+def _login_tokens(
+    client: TestClient,
+    *,
+    email: str,
+    password: str,
+) -> dict[str, str]:
+    """Login helper returning full token payload."""
+
+    r = client.post(
+        f"{settings.API_V1_STR}/login/access-token",
+        data={"username": email, "password": password},
+    )
+    assert r.status_code == 200
+    return r.json()
+
+
 import pytest
 
 
@@ -394,6 +410,27 @@ def test_public_endpoints_smoke(client: TestClient, superuser_token_headers: dic
     )
     assert r.status_code == 200
     assert r.json()["email"] == settings.FIRST_SUPERUSER
+
+    tokens = _login_tokens(
+        client,
+        email=settings.FIRST_SUPERUSER,
+        password=settings.FIRST_SUPERUSER_PASSWORD,
+    )
+    r = client.post(
+        f"{settings.API_V1_STR}/login/refresh-token",
+        json={"refresh_token": tokens["refresh_token"]},
+    )
+    assert r.status_code == 200
+    refreshed = r.json()
+    assert "access_token" in refreshed
+    assert "refresh_token" in refreshed
+
+    r = client.post(
+        f"{settings.API_V1_STR}/login/logout",
+        headers={"Authorization": f"Bearer {refreshed['access_token']}"},
+        json={"refresh_token": refreshed["refresh_token"]},
+    )
+    assert r.status_code == 200
 
     r = client.post(
         f"{settings.API_V1_STR}/password-recovery-html-content/{settings.FIRST_SUPERUSER}",

@@ -22,6 +22,8 @@ from app.models.schemas import (  # noqa: F401
     TokenPayload,
     NewPassword,
     Message,
+    RefreshTokenRequest,
+    LogoutRequest,
 )
 
 # Org & RBAC

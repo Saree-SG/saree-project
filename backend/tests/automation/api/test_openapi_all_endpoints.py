@@ -8,6 +8,8 @@ def expected_api_operations() -> list[tuple[str, str]]:
     api = settings.API_V1_STR
     operations: list[tuple[str, str]] = [
         ("post", f"{api}/login/access-token"),
+        ("post", f"{api}/login/refresh-token"),
+        ("post", f"{api}/login/logout"),
         ("post", f"{api}/login/test-token"),
         ("post", f"{api}/password-recovery/{{email}}"),
         ("post", f"{api}/reset-password/"),

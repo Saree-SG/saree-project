@@ -1,13 +1,13 @@
 from collections.abc import Generator
 from typing import Annotated
 
-import jwt
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
-from jwt.exceptions import InvalidTokenError
 from pydantic import ValidationError
 from sqlmodel import Session
 
+from app.core.auth.security import decode_token
+from app.core.auth.session_service import get_session_service
 from app.core import security
 from app.core.config import settings
 from app.core.db import engine
@@ -29,15 +29,16 @@ TokenDep = Annotated[str, Depends(reusable_oauth2)]
 
 def get_current_user(session: SessionDep, token: TokenDep) -> User:
     try:
-        payload = jwt.decode(
-            token, settings.SECRET_KEY, algorithms=[security.ALGORITHM]
-        )
-        token_data = TokenPayload(**payload)
-    except (InvalidTokenError, ValidationError):
+        token_data = decode_token(token)
+    except Exception:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Could not validate credentials",
         )
+    if token_data.typ and token_data.typ != "access":
+        raise HTTPException(status_code=403, detail="Invalid token type")
+    if not get_session_service().validate_access_payload(token_data):
+        raise HTTPException(status_code=401, detail="Session revoked or expired")
     user = session.get(User, token_data.sub)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
