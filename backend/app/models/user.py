@@ -86,9 +86,6 @@ class User(UserBase, table=True):
         sa_relationship_kwargs={"foreign_keys": "[TaskProof.uploader_id]"},
     )
     audit_logs: list["AuditLog"] = Relationship(back_populates="actor", cascade_delete=True)
-    items: list["Item"] = Relationship(  # type: ignore[name-defined]
-        back_populates="owner", cascade_delete=True
-    )
 
 
 

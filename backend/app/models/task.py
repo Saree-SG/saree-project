@@ -5,8 +5,9 @@ Task domain models:
 
 import uuid
 from datetime import datetime, timezone
+from typing import Any, Literal
 
-from sqlalchemy import DateTime, Text
+from sqlalchemy import JSON, DateTime, Text
 from sqlmodel import Field, Relationship, SQLModel
 
 
@@ -78,6 +79,7 @@ class Task(TaskBase, table=True):
     observers: list["TaskObserver"] = Relationship(back_populates="task", cascade_delete=True)
     comments: list["TaskComment"] = Relationship(back_populates="task", cascade_delete=True)
     proofs: list["TaskProof"] = Relationship(back_populates="task", cascade_delete=True)
+    checklists: list["TaskChecklist"] = Relationship(back_populates="task", cascade_delete=True)
     # Dependencies where this task BLOCKS others
     blocking: list["TaskDependency"] = Relationship(
         back_populates="blocking_task",
@@ -146,7 +148,8 @@ class TaskDependency(SQLModel, table=True):
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
     blocking_task_id: uuid.UUID = Field(foreign_key="task.id", index=True)
     dependent_task_id: uuid.UUID = Field(foreign_key="task.id", index=True)
-    lag_hours: int = Field(default=0)               # Buffer hours after blocker finishes
+    dependency_type: str = Field(default="FS", max_length=2)
+    lag_hours: int = Field(default=0)
 
     blocking_task: Task = Relationship(
         back_populates="blocking",
@@ -161,6 +164,7 @@ class TaskDependency(SQLModel, table=True):
 class TaskDependencyCreate(SQLModel):
     blocking_task_id: uuid.UUID
     dependent_task_id: uuid.UUID
+    dependency_type: Literal["FS", "SS", "FF", "SF"] = "FS"
     lag_hours: int = 0
 
 
@@ -196,6 +200,8 @@ class TaskComment(TaskCommentBase, table=True):
     )
     is_edited: bool = False
     edited_at: datetime | None = None
+    requested_end_time: datetime | None = None
+    approval_status: str | None = Field(default=None, max_length=20)
 
     task: Task = Relationship(back_populates="comments")
     author: "User" = Relationship(back_populates="comments")  # type: ignore
@@ -204,6 +210,12 @@ class TaskComment(TaskCommentBase, table=True):
 class TaskCommentCreate(SQLModel):
     content: str
     comment_type: str = "general"
+    requested_end_time: datetime | None = None
+    approval_status: Literal["PENDING", "APPROVED", "REJECTED"] | None = None
+
+
+class TaskCommentApprovalUpdate(SQLModel):
+    approval_status: Literal["APPROVED", "REJECTED"]
 
 
 class TaskCommentPublic(TaskCommentBase):
@@ -212,6 +224,42 @@ class TaskCommentPublic(TaskCommentBase):
     author_id: uuid.UUID
     created_at: datetime
     is_edited: bool
+    requested_end_time: datetime | None
+    approval_status: str | None
+
+
+class TaskChecklist(SQLModel, table=True):
+    """Task checklist item for quick field tick-offs."""
+
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    task_id: uuid.UUID = Field(foreign_key="task.id", index=True)
+    content: str = Field(max_length=500)
+    is_completed: bool = False
+    completed_by: uuid.UUID | None = Field(default=None, foreign_key="user.id")
+    completed_at: datetime | None = None
+    created_at: datetime = Field(
+        default_factory=_utcnow, sa_type=DateTime(timezone=True)  # type: ignore
+    )
+
+    task: Task = Relationship(back_populates="checklists")
+
+
+class TaskChecklistCreate(SQLModel):
+    content: str
+
+
+class TaskChecklistUpdate(SQLModel):
+    is_completed: bool
+
+
+class TaskChecklistPublic(SQLModel):
+    id: uuid.UUID
+    task_id: uuid.UUID
+    content: str
+    is_completed: bool
+    completed_by: uuid.UUID | None
+    completed_at: datetime | None
+    created_at: datetime
 
 
 # ---------------------------------------------------------------------------
@@ -297,8 +345,8 @@ class AuditLog(SQLModel, table=True):
     entity_type: str = Field(max_length=50, index=True)  # "task" | "project" | "checkin"
     entity_id: uuid.UUID = Field(index=True)
 
-    old_value: str | None = Field(default=None, sa_type=Text)  # JSON string
-    new_value: str | None = Field(default=None, sa_type=Text)  # JSON string
+    old_value: Any | None = Field(default=None, sa_type=JSON)
+    new_value: Any | None = Field(default=None, sa_type=JSON)
 
     ip_address: str | None = Field(default=None, max_length=45)
     user_agent: str | None = Field(default=None, max_length=500)
@@ -315,6 +363,6 @@ class AuditLogPublic(SQLModel):
     action: str
     entity_type: str
     entity_id: uuid.UUID
-    old_value: str | None
-    new_value: str | None
+    old_value: Any | None
+    new_value: Any | None
     created_at: datetime

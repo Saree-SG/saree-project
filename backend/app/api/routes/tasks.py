@@ -15,7 +15,12 @@ from app.models.task import (
     AuditLog,
     AuditLogPublic,
     Task,
+    TaskChecklist,
+    TaskChecklistCreate,
+    TaskChecklistPublic,
+    TaskChecklistUpdate,
     TaskComment,
+    TaskCommentApprovalUpdate,
     TaskCommentCreate,
     TaskCommentPublic,
     TaskCreate,
@@ -43,6 +48,7 @@ from app.shared.task_service import (
 )
 
 router = APIRouter(tags=["tasks"])
+ALLOWED_DEPENDENCY_TYPES = {"FS", "SS", "FF", "SF"}
 
 
 # ---------------------------------------------------------------------------
@@ -367,12 +373,20 @@ def add_comment(
     session: Session = Depends(get_db),
     current_user: User = Depends(require_permission("COMMENT_ADD")),
 ):
+    """Add a task comment or delay request note."""
     _get_task_or_404(session, task_id)
+    if body.comment_type == "delay_justification" and body.requested_end_time is None:
+        raise HTTPException(422, "requested_end_time is required for delay_justification")
+    approval_status = body.approval_status
+    if body.comment_type == "delay_justification" and approval_status is None:
+        approval_status = "PENDING"
     comment = TaskComment(
         task_id=task_id,
         author_id=current_user.id,
         content=body.content,
         comment_type=body.comment_type,
+        requested_end_time=body.requested_end_time,
+        approval_status=approval_status,
     )
     session.add(comment)
     session.commit()
@@ -392,6 +406,59 @@ def list_comments(
         .where(TaskComment.task_id == task_id)
         .order_by(TaskComment.created_at)
     ).all()
+
+
+@router.patch(
+    "/tasks/{task_id}/comments/{comment_id}/approval",
+    response_model=TaskCommentPublic,
+)
+def approve_delay_request(
+    task_id: uuid.UUID,
+    comment_id: uuid.UUID,
+    body: TaskCommentApprovalUpdate,
+    session: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("TASK_UPDATE")),
+):
+    """Approve or reject delay request and update task deadline when approved."""
+    task = _get_task_or_404(session, task_id)
+    comment = session.get(TaskComment, comment_id)
+    if comment is None or comment.task_id != task_id:
+        raise HTTPException(404, "Comment not found")
+    if comment.comment_type != "delay_justification":
+        raise HTTPException(422, "Only delay_justification comments can be approved")
+    if comment.requested_end_time is None:
+        raise HTTPException(422, "Delay request missing requested_end_time")
+
+    old_comment_status = comment.approval_status
+    old_end_time = task.end_time
+    comment.approval_status = body.approval_status
+    if body.approval_status == "APPROVED":
+        task.end_time = comment.requested_end_time
+        task.updated_at = utcnow()
+        write_audit_log(
+            session,
+            current_user.id,
+            "task.delay_request_approved",
+            "task",
+            task.id,
+            old_value={"end_time": old_end_time.isoformat()},
+            new_value={"end_time": task.end_time.isoformat()},
+        )
+        session.add(task)
+
+    write_audit_log(
+        session,
+        current_user.id,
+        "task.delay_request_reviewed",
+        "task_comment",
+        comment.id,
+        old_value={"approval_status": old_comment_status},
+        new_value={"approval_status": body.approval_status},
+    )
+    session.add(comment)
+    session.commit()
+    session.refresh(comment)
+    return comment
 
 
 # ---------------------------------------------------------------------------
@@ -467,6 +534,9 @@ def add_dependency(
     session: Session = Depends(get_db),
     current_user: User = Depends(require_permission("TASK_UPDATE")),
 ):
+    """Create dependency link between two tasks."""
+    if body.dependency_type not in ALLOWED_DEPENDENCY_TYPES:
+        raise HTTPException(422, "dependency_type must be one of FS, SS, FF, SF")
     existing = session.exec(
         select(TaskDependency).where(
             TaskDependency.blocking_task_id == body.blocking_task_id,
@@ -479,6 +549,70 @@ def add_dependency(
     session.add(dep)
     session.commit()
     return {"message": "Dependency added"}
+
+
+@router.post(
+    "/tasks/{task_id}/checklists",
+    response_model=TaskChecklistPublic,
+    status_code=status.HTTP_201_CREATED,
+)
+def add_checklist_item(
+    task_id: uuid.UUID,
+    body: TaskChecklistCreate,
+    session: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("TASK_UPDATE_STATUS")),
+):
+    """Create checklist item for task."""
+    _get_task_or_404(session, task_id)
+    item = TaskChecklist(task_id=task_id, content=body.content)
+    session.add(item)
+    session.commit()
+    session.refresh(item)
+    return item
+
+
+@router.get("/tasks/{task_id}/checklists", response_model=list[TaskChecklistPublic])
+def list_checklist_items(
+    task_id: uuid.UUID,
+    session: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """List checklist items for task."""
+    _get_task_or_404(session, task_id)
+    return session.exec(
+        select(TaskChecklist)
+        .where(TaskChecklist.task_id == task_id)
+        .order_by(TaskChecklist.created_at)
+    ).all()
+
+
+@router.patch(
+    "/tasks/{task_id}/checklists/{checklist_id}",
+    response_model=TaskChecklistPublic,
+)
+def update_checklist_item(
+    task_id: uuid.UUID,
+    checklist_id: uuid.UUID,
+    body: TaskChecklistUpdate,
+    session: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("TASK_UPDATE_STATUS")),
+):
+    """Toggle checklist completion state."""
+    _get_task_or_404(session, task_id)
+    item = session.get(TaskChecklist, checklist_id)
+    if item is None or item.task_id != task_id:
+        raise HTTPException(404, "Checklist item not found")
+    item.is_completed = body.is_completed
+    if body.is_completed:
+        item.completed_by = current_user.id
+        item.completed_at = utcnow()
+    else:
+        item.completed_by = None
+        item.completed_at = None
+    session.add(item)
+    session.commit()
+    session.refresh(item)
+    return item
 
 
 # ---------------------------------------------------------------------------

@@ -150,17 +150,14 @@ def upsert_level_config(
         )
     ).first()
 
-    role_ids_str = None
-    if body.assignable_role_ids:
-        import json
-        role_ids_str = json.dumps([str(r) for r in body.assignable_role_ids])
+    role_ids = [str(r) for r in body.assignable_role_ids] if body.assignable_role_ids else None
 
     if existing:
         existing.label = body.label
         existing.requires_proof = body.requires_proof
         existing.can_have_children = body.can_have_children
         existing.max_children = body.max_children
-        existing.assignable_role_ids = role_ids_str
+        existing.assignable_role_ids = role_ids
         session.add(existing)
         session.commit()
         session.refresh(existing)
@@ -173,7 +170,7 @@ def upsert_level_config(
         requires_proof=body.requires_proof,
         can_have_children=body.can_have_children,
         max_children=body.max_children,
-        assignable_role_ids=role_ids_str,
+        assignable_role_ids=role_ids,
     )
     session.add(cfg)
     session.commit()

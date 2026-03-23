@@ -15,6 +15,14 @@ from sqlmodel import Session
 from app.models.task import AuditLog
 
 
+def _normalize_json(value: Any | None) -> Any | None:
+    """Normalize Python payload into JSON-serializable data."""
+
+    if value is None:
+        return None
+    return json.loads(json.dumps(value, default=str))
+
+
 def write_audit_log(
     session: Session,
     actor_id: uuid.UUID,
@@ -28,15 +36,15 @@ def write_audit_log(
 ) -> AuditLog:
     """
     Write an immutable audit record.
-    old_value / new_value can be any JSON-serializable value (dict, str, int).
+    old_value / new_value are stored as JSON object payloads.
     """
     log = AuditLog(
         actor_id=actor_id,
         action=action,
         entity_type=entity_type,
         entity_id=entity_id,
-        old_value=json.dumps(old_value, default=str) if old_value is not None else None,
-        new_value=json.dumps(new_value, default=str) if new_value is not None else None,
+        old_value=_normalize_json(old_value),
+        new_value=_normalize_json(new_value),
         ip_address=ip_address,
         user_agent=user_agent,
     )
