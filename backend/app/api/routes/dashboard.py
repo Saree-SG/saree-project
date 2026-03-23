@@ -6,8 +6,9 @@ from __future__ import annotations
 
 from datetime import timezone
 from typing import Any
+import uuid
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from sqlmodel import Session, func, select
 
 from app.api.deps import get_current_user, get_db
@@ -20,29 +21,59 @@ from app.shared.task_service import compute_task_status, utcnow
 router = APIRouter(prefix="/dashboard", tags=["dashboard"])
 
 
+def _project_ids_scope(
+    session: Session,
+    current_user: User,
+    project_id: uuid.UUID | None = None,
+    department_id: uuid.UUID | None = None,
+) -> list[uuid.UUID]:
+    """Return scoped project IDs based on optional filters."""
+    q = select(Project.id).where(
+        Project.company_id == current_user.company_id,
+        Project.is_deleted == False,  # noqa
+    )
+    if project_id is not None:
+        q = q.where(Project.id == project_id)
+    if department_id is not None:
+        q = q.where(Project.department_id == department_id)
+    return list(session.exec(q).all())
+
+
 @router.get("/overview")
 def overview(
     session: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    project_id: uuid.UUID | None = Query(default=None),
+    department_id: uuid.UUID | None = Query(default=None),
 ) -> dict[str, Any]:
     """High-level KPI cards."""
-    company_id = current_user.company_id
+    project_ids = _project_ids_scope(session, current_user, project_id, department_id)
+    if not project_ids:
+        return {
+            "total_projects": 0,
+            "total_tasks": 0,
+            "done_tasks": 0,
+            "completion_rate_pct": 0.0,
+            "overdue_tasks": 0,
+        }
 
     total_projects = session.exec(
         select(func.count(Project.id)).where(
-            Project.company_id == company_id,
+            Project.id.in_(project_ids),  # type: ignore[arg-type]
             Project.is_deleted == False,  # noqa
         )
     ).one()
 
     total_tasks = session.exec(
         select(func.count(Task.id)).where(
+            Task.project_id.in_(project_ids),  # type: ignore[arg-type]
             Task.is_deleted == False  # noqa
         )
     ).one()
 
     done_tasks = session.exec(
         select(func.count(Task.id)).where(
+            Task.project_id.in_(project_ids),  # type: ignore[arg-type]
             Task.status == "done",
             Task.is_deleted == False,  # noqa
         )
@@ -54,6 +85,7 @@ def overview(
     now = utcnow()
     overdue_count = session.exec(
         select(func.count(Task.id)).where(
+            Task.project_id.in_(project_ids),  # type: ignore[arg-type]
             Task.end_time < now,
             Task.status.notin_(["done", "review"]),  # type: ignore
             Task.is_deleted == False,  # noqa
@@ -73,12 +105,16 @@ def overview(
 def project_stats(
     session: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    project_id: uuid.UUID | None = Query(default=None),
+    department_id: uuid.UUID | None = Query(default=None),
 ) -> list[dict]:
     """Per-project task completion stats."""
-    company_id = current_user.company_id
+    project_ids = _project_ids_scope(session, current_user, project_id, department_id)
+    if not project_ids:
+        return []
     projects = session.exec(
         select(Project).where(
-            Project.company_id == company_id,
+            Project.id.in_(project_ids),  # type: ignore[arg-type]
             Project.is_deleted == False,  # noqa
         )
     ).all()
@@ -111,11 +147,20 @@ def project_stats(
 def user_workload(
     session: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    project_id: uuid.UUID | None = Query(default=None),
+    department_id: uuid.UUID | None = Query(default=None),
 ) -> list[dict]:
     """Active task count per user — 'bàn cờ nhân sự'."""
+    project_ids = _project_ids_scope(session, current_user, project_id, department_id)
+    if not project_ids:
+        return []
     rows = session.exec(
         select(Task.assignee_id, func.count(Task.id).label("active_tasks"))
-        .where(Task.status.notin_(["done"]), Task.is_deleted == False)  # type: ignore # noqa
+        .where(
+            Task.project_id.in_(project_ids),  # type: ignore[arg-type]
+            Task.status.notin_(["done"]),  # type: ignore
+            Task.is_deleted == False,
+        )
         .group_by(Task.assignee_id)
         .order_by(func.count(Task.id).desc())
     ).all()
@@ -129,13 +174,19 @@ def user_workload(
 def leaderboard(
     session: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    project_id: uuid.UUID | None = Query(default=None),
+    department_id: uuid.UUID | None = Query(default=None),
 ) -> list[dict]:
     """Top performers: highest task completion rate."""
-    from sqlmodel import col
-
+    project_ids = _project_ids_scope(session, current_user, project_id, department_id)
+    if not project_ids:
+        return []
     now = utcnow()
     all_tasks = session.exec(
-        select(Task).where(Task.is_deleted == False)  # noqa
+        select(Task).where(
+            Task.project_id.in_(project_ids),  # type: ignore[arg-type]
+            Task.is_deleted == False,
+        )
     ).all()
 
     stats: dict[str, dict] = {}
@@ -169,11 +220,17 @@ def leaderboard(
 def overdue_report(
     session: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    project_id: uuid.UUID | None = Query(default=None),
+    department_id: uuid.UUID | None = Query(default=None),
 ) -> dict:
     """Detailed overdue report: local (warning) vs critical (blocking)."""
+    project_ids = _project_ids_scope(session, current_user, project_id, department_id)
+    if not project_ids:
+        return {"overdue_critical": [], "overdue_local": []}
     now = utcnow()
     overdue_tasks = session.exec(
         select(Task).where(
+            Task.project_id.in_(project_ids),  # type: ignore[arg-type]
             Task.end_time < now,
             Task.status.notin_(["done", "review"]),  # type: ignore
             Task.is_deleted == False,  # noqa
@@ -207,14 +264,22 @@ def overdue_report(
 def task_calendar(
     session: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    project_id: uuid.UUID | None = Query(default=None),
+    department_id: uuid.UUID | None = Query(default=None),
 ) -> list[dict]:
     """Task density per day (for calendar heatmap view)."""
+    project_ids = _project_ids_scope(session, current_user, project_id, department_id)
+    if not project_ids:
+        return []
     rows = session.exec(
         select(
             func.date(Task.end_time).label("due_date"),
             func.count(Task.id).label("count"),
         )
-        .where(Task.is_deleted == False)  # noqa
+        .where(
+            Task.project_id.in_(project_ids),  # type: ignore[arg-type]
+            Task.is_deleted == False,
+        )
         .group_by(func.date(Task.end_time))
         .order_by(func.date(Task.end_time))
     ).all()

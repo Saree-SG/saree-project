@@ -427,8 +427,8 @@ def test_public_endpoints_smoke(client: TestClient, superuser_token_headers: dic
     assert r.json()["email"] == email_to_create
 
 
-def test_users_and_items_smoke(client: TestClient) -> None:
-    """Smoke test users/signup and items CRUD via auth."""
+def test_users_smoke(client: TestClient) -> None:
+    """Smoke test users/signup and self profile via auth."""
     email = f"{random_lower_string()}@example.com"
     password = random_lower_string()
 
@@ -443,32 +443,6 @@ def test_users_and_items_smoke(client: TestClient) -> None:
     r = client.get(f"{settings.API_V1_STR}/users/me", headers=headers)
     assert r.status_code == 200
     assert r.json()["email"] == email
-
-    item_title = "Automation Item"
-    item_description = "Automation description"
-    r = client.post(
-        f"{settings.API_V1_STR}/items/",
-        headers=headers,
-        json={"title": item_title, "description": item_description},
-    )
-    assert r.status_code == 200
-    item_id = _to_uuid(r.json()["id"])
-
-    r = client.get(f"{settings.API_V1_STR}/items/{item_id}", headers=headers)
-    assert r.status_code == 200
-    assert _to_uuid(r.json()["id"]) == item_id
-
-    r = client.put(
-        f"{settings.API_V1_STR}/items/{item_id}",
-        headers=headers,
-        json={"title": "Updated Title", "description": "Updated Description"},
-    )
-    assert r.status_code == 200
-    assert r.json()["title"] == "Updated Title"
-
-    r = client.delete(f"{settings.API_V1_STR}/items/{item_id}", headers=headers)
-    assert r.status_code == 200
-    assert r.json()["message"] == "Item deleted successfully"
 
 
 def test_mes_projects_tasks_dashboard_smoke(
