@@ -28,11 +28,24 @@ from app.models.schemas import (  # noqa: F401
 
 # Org & RBAC
 from app.models.org import (  # noqa: F401
+    AccountProfilePublic,
+    CompanyCreate,
+    CompanyPublic,
+    CompanyUpdate,
+    DepartmentCreate,
+    DepartmentPublic,
     Department,
     Role,
+    RoleCreate,
+    RoleDependency,
+    RoleDependencyCreate,
+    RoleDependencyPublic,
     Permission,
     RolePermission,
     ProjectMemberRole,
+    UserCompanyRole,
+    UserCompanyRoleCreate,
+    UserCompanyRolePublic,
     UserGlobalRole,
 )
 

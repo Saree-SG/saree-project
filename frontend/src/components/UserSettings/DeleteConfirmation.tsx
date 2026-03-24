@@ -26,9 +26,9 @@ const DeleteConfirmation = () => {
 
   const mutation = useMutation({
     mutationFn: () => UsersService.deleteUserMe(),
-    onSuccess: () => {
+    onSuccess: async () => {
       showSuccessToast("Your account has been successfully deleted")
-      logout()
+      await logout()
     },
     onError: handleError.bind(showErrorToast),
     onSettled: () => {

@@ -1,11 +1,11 @@
 import { zodResolver } from "@hookform/resolvers/zod"
-import { useMutation, useQueryClient } from "@tanstack/react-query"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Pencil } from "lucide-react"
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { useForm } from "react-hook-form"
 import { z } from "zod"
 
-import { type UserPublic, UsersService } from "@/client"
+import { RolesService, type UserPublic, UsersService } from "@/client"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import {
@@ -28,6 +28,13 @@ import {
 } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
 import { LoadingButton } from "@/components/ui/loading-button"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import useCustomToast from "@/hooks/useCustomToast"
 import { handleError } from "@/utils"
 
@@ -43,6 +50,8 @@ const formSchema = z
     confirm_password: z.string().optional(),
     is_superuser: z.boolean().optional(),
     is_active: z.boolean().optional(),
+    company_id: z.string().optional(),
+    role_id: z.string().optional(),
   })
   .refine((data) => !data.password || data.password === data.confirm_password, {
     message: "The passwords don't match",
@@ -73,6 +82,49 @@ const EditUser = ({ user, onSuccess }: EditUserProps) => {
     },
   })
 
+  const selectedCompanyId = form.watch("company_id")
+
+  const { data: companies } = useQuery({
+    queryKey: ["roles", "companies"],
+    queryFn: () => RolesService.listCompanies(),
+  })
+
+  const { data: assignments } = useQuery({
+    queryKey: ["roles", "assignments", user.id],
+    queryFn: () => RolesService.listUserCompanyRoles({ userId: user.id }),
+  })
+
+  const primaryAssignment = assignments?.find((item) => item.is_primary) || assignments?.[0]
+
+  useEffect(() => {
+    if (primaryAssignment && !form.getValues("company_id")) {
+      form.setValue("company_id", primaryAssignment.company_id)
+    }
+    if (primaryAssignment && !form.getValues("role_id")) {
+      form.setValue("role_id", primaryAssignment.role_id)
+    }
+  }, [primaryAssignment, form])
+
+  const { data: companyRoles } = useQuery({
+    queryKey: ["roles", "catalog", selectedCompanyId],
+    queryFn: () => RolesService.listCompanyRoles({ companyId: selectedCompanyId || "" }),
+    enabled: Boolean(selectedCompanyId),
+  })
+  const validCompanyRoles = (companyRoles ?? []).filter((role) => Boolean(role.id))
+
+  const assignRoleMutation = useMutation({
+    mutationFn: (payload: { companyId: string; roleId: string }) =>
+      RolesService.assignUserCompanyRole({
+        requestBody: {
+          user_id: user.id,
+          company_id: payload.companyId,
+          role_id: payload.roleId,
+          is_primary: true,
+        },
+      }),
+    onError: handleError.bind(showErrorToast),
+  })
+
   const mutation = useMutation({
     mutationFn: (data: FormData) =>
       UsersService.updateUser({ userId: user.id, requestBody: data }),
@@ -87,13 +139,18 @@ const EditUser = ({ user, onSuccess }: EditUserProps) => {
     },
   })
 
-  const onSubmit = (data: FormData) => {
+  const onSubmit = async (data: FormData) => {
     // exclude confirm_password from submission data and remove password if empty
-    const { confirm_password: _, ...submitData } = data
+    const { confirm_password: _, company_id, role_id, ...submitData } = data
     if (!submitData.password) {
       delete submitData.password
     }
-    mutation.mutate(submitData)
+    await mutation.mutateAsync(submitData)
+
+    if (company_id && role_id) {
+      await assignRoleMutation.mutateAsync({ companyId: company_id, roleId: role_id })
+      showSuccessToast("User company-role updated")
+    }
   }
 
   return (
@@ -214,6 +271,65 @@ const EditUser = ({ user, onSuccess }: EditUserProps) => {
                       />
                     </FormControl>
                     <FormLabel className="font-normal">Is active?</FormLabel>
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="company_id"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Company</FormLabel>
+                    <Select
+                      value={field.value || primaryAssignment?.company_id || ""}
+                      onValueChange={(value) => {
+                        field.onChange(value)
+                        form.setValue("role_id", "")
+                      }}
+                    >
+                      <FormControl>
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="Select company" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {(companies ?? []).map((company) => (
+                          <SelectItem key={company.id} value={company.id}>
+                            {company.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="role_id"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Role</FormLabel>
+                    <Select
+                      value={field.value || primaryAssignment?.role_id || ""}
+                      onValueChange={field.onChange}
+                    >
+                      <FormControl>
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="Select role" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {validCompanyRoles.map((role) => (
+                          <SelectItem key={role.id} value={role.id as string}>
+                            {role.display_name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
                   </FormItem>
                 )}
               />

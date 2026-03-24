@@ -16,7 +16,17 @@ import uuid
 from sqlmodel import Session, select
 
 from app.core.db import engine
-from app.models.org import Company, Permission, Role, RolePermission
+from app.models.org import (
+    Company,
+    Department,
+    Permission,
+    ProjectMemberRole,
+    Role,
+    RoleDependency,
+    RolePermission,
+    UserCompanyRole,
+)
+from app.models.user import User
 
 
 # ---------------------------------------------------------------------------
@@ -24,12 +34,10 @@ from app.models.org import Company, Permission, Role, RolePermission
 # ---------------------------------------------------------------------------
 
 SYSTEM_ROLES = [
-    {"name": "admin",     "display_name": "System Admin",   "level": 1, "is_system": True},
-    {"name": "director",  "display_name": "Giám đốc",       "level": 1, "is_system": True},
-    {"name": "manager",   "display_name": "Quản lý",        "level": 2, "is_system": True},
-    {"name": "leader",    "display_name": "Tổ trưởng",      "level": 2, "is_system": True},
-    {"name": "worker",    "display_name": "Nhân viên/Thợ",  "level": 3, "is_system": True},
-    {"name": "observer",  "display_name": "Người theo dõi", "level": 3, "is_system": True},
+    {"name": "admin", "display_name": "System Admin", "level": 1, "is_system": True},
+    {"name": "director", "display_name": "Giám đốc", "level": 1, "is_system": True},
+    {"name": "department_head", "display_name": "Trưởng Phòng", "level": 2, "is_system": True},
+    {"name": "worker", "display_name": "Thợ", "level": 3, "is_system": True},
 ]
 
 # fmt: off
@@ -65,6 +73,7 @@ ALL_PERMISSIONS = [
     # User management
     {"code": "USER_VIEW",              "module": "user",    "action": "read",   "scope": "global",      "description": "Xem danh sách người dùng"},
     {"code": "USER_MANAGE",            "module": "user",    "action": "update", "scope": "global",      "description": "Quản lý người dùng"},
+    {"code": "COMPANY_CREATE",         "module": "company", "action": "create", "scope": "global",      "description": "Tạo công ty mới"},
 ]
 # fmt: on
 
@@ -79,9 +88,9 @@ ROLE_PERMISSION_MAP: dict[str, list[str]] = {
         "COMMENT_ADD", "COMMENT_DELETE_ANY",
         "PROOF_UPLOAD", "PROOF_APPROVE",
         "REPORT_VIEW_OWN", "REPORT_VIEW_TEAM", "REPORT_VIEW_ALL",
-        "AUDIT_VIEW", "USER_VIEW",
+        "AUDIT_VIEW", "USER_VIEW", "USER_MANAGE",
     ],
-    "manager": [
+    "department_head": [
         "PROJECT_VIEW", "PROJECT_UPDATE", "PROJECT_MANAGE_MEMBERS",
         "TASK_CREATE", "TASK_VIEW", "TASK_VIEW_ALL", "TASK_UPDATE", "TASK_UPDATE_STATUS",
         "TASK_REASSIGN",
@@ -90,13 +99,6 @@ ROLE_PERMISSION_MAP: dict[str, list[str]] = {
         "REPORT_VIEW_OWN", "REPORT_VIEW_TEAM",
         "USER_VIEW",
     ],
-    "leader": [
-        "PROJECT_VIEW",
-        "TASK_CREATE", "TASK_VIEW", "TASK_VIEW_ALL", "TASK_UPDATE", "TASK_UPDATE_STATUS",
-        "COMMENT_ADD", "COMMENT_DELETE_OWN",
-        "PROOF_UPLOAD", "PROOF_APPROVE",
-        "REPORT_VIEW_OWN", "REPORT_VIEW_TEAM",
-    ],
     "worker": [
         "PROJECT_VIEW",
         "TASK_VIEW", "TASK_UPDATE_STATUS",
@@ -104,11 +106,13 @@ ROLE_PERMISSION_MAP: dict[str, list[str]] = {
         "PROOF_UPLOAD",
         "REPORT_VIEW_OWN",
     ],
-    "observer": [
-        "PROJECT_VIEW", "TASK_VIEW",
-        "REPORT_VIEW_OWN",
-    ],
 }
+
+
+DEFAULT_DEPARTMENTS = [
+    {"name": "Kế toán", "dept_type": "office_block"},
+    {"name": "Kỹ thuật", "dept_type": "project_block"},
+]
 
 
 # ---------------------------------------------------------------------------
@@ -135,11 +139,48 @@ def seed(session: Session, company_id: uuid.UUID) -> None:
 
     print("▶ Seeding system roles...")
     role_by_name: dict[str, Role] = {}
+    expected_role_names = {role_data["name"] for role_data in SYSTEM_ROLES}
+
+    stale_roles = session.exec(
+        select(Role).where(Role.company_id == company_id, Role.name.notin_(expected_role_names))
+    ).all()
+    for stale_role in stale_roles:
+        session.exec(select(RolePermission).where(RolePermission.role_id == stale_role.id)).all()
+        role_permission_rows = session.exec(
+            select(RolePermission).where(RolePermission.role_id == stale_role.id)
+        ).all()
+        for row in role_permission_rows:
+            session.delete(row)
+        member_rows = session.exec(
+            select(ProjectMemberRole).where(ProjectMemberRole.role_id == stale_role.id)
+        ).all()
+        for row in member_rows:
+            session.delete(row)
+        assignment_rows = session.exec(
+            select(UserCompanyRole).where(UserCompanyRole.role_id == stale_role.id)
+        ).all()
+        for row in assignment_rows:
+            session.delete(row)
+        dependency_rows = session.exec(
+            select(RoleDependency).where(
+                (RoleDependency.from_role_id == stale_role.id) | (RoleDependency.to_role_id == stale_role.id)
+            )
+        ).all()
+        for row in dependency_rows:
+            session.delete(row)
+        session.delete(stale_role)
+    if stale_roles:
+        session.commit()
+        print(f"  ✓ Removed {len(stale_roles)} deprecated roles")
     for r_data in SYSTEM_ROLES:
         existing = session.exec(
             select(Role).where(Role.name == r_data["name"], Role.company_id == company_id)
         ).first()
         if existing:
+            existing.display_name = r_data["display_name"]
+            existing.level = r_data["level"]
+            existing.is_system = r_data["is_system"]
+            session.add(existing)
             role_by_name[r_data["name"]] = existing
         else:
             role = Role(**r_data, company_id=company_id)
@@ -167,6 +208,45 @@ def seed(session: Session, company_id: uuid.UUID) -> None:
                 session.add(RolePermission(role_id=role.id, permission_id=perm.id))
     session.commit()
     print("  ✓ Role-permission assignments done")
+
+    print("▶ Seeding default departments...")
+    for dept_data in DEFAULT_DEPARTMENTS:
+        existing_dept = session.exec(
+            select(Department).where(
+                Department.company_id == company_id,
+                Department.name == dept_data["name"],
+            )
+        ).first()
+        if existing_dept is None:
+            session.add(Department(company_id=company_id, **dept_data))
+    session.commit()
+    print(f"  ✓ {len(DEFAULT_DEPARTMENTS)} departments ensured")
+
+    print("▶ Ensuring first superuser has Director membership...")
+    admin_user = session.exec(select(User).where(User.is_superuser == True)).first()  # noqa: E712
+    director_role = role_by_name.get("director")
+    if admin_user and director_role:
+        existing_assignment = session.exec(
+            select(UserCompanyRole).where(
+                UserCompanyRole.user_id == admin_user.id,
+                UserCompanyRole.company_id == company_id,
+                UserCompanyRole.role_id == director_role.id,
+            )
+        ).first()
+        if existing_assignment is None:
+            session.add(
+                UserCompanyRole(
+                    user_id=admin_user.id,
+                    company_id=company_id,
+                    role_id=director_role.id,
+                    is_primary=True,
+                )
+            )
+        admin_user.company_id = company_id
+        session.add(admin_user)
+        session.commit()
+        print("  ✓ Superuser mapped as Director in default company")
+
     print("✅ Seed complete!")
 
 
