@@ -14,17 +14,29 @@ export const Route = createFileRoute("/_layout/")({
 })
 
 function Dashboard() {
-  const { user: currentUser } = useAuth()
+  const { user: currentUser, logout } = useAuth()
 
   return (
-    <div>
-      <div>
-        <h1 className="text-2xl truncate max-w-sm">
-          Hi, {currentUser?.full_name || currentUser?.email} 👋
-        </h1>
-        <p className="text-muted-foreground">
-          Welcome back, nice to see you again!!!
-        </p>
+    <div className="rounded-lg border p-6">
+      <div className="flex items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-semibold">Dashboard</h1>
+          <p
+            className="text-muted-foreground"
+            data-testid="dashboard-auth-message"
+          >
+            Logged in as {currentUser?.email}
+          </p>
+        </div>
+        <button
+          type="button"
+          className="rounded-md border px-3 py-2 text-sm hover:bg-accent"
+          onClick={() => {
+            void logout()
+          }}
+        >
+          Logout
+        </button>
       </div>
     </div>
   )

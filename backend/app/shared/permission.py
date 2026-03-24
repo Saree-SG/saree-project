@@ -13,7 +13,14 @@ from fastapi import Depends, HTTPException, status
 from sqlmodel import Session, select
 
 from app.api.deps import get_current_user, get_db
-from app.models.org import Permission, Role, RolePermission, UserGlobalRole, ProjectMemberRole
+from app.models.org import (
+    Permission,
+    ProjectMemberRole,
+    Role,
+    RolePermission,
+    UserCompanyRole,
+    UserGlobalRole,
+)
 from app.models.user import User
 
 
@@ -38,6 +45,16 @@ def get_user_role_ids(
         select(UserGlobalRole).where(UserGlobalRole.user_id == user_id)
     ).all()
     role_ids.update(r.role_id for r in global_roles)
+
+    user = session.get(User, user_id)
+    if user and user.company_id:
+        company_roles = session.exec(
+            select(UserCompanyRole).where(
+                UserCompanyRole.user_id == user_id,
+                UserCompanyRole.company_id == user.company_id,
+            )
+        ).all()
+        role_ids.update(r.role_id for r in company_roles)
 
     # Contextual role (within project)
     if project_id:
