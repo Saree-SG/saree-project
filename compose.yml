@@ -91,6 +91,7 @@ services:
       - SENTRY_DSN=${SENTRY_DSN}
       - REDIS_URL=redis://redis:6379/0
       - CHAT_UPLOAD_DIR=/data/uploads/chat
+      - TASK_PROGRESS_UPLOAD_DIR=/data/uploads/task_progress
       - PUBLIC_BASE_URL=https://api.${DOMAIN?Variable not set}
     volumes:
       - app-uploads-data:/data/uploads
@@ -131,6 +132,7 @@ services:
       - SENTRY_DSN=${SENTRY_DSN}
       - REDIS_URL=redis://redis:6379/0
       - CHAT_UPLOAD_DIR=/data/uploads/chat
+      - TASK_PROGRESS_UPLOAD_DIR=/data/uploads/task_progress
       - PUBLIC_BASE_URL=https://api.${DOMAIN?Variable not set}
     volumes:
       - app-uploads-data:/data/uploads

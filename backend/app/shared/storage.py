@@ -17,7 +17,7 @@ class StoredObject:
     """Result of storing a file object."""
 
     storage_path: str
-    public_url: str | None
+    public_url: str
     stored_name: str
     size_bytes: int
 
@@ -25,23 +25,29 @@ class StoredObject:
 class LocalStorage:
     """Local filesystem storage (dev-friendly, single-node)."""
 
-    def __init__(self, base_dir: str | Path | None = None) -> None:
-        """Create local storage rooted at base_dir (defaults to settings)."""
+    def __init__(
+        self,
+        base_dir: str | Path | None = None,
+        *,
+        static_url_segment: str = "chat",
+    ) -> None:
+        """Create local storage rooted at base_dir (defaults to chat upload dir)."""
 
         self._base_dir = Path(base_dir) if base_dir is not None else Path(settings.CHAT_UPLOAD_DIR)
         self._base_dir.mkdir(parents=True, exist_ok=True)
+        self._static_segment = static_url_segment.strip("/")
 
     def _safe_name(self, original_filename: str) -> str:
         """Generate a safe stored filename."""
 
         return f"{uuid.uuid4()}_{os.path.basename(original_filename)}"
 
-    def _public_url(self, stored_name: str) -> str | None:
-        """Build public URL when PUBLIC_BASE_URL is configured."""
+    def _public_url(self, stored_name: str) -> str:
+        """Build browser-usable URL path (absolute path on API host when PUBLIC_BASE_URL unset)."""
 
-        if not settings.PUBLIC_BASE_URL:
-            return None
-        return f"{str(settings.PUBLIC_BASE_URL).rstrip('/')}/static/chat/{stored_name}"
+        if settings.PUBLIC_BASE_URL:
+            return f"{str(settings.PUBLIC_BASE_URL).rstrip('/')}/static/{self._static_segment}/{stored_name}"
+        return f"/static/{self._static_segment}/{stored_name}"
 
     async def save_upload(self, upload: UploadFile) -> StoredObject:
         """Persist an UploadFile to disk and return metadata."""

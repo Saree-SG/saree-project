@@ -42,6 +42,7 @@ class Settings(BaseSettings):
 
     # Chat / uploads
     CHAT_UPLOAD_DIR: str = "../uploads/chat"
+    TASK_PROGRESS_UPLOAD_DIR: str = "../uploads/task_progress"
     PUBLIC_BASE_URL: AnyUrl | None = None
 
     BACKEND_CORS_ORIGINS: Annotated[

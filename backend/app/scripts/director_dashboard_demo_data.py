@@ -88,6 +88,119 @@ def assign_company_role(
         )
 
 
+def _seed_partner_worker_tasks(session: Session, director_user: User, nam_user: User) -> int:
+    """Create a second company with a project and open tasks assigned to Nam for my-tasks UI testing."""
+
+    partner = session.exec(select(Company).where(Company.slug == "demo-partner")).first()
+    if partner is None:
+        partner = Company(name="Saree Partner (Demo)", slug="demo-partner")
+        session.add(partner)
+        session.commit()
+        session.refresh(partner)
+        seed_defaults_roles(session, partner.id)
+        session.commit()
+
+    director_r = session.exec(
+        select(Role).where(Role.company_id == partner.id, Role.name == "director")
+    ).first()
+    worker_r = session.exec(
+        select(Role).where(Role.company_id == partner.id, Role.name == "worker")
+    ).first()
+    if director_r is None or worker_r is None:
+        return 0
+
+    assign_company_role(session, director_user.id, partner.id, director_r.id, False)
+    assign_company_role(session, nam_user.id, partner.id, worker_r.id, False)
+    session.commit()
+
+    dept = session.exec(select(Department).where(Department.company_id == partner.id)).first()
+    department_id = dept.id if dept else None
+
+    project = session.exec(
+        select(Project).where(
+            Project.company_id == partner.id,
+            Project.code == "DEMO-PART-001",
+            Project.is_deleted == False,  # noqa
+        )
+    ).first()
+    if project is None:
+        today = date.today()
+        project = Project(
+            company_id=partner.id,
+            department_id=department_id,
+            name="Gò Vấp - Kho trạm cell",
+            code="DEMO-PART-001",
+            description="Demo cross-company tasks for worker.nam@saree.demo",
+            start_date=today - timedelta(days=10),
+            end_date=today + timedelta(days=90),
+            status="active",
+            pm_id=director_user.id,
+            created_by=director_user.id,
+        )
+        session.add(project)
+        session.flush()
+
+    existing_members = session.exec(
+        select(ProjectMemberRole).where(ProjectMemberRole.project_id == project.id)
+    ).all()
+    member_ids = {member.user_id for member in existing_members}
+    if director_user.id not in member_ids:
+        session.add(
+            ProjectMemberRole(
+                project_id=project.id,
+                user_id=director_user.id,
+                role_id=director_r.id,
+            )
+        )
+    if nam_user.id not in member_ids:
+        session.add(
+            ProjectMemberRole(project_id=project.id, user_id=nam_user.id, role_id=worker_r.id)
+        )
+    session.commit()
+
+    open_specs: list[tuple[str, timedelta]] = [
+        ("in_progress", timedelta(days=-1)),
+        ("todo", timedelta(days=2)),
+        ("todo", timedelta(days=5)),
+        ("in_progress", timedelta(days=-3)),
+        ("review", timedelta(days=0)),
+    ]
+    created = 0
+    now = now_utc()
+    for index, (status, end_delta) in enumerate(open_specs):
+        name = f"Partner site task #{index + 1}"
+        exists = session.exec(
+            select(Task).where(
+                Task.project_id == project.id,
+                Task.name == name,
+                Task.is_deleted == False,  # noqa
+            )
+        ).first()
+        if exists is not None:
+            continue
+        start_time = now - timedelta(days=5 + index)
+        end_time = now + end_delta
+        task = Task(
+            project_id=project.id,
+            parent_id=None,
+            level=0,
+            name=name,
+            description=f"Cross-company demo — {partner.name}",
+            priority="medium",
+            start_time=start_time,
+            end_time=end_time,
+            status=status,
+            assignor_id=director_user.id,
+            assignee_id=nam_user.id,
+            actual_end_time=None,
+            is_on_critical_path=False,
+        )
+        session.add(task)
+        created += 1
+    session.commit()
+    return created
+
+
 def seed_demo_data(session: Session) -> dict[str, Any]:
     """Seed deterministic demo data for director dashboard metrics."""
 
@@ -325,11 +438,14 @@ def seed_demo_data(session: Session) -> dict[str, Any]:
             )
     session.commit()
 
+    partner_tasks_created = _seed_partner_worker_tasks(session, director_user, worker_users[0])
+
     return {
         "company_id": str(company.id),
         "projects_seeded": len(projects),
         "users_seeded": len(users),
         "tasks_created": created_tasks,
+        "partner_tasks_created": partner_tasks_created,
     }
 
 

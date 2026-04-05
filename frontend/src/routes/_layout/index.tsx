@@ -3,6 +3,7 @@ import { useMemo, useState } from "react"
 import { useQuery } from "@tanstack/react-query"
 
 import { DashboardService, ProjectsService, RolesService, UsersService } from "@/client"
+import { isManagementUser } from "@/utils/accountAccess"
 
 type OverviewPayload = {
   total_projects: number
@@ -63,17 +64,20 @@ type OverduePayload = {
 
 export const Route = createFileRoute("/_layout/")({
   beforeLoad: async () => {
-    const profile = await RolesService.myAccountProfile()
-    const isDirector = profile.memberships.some((membership) => membership.role_name === "director")
-    if (!isDirector) {
-      throw redirect({ to: "/chat" })
+    const [profile, me] = await Promise.all([
+      RolesService.myAccountProfile(),
+      UsersService.readUserMe(),
+    ])
+    const allowed = Boolean(me?.is_superuser) || isManagementUser(profile)
+    if (!allowed) {
+      throw redirect({ to: "/tasks" })
     }
   },
   component: Dashboard,
   head: () => ({
     meta: [
       {
-        title: "Director Dashboard",
+        title: "Tổng quan quản lý",
       },
     ],
   }),
@@ -177,7 +181,7 @@ function Dashboard() {
     <div className="mx-auto w-full max-w-5xl space-y-5 px-2 pb-24 sm:px-3 md:px-0">
       <section className="space-y-3">
         <div>
-          <h1 className="text-2xl font-extrabold tracking-tight">Dashboard Giám đốc</h1>
+          <h1 className="text-2xl font-extrabold tracking-tight">Tổng quan quản lý</h1>
           <p className="text-sm text-muted-foreground">Tổng quan dự án, tiến độ và hiệu suất</p>
         </div>
         <div className="flex gap-2 overflow-x-auto pb-1">

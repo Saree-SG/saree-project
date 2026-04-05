@@ -16,13 +16,15 @@ from app.models.org import ProjectMemberRole
 from app.models.project import Project
 from app.models.task import AuditLog, Task, TaskProof
 from app.models.user import User
-from app.shared.permission import require_permission
+from app.shared.permission import require_any_permission
 from app.shared.task_service import compute_task_status, utcnow
 
 router = APIRouter(
     prefix="/dashboard",
     tags=["dashboard"],
-    dependencies=[Depends(require_permission("REPORT_VIEW_ALL"))],
+    dependencies=[
+        Depends(require_any_permission("REPORT_VIEW_ALL", "REPORT_VIEW_TEAM")),
+    ],
 )
 
 

@@ -5,11 +5,15 @@ Routes: /tasks/ and /projects/{project_id}/tasks/
 from __future__ import annotations
 
 import uuid
+from pathlib import Path
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, status
+from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, Query, UploadFile, status
 from sqlmodel import Session, func, select
 
 from app.api.deps import get_current_user, get_db
+from app.core.config import settings
+from app.models.org import Company
+from app.models.project import Project
 from app.models.task import (
     AuditLog,
     AuditLogPublic,
@@ -24,6 +28,7 @@ from app.models.task import (
     TaskObserver,
     TaskProgressReport,
     TaskProgressReportCreate,
+    TaskProgressPhotoUploadPublic,
     TaskProgressReportPublic,
     TaskProof,
     TaskProofCreate,
@@ -35,6 +40,7 @@ from app.models.task import (
 )
 from app.models.user import User
 from app.shared.audit import write_audit_log
+from app.shared.storage import LocalStorage
 from app.shared.event_bus import event_bus
 from app.shared.permission import require_permission
 from app.shared.task_service import (
@@ -47,6 +53,11 @@ from app.shared.task_service import (
 )
 
 router = APIRouter(tags=["tasks"])
+
+_progress_storage = LocalStorage(
+    Path(settings.TASK_PROGRESS_UPLOAD_DIR),
+    static_url_segment="task-progress",
+)
 
 
 def _task_progress_report_to_public(
@@ -212,12 +223,31 @@ def list_project_tasks(
     )
 
 
+def _my_task_row(
+    session: Session,
+    task: Task,
+    proj_by_id: dict[uuid.UUID, Project],
+    comp_by_id: dict[uuid.UUID, Company],
+) -> dict:
+    """Serialize one assignee task with company and project labels for the my-tasks UI."""
+    task_public = enrich_task_public(task, session)
+    project = proj_by_id.get(task.project_id)
+    company = comp_by_id.get(project.company_id) if project else None
+    return {
+        "task": task_public.model_dump(mode="json"),
+        "project_id": str(task.project_id),
+        "project_name": project.name if project else "",
+        "company_id": str(project.company_id) if project else "",
+        "company_name": company.name if company else "",
+    }
+
+
 @router.get("/tasks/my/dashboard", response_model=dict)
 def my_dashboard(
     session: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Personal task dashboard: today / due_soon / overdue_critical."""
+    """Personal task dashboard with company/project metadata and filter options."""
     now = utcnow()
     base_q = select(Task).where(
         Task.assignee_id == current_user.id,
@@ -226,25 +256,63 @@ def my_dashboard(
     )
 
     all_tasks = session.exec(base_q).all()
-    today, due_soon, overdue_local, overdue_critical = [], [], [], []
+    project_ids = list({t.project_id for t in all_tasks})
+    projects = (
+        session.exec(select(Project).where(Project.id.in_(project_ids)))  # type: ignore[arg-type]
+        .all()
+        if project_ids
+        else []
+    )
+    proj_by_id = {p.id: p for p in projects}
+    company_ids = list({p.company_id for p in projects})
+    companies = (
+        session.exec(select(Company).where(Company.id.in_(company_ids)))  # type: ignore[arg-type]
+        .all()
+        if company_ids
+        else []
+    )
+    comp_by_id = {c.id: c for c in companies}
+
+    companies_payload = sorted(
+        [{"company_id": str(c.id), "company_name": c.name} for c in companies],
+        key=lambda row: row["company_name"].lower(),
+    )
+    projects_payload = sorted(
+        [
+            {
+                "project_id": str(p.id),
+                "project_name": p.name,
+                "company_id": str(p.company_id),
+            }
+            for p in projects
+        ],
+        key=lambda row: row["project_name"].lower(),
+    )
+
+    today: list[dict] = []
+    due_soon: list[dict] = []
+    overdue_local: list[dict] = []
+    overdue_critical: list[dict] = []
 
     for t in all_tasks:
-        parent = session.get(Task, t.parent_id) if t.parent_id else None
         cs = enrich_task_public(t, session).computed_status
+        row = _my_task_row(session, t, proj_by_id, comp_by_id)
         if cs == "overdue_critical":
-            overdue_critical.append(enrich_task_public(t, session))
+            overdue_critical.append(row)
         elif cs == "overdue_local":
-            overdue_local.append(enrich_task_public(t, session))
+            overdue_local.append(row)
         elif cs == "due_soon":
-            due_soon.append(enrich_task_public(t, session))
+            due_soon.append(row)
         elif t.start_time.date() == now.date() or t.end_time.date() == now.date():
-            today.append(enrich_task_public(t, session))
+            today.append(row)
 
     return {
         "overdue_critical": overdue_critical,
         "overdue_local": overdue_local,
         "due_soon": due_soon,
         "today": today,
+        "companies": companies_payload,
+        "projects": projects_payload,
     }
 
 
@@ -596,6 +664,33 @@ def add_dependency(
 
 
 @router.post(
+    "/tasks/{task_id}/progress-reports/upload-photo",
+    response_model=TaskProgressPhotoUploadPublic,
+    status_code=status.HTTP_201_CREATED,
+)
+async def upload_progress_report_photo(
+    task_id: uuid.UUID,
+    file: UploadFile = File(...),
+    session: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("PROOF_UPLOAD")),
+):
+    """Persist an image from the assignee's device; use photo_url in add progress report."""
+    task = _get_task_or_404(session, task_id)
+    if task.status == "done":
+        raise HTTPException(422, "Task is already completed")
+    if task.assignee_id != current_user.id and not current_user.is_superuser:
+        raise HTTPException(403, "Only the assignee can upload progress photos")
+    content_type = (file.content_type or "").lower()
+    if not content_type.startswith("image/"):
+        raise HTTPException(422, "File must be an image")
+    try:
+        stored = await _progress_storage.save_upload(file)
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from exc
+    return TaskProgressPhotoUploadPublic(photo_url=stored.public_url)
+
+
+@router.post(
     "/tasks/{task_id}/progress-reports",
     response_model=TaskProgressReportPublic,
     status_code=status.HTTP_201_CREATED,
@@ -606,7 +701,7 @@ def add_progress_report(
     session: Session = Depends(get_db),
     current_user: User = Depends(require_permission("PROOF_UPLOAD")),
 ):
-    """Worker submits photo URL and self-reported percent; total >= 100%% marks task done."""
+    """Worker submits photo URL and percent; sum capped at 100%%; auto in_progress / done."""
     task = _get_task_or_404(session, task_id)
     if task.status == "done":
         raise HTTPException(422, "Task is already completed")
@@ -615,6 +710,23 @@ def add_progress_report(
         raise HTTPException(422, "photo_url is required")
     if body.progress_percent < 1 or body.progress_percent > 100:
         raise HTTPException(422, "progress_percent must be between 1 and 100")
+
+    current_total = raw_sum_progress_reports(session, task_id)
+    if current_total >= 100:
+        raise HTTPException(
+            422,
+            "Tiến độ đã đạt 100%, không thể thêm báo cáo.",
+        )
+    max_allowed = 100 - current_total
+    if body.progress_percent > max_allowed:
+        raise HTTPException(
+            422,
+            (
+                f"Tổng các lần báo cáo không được vượt quá 100%. "
+                f"Hiện đang {current_total}%, lần này tối đa {max_allowed}%."
+            ),
+        )
+
     report = TaskProgressReport(
         task_id=task_id,
         reporter_id=current_user.id,
@@ -627,12 +739,20 @@ def add_progress_report(
     session.refresh(report)
     total = raw_sum_progress_reports(session, task_id)
     task_row = session.get(Task, task_id)
-    if task_row is not None and total >= 100 and task_row.status != "done":
-        task_row.status = "done"
-        task_row.actual_end_time = utcnow()
-        task_row.updated_at = utcnow()
-        session.add(task_row)
-        session.commit()
+    if task_row is not None:
+        status_changed = False
+        if total >= 100 and task_row.status != "done":
+            task_row.status = "done"
+            task_row.actual_end_time = utcnow()
+            task_row.updated_at = utcnow()
+            status_changed = True
+        elif body.progress_percent > 0 and task_row.status == "todo":
+            task_row.status = "in_progress"
+            task_row.updated_at = utcnow()
+            status_changed = True
+        if status_changed:
+            session.add(task_row)
+            session.commit()
     session.refresh(report)
     return _task_progress_report_to_public(report, current_user)
 

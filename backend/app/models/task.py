@@ -255,6 +255,12 @@ class TaskProgressReportCreate(SQLModel):
     note: str | None = None
 
 
+class TaskProgressPhotoUploadPublic(SQLModel):
+    """Response after saving a progress-report image to storage."""
+
+    photo_url: str
+
+
 class TaskProgressReportPublic(SQLModel):
     id: uuid.UUID
     task_id: uuid.UUID

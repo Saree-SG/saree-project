@@ -219,8 +219,8 @@ function ChatPage() {
   }, [liveMessages.length])
 
   return (
-    <div className="fixed inset-0 bg-white md:static md:h-full md:rounded-2xl md:border">
-      <section className="flex h-full overflow-hidden">
+    <div className="flex h-full min-h-0 w-full flex-1 flex-col bg-white md:static md:h-full md:rounded-2xl md:border">
+      <section className="flex min-h-0 flex-1 overflow-hidden">
         <aside
           className={[
             "w-full border-r bg-slate-50/40 md:flex md:w-80 md:flex-col",
@@ -230,7 +230,7 @@ function ChatPage() {
           <div className="border-b px-3 py-3">
             <div className="mb-3 flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <SidebarTrigger className="h-8 w-8 rounded-full p-0 text-slate-600 hover:bg-white md:hidden" />
+                <SidebarTrigger className="hidden h-8 w-8 rounded-full p-0 text-slate-600 hover:bg-white md:inline-flex" />
                 <h2 className="text-sm font-semibold">Conversations</h2>
               </div>
               <button

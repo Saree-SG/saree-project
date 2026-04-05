@@ -1,5 +1,5 @@
 import { Link, createFileRoute } from "@tanstack/react-router"
-import { useMemo, useState } from "react"
+import { useMemo, useRef, useState } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 
 import {
@@ -11,8 +11,18 @@ import {
   type TaskProofPublic,
   type TaskPublic,
 } from "@/client"
+import { Button } from "@/components/ui/button"
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import useCustomToast from "@/hooks/useCustomToast"
+import { uploadTaskProgressPhoto } from "@/modules/tasks/taskProgressApi"
 import { handleError } from "@/utils"
+import { resolveBackendMediaUrl } from "@/utils/mediaUrl"
 
 export const Route = createFileRoute("/_layout/tasks/$taskId")({
   component: TaskDetailPage,
@@ -29,6 +39,14 @@ function parseProgressPercent(raw: string): number | null {
   return n
 }
 
+/**
+ * Returns the maximum percent allowed for the next report so the cumulative total does not exceed 100.
+ */
+function maxNextProgressPercentFromTotal(reportedTotal: number | undefined): number {
+  const capped = Math.min(100, Math.max(0, reportedTotal ?? 0))
+  return Math.max(0, 100 - capped)
+}
+
 function TaskDetailPage() {
   const { taskId } = Route.useParams()
   const queryClient = useQueryClient()
@@ -37,9 +55,12 @@ function TaskDetailPage() {
   const [commentDraft, setCommentDraft] = useState("")
   const [proofNote, setProofNote] = useState("")
   const [proofUrl, setProofUrl] = useState("")
-  const [progressPhotoUrl, setProgressPhotoUrl] = useState("")
+  const progressPhotoInputRef = useRef<HTMLInputElement>(null)
+  const [progressPhotoFile, setProgressPhotoFile] = useState<File | null>(null)
+  const [progressPhotoPreview, setProgressPhotoPreview] = useState<string | null>(null)
   const [progressPercentInput, setProgressPercentInput] = useState("")
   const [progressNoteInput, setProgressNoteInput] = useState("")
+  const [progressImageLightboxUrl, setProgressImageLightboxUrl] = useState<string | null>(null)
 
   const taskQuery = useQuery({
     queryKey: ["task-detail", "task", taskId],
@@ -111,19 +132,34 @@ function TaskDetailPage() {
     onError: handleError.bind(showErrorToast),
   })
 
+  const clearProgressPhotoPick = () => {
+    setProgressPhotoFile(null)
+    setProgressPhotoPreview((previous) => {
+      if (previous) {
+        URL.revokeObjectURL(previous)
+      }
+      return null
+    })
+    if (progressPhotoInputRef.current) {
+      progressPhotoInputRef.current.value = ""
+    }
+  }
+
   const addProgressReportMutation = useMutation({
-    mutationFn: (pct: number) =>
-      TasksService.addProgressReport({
+    mutationFn: async (payload: { pct: number; file: File }) => {
+      const { photo_url } = await uploadTaskProgressPhoto({ taskId, file: payload.file })
+      return TasksService.addProgressReport({
         taskId,
         requestBody: {
-          photo_url: progressPhotoUrl.trim(),
-          progress_percent: pct,
+          photo_url,
+          progress_percent: payload.pct,
           note: progressNoteInput.trim() || undefined,
         },
-      }),
+      })
+    },
     onSuccess: async () => {
       showSuccessToast("Đã gửi báo cáo tiến độ")
-      setProgressPhotoUrl("")
+      clearProgressPhotoPick()
       setProgressPercentInput("")
       setProgressNoteInput("")
       await queryClient.invalidateQueries({ queryKey: ["task-detail", "task", taskId] })
@@ -168,6 +204,11 @@ function TaskDetailPage() {
   })
 
   const task = taskQuery.data
+
+  const maxRemainingProgress = useMemo(
+    () => maxNextProgressPercentFromTotal(task?.reported_progress_total),
+    [task?.reported_progress_total],
+  )
 
   return (
     <div className="mx-auto w-full max-w-3xl space-y-6 px-2 pb-24 pt-3 sm:px-4">
@@ -264,7 +305,7 @@ function TaskDetailPage() {
           </p>
         </div>
         <p className="text-[11px] text-muted-foreground">
-          Thợ chụp ảnh hiện trường, gửi % hoàn thành trong lần báo cáo. Tổng các lần đạt 100% thì task tự chuyển sang Done.
+          Đính kèm ảnh chụp từ máy (hoặc máy ảnh điện thoại), nhập % hoàn thành cho lần báo cáo. Tổng các lần đạt 100% thì task tự chuyển sang Done.
         </p>
         <progress
           max={100}
@@ -272,23 +313,78 @@ function TaskDetailPage() {
           className="h-2 w-full [&::-webkit-progress-bar]:rounded-full [&::-webkit-progress-bar]:bg-slate-100 [&::-webkit-progress-value]:rounded-full [&::-webkit-progress-value]:bg-primary"
         />
         <div className="rounded-lg border bg-white p-3">
-          <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-end">
-            <div className="min-w-0 flex-1 space-y-1">
-              <label htmlFor="progress-photo-url" className="text-[11px] font-semibold text-muted-foreground">
-                Link ảnh (URL sau khi chụp / upload)
+          <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-end">
+            <div className="min-w-0 flex-1 space-y-2">
+              <label htmlFor="progress-photo-file" className="text-[11px] font-semibold text-muted-foreground">
+                Ảnh hiện trường
               </label>
-              <input
-                id="progress-photo-url"
-                value={progressPhotoUrl}
-                onChange={(eventValue) => setProgressPhotoUrl(eventValue.target.value)}
-                placeholder="https://..."
-                disabled={task?.status === "done"}
-                className="h-9 w-full rounded-md border px-3 text-sm outline-none disabled:opacity-60"
-              />
+              <div className="flex flex-wrap items-center gap-2">
+                <input
+                  id="progress-photo-file"
+                  ref={progressPhotoInputRef}
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  title="Chọn hoặc chụp ảnh báo cáo"
+                  aria-label="Chọn hoặc chụp ảnh báo cáo tiến độ"
+                  className="sr-only"
+                  disabled={task?.status === "done"}
+                  onChange={(eventValue) => {
+                    const file = eventValue.target.files?.[0]
+                    if (!file) {
+                      return
+                    }
+                    if (!file.type.startsWith("image/")) {
+                      showErrorToast("Chỉ chọn file ảnh")
+                      return
+                    }
+                    setProgressPhotoFile(file)
+                    setProgressPhotoPreview((previous) => {
+                      if (previous) {
+                        URL.revokeObjectURL(previous)
+                      }
+                      return URL.createObjectURL(file)
+                    })
+                  }}
+                />
+                <button
+                  type="button"
+                  title="Chọn hoặc chụp ảnh"
+                  disabled={task?.status === "done"}
+                  className="h-9 rounded-md border bg-slate-50 px-3 text-xs font-bold text-slate-700 disabled:opacity-60"
+                  onClick={() => progressPhotoInputRef.current?.click()}
+                >
+                  Chọn / chụp ảnh
+                </button>
+                {progressPhotoFile ? (
+                  <button
+                    type="button"
+                    title="Bỏ ảnh"
+                    className="h-9 rounded-md border px-3 text-xs font-semibold text-muted-foreground"
+                    onClick={clearProgressPhotoPick}
+                  >
+                    Bỏ ảnh
+                  </button>
+                ) : null}
+              </div>
+              {progressPhotoPreview ? (
+                <button
+                  type="button"
+                  title="Phóng to ảnh"
+                  className="mt-1 block max-w-full cursor-zoom-in rounded-md border-0 bg-transparent p-0 text-left"
+                  onClick={() => setProgressImageLightboxUrl(progressPhotoPreview)}
+                >
+                  <img
+                    src={progressPhotoPreview}
+                    alt="Xem trước ảnh báo cáo"
+                    className="h-24 max-w-full rounded-md border object-cover"
+                  />
+                </button>
+              ) : null}
             </div>
             <div className="w-full space-y-1 sm:w-24">
               <label htmlFor="progress-pct" className="text-[11px] font-semibold text-muted-foreground">
-                % (1–100)
+                % tiến độ (1–100)
               </label>
               <input
                 id="progress-pct"
@@ -321,15 +417,21 @@ function TaskDetailPage() {
             disabled={task?.status === "done" || addProgressReportMutation.isPending}
             onClick={() => {
               const pct = parseProgressPercent(progressPercentInput.trim())
-              if (!progressPhotoUrl.trim()) {
-                showErrorToast("Cần link ảnh")
+              if (!progressPhotoFile) {
+                showErrorToast("Chọn ảnh từ máy")
                 return
               }
               if (pct === null) {
                 showErrorToast("Nhập % từ 1 đến 100")
                 return
               }
-              addProgressReportMutation.mutate(pct)
+              if (pct > maxRemainingProgress) {
+                showErrorToast(
+                  `Tối đa ${maxRemainingProgress}% cho lần này (tổng không vượt quá 100%).`,
+                )
+                return
+              }
+              addProgressReportMutation.mutate({ pct, file: progressPhotoFile })
             }}
           >
             Gửi báo cáo
@@ -338,19 +440,20 @@ function TaskDetailPage() {
         <div className="space-y-3">
           {(progressReportsQuery.data ?? []).map((row) => (
             <div key={row.id} className="flex gap-3 rounded-lg border bg-slate-50 p-3">
-              <a
-                href={row.photo_url}
-                target="_blank"
-                rel="noreferrer"
+              <button
+                type="button"
                 title="Xem ảnh báo cáo"
-                className="shrink-0"
+                className="shrink-0 cursor-zoom-in rounded-md border-0 bg-transparent p-0"
+                onClick={() =>
+                  setProgressImageLightboxUrl(resolveBackendMediaUrl(row.photo_url))
+                }
               >
                 <img
-                  src={row.photo_url}
+                  src={resolveBackendMediaUrl(row.photo_url)}
                   alt="Ảnh báo cáo tiến độ"
                   className="h-20 w-20 rounded-md border object-cover"
                 />
-              </a>
+              </button>
               <div className="min-w-0 flex-1 text-sm">
                 <p className="font-bold text-primary">+{row.progress_percent}%</p>
                 <p className="text-[11px] text-muted-foreground">
@@ -449,6 +552,36 @@ function TaskDetailPage() {
       >
         Save & Update Task
       </button>
+
+      <Dialog
+        open={Boolean(progressImageLightboxUrl)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setProgressImageLightboxUrl(null)
+          }
+        }}
+      >
+        <DialogContent
+          className="max-h-[90vh] max-w-[min(95vw,56rem)] overflow-y-auto sm:max-w-3xl"
+          showCloseButton
+        >
+          <DialogHeader>
+            <DialogTitle>Ảnh báo cáo tiến độ</DialogTitle>
+          </DialogHeader>
+          {progressImageLightboxUrl ? (
+            <img
+              src={progressImageLightboxUrl}
+              alt="Ảnh báo cáo tiến độ phóng to"
+              className="mx-auto max-h-[70vh] w-full object-contain"
+            />
+          ) : null}
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setProgressImageLightboxUrl(null)}>
+              Đóng
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

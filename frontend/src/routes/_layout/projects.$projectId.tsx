@@ -11,6 +11,7 @@ import {
   type ProjectPublic,
   type TaskPublic,
 } from "@/client"
+import { isManagementUser } from "@/utils/accountAccess"
 
 type ProjectStatsPayload = {
   project_id: string
@@ -36,10 +37,13 @@ type MemberPayload = {
 
 export const Route = createFileRoute("/_layout/projects/$projectId")({
   beforeLoad: async () => {
-    const profile = await RolesService.myAccountProfile()
-    const isDirector = profile.memberships.some((membership) => membership.role_name === "director")
-    if (!isDirector) {
-      throw redirect({ to: "/chat" })
+    const [profile, me] = await Promise.all([
+      RolesService.myAccountProfile(),
+      UsersService.readUserMe(),
+    ])
+    const allowed = Boolean(me?.is_superuser) || isManagementUser(profile)
+    if (!allowed) {
+      throw redirect({ to: "/tasks" })
     }
   },
   component: ProjectTaskDashboardPage,

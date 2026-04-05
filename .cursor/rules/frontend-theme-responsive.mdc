@@ -1,0 +1,33 @@
+---
+description: Frontend theme palette and 4-device responsiveness
+globs: frontend/src/**/*.{ts,tsx,css}
+alwaysApply: false
+---
+
+# Frontend Theme And Responsive Rule
+
+- Use this palette by default for new frontend UI work:
+  - Primary: `#276bd0`
+  - Accent: `#d69e00`
+  - Base light theme: `#ffffff`
+- Prefer light surfaces, high contrast text, and keep interactive states readable.
+- Reuse theme tokens from `frontend/src/index.css`; avoid hardcoding random colors.
+
+# Responsive Requirement (Mandatory)
+
+- Every frontend change must be reviewed for 4 device groups:
+  - Mobile small (Galaxy Fold width range)
+  - Mobile standard
+  - Tablet
+  - Desktop/Web
+- Avoid fixed widths that break narrow screens.
+- Use responsive Tailwind classes (`sm`, `md`, `lg`, `xl`) and fluid spacing.
+- Ensure touch targets are usable on mobile (buttons/inputs not cramped).
+- Keep forms and key actions visible without horizontal scroll.
+
+# Implementation Checklist
+
+- [ ] Uses project palette tokens or the approved hex colors above
+- [ ] Verified layout in small mobile width (Galaxy Fold class)
+- [ ] Verified layout in mobile/tablet/desktop breakpoints
+- [ ] No horizontal overflow introduced

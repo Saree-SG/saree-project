@@ -1,5 +1,6 @@
-import { Home, MessageCircle, Users } from "lucide-react"
+import { useQuery } from "@tanstack/react-query"
 
+import { RolesService } from "@/client"
 import { SidebarAppearance } from "@/components/Common/Appearance"
 import { Logo } from "@/components/Common/Logo"
 import {
@@ -8,21 +9,25 @@ import {
   SidebarFooter,
   SidebarHeader,
 } from "@/components/ui/sidebar"
-import useAuth from "@/hooks/useAuth"
-import { type Item, Main } from "./Main"
+import { buildLayoutNavItems } from "@/config/layoutNav"
+import useAuth, { isLoggedIn } from "@/hooks/useAuth"
+import { isManagementUser } from "@/utils/accountAccess"
+import { Main } from "./Main"
 import { User } from "./User"
-
-const baseItems: Item[] = [
-  { icon: Home, title: "Dashboard", path: "/" },
-  { icon: MessageCircle, title: "Chat", path: "/chat" },
-]
 
 export function AppSidebar() {
   const { user: currentUser } = useAuth()
 
-  const items = currentUser?.is_superuser
-    ? [...baseItems, { icon: Users, title: "Admin", path: "/admin" }]
-    : baseItems
+  const profileQuery = useQuery({
+    queryKey: ["roles", "my-account-profile"],
+    queryFn: () => RolesService.myAccountProfile(),
+    enabled: Boolean(currentUser) && isLoggedIn(),
+  })
+
+  const showManagement =
+    Boolean(currentUser?.is_superuser) || isManagementUser(profileQuery.data)
+
+  const items = buildLayoutNavItems(Boolean(currentUser?.is_superuser), showManagement)
 
   return (
     <Sidebar collapsible="icon">

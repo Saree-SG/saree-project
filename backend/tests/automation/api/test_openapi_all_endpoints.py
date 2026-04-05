@@ -46,6 +46,7 @@ def expected_api_operations() -> list[tuple[str, str]]:
         ("post", f"{api}/tasks/{{task_id}}/comments"),
         ("get", f"{api}/tasks/{{task_id}}/comments"),
         ("patch", f"{api}/tasks/{{task_id}}/comments/{{comment_id}}/approval"),
+        ("post", f"{api}/tasks/{{task_id}}/progress-reports/upload-photo"),
         ("post", f"{api}/tasks/{{task_id}}/progress-reports"),
         ("get", f"{api}/tasks/{{task_id}}/progress-reports"),
         ("post", f"{api}/tasks/{{task_id}}/proofs"),

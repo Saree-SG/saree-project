@@ -564,6 +564,8 @@ def test_mes_projects_tasks_dashboard_smoke(
         "overdue_local",
         "due_soon",
         "today",
+        "companies",
+        "projects",
     }
 
     r = client.get(
