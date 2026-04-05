@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Azure Ledger ERP - Group Chat</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "surface-container-high": "#e4e9ea",
+              "surface-container-low": "#f2f4f4",
+              "surface": "#f9f9f9",
+              "surface-container-lowest": "#ffffff",
+              "primary-dim": "#004fa9",
+              "secondary-dim": "#525354",
+              "on-secondary-container": "#505252",
+              "on-primary-fixed": "#003d85",
+              "on-primary-container": "#004fa8",
+              "on-tertiary-fixed-variant": "#624600",
+              "tertiary-fixed-dim": "#edb223",
+              "surface-dim": "#d3dbdd",
+              "on-tertiary-fixed": "#3e2b00",
+              "on-surface": "#2d3435",
+              "inverse-surface": "#0c0f0f",
+              "error-dim": "#4e0309",
+              "surface-container": "#ebeeef",
+              "error-container": "#fe8983",
+              "surface-variant": "#dde4e5",
+              "on-background": "#2d3435",
+              "primary-fixed-dim": "#c2d4ff",
+              "surface-container-highest": "#dde4e5",
+              "surface-tint": "#035bbf",
+              "surface-bright": "#f9f9f9",
+              "error": "#9f403d",
+              "tertiary": "#7b5900",
+              "secondary": "#5e5f60",
+              "background": "#f9f9f9",
+              "on-secondary": "#f9f9f9",
+              "on-primary-fixed-variant": "#0058bb",
+              "on-error-container": "#752121",
+              "inverse-on-surface": "#9c9d9d",
+              "primary-container": "#d8e2ff",
+              "secondary-container": "#e2e2e2",
+              "inverse-primary": "#5c97ff",
+              "on-surface-variant": "#596061",
+              "outline": "#757c7d",
+              "on-secondary-fixed": "#3e4040",
+              "on-tertiary": "#fff8f1",
+              "on-primary": "#f7f7ff",
+              "primary": "#035bbf",
+              "on-tertiary-container": "#563e00",
+              "on-secondary-fixed-variant": "#5a5c5c",
+              "tertiary-container": "#fcc032",
+              "secondary-fixed-dim": "#d4d4d4",
+              "on-error": "#fff7f6",
+              "primary-fixed": "#d8e2ff",
+              "secondary-fixed": "#e2e2e2",
+              "outline-variant": "#acb3b4",
+              "tertiary-fixed": "#fcc032",
+              "tertiary-dim": "#6c4e00"
+            },
+            fontFamily: {
+              "headline": ["Inter"],
+              "body": ["Inter"],
+              "label": ["Inter"]
+            },
+            borderRadius: {"DEFAULT": "0.125rem", "lg": "0.25rem", "xl": "0.5rem", "full": "0.75rem"},
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        body { font-family: 'Inter', sans-serif; }
+        .chat-bubble-tail-left::before {
+            content: "";
+            position: absolute;
+            bottom: 0;
+            left: -8px;
+            width: 12px;
+            height: 12px;
+            background-color: inherit;
+            clip-path: polygon(100% 0, 100% 100%, 0 100%);
+        }
+        .chat-bubble-tail-right::before {
+            content: "";
+            position: absolute;
+            bottom: 0;
+            right: -8px;
+            width: 12px;
+            height: 12px;
+            background-color: inherit;
+            clip-path: polygon(0 0, 0 100%, 100% 100%);
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-surface text-on-surface min-h-screen flex flex-col">
+<!-- TopAppBar -->
+<header class="fixed top-0 w-full z-50 flex items-center justify-between px-4 h-16 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 shadow-sm font-['Inter'] antialiased">
+<div class="flex items-center gap-3">
+<button class="p-2 transition-colors duration-200 ease-in-out hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full">
+<span class="material-symbols-outlined text-slate-500">arrow_back</span>
+</button>
+<div class="flex items-center gap-2">
+<div class="flex -space-x-2">
+<img class="w-8 h-8 rounded-full border-2 border-white dark:border-slate-900 object-cover" data-alt="portrait of a professional woman with glasses in a bright office setting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCJ7T_q1DpvaSgIF7baly58a4S93zu3oimpWjiNv4mp4iU6RF2Qmy_HPkBWUxMt7v0MW6aWUL0o_bnknKfvOe4wu8g2SzcEidlVkj0DdXxg6XnjaZ9_pVBITPtiRwkL8b60dT85bA5axcbA37wWh26y4UagnTCdn4NENNgcbd3qkzeC_8gMXQj2p4A_GzYV5Ur2wgKFaQRNXt8yUbcAHsunveguYhwgVOcvkvEq1RP-dGAaUovYEIktlA9ooCZtoNeverZhCm7L4QM"/>
+<img class="w-8 h-8 rounded-full border-2 border-white dark:border-slate-900 object-cover" data-alt="smiling man in casual business attire with warm natural sunlight" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAaO-IXjzo1yaQ1gyeRULIqku_AsJ4-Z0PQSm9ufTVDjK2mDRD5_S6W2OnUks8RJUXopWajIdYf8XmNqHLU88IyLuFadWxdLt4TphY6sAjhuzidYRQu0gIn2roQUFw2B-Diqj-JPFAJDlHN5qIFzkzPAi_AfsyO7tf1B2ju_uQw5D39bQgiz-aFoA6N0ETJM1dCICERGjBbqyVejBWmPLWcyArEivoqUQLtijyBdAlyEonkgVP4-mQmmA1gHIVTJ9hG4day-bsCIj8"/>
+<div class="w-8 h-8 rounded-full border-2 border-white dark:border-slate-900 bg-primary-container text-on-primary-container flex items-center justify-center text-[10px] font-bold">+12</div>
+</div>
+<div class="flex flex-col">
+<h1 class="text-sm font-bold text-slate-900 dark:text-white leading-tight">Q4 Ledger Audit</h1>
+<span class="text-[10px] text-slate-500">14 Participants • 3 Online</span>
+</div>
+</div>
+</div>
+<div class="flex items-center gap-1">
+<button class="p-2 transition-colors duration-200 ease-in-out hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full">
+<span class="material-symbols-outlined text-slate-500">search</span>
+</button>
+<button class="p-2 transition-colors duration-200 ease-in-out hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full">
+<span class="material-symbols-outlined text-slate-500">info</span>
+</button>
+</div>
+</header>
+<!-- Main Chat Canvas -->
+<main class="flex-grow pt-20 pb-24 px-4 overflow-y-auto space-y-6">
+<!-- Date Divider -->
+<div class="flex justify-center my-4">
+<span class="px-3 py-1 bg-surface-container rounded-full text-[10px] font-semibold text-on-surface-variant uppercase tracking-wider">Today</span>
+</div>
+<!-- Message Incoming -->
+<div class="flex items-end gap-2 max-w-[85%]">
+<img class="w-8 h-8 rounded-full object-cover mb-1" data-alt="professional woman profile photo" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBg9g0Ix0_1dTd7pp6dHJDumkSR68QeXjRFascgdCTPgaiirX6sRI1rP7yhCYM50xZvH0LQ7Eww0n-mWCjnDYzh069fw7ECXWST6Zarw6InzPfdciQMOhfzISZlPkn0uSMKvlvcHFZQXRyuBmm6ABmsDbKBmjVhgZTYmg_nc3e1uVc6wEIlgmPv2DpDNtf_t_265b6e_E2BT_qsBleDsyyOlOTIeAosHxm9pYaLg1Ep1n0PAn71Yq08lIo5GqyL0Q-DJQiWroqkWJI"/>
+<div class="flex flex-col gap-1">
+<span class="text-[10px] font-bold text-primary ml-1">Sarah Chen</span>
+<div class="relative bg-white dark:bg-slate-800 p-3 rounded-2xl rounded-bl-none shadow-sm border border-slate-100 dark:border-slate-800 text-sm">
+<p class="leading-relaxed">Has anyone finished the preliminary reconciliation for the North Region? We need those figures before the board meeting at 4 PM.</p>
+<span class="text-[9px] text-slate-400 mt-1 block text-right">09:42 AM</span>
+</div>
+</div>
+</div>
+<!-- Message Outgoing -->
+<div class="flex flex-col items-end gap-1 ml-auto max-w-[85%]">
+<div class="relative bg-primary text-on-primary p-3 rounded-2xl rounded-br-none shadow-md text-sm">
+<p class="leading-relaxed">Just uploaded the PDF to the shared workspace. The discrepancies were resolved yesterday.</p>
+<div class="flex items-center justify-end gap-1 mt-1">
+<span class="text-[9px] opacity-80">09:45 AM</span>
+<span class="material-symbols-outlined text-[12px]" style="font-variation-settings: 'FILL' 1;">done_all</span>
+</div>
+</div>
+</div>
+<!-- Message Incoming (Group) -->
+<div class="flex items-end gap-2 max-w-[85%]">
+<img class="w-8 h-8 rounded-full object-cover mb-1" data-alt="smiling man professional avatar" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAbGzVeOnZrhgNE77xwD0NctFc7peDAfma0skQVXSMGHg9qyHhHYXR4KKy7cZ0L7WpxH4dMNXFnKGftYRKMeNxR0nkQ_AzUTvfMOYBj4fV8Q830mxBoIY_B3SaEUqEQfi0V48D0kwfINXrxqnv6eA_z6nzH6BOH9FuFfl2Aul-tzObz1iDHozBXPKZj8G7l6jw5txwNnyWRciHOstl8MLmFX4ATwagAHGaurWBCrBurpdnVg0HVLM1tNuTGuGP7da2qT86GxH5cgkE"/>
+<div class="flex flex-col gap-1">
+<span class="text-[10px] font-bold text-tertiary ml-1">Marcus Wright</span>
+<div class="relative bg-white dark:bg-slate-800 p-3 rounded-2xl rounded-bl-none shadow-sm border border-slate-100 dark:border-slate-800 text-sm">
+<p class="leading-relaxed">Checking the PDF now. Looks like the tax liabilities are slightly higher than our projection. Is that expected?</p>
+<span class="text-[9px] text-slate-400 mt-1 block text-right">09:48 AM</span>
+</div>
+</div>
+</div>
+<!-- Asset Shared (Bento Style) -->
+<div class="flex items-end gap-2 max-w-[90%]">
+<div class="w-8 h-8 rounded-full bg-slate-200 flex-shrink-0 mb-1 flex items-center justify-center">
+<span class="material-symbols-outlined text-slate-500 text-sm">person</span>
+</div>
+<div class="flex flex-col gap-2 w-full">
+<span class="text-[10px] font-bold text-slate-500 ml-1">System Bot</span>
+<div class="grid grid-cols-2 gap-2 bg-surface-container p-2 rounded-2xl border border-outline-variant/20 shadow-inner">
+<div class="col-span-2 bg-white dark:bg-slate-900 rounded-xl p-3 flex items-center gap-3">
+<div class="w-10 h-10 bg-error-container/20 rounded-lg flex items-center justify-center">
+<span class="material-symbols-outlined text-error">picture_as_pdf</span>
+</div>
+<div class="flex flex-col">
+<span class="text-xs font-bold truncate">Q4_Audit_North_v2.pdf</span>
+<span class="text-[10px] text-slate-500">4.2 MB • Updated 5m ago</span>
+</div>
+</div>
+<div class="bg-primary/5 rounded-xl p-3 flex flex-col items-center justify-center gap-1 border border-primary/10">
+<span class="material-symbols-outlined text-primary">visibility</span>
+<span class="text-[10px] font-bold text-primary">View</span>
+</div>
+<div class="bg-slate-500/5 rounded-xl p-3 flex flex-col items-center justify-center gap-1 border border-slate-500/10">
+<span class="material-symbols-outlined text-slate-600">download</span>
+<span class="text-[10px] font-bold text-slate-600">Save</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Message Incoming -->
+<div class="flex items-end gap-2 max-w-[85%]">
+<img class="w-8 h-8 rounded-full object-cover mb-1" data-alt="professional woman profile photo" src="https://lh3.googleusercontent.com/aida-public/AB6AXuARiDHt2w7M7CVCOdnrzz4ZHD-Pcfr3WJ_qE7TyilJXxp-D3ui9QtESNsJ1QnsXEqibLfAwojyVrgkFLx-UUSxUAzEOnFoHJKslf00xJUAcceTjXjLYOrkzDzUbWpxeFIp9aspgKW1DReLH_4RegkElfgqrtzn0VSHpo6iuYpKKj4Tlagbw2s9cNbIqmbsXZGCQzLejiVwXEb1mo5ketIAdWHmI1di3z_IrtgpmgYHikbBikq_POFCL9XCVtALOP4mdib--ZjnVN30"/>
+<div class="flex flex-col gap-1">
+<span class="text-[10px] font-bold text-primary ml-1">Sarah Chen</span>
+<div class="relative bg-white dark:bg-slate-800 p-3 rounded-2xl rounded-bl-none shadow-sm border border-slate-100 dark:border-slate-800 text-sm">
+<p class="leading-relaxed">Yes, Marcus. New legislation in the North district added a 0.5% surcharge on commercial holdings. I've noted it on page 4.</p>
+<span class="text-[9px] text-slate-400 mt-1 block text-right">09:52 AM</span>
+</div>
+</div>
+</div>
+</main>
+<!-- Bottom Input Bar -->
+<div class="fixed bottom-0 w-full bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-t border-slate-200 dark:border-slate-800 px-4 py-3 flex items-center gap-3 z-50">
+<div class="flex items-center gap-1">
+<button class="p-2 text-slate-500 hover:text-primary transition-colors">
+<span class="material-symbols-outlined">photo_camera</span>
+</button>
+<button class="p-2 text-slate-500 hover:text-primary transition-colors">
+<span class="material-symbols-outlined">image</span>
+</button>
+</div>
+<div class="flex-grow relative">
+<input class="w-full bg-slate-100 dark:bg-slate-800 border-none rounded-full px-4 py-2 text-sm focus:ring-2 focus:ring-primary/20 placeholder:text-slate-400" placeholder="Type a message..." type="text"/>
+<button class="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-slate-400">
+<span class="material-symbols-outlined text-lg">mood</span>
+</button>
+</div>
+<button class="w-10 h-10 bg-primary text-on-primary rounded-full flex items-center justify-center shadow-lg active:scale-95 transition-transform">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">send</span>
+</button>
+</div>
+<!-- Hidden Navigation (Suppressed per task context of a focused chat view, but structure kept for shell awareness) -->
+<nav class="hidden">
+<!-- BottomNavBar would be here if not in focused chat view -->
+</nav>
+</body></html>

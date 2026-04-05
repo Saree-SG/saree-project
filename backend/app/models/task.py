@@ -79,7 +79,10 @@ class Task(TaskBase, table=True):
     observers: list["TaskObserver"] = Relationship(back_populates="task", cascade_delete=True)
     comments: list["TaskComment"] = Relationship(back_populates="task", cascade_delete=True)
     proofs: list["TaskProof"] = Relationship(back_populates="task", cascade_delete=True)
-    checklists: list["TaskChecklist"] = Relationship(back_populates="task", cascade_delete=True)
+    progress_reports: list["TaskProgressReport"] = Relationship(
+        back_populates="task",
+        cascade_delete=True,
+    )
     # Dependencies where this task BLOCKS others
     blocking: list["TaskDependency"] = Relationship(
         back_populates="blocking_task",
@@ -129,6 +132,7 @@ class TaskPublic(TaskBase):
     is_on_critical_path: bool
     created_at: datetime
     updated_at: datetime
+    reported_progress_total: int = 0
 
 
 class TasksPublic(SQLModel):
@@ -222,43 +226,43 @@ class TaskCommentPublic(TaskCommentBase):
     id: uuid.UUID
     task_id: uuid.UUID
     author_id: uuid.UUID
+    author_name: str | None = None
     created_at: datetime
     is_edited: bool
     requested_end_time: datetime | None
     approval_status: str | None
 
 
-class TaskChecklist(SQLModel, table=True):
-    """Task checklist item for quick field tick-offs."""
+class TaskProgressReport(SQLModel, table=True):
+    """Worker-submitted progress: photo URL + self-reported percent for this submission."""
 
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
     task_id: uuid.UUID = Field(foreign_key="task.id", index=True)
-    content: str = Field(max_length=500)
-    is_completed: bool = False
-    completed_by: uuid.UUID | None = Field(default=None, foreign_key="user.id")
-    completed_at: datetime | None = None
+    reporter_id: uuid.UUID = Field(foreign_key="user.id", index=True)
+    photo_url: str = Field(max_length=1000)
+    progress_percent: int
+    note: str | None = Field(default=None, sa_type=Text)
     created_at: datetime = Field(
         default_factory=_utcnow, sa_type=DateTime(timezone=True)  # type: ignore
     )
 
-    task: Task = Relationship(back_populates="checklists")
+    task: Task = Relationship(back_populates="progress_reports")
 
 
-class TaskChecklistCreate(SQLModel):
-    content: str
+class TaskProgressReportCreate(SQLModel):
+    photo_url: str = Field(max_length=1000)
+    progress_percent: int = Field(ge=1, le=100)
+    note: str | None = None
 
 
-class TaskChecklistUpdate(SQLModel):
-    is_completed: bool
-
-
-class TaskChecklistPublic(SQLModel):
+class TaskProgressReportPublic(SQLModel):
     id: uuid.UUID
     task_id: uuid.UUID
-    content: str
-    is_completed: bool
-    completed_by: uuid.UUID | None
-    completed_at: datetime | None
+    reporter_id: uuid.UUID
+    reporter_name: str | None = None
+    photo_url: str
+    progress_percent: int
+    note: str | None
     created_at: datetime
 
 

@@ -50,6 +50,16 @@ services:
     ports:
       - "5432:5432"
 
+  redis:
+    restart: "no"
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
   adminer:
     restart: "no"
     ports:
@@ -81,11 +91,15 @@ services:
     # TODO: remove once coverage is done locally
     volumes:
       - ./backend/htmlcov:/app/backend/htmlcov
+      - ./uploads:/data/uploads
     environment:
       SMTP_HOST: "mailcatcher"
       SMTP_PORT: "1025"
       SMTP_TLS: "false"
       EMAILS_FROM_EMAIL: "noreply@example.com"
+      REDIS_URL: "redis://redis:6379/0"
+      CHAT_UPLOAD_DIR: "/data/uploads/chat"
+      PUBLIC_BASE_URL: "http://localhost:8000"
 
   mailcatcher:
     image: schickling/mailcatcher
@@ -103,6 +117,11 @@ services:
       args:
         - VITE_API_URL=http://localhost:8000
         - NODE_ENV=development
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost/ >/dev/null 2>&1 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
 
   playwright:
     build:

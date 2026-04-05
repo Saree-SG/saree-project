@@ -29,6 +29,10 @@ from app.models.schemas import (  # noqa: F401
 # Org & RBAC
 from app.models.org import (  # noqa: F401
     AccountProfilePublic,
+    OrgTreeDepartmentGroupPublic,
+    OrgTreeMemberPublic,
+    OrgTreePublic,
+    OrgTreeRoleNodePublic,
     CompanyCreate,
     CompanyPublic,
     CompanyUpdate,
@@ -66,10 +70,9 @@ from app.models.task import (  # noqa: F401
     TaskUpdate,
     TaskPublic,
     TasksPublic,
-    TaskChecklist,
-    TaskChecklistCreate,
-    TaskChecklistUpdate,
-    TaskChecklistPublic,
+    TaskProgressReport,
+    TaskProgressReportCreate,
+    TaskProgressReportPublic,
     TaskDependency,
     TaskObserver,
     TaskComment,
@@ -78,4 +81,21 @@ from app.models.task import (  # noqa: F401
     TaskProof,
     TaskProofCreate,
     AuditLog,
+)
+
+# Chat
+from app.models.chat import (  # noqa: F401
+    ChatRoom,
+    ChatRoomCreate,
+    ChatRoomUpdate,
+    ChatRoomPublic,
+    ChatMember,
+    ChatMemberAdd,
+    ChatMemberPublic,
+    ChatMemberWithUserPublic,
+    ChatMessage,
+    ChatMessageCreate,
+    ChatMessagePublic,
+    ChatAttachment,
+    ChatAttachmentPublic,
 )

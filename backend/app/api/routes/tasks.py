@@ -5,7 +5,6 @@ Routes: /tasks/ and /projects/{project_id}/tasks/
 from __future__ import annotations
 
 import uuid
-from datetime import timezone
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, status
 from sqlmodel import Session, func, select
@@ -15,10 +14,6 @@ from app.models.task import (
     AuditLog,
     AuditLogPublic,
     Task,
-    TaskChecklist,
-    TaskChecklistCreate,
-    TaskChecklistPublic,
-    TaskChecklistUpdate,
     TaskComment,
     TaskCommentApprovalUpdate,
     TaskCommentCreate,
@@ -27,6 +22,9 @@ from app.models.task import (
     TaskDependency,
     TaskDependencyCreate,
     TaskObserver,
+    TaskProgressReport,
+    TaskProgressReportCreate,
+    TaskProgressReportPublic,
     TaskProof,
     TaskProofCreate,
     TaskProofPublic,
@@ -43,11 +41,47 @@ from app.shared.task_service import (
     TimelineConflict,
     cascade_delay_from,
     enrich_task_public,
+    raw_sum_progress_reports,
     validate_task_timeline,
     utcnow,
 )
 
 router = APIRouter(tags=["tasks"])
+
+
+def _task_progress_report_to_public(
+    row: TaskProgressReport,
+    reporter: User | None,
+) -> TaskProgressReportPublic:
+    """Build TaskProgressReportPublic with reporter display name."""
+    reporter_name = (reporter.full_name or reporter.email) if reporter else None
+    return TaskProgressReportPublic(
+        id=row.id,
+        task_id=row.task_id,
+        reporter_id=row.reporter_id,
+        reporter_name=reporter_name,
+        photo_url=row.photo_url,
+        progress_percent=row.progress_percent,
+        note=row.note,
+        created_at=row.created_at,
+    )
+
+
+def _task_comment_to_public(comment: TaskComment, author: User | None) -> TaskCommentPublic:
+    """Build TaskCommentPublic with a resolved author display name for clients."""
+    author_name = (author.full_name or author.email) if author else None
+    return TaskCommentPublic(
+        content=comment.content,
+        comment_type=comment.comment_type,
+        id=comment.id,
+        task_id=comment.task_id,
+        author_id=comment.author_id,
+        author_name=author_name,
+        created_at=comment.created_at,
+        is_edited=comment.is_edited,
+        requested_end_time=comment.requested_end_time,
+        approval_status=comment.approval_status,
+    )
 ALLOWED_DEPENDENCY_TYPES = {"FS", "SS", "FF", "SF"}
 
 
@@ -391,7 +425,7 @@ def add_comment(
     session.add(comment)
     session.commit()
     session.refresh(comment)
-    return comment
+    return _task_comment_to_public(comment, current_user)
 
 
 @router.get("/tasks/{task_id}/comments", response_model=list[TaskCommentPublic])
@@ -401,11 +435,20 @@ def list_comments(
     current_user: User = Depends(get_current_user),
 ):
     _get_task_or_404(session, task_id)
-    return session.exec(
+    comments = session.exec(
         select(TaskComment)
         .where(TaskComment.task_id == task_id)
         .order_by(TaskComment.created_at)
     ).all()
+    author_ids = list({row.author_id for row in comments})
+    authors = (
+        session.exec(select(User).where(User.id.in_(author_ids)))  # type: ignore[arg-type]
+        .all()
+        if author_ids
+        else []
+    )
+    author_by_id = {row.id: row for row in authors}
+    return [_task_comment_to_public(row, author_by_id.get(row.author_id)) for row in comments]
 
 
 @router.patch(
@@ -458,7 +501,8 @@ def approve_delay_request(
     session.add(comment)
     session.commit()
     session.refresh(comment)
-    return comment
+    author = session.get(User, comment.author_id)
+    return _task_comment_to_public(comment, author)
 
 
 # ---------------------------------------------------------------------------
@@ -552,67 +596,72 @@ def add_dependency(
 
 
 @router.post(
-    "/tasks/{task_id}/checklists",
-    response_model=TaskChecklistPublic,
+    "/tasks/{task_id}/progress-reports",
+    response_model=TaskProgressReportPublic,
     status_code=status.HTTP_201_CREATED,
 )
-def add_checklist_item(
+def add_progress_report(
     task_id: uuid.UUID,
-    body: TaskChecklistCreate,
+    body: TaskProgressReportCreate,
     session: Session = Depends(get_db),
-    current_user: User = Depends(require_permission("TASK_UPDATE_STATUS")),
+    current_user: User = Depends(require_permission("PROOF_UPLOAD")),
 ):
-    """Create checklist item for task."""
-    _get_task_or_404(session, task_id)
-    item = TaskChecklist(task_id=task_id, content=body.content)
-    session.add(item)
+    """Worker submits photo URL and self-reported percent; total >= 100%% marks task done."""
+    task = _get_task_or_404(session, task_id)
+    if task.status == "done":
+        raise HTTPException(422, "Task is already completed")
+    photo = body.photo_url.strip()
+    if not photo:
+        raise HTTPException(422, "photo_url is required")
+    if body.progress_percent < 1 or body.progress_percent > 100:
+        raise HTTPException(422, "progress_percent must be between 1 and 100")
+    report = TaskProgressReport(
+        task_id=task_id,
+        reporter_id=current_user.id,
+        photo_url=photo,
+        progress_percent=body.progress_percent,
+        note=body.note,
+    )
+    session.add(report)
     session.commit()
-    session.refresh(item)
-    return item
+    session.refresh(report)
+    total = raw_sum_progress_reports(session, task_id)
+    task_row = session.get(Task, task_id)
+    if task_row is not None and total >= 100 and task_row.status != "done":
+        task_row.status = "done"
+        task_row.actual_end_time = utcnow()
+        task_row.updated_at = utcnow()
+        session.add(task_row)
+        session.commit()
+    session.refresh(report)
+    return _task_progress_report_to_public(report, current_user)
 
 
-@router.get("/tasks/{task_id}/checklists", response_model=list[TaskChecklistPublic])
-def list_checklist_items(
-    task_id: uuid.UUID,
-    session: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    """List checklist items for task."""
-    _get_task_or_404(session, task_id)
-    return session.exec(
-        select(TaskChecklist)
-        .where(TaskChecklist.task_id == task_id)
-        .order_by(TaskChecklist.created_at)
-    ).all()
-
-
-@router.patch(
-    "/tasks/{task_id}/checklists/{checklist_id}",
-    response_model=TaskChecklistPublic,
+@router.get(
+    "/tasks/{task_id}/progress-reports",
+    response_model=list[TaskProgressReportPublic],
 )
-def update_checklist_item(
+def list_progress_reports(
     task_id: uuid.UUID,
-    checklist_id: uuid.UUID,
-    body: TaskChecklistUpdate,
     session: Session = Depends(get_db),
-    current_user: User = Depends(require_permission("TASK_UPDATE_STATUS")),
+    _current_user: User = Depends(get_current_user),
 ):
-    """Toggle checklist completion state."""
+    """List worker progress submissions (photo + percent) for a task."""
     _get_task_or_404(session, task_id)
-    item = session.get(TaskChecklist, checklist_id)
-    if item is None or item.task_id != task_id:
-        raise HTTPException(404, "Checklist item not found")
-    item.is_completed = body.is_completed
-    if body.is_completed:
-        item.completed_by = current_user.id
-        item.completed_at = utcnow()
-    else:
-        item.completed_by = None
-        item.completed_at = None
-    session.add(item)
-    session.commit()
-    session.refresh(item)
-    return item
+    rows = session.exec(
+        select(TaskProgressReport)
+        .where(TaskProgressReport.task_id == task_id)
+        .order_by(TaskProgressReport.created_at)
+    ).all()
+    reporter_ids = list({row.reporter_id for row in rows})
+    reporters = (
+        session.exec(select(User).where(User.id.in_(reporter_ids)))  # type: ignore[arg-type]
+        .all()
+        if reporter_ids
+        else []
+    )
+    by_id = {u.id: u for u in reporters}
+    return [_task_progress_report_to_public(row, by_id.get(row.reporter_id)) for row in rows]
 
 
 # ---------------------------------------------------------------------------

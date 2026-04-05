@@ -40,6 +40,10 @@ class Settings(BaseSettings):
     FRONTEND_HOST: str = "http://localhost:5173"
     ENVIRONMENT: Literal["local", "staging", "production"] = "local"
 
+    # Chat / uploads
+    CHAT_UPLOAD_DIR: str = "../uploads/chat"
+    PUBLIC_BASE_URL: AnyUrl | None = None
+
     BACKEND_CORS_ORIGINS: Annotated[
         list[AnyUrl] | str, BeforeValidator(parse_cors)
     ] = []

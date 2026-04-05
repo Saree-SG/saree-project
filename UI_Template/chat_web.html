@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Azure Ledger ERP - Enterprise Chat</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "surface-container-high": "#e4e9ea",
+              "surface-container-low": "#f2f4f4",
+              "surface": "#f9f9f9",
+              "surface-container-lowest": "#ffffff",
+              "primary-dim": "#004fa9",
+              "secondary-dim": "#525354",
+              "on-secondary-container": "#505252",
+              "on-primary-fixed": "#003d85",
+              "on-primary-container": "#004fa8",
+              "on-tertiary-fixed-variant": "#624600",
+              "tertiary-fixed-dim": "#edb223",
+              "surface-dim": "#d3dbdd",
+              "on-tertiary-fixed": "#3e2b00",
+              "on-surface": "#2d3435",
+              "inverse-surface": "#0c0f0f",
+              "error-dim": "#4e0309",
+              "surface-container": "#ebeeef",
+              "error-container": "#fe8983",
+              "surface-variant": "#dde4e5",
+              "on-background": "#2d3435",
+              "primary-fixed-dim": "#c2d4ff",
+              "surface-container-highest": "#dde4e5",
+              "surface-tint": "#035bbf",
+              "surface-bright": "#f9f9f9",
+              "error": "#9f403d",
+              "tertiary": "#7b5900",
+              "secondary": "#5e5f60",
+              "background": "#f9f9f9",
+              "on-secondary": "#f9f9f9",
+              "on-primary-fixed-variant": "#0058bb",
+              "on-error-container": "#752121",
+              "inverse-on-surface": "#9c9d9d",
+              "primary-container": "#d8e2ff",
+              "secondary-container": "#e2e2e2",
+              "inverse-primary": "#5c97ff",
+              "on-surface-variant": "#596061",
+              "outline": "#757c7d",
+              "on-secondary-fixed": "#3e4040",
+              "on-tertiary": "#fff8f1",
+              "on-primary": "#f7f7ff",
+              "primary": "#035bbf",
+              "on-tertiary-container": "#563e00",
+              "on-secondary-fixed-variant": "#5a5c5c",
+              "tertiary-container": "#fcc032",
+              "secondary-fixed-dim": "#d4d4d4",
+              "on-error": "#fff7f6",
+              "primary-fixed": "#d8e2ff",
+              "secondary-fixed": "#e2e2e2",
+              "outline-variant": "#acb3b4",
+              "tertiary-fixed": "#fcc032",
+              "tertiary-dim": "#6c4e00"
+            },
+            fontFamily: {
+              "headline": ["Inter"],
+              "body": ["Inter"],
+              "label": ["Inter"]
+            },
+            borderRadius: {"DEFAULT": "0.125rem", "lg": "0.25rem", "xl": "0.5rem", "full": "0.75rem"},
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            vertical-align: middle;
+        }
+        body { font-family: 'Inter', sans-serif; }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #dde4e5; border-radius: 10px; }
+    </style>
+</head>
+<body class="bg-surface text-on-surface flex h-screen overflow-hidden">
+<!-- SideNavBar (Shared Component) -->
+<aside class="hidden md:flex flex-col h-full py-4 bg-slate-50 border-r border-slate-200 w-64 shrink-0">
+<div class="px-6 mb-8">
+<h1 class="text-blue-700 font-bold text-lg">Enterprise Chat</h1>
+<p class="text-xs text-slate-500 font-medium">Global Operations</p>
+</div>
+<nav class="flex-1 space-y-1 px-3">
+<a class="flex items-center px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 transition-all rounded active:scale-[0.99] duration-150" href="#">
+<span class="material-symbols-outlined mr-3">dashboard</span>
+                Dashboard
+            </a>
+<a class="flex items-center px-3 py-2 text-sm font-medium bg-blue-50 text-blue-700 border-r-4 border-blue-600 transition-all rounded active:scale-[0.99] duration-150" href="#">
+<span class="material-symbols-outlined mr-3" style="font-variation-settings: 'FILL' 1;">chat</span>
+                Conversations
+            </a>
+<a class="flex items-center px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 transition-all rounded active:scale-[0.99] duration-150" href="#">
+<span class="material-symbols-outlined mr-3">assignment</span>
+                Projects
+            </a>
+<a class="flex items-center px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 transition-all rounded active:scale-[0.99] duration-150" href="#">
+<span class="material-symbols-outlined mr-3">analytics</span>
+                Reports
+            </a>
+<a class="flex items-center px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 transition-all rounded active:scale-[0.99] duration-150" href="#">
+<span class="material-symbols-outlined mr-3">group</span>
+                Members
+            </a>
+</nav>
+<div class="px-6 mt-auto">
+<div class="flex items-center gap-3 p-2 bg-white rounded shadow-sm">
+<img alt="User profile" class="w-8 h-8 rounded-full" data-alt="Professional headshot of a corporate executive in a light blue shirt with a neutral office background" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDySCOHnsQHgwZdl3IiYJRaUwfBU_u8eb4X4aDNYl-fh3402vWvcKrnSwzMWywQjiOK1dyfzUCuhXHxkWeHwm5damGunUnWANuxQN1Qhj9Yf7JguBXmpsEQtvJ-lmL-UOexonjRiMj0GMXQCzAv-w4D6i5WrEDntdyKE7mSmvTTdUthoxwph6JWYITd_3vd1Mg-h2Q-aj-tlLYL1ymx_JbrF758ZgId0UeCQR1RJjD9sWqrL237qd_2wvjN09cPy6h4VkY0lOaQxgo"/>
+<div class="overflow-hidden">
+<p class="text-xs font-bold truncate">Marcus Chen</p>
+<p class="text-[10px] text-slate-400">System Admin</p>
+</div>
+</div>
+</div>
+</aside>
+<!-- Main Workspace -->
+<main class="flex-1 flex flex-col min-w-0 bg-white">
+<!-- TopAppBar (Shared Component) -->
+<header class="sticky top-0 z-50 flex items-center justify-between px-6 h-16 w-full bg-white border-b border-slate-200 shadow-sm font-inter antialiased">
+<div class="flex items-center gap-4">
+<span class="text-lg font-bold text-blue-700">Azure Ledger ERP</span>
+<div class="h-6 w-px bg-slate-200 hidden sm:block"></div>
+<h2 class="text-sm font-semibold text-on-surface">Communication Hub</h2>
+</div>
+<div class="flex items-center gap-2">
+<div class="relative hidden lg:block mr-4">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">search</span>
+<input class="pl-10 pr-4 py-1.5 text-xs bg-slate-50 border-none rounded-full focus:ring-1 focus:ring-primary w-64" placeholder="Search across ledger..." type="text"/>
+</div>
+<button class="p-2 text-slate-600 hover:bg-slate-50 transition-colors rounded-full relative">
+<span class="material-symbols-outlined">notifications</span>
+<span class="absolute top-2 right-2 w-2 h-2 bg-error rounded-full border-2 border-white"></span>
+</button>
+<button class="p-2 text-slate-600 hover:bg-slate-50 transition-colors rounded-full">
+<span class="material-symbols-outlined">settings</span>
+</button>
+<button class="p-2 text-slate-600 hover:bg-slate-50 transition-colors rounded-full">
+<span class="material-symbols-outlined">help</span>
+</button>
+</div>
+</header>
+<section class="flex flex-1 overflow-hidden">
+<!-- Group Chat Sidebar -->
+<div class="w-80 border-r border-slate-200 flex flex-col bg-slate-50/50">
+<div class="p-4 border-b border-slate-200">
+<div class="relative">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-lg">search</span>
+<input class="w-full pl-10 pr-4 py-2 text-sm bg-white border border-slate-200 rounded-lg focus:ring-primary/20 focus:border-primary" placeholder="Search chats..." type="text"/>
+</div>
+</div>
+<div class="flex-1 overflow-y-auto p-2 space-y-1">
+<!-- Chat Item Active -->
+<div class="p-3 bg-white shadow-sm border border-primary/10 rounded-xl flex items-center gap-3 cursor-pointer">
+<div class="w-12 h-12 bg-primary-container text-on-primary-container rounded-xl flex items-center justify-center font-bold text-lg">PA</div>
+<div class="flex-1 overflow-hidden">
+<div class="flex justify-between items-start">
+<h3 class="text-sm font-bold truncate">Project Alpha Team</h3>
+<span class="text-[10px] text-primary font-medium">12:45 PM</span>
+</div>
+<p class="text-xs text-slate-500 truncate">Sarah: The Q3 ledger is updated.</p>
+</div>
+</div>
+<!-- Chat Items Inactive -->
+<div class="p-3 hover:bg-white transition-colors rounded-xl flex items-center gap-3 cursor-pointer group">
+<div class="w-12 h-12 bg-tertiary-container text-on-tertiary-container rounded-xl flex items-center justify-center font-bold text-lg">QC</div>
+<div class="flex-1 overflow-hidden">
+<div class="flex justify-between items-start">
+<h3 class="text-sm font-semibold truncate group-hover:text-primary transition-colors">Quality Control</h3>
+<span class="text-[10px] text-slate-400">Yesterday</span>
+</div>
+<p class="text-xs text-slate-400 truncate">Inspection report attached...</p>
+</div>
+</div>
+<div class="p-3 hover:bg-white transition-colors rounded-xl flex items-center gap-3 cursor-pointer group">
+<div class="w-12 h-12 bg-secondary-container text-on-secondary-container rounded-xl flex items-center justify-center font-bold text-lg">MT</div>
+<div class="flex-1 overflow-hidden">
+<div class="flex justify-between items-start">
+<h3 class="text-sm font-semibold truncate group-hover:text-primary transition-colors">Maintenance</h3>
+<span class="text-[10px] text-slate-400">Tue</span>
+</div>
+<p class="text-xs text-slate-400 truncate">Server downtime scheduled for 2AM.</p>
+</div>
+</div>
+<div class="p-3 hover:bg-white transition-colors rounded-xl flex items-center gap-3 cursor-pointer group">
+<div class="w-12 h-12 bg-slate-200 text-slate-600 rounded-xl flex items-center justify-center font-bold text-lg">HR</div>
+<div class="flex-1 overflow-hidden">
+<div class="flex justify-between items-start">
+<h3 class="text-sm font-semibold truncate group-hover:text-primary transition-colors">HR Operations</h3>
+<span class="text-[10px] text-slate-400">Oct 12</span>
+</div>
+<p class="text-xs text-slate-400 truncate">Onboarding links for new hires</p>
+</div>
+</div>
+</div>
+</div>
+<!-- Active Chat Conversation -->
+<div class="flex-1 flex flex-col min-w-0">
+<!-- Chat Header -->
+<div class="h-16 px-6 border-b border-slate-100 flex items-center justify-between">
+<div class="flex items-center gap-3">
+<div class="flex -space-x-2">
+<img class="w-8 h-8 rounded-full border-2 border-white" data-alt="Portrait of a young woman with blonde hair in a professional office setting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDCi5Slkp3zMLqIK6biQ4DSzvBahuIAQ4uzmtviwPbLIIm_bsn2iXz-wL3lMUtce0aG_LJL-ze3VQWM8ByuF1HfN9UgdBqcxukh5Yv7KrROwuE7DbOMC_4weGADAnxyIr1zHczu0WCDhq7H9WqnZspNamZrQ9J4UoeIvP00WtbIk6RrkXZ_qM5QutU9EpmxPjCIVDsQt5CeJtxmUB0148gEbe-s3ChaBLm75skhx-av2p6gDZIJuX0xdKTcGWEiKFnGHhBKOXKBxC8"/>
+<img class="w-8 h-8 rounded-full border-2 border-white" data-alt="Portrait of a male software engineer with glasses in a modern coworking space" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDLwOSWs4rahbl3nVes4Gx286p7blqIN_bit9T605YqhKefZ3dj13sinaraBlL1dlsr3lPYYK_0j4Oc5OtVjLPiIOE0gNKLsNTH2Hx6l4wRqL1DVfbsdwhh66Zh5oSMRQJ5dmuhJ8hHXkAM7Hm8vqEcfPt0qsd-YPJFogA9uGgZu0DJqfxUDSsdcK51GGa8fmf4uK3vhl_abECEM95L1YtuL0gsEGRlf0iwOcnQD6imAp5uTDkaz4QI-9A0Y1gFqBuITVe4txYBWqo"/>
+<img class="w-8 h-8 rounded-full border-2 border-white" data-alt="Professional portrait of a diverse female manager in business attire" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDRIJPc4zGzseYDK9hfT0VLwqVbGNVx8iqLKj7E6a21t5e8iItgYNTnFe5VpqhoV9C0ziZDe8ZBn-bg5oErloEPuGlG_3U9rg6Q5uzDKa7ky-9OJznYDUTDJY-m26FHPsFZYs8_BGicAk6gWYJwK9EB2AItm1zFM7VqtKmbXkYTroYsUx4XtKwPb0RjEHVqMfGvtGoZyvosgD3ivuuY7OGxcyv4DxtwzihFIE-6jAM4dhpfezg28hJUCIhPKQ6Lcsm2XPq8F6Talus"/>
+<div class="w-8 h-8 rounded-full bg-slate-100 border-2 border-white flex items-center justify-center text-[10px] font-bold text-slate-500">+8</div>
+</div>
+<div>
+<h2 class="text-sm font-bold">Project Alpha Team</h2>
+<p class="text-[10px] text-primary flex items-center gap-1">
+<span class="w-1.5 h-1.5 bg-primary rounded-full animate-pulse"></span>
+                                4 members active now
+                            </p>
+</div>
+</div>
+<div class="flex items-center gap-2">
+<button class="flex items-center gap-2 px-3 py-1.5 text-xs font-semibold text-primary bg-primary-container/30 hover:bg-primary-container/50 rounded-lg transition-colors">
+<span class="material-symbols-outlined text-sm">edit</span>
+                            Edit Group
+                        </button>
+<div class="w-px h-6 bg-slate-200 mx-1"></div>
+<button class="p-2 text-slate-400 hover:text-slate-600">
+<span class="material-symbols-outlined">call</span>
+</button>
+<button class="p-2 text-slate-400 hover:text-slate-600">
+<span class="material-symbols-outlined">more_vert</span>
+</button>
+</div>
+</div>
+<!-- Messages Area -->
+<div class="flex-1 overflow-y-auto p-6 space-y-6">
+<div class="flex justify-center">
+<span class="px-3 py-1 bg-slate-100 text-slate-500 text-[10px] font-bold rounded-full uppercase tracking-wider">Today</span>
+</div>
+<!-- Message Incoming -->
+<div class="flex items-start gap-4 max-w-2xl">
+<img class="w-9 h-9 rounded-xl" data-alt="Close-up of a smiling professional woman with dark curly hair" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDD0F8yr8xJRma_HKJbMmlePlWCgT7dZHYJGJbwTOyBaF_S-hwjBXVPrOgWb3E_19go87S32xkHJRXrtfI1y3pBssA6RN6Y7tJj1UXrh-HHpSKQpgAviN5-fYTltjwskkJyLEe8DMk4bwx5rk7yyM2dI2IqjZrYYMYhseKMfgZBWCiERdayeg45OTonNfCDDzQnLOa7zdhB4hT4MoTRJaj2e7N9AKl79-XB3WzdfjUTE-BY1l0pnmVgirUC4GNljgKWvhUv3Dt34kw"/>
+<div>
+<div class="flex items-baseline gap-2 mb-1">
+<span class="text-sm font-bold">Sarah Jenkins</span>
+<span class="text-[10px] text-slate-400 font-medium">12:42 PM</span>
+</div>
+<div class="bg-slate-100 p-4 rounded-tr-2xl rounded-br-2xl rounded-bl-2xl text-sm leading-relaxed text-on-surface">
+                                Hey team, I've just finalized the reconciliation for the Q3 hardware inventory. There was a slight discrepancy in the server rack components, but it's resolved now.
+                            </div>
+</div>
+</div>
+<!-- Message Outgoing -->
+<div class="flex items-start gap-4 flex-row-reverse self-end max-w-2xl">
+<div class="text-right">
+<div class="flex items-baseline flex-row-reverse gap-2 mb-1">
+<span class="text-sm font-bold">Marcus Chen</span>
+<span class="text-[10px] text-slate-400 font-medium">12:45 PM</span>
+</div>
+<div class="bg-primary text-on-primary p-4 rounded-tl-2xl rounded-br-2xl rounded-bl-2xl text-sm shadow-md shadow-primary/20">
+                                Great work Sarah. Can you upload the final spreadsheet here so the logistics team can verify the SKU counts?
+                            </div>
+<div class="mt-1 flex items-center justify-end gap-1">
+<span class="material-symbols-outlined text-sm text-primary" style="font-variation-settings: 'FILL' 1;">done_all</span>
+<span class="text-[10px] text-slate-400">Read</span>
+</div>
+</div>
+</div>
+<!-- Message with Attachment -->
+<div class="flex items-start gap-4 max-w-2xl">
+<img class="w-9 h-9 rounded-xl" data-alt="Close-up of a smiling professional woman with dark curly hair" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAjW9JC6JXEMvOrrzwqpvAKp9rbE9IPoZucFxU_I4lGpRCyXh0L0NSorIGsvSkPDMB0QhRzz6uNe5BOSy5QGv_SUETb3oNatrV2ILpEMu3wFaBKZdeSdmiKkN7tXb7OI-TfaB88iI-Do1iOOeVZF0AnH2qwbFhCCeFM79MPvC3dxLcsZQtRnS_rZROC81uITDdsdJygV-cNNS57_2uuxMaTqTwVd6fL5a4h-HTo9TXMgZPFV7l0jk2xOKqkyw0qDptEn0qZqZwj9ho"/>
+<div>
+<div class="flex items-baseline gap-2 mb-1">
+<span class="text-sm font-bold">Sarah Jenkins</span>
+<span class="text-[10px] text-slate-400 font-medium">12:47 PM</span>
+</div>
+<div class="bg-slate-100 p-3 rounded-tr-2xl rounded-br-2xl rounded-bl-2xl space-y-3">
+<p class="text-sm">Here is the detailed report. See Sheet 2 for the discrepancy breakdown.</p>
+<div class="flex items-center gap-3 bg-white p-3 rounded-xl border border-slate-200">
+<div class="w-10 h-10 bg-green-50 text-green-600 rounded-lg flex items-center justify-center">
+<span class="material-symbols-outlined">description</span>
+</div>
+<div class="flex-1 min-w-0">
+<p class="text-xs font-bold truncate">Q3_Inventory_Final_Recon.xlsx</p>
+<p class="text-[10px] text-slate-400 uppercase">2.4 MB • Excel Document</p>
+</div>
+<button class="p-2 text-primary hover:bg-slate-50 rounded-lg">
+<span class="material-symbols-outlined">download</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+<!-- System Message -->
+<div class="flex justify-center">
+<p class="text-[10px] text-slate-400 bg-slate-50 px-4 py-1.5 rounded-full border border-slate-100 font-medium italic">
+                            David Miller joined the conversation via Project Invite Link
+                        </p>
+</div>
+</div>
+<!-- Chat Input Area -->
+<div class="p-4 bg-white border-t border-slate-100">
+<div class="max-w-4xl mx-auto flex items-end gap-2 bg-slate-50 p-2 rounded-2xl border border-slate-200 focus-within:border-primary/50 focus-within:ring-2 focus-within:ring-primary/5 transition-all">
+<button class="p-2.5 text-slate-500 hover:text-primary transition-colors hover:bg-white rounded-xl">
+<span class="material-symbols-outlined">attach_file</span>
+</button>
+<button class="p-2.5 text-slate-500 hover:text-primary transition-colors hover:bg-white rounded-xl">
+<span class="material-symbols-outlined">mood</span>
+</button>
+<textarea class="flex-1 bg-transparent border-none focus:ring-0 text-sm py-2.5 px-2 resize-none max-h-32" placeholder="Type a message to Project Alpha..." rows="1"></textarea>
+<button class="w-10 h-10 bg-primary text-white rounded-xl flex items-center justify-center shadow-lg shadow-primary/30 hover:scale-105 active:scale-95 transition-all">
+<span class="material-symbols-outlined text-xl">send</span>
+</button>
+</div>
+<div class="max-w-4xl mx-auto mt-2 flex justify-between px-2">
+<div class="flex gap-4">
+<button class="text-[10px] font-bold text-slate-400 hover:text-primary flex items-center gap-1">
+<span class="material-symbols-outlined text-sm">alternate_email</span> Mention
+                            </button>
+<button class="text-[10px] font-bold text-slate-400 hover:text-primary flex items-center gap-1">
+<span class="material-symbols-outlined text-sm">schedule</span> Schedule
+                            </button>
+</div>
+<p class="text-[10px] text-slate-400">Press <kbd class="px-1 bg-slate-100 border border-slate-200 rounded">Enter</kbd> to send</p>
+</div>
+</div>
+</div>
+<!-- Group Edit Panel (Side Panel) -->
+<div class="hidden xl:flex w-80 border-l border-slate-200 flex-col bg-white">
+<div class="p-6 border-b border-slate-100">
+<div class="flex justify-between items-center mb-6">
+<h3 class="text-sm font-extrabold uppercase tracking-widest text-slate-400">Group Settings</h3>
+<button class="text-slate-400 hover:text-on-surface">
+<span class="material-symbols-outlined">close</span>
+</button>
+</div>
+<div class="flex flex-col items-center text-center">
+<div class="w-20 h-20 bg-primary-container text-on-primary-container rounded-3xl flex items-center justify-center font-bold text-3xl mb-3 relative group cursor-pointer">
+                            PA
+                            <div class="absolute inset-0 bg-black/40 rounded-3xl flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+<span class="material-symbols-outlined text-white">photo_camera</span>
+</div>
+</div>
+<h2 class="text-lg font-bold">Project Alpha Team</h2>
+<p class="text-xs text-slate-500 mb-4">Established Sep 2023 • ERP Ledger ID: #PA-992</p>
+<div class="grid grid-cols-2 gap-2 w-full">
+<button class="flex flex-col items-center justify-center p-3 rounded-xl border border-slate-100 bg-slate-50 hover:bg-white transition-colors">
+<span class="material-symbols-outlined text-primary mb-1">person_add</span>
+<span class="text-[10px] font-bold">Add Member</span>
+</button>
+<button class="flex flex-col items-center justify-center p-3 rounded-xl border border-slate-100 bg-slate-50 hover:bg-white transition-colors">
+<span class="material-symbols-outlined text-tertiary mb-1">notifications_off</span>
+<span class="text-[10px] font-bold">Mute</span>
+</button>
+</div>
+</div>
+</div>
+<div class="flex-1 overflow-y-auto p-6 space-y-6">
+<div>
+<div class="flex justify-between items-center mb-4">
+<h4 class="text-[11px] font-extrabold text-slate-400 uppercase tracking-tighter">Members (12)</h4>
+<span class="text-[10px] text-primary font-bold cursor-pointer hover:underline">See All</span>
+</div>
+<div class="space-y-3">
+<div class="flex items-center gap-3">
+<img class="w-8 h-8 rounded-lg" data-alt="Close-up of a smiling Asian businessman in a white shirt" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDqn8PuBSYNqYss95Q1kYMox1E7dutByeBqFsC5G82JduHiG-5HdqpNWUGpJY_UTuSliu5hWwLYtucxTINpnpy2U6yDPiJI_8TrWOzyGSxPnk7qX0X4KS6PGW6J4SqXcZJ41Lf8OV3WUPGK58E2ub-qU1AiLDFfvUiIsJ-GWA3_FmNj2sqOpI74aMwzzxpXkkxT3FDAW9GZLxaJTQqs-h_SYZGk59dH0t-FdUq_TdoIXQrPvys1dzWTI_KseXQqnMO2sHkFPy9tHRM"/>
+<div class="flex-1 overflow-hidden">
+<p class="text-xs font-bold truncate">Marcus Chen</p>
+<p class="text-[9px] text-slate-400 font-medium">Group Admin</p>
+</div>
+<span class="w-2 h-2 bg-green-500 rounded-full"></span>
+</div>
+<div class="flex items-center gap-3">
+<img class="w-8 h-8 rounded-lg" data-alt="Close-up of a smiling professional woman with dark curly hair" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDDpqtwPitH8fFLxN44oe_QCq0Z9FMr64H_3Ngb4mw0siJttx3Y0c86lejCPunkv_NonLkotuBsMu1-1TTVremK5SgAGfjF4EnBE7gYSPnNw3mVuHcG98CXDS3xpwO4UTJsj850qHKTvQXIaP0eJkmAGEfh-AeeSwSSB_VF5TH-eboHK6RML-LLhAJohe6nyFLZaoALHjYPpXVNNycZWzIO5k2gSA81VNiaWdIRytYyW4jkN7LvMLA22QEFF2bzVvskPIGzjGGPaco"/>
+<div class="flex-1 overflow-hidden">
+<p class="text-xs font-bold truncate">Sarah Jenkins</p>
+<p class="text-[9px] text-slate-400 font-medium">Finance Controller</p>
+</div>
+<span class="w-2 h-2 bg-green-500 rounded-full"></span>
+</div>
+<div class="flex items-center gap-3 opacity-60">
+<img class="w-8 h-8 rounded-lg" data-alt="Portrait of an older professional male with gray hair and glasses" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDQhTuTinTvBIktcIDc3Pq5B0ztNh6sYaXU_CMb9-Lw2gD5kdthlHBs-jDnT1adHMkxYNPy37RRNSXFmQa-uWiacBk0TAToZltXoafA9moBo8pYKJTUM0WVPIpzomhh-QNLWPM2HghhcV0k_91NF5lUePtHjbP3OFiZnz0HUo-tJdX5JRoM8tasFhLxIa_yBOh66-74fKpyEJK2sUxrW2qHcioK1wZGQMgh0ETQK2NOchSLttzg9pulM8M8b22J9dx7Nz-FEA5k-io"/>
+<div class="flex-1 overflow-hidden">
+<p class="text-xs font-bold truncate">David Miller</p>
+<p class="text-[9px] text-slate-400 font-medium">Supply Chain Analyst</p>
+</div>
+<span class="w-2 h-2 bg-slate-300 rounded-full"></span>
+</div>
+</div>
+</div>
+<div>
+<h4 class="text-[11px] font-extrabold text-slate-400 uppercase tracking-tighter mb-4">Shared Files</h4>
+<div class="space-y-3">
+<div class="flex items-center gap-3 p-2 rounded-lg hover:bg-slate-50 cursor-pointer">
+<div class="w-8 h-8 bg-blue-50 text-blue-600 rounded flex items-center justify-center">
+<span class="material-symbols-outlined text-lg">image</span>
+</div>
+<div class="flex-1 min-w-0">
+<p class="text-[11px] font-bold truncate">Warehouse_Map_V2.png</p>
+<p class="text-[9px] text-slate-400">12 Oct 2023 • 1.2MB</p>
+</div>
+</div>
+<div class="flex items-center gap-3 p-2 rounded-lg hover:bg-slate-50 cursor-pointer">
+<div class="w-8 h-8 bg-orange-50 text-orange-600 rounded flex items-center justify-center">
+<span class="material-symbols-outlined text-lg">picture_as_pdf</span>
+</div>
+<div class="flex-1 min-w-0">
+<p class="text-[11px] font-bold truncate">Q3_Logistics_SOP.pdf</p>
+<p class="text-[9px] text-slate-400">08 Oct 2023 • 4.5MB</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="p-6 border-t border-slate-100 mt-auto">
+<button class="w-full py-2.5 text-xs font-bold text-error border border-error/20 rounded-lg hover:bg-error/5 transition-colors flex items-center justify-center gap-2">
+<span class="material-symbols-outlined text-sm">logout</span>
+                        Leave Group
+                    </button>
+</div>
+</div>
+</section>
+</main>
+</body></html>

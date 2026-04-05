@@ -16,9 +16,14 @@ from app.models.org import ProjectMemberRole
 from app.models.project import Project
 from app.models.task import AuditLog, Task, TaskProof
 from app.models.user import User
+from app.shared.permission import require_permission
 from app.shared.task_service import compute_task_status, utcnow
 
-router = APIRouter(prefix="/dashboard", tags=["dashboard"])
+router = APIRouter(
+    prefix="/dashboard",
+    tags=["dashboard"],
+    dependencies=[Depends(require_permission("REPORT_VIEW_ALL"))],
+)
 
 
 def _project_ids_scope(
@@ -164,8 +169,25 @@ def user_workload(
         .group_by(Task.assignee_id)
         .order_by(func.count(Task.id).desc())
     ).all()
+    assignee_ids = [row.assignee_id for row in rows if row.assignee_id is not None]
+    assignees = session.exec(
+        select(User).where(User.id.in_(assignee_ids))  # type: ignore[arg-type]
+    ).all() if assignee_ids else []
+    assignee_by_id = {assignee.id: assignee for assignee in assignees}
     return [
-        {"user_id": str(row.assignee_id), "active_tasks": row.active_tasks}
+        {
+            "user_id": str(row.assignee_id),
+            "user_name": (
+                assignee_by_id.get(row.assignee_id).full_name
+                if assignee_by_id.get(row.assignee_id)
+                else None
+            ) or (
+                assignee_by_id.get(row.assignee_id).email
+                if assignee_by_id.get(row.assignee_id)
+                else None
+            ) or str(row.assignee_id),
+            "active_tasks": row.active_tasks,
+        }
         for row in rows
     ]
 
@@ -202,9 +224,24 @@ def leaderboard(
         elif t.end_time < now:
             stats[uid]["overdue"] += 1
 
+    assignee_uuid_ids = [uuid.UUID(uid) for uid in stats.keys()]
+    assignees = session.exec(
+        select(User).where(User.id.in_(assignee_uuid_ids))  # type: ignore[arg-type]
+    ).all() if assignee_uuid_ids else []
+    assignee_by_id = {str(assignee.id): assignee for assignee in assignees}
+
     board = [
         {
             "user_id": uid,
+            "user_name": (
+                assignee_by_id.get(uid).full_name
+                if assignee_by_id.get(uid)
+                else None
+            ) or (
+                assignee_by_id.get(uid).email
+                if assignee_by_id.get(uid)
+                else None
+            ) or uid,
             "total": s["total"],
             "done": s["done"],
             "on_time": s["on_time"],
@@ -228,6 +265,13 @@ def overdue_report(
     if not project_ids:
         return {"overdue_critical": [], "overdue_local": []}
     now = utcnow()
+    projects = session.exec(
+        select(Project).where(
+            Project.id.in_(project_ids),  # type: ignore[arg-type]
+            Project.is_deleted == False,  # noqa
+        )
+    ).all()
+    project_name_by_id = {str(project.id): project.name for project in projects}
     overdue_tasks = session.exec(
         select(Task).where(
             Task.project_id.in_(project_ids),  # type: ignore[arg-type]
@@ -241,6 +285,15 @@ def overdue_report(
     for t in session.exec(select(Task).where(Task.is_deleted == False)).all():  # noqa
         pass  # prevent session expiry
 
+    assignee_ids = [task.assignee_id for task in overdue_tasks]
+    assignees = session.exec(
+        select(User).where(User.id.in_(assignee_ids))  # type: ignore[arg-type]
+    ).all() if assignee_ids else []
+    assignee_name_by_id = {
+        str(assignee.id): (assignee.full_name or assignee.email or str(assignee.id))
+        for assignee in assignees
+    }
+
     for t in overdue_tasks:
         parent = session.get(Task, t.parent_id) if t.parent_id else None
         cs = compute_task_status(t, parent)
@@ -248,8 +301,10 @@ def overdue_report(
             "task_id": str(t.id),
             "name": t.name,
             "assignee_id": str(t.assignee_id),
+            "assignee_name": assignee_name_by_id.get(str(t.assignee_id), str(t.assignee_id)),
             "end_time": t.end_time.isoformat(),
             "project_id": str(t.project_id),
+            "project_name": project_name_by_id.get(str(t.project_id), str(t.project_id)),
             "is_on_critical_path": t.is_on_critical_path,
         }
         if cs == "overdue_critical":
