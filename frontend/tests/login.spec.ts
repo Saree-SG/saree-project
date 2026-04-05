@@ -45,9 +45,8 @@ test("Log in with valid email and password ", async ({ page }) => {
 
   await page.waitForURL("/")
 
-  await expect(
-    page.getByText("Welcome back, nice to see you again!"),
-  ).toBeVisible()
+  await expect(page.getByText("Dashboard")).toBeVisible()
+  await expect(page.getByTestId("dashboard-auth-message")).toBeVisible()
 })
 
 test("Log in with invalid email", async ({ page }) => {
@@ -77,9 +76,7 @@ test("Successful log out", async ({ page }) => {
 
   await page.waitForURL("/")
 
-  await expect(
-    page.getByText("Welcome back, nice to see you again!"),
-  ).toBeVisible()
+  await expect(page.getByText("Dashboard")).toBeVisible()
 
   await page.getByTestId("user-menu").click()
   await page.getByRole("menuitem", { name: "Log out" }).click()
@@ -94,9 +91,7 @@ test("Logged-out user cannot access protected routes", async ({ page }) => {
 
   await page.waitForURL("/")
 
-  await expect(
-    page.getByText("Welcome back, nice to see you again!"),
-  ).toBeVisible()
+  await expect(page.getByText("Dashboard")).toBeVisible()
 
   await page.getByTestId("user-menu").click()
   await page.getByRole("menuitem", { name: "Log out" }).click()
@@ -104,6 +99,30 @@ test("Logged-out user cannot access protected routes", async ({ page }) => {
 
   await page.goto("/settings")
   await page.waitForURL("/login")
+})
+
+test("Auto refreshes session and retries request on 401", async ({ page }) => {
+  await page.goto("/login")
+  await fillForm(page, firstSuperuser, firstSuperuserPassword)
+  await page.getByRole("button", { name: "Log In" }).click()
+  await page.waitForURL("/")
+  await expect(page.getByText("Dashboard")).toBeVisible()
+
+  const refreshToken = await page.evaluate(() =>
+    localStorage.getItem("refresh_token"),
+  )
+  expect(refreshToken).not.toBeNull()
+
+  await page.evaluate((token) => {
+    if (token) {
+      localStorage.setItem("refresh_token", token)
+    }
+    localStorage.setItem("access_token", "invalid_access_token")
+  }, refreshToken)
+
+  await page.goto("/settings")
+  await page.waitForURL("/settings")
+  await expect(page.getByText("User Settings")).toBeVisible()
 })
 
 test("Redirects to /login when token is wrong", async ({ page }) => {

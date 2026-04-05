@@ -4,6 +4,8 @@ import { Suspense } from "react"
 
 import { type UserPublic, UsersService } from "@/client"
 import AddUser from "@/components/Admin/AddUser"
+import CompanyManagement from "@/components/Admin/CompanyManagement"
+import CreateCompany from "@/components/Admin/CreateCompany"
 import { columns, type UserTableData } from "@/components/Admin/columns"
 import { DataTable } from "@/components/Common/DataTable"
 import PendingUsers from "@/components/Pending/PendingUsers"
@@ -65,8 +67,12 @@ function Admin() {
             Manage user accounts and permissions
           </p>
         </div>
-        <AddUser />
+        <div className="flex items-center gap-2">
+          <CreateCompany />
+          <AddUser />
+        </div>
       </div>
+      <CompanyManagement />
       <UsersTable />
     </div>
   )

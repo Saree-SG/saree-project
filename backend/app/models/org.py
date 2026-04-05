@@ -5,8 +5,10 @@ Org & RBAC models:
 
 import uuid
 from datetime import datetime, timezone
+from typing import Any
+from typing import Literal
 
-from sqlalchemy import DateTime, Text
+from sqlalchemy import JSON, DateTime, Text, UniqueConstraint
 from sqlmodel import Field, Relationship, SQLModel
 
 
@@ -29,7 +31,26 @@ class Company(SQLModel, table=True):
 
     departments: list["Department"] = Relationship(back_populates="company")
     roles: list["Role"] = Relationship(back_populates="company")
+    user_company_roles: list["UserCompanyRole"] = Relationship(back_populates="company")
+    role_dependencies: list["RoleDependency"] = Relationship(back_populates="company")
     projects: list["Project"] = Relationship(back_populates="company")  # type: ignore
+
+
+class CompanyCreate(SQLModel):
+    name: str = Field(max_length=255)
+    slug: str = Field(max_length=100)
+
+
+class CompanyPublic(SQLModel):
+    id: uuid.UUID
+    name: str
+    slug: str
+    is_active: bool
+
+
+class CompanyUpdate(SQLModel):
+    name: str | None = Field(default=None, max_length=255)
+    is_active: bool | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -81,6 +102,7 @@ class Role(SQLModel, table=True):
     level: int = Field(default=3)              # 1=Board, 2=Manager, 3=Staff
     is_system: bool = False                    # System roles cannot be deleted
     description: str | None = Field(default=None, max_length=500)
+    policy_doc: dict[str, Any] | None = Field(default=None, sa_type=JSON)
     created_at: datetime = Field(
         default_factory=_utcnow, sa_type=DateTime(timezone=True)  # type: ignore
     )
@@ -88,6 +110,15 @@ class Role(SQLModel, table=True):
     company: Company = Relationship(back_populates="roles")
     permissions: list["RolePermission"] = Relationship(back_populates="role", cascade_delete=True)
     global_user_roles: list["UserGlobalRole"] = Relationship(back_populates="role")
+    user_company_roles: list["UserCompanyRole"] = Relationship(back_populates="role")
+    outgoing_dependencies: list["RoleDependency"] = Relationship(
+        back_populates="from_role",
+        sa_relationship_kwargs={"foreign_keys": "[RoleDependency.from_role_id]"},
+    )
+    incoming_dependencies: list["RoleDependency"] = Relationship(
+        back_populates="to_role",
+        sa_relationship_kwargs={"foreign_keys": "[RoleDependency.to_role_id]"},
+    )
     project_member_roles: list["ProjectMemberRole"] = Relationship(back_populates="role")
 
 
@@ -105,6 +136,7 @@ class RoleCreate(SQLModel):
     display_name: str
     level: int = 3
     description: str | None = None
+    policy_doc: dict[str, Any] | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -165,6 +197,141 @@ class UserGlobalRole(SQLModel, table=True):
 
     user: "User" = Relationship(back_populates="global_roles")  # type: ignore
     role: Role = Relationship(back_populates="global_user_roles")
+
+
+class UserCompanyRole(SQLModel, table=True):
+    """Role assignment of user inside a company."""
+
+    __table_args__ = (UniqueConstraint("user_id", "company_id", "role_id"),)
+
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    user_id: uuid.UUID = Field(foreign_key="user.id", index=True)
+    company_id: uuid.UUID = Field(foreign_key="company.id", index=True)
+    role_id: uuid.UUID = Field(foreign_key="role.id", index=True)
+    is_primary: bool = False
+    assigned_at: datetime = Field(
+        default_factory=_utcnow, sa_type=DateTime(timezone=True)  # type: ignore
+    )
+
+    user: "User" = Relationship(back_populates="company_roles")  # type: ignore
+    company: Company = Relationship(back_populates="user_company_roles")
+    role: Role = Relationship(back_populates="user_company_roles")
+
+
+class UserCompanyRoleCreate(SQLModel):
+    user_id: uuid.UUID
+    company_id: uuid.UUID
+    role_id: uuid.UUID
+    is_primary: bool = False
+
+
+class UserCompanyRolePublic(SQLModel):
+    id: uuid.UUID
+    user_id: uuid.UUID
+    company_id: uuid.UUID
+    role_id: uuid.UUID
+    role_name: str
+    role_display_name: str
+    company_name: str
+    is_primary: bool
+    assigned_at: datetime
+
+
+class RoleDependency(SQLModel, table=True):
+    """Dependency graph between roles in same company."""
+
+    __table_args__ = (
+        UniqueConstraint("company_id", "from_role_id", "to_role_id", "relation_type"),
+    )
+
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    company_id: uuid.UUID = Field(foreign_key="company.id", index=True)
+    from_role_id: uuid.UUID = Field(foreign_key="role.id", index=True)
+    to_role_id: uuid.UUID = Field(foreign_key="role.id", index=True)
+    relation_type: str = Field(max_length=40)
+    is_active: bool = True
+    created_at: datetime = Field(
+        default_factory=_utcnow, sa_type=DateTime(timezone=True)  # type: ignore
+    )
+
+    company: Company = Relationship(back_populates="role_dependencies")
+    from_role: Role = Relationship(
+        back_populates="outgoing_dependencies",
+        sa_relationship_kwargs={"foreign_keys": "[RoleDependency.from_role_id]"},
+    )
+    to_role: Role = Relationship(
+        back_populates="incoming_dependencies",
+        sa_relationship_kwargs={"foreign_keys": "[RoleDependency.to_role_id]"},
+    )
+
+
+class RoleDependencyCreate(SQLModel):
+    company_id: uuid.UUID
+    from_role_id: uuid.UUID
+    to_role_id: uuid.UUID
+    relation_type: Literal["REPORTS_TO", "PEERS_WITH", "REQUIRES_APPROVAL_FROM"]
+
+
+class RoleDependencyPublic(SQLModel):
+    id: uuid.UUID
+    company_id: uuid.UUID
+    from_role_id: uuid.UUID
+    from_role_name: str
+    to_role_id: uuid.UUID
+    to_role_name: str
+    relation_type: str
+    is_active: bool
+    created_at: datetime
+
+
+class AccountMembershipPublic(SQLModel):
+    company_id: uuid.UUID
+    company_name: str
+    role_id: uuid.UUID
+    role_name: str
+    role_display_name: str
+    role_level: int
+    is_primary: bool
+
+
+class AccountProfilePublic(SQLModel):
+    user_id: uuid.UUID
+    email: str
+    full_name: str | None
+    memberships: list[AccountMembershipPublic]
+
+
+class OrgTreeMemberPublic(SQLModel):
+    user_id: uuid.UUID
+    full_name: str | None
+    email: str
+    department_id: uuid.UUID | None
+    department_name: str | None
+    is_current_user: bool = False
+
+
+class OrgTreeRoleNodePublic(SQLModel):
+    role_id: uuid.UUID
+    role_name: str
+    role_display_name: str
+    role_level: int
+    relation_to_current: str
+    members: list[OrgTreeMemberPublic]
+
+
+class OrgTreeDepartmentGroupPublic(SQLModel):
+    department_id: uuid.UUID | None
+    department_name: str
+    roles: list[OrgTreeRoleNodePublic]
+
+
+class OrgTreePublic(SQLModel):
+    company_id: uuid.UUID
+    company_name: str
+    current_user_id: uuid.UUID
+    current_role_id: uuid.UUID | None
+    current_role_level: int | None
+    departments: list[OrgTreeDepartmentGroupPublic]
 
 
 # ---------------------------------------------------------------------------

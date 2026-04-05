@@ -38,7 +38,11 @@ const formSchema = z
 
 type FormData = z.infer<typeof formSchema>
 
-const ChangePassword = () => {
+type ChangePasswordProps = {
+  embedded?: boolean
+}
+
+const ChangePassword = ({ embedded = false }: ChangePasswordProps) => {
   const { showSuccessToast, showErrorToast } = useCustomToast()
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
@@ -66,8 +70,10 @@ const ChangePassword = () => {
   }
 
   return (
-    <div className="max-w-md">
-      <h3 className="text-lg font-semibold py-4">Change Password</h3>
+    <div className={embedded ? "w-full" : "max-w-md"}>
+      {!embedded ? (
+        <h3 className="py-4 text-lg font-semibold">Change Password</h3>
+      ) : null}
       <Form {...form}>
         <form
           onSubmit={form.handleSubmit(onSubmit)}

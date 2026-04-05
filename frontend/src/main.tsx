@@ -11,16 +11,56 @@ import { ApiError, OpenAPI } from "./client"
 import { ThemeProvider } from "./components/theme-provider"
 import { Toaster } from "./components/ui/sonner"
 import "./index.css"
+import { setupAuthInterceptor } from "./modules/auth/authInterceptor"
+import { clearSession, getAccessToken } from "./modules/auth/tokenStore"
 import { routeTree } from "./routeTree.gen"
 
 OpenAPI.BASE = import.meta.env.VITE_API_URL
 OpenAPI.TOKEN = async () => {
-  return localStorage.getItem("access_token") || ""
+  return getAccessToken() || ""
+}
+setupAuthInterceptor()
+
+if (typeof window !== "undefined") {
+  let lastTouchEndAt = 0
+
+  // Prevent pinch zoom gesture on mobile browsers.
+  window.addEventListener(
+    "gesturestart",
+    (eventValue) => {
+      eventValue.preventDefault()
+    },
+    { passive: false },
+  )
+
+  // Prevent browser zoom from ctrl/cmd + wheel on desktop browsers.
+  window.addEventListener(
+    "wheel",
+    (eventValue) => {
+      if (eventValue.ctrlKey || eventValue.metaKey) {
+        eventValue.preventDefault()
+      }
+    },
+    { passive: false },
+  )
+
+  // Prevent double-tap zoom on mobile Safari.
+  window.addEventListener(
+    "touchend",
+    (eventValue) => {
+      const now = Date.now()
+      if (now - lastTouchEndAt <= 300) {
+        eventValue.preventDefault()
+      }
+      lastTouchEndAt = now
+    },
+    { passive: false },
+  )
 }
 
 const handleApiError = (error: Error) => {
-  if (error instanceof ApiError && [401, 403].includes(error.status)) {
-    localStorage.removeItem("access_token")
+  if (error instanceof ApiError && error.status === 401) {
+    clearSession()
     window.location.href = "/login"
   }
 }
@@ -42,7 +82,7 @@ declare module "@tanstack/react-router" {
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <StrictMode>
-    <ThemeProvider defaultTheme="dark" storageKey="vite-ui-theme">
+    <ThemeProvider defaultTheme="light" storageKey="vite-ui-theme">
       <QueryClientProvider client={queryClient}>
         <RouterProvider router={router} />
         <Toaster richColors closeButton />

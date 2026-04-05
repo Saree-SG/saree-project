@@ -11,9 +11,10 @@ from __future__ import annotations
 import uuid
 from datetime import datetime, timedelta, timezone
 
+from sqlalchemy import func
 from sqlmodel import Session, select
 
-from app.models.task import Task, TaskDependency, TaskPublic
+from app.models.task import Task, TaskDependency, TaskProgressReport, TaskPublic
 from app.shared.audit import write_audit_log
 
 
@@ -70,13 +71,28 @@ def compute_task_status(task: Task, parent: Task | None = None) -> str:
     return stored  # "todo" or "in_progress"
 
 
+def raw_sum_progress_reports(session: Session, task_id: uuid.UUID) -> int:
+    """Sum all submitted progress_percent values for a task (not capped)."""
+    raw = session.exec(
+        select(func.coalesce(func.sum(TaskProgressReport.progress_percent), 0)).where(
+            TaskProgressReport.task_id == task_id
+        )
+    ).first()
+    try:
+        return int(raw) if raw is not None else 0
+    except (TypeError, ValueError):
+        return 0
+
+
 def enrich_task_public(task: Task, session: Session) -> TaskPublic:
-    """Build a TaskPublic with computed_status filled in."""
+    """Build a TaskPublic with computed_status and cumulative progress filled in."""
     parent = session.get(Task, task.parent_id) if task.parent_id else None
     computed = compute_task_status(task, parent)
+    cumulative = raw_sum_progress_reports(session, task.id)
     return TaskPublic(
         **task.model_dump(),
         computed_status=computed,
+        reported_progress_total=min(100, cumulative),
     )
 
 

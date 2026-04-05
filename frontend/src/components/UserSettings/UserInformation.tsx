@@ -1,10 +1,10 @@
 import { zodResolver } from "@hookform/resolvers/zod"
-import { useMutation, useQueryClient } from "@tanstack/react-query"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useState } from "react"
 import { useForm } from "react-hook-form"
 import { z } from "zod"
 
-import { UsersService, type UserUpdateMe } from "@/client"
+import { RolesService, UsersService, type UserUpdateMe } from "@/client"
 import { Button } from "@/components/ui/button"
 import {
   Form,
@@ -16,6 +16,13 @@ import {
 } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
 import { LoadingButton } from "@/components/ui/loading-button"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import useAuth from "@/hooks/useAuth"
 import useCustomToast from "@/hooks/useCustomToast"
 import { cn } from "@/lib/utils"
@@ -27,12 +34,23 @@ const formSchema = z.object({
 })
 
 type FormData = z.infer<typeof formSchema>
+const ALLOWED_COMPANY_ROLE_NAMES = new Set([
+  "director",
+  "department_head",
+  "worker",
+])
 
-const UserInformation = () => {
+type UserInformationProps = {
+  embedded?: boolean
+}
+
+const UserInformation = ({ embedded = false }: UserInformationProps) => {
   const queryClient = useQueryClient()
   const { showSuccessToast, showErrorToast } = useCustomToast()
   const [editMode, setEditMode] = useState(false)
   const { user: currentUser } = useAuth()
+  const [selectedCompanyId, setSelectedCompanyId] = useState("")
+  const [selectedRoleId, setSelectedRoleId] = useState("")
 
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
@@ -43,6 +61,41 @@ const UserInformation = () => {
       email: currentUser?.email,
     },
   })
+
+  const { data: accountProfile } = useQuery({
+    queryKey: ["roles", "my-account-profile"],
+    queryFn: () => RolesService.myAccountProfile(),
+    enabled: Boolean(currentUser),
+  })
+
+  const memberships = accountProfile?.memberships ?? []
+
+  const companyOptions = memberships
+    .map((membership) => ({
+      companyId: membership.company_id,
+      companyName: membership.company_name,
+    }))
+    .filter(
+      (value, index, array) =>
+        array.findIndex((item) => item.companyId === value.companyId) === index,
+    )
+
+  const effectiveCompanyId =
+    selectedCompanyId ||
+    memberships.find((item) => item.is_primary)?.company_id ||
+    ""
+
+  const { data: companyRoles } = useQuery({
+    queryKey: ["roles", "catalog", effectiveCompanyId],
+    queryFn: () =>
+      RolesService.listCompanyRoles({ companyId: effectiveCompanyId }),
+    enabled: Boolean(currentUser?.is_superuser && effectiveCompanyId),
+  })
+
+  const validCompanyRoles = (companyRoles ?? []).filter(
+    (role) =>
+      Boolean(role.id) && ALLOWED_COMPANY_ROLE_NAMES.has(role.name || ""),
+  )
 
   const toggleEditMode = () => {
     setEditMode(!editMode)
@@ -59,6 +112,26 @@ const UserInformation = () => {
     onSettled: () => {
       queryClient.invalidateQueries()
     },
+  })
+
+  const assignRoleMutation = useMutation({
+    mutationFn: () =>
+      RolesService.assignUserCompanyRole({
+        requestBody: {
+          user_id: currentUser?.id || "",
+          company_id: effectiveCompanyId,
+          role_id: selectedRoleId,
+          is_primary: true,
+        },
+      }),
+    onSuccess: async () => {
+      showSuccessToast("Primary role updated")
+      setSelectedRoleId("")
+      await queryClient.invalidateQueries({
+        queryKey: ["roles", "my-account-profile"],
+      })
+    },
+    onError: handleError.bind(showErrorToast),
   })
 
   const onSubmit = (data: FormData) => {
@@ -81,8 +154,10 @@ const UserInformation = () => {
   }
 
   return (
-    <div className="max-w-md">
-      <h3 className="text-lg font-semibold py-4">User Information</h3>
+    <div className={embedded ? "w-full" : "max-w-md"}>
+      {!embedded ? (
+        <h3 className="py-4 text-lg font-semibold">User Information</h3>
+      ) : null}
       <Form {...form}>
         <form
           onSubmit={form.handleSubmit(onSubmit)}
@@ -164,6 +239,92 @@ const UserInformation = () => {
           </div>
         </form>
       </Form>
+
+      <div className="mt-6 space-y-3">
+        <h4 className="text-base font-semibold">Company and Roles</h4>
+        {memberships.length === 0 ? (
+          <p className="text-sm text-muted-foreground">
+            No company-role memberships found.
+          </p>
+        ) : (
+          memberships.map((membership) => (
+            <div
+              key={`${membership.company_id}-${membership.role_id}`}
+              className="rounded-md border p-3"
+            >
+              <p className="text-sm font-medium">{membership.company_name}</p>
+              <p className="text-sm text-muted-foreground">
+                {membership.role_display_name} (Level {membership.role_level})
+                {membership.is_primary ? " - Primary" : ""}
+              </p>
+            </div>
+          ))
+        )}
+      </div>
+
+      {currentUser?.is_superuser ? (
+        <div
+          className={
+            embedded
+              ? "mt-6 space-y-3 rounded-md border p-4"
+              : "mt-6 space-y-3 rounded-md border p-4"
+          }
+        >
+          <h4 className="text-base font-semibold">Admin Role Assignment</h4>
+          <p className="text-sm text-muted-foreground">
+            Assign primary role by company using dropdown.
+          </p>
+
+          <div className="space-y-2">
+            <FormLabel>Company</FormLabel>
+            <Select
+              value={effectiveCompanyId}
+              onValueChange={(value) => {
+                setSelectedCompanyId(value)
+                setSelectedRoleId("")
+              }}
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Select company" />
+              </SelectTrigger>
+              <SelectContent>
+                {companyOptions.map((company) => (
+                  <SelectItem key={company.companyId} value={company.companyId}>
+                    {company.companyName}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
+            <FormLabel>Role</FormLabel>
+            <Select value={selectedRoleId} onValueChange={setSelectedRoleId}>
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Select role" />
+              </SelectTrigger>
+              <SelectContent>
+                {validCompanyRoles.map((role) => (
+                  <SelectItem key={role.id} value={role.id as string}>
+                    {role.display_name} (L{role.level})
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <LoadingButton
+            type="button"
+            loading={assignRoleMutation.isPending}
+            disabled={!effectiveCompanyId || !selectedRoleId}
+            onClick={() => {
+              assignRoleMutation.mutate()
+            }}
+          >
+            Save primary role
+          </LoadingButton>
+        </div>
+      ) : null}
     </div>
   )
 }

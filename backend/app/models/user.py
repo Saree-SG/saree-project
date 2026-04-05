@@ -70,6 +70,7 @@ class User(UserBase, table=True):
 
     # Relationships
     global_roles: list["UserGlobalRole"] = Relationship(back_populates="user", cascade_delete=True)
+    company_roles: list["UserCompanyRole"] = Relationship(back_populates="user", cascade_delete=True)
     project_roles: list["ProjectMemberRole"] = Relationship(back_populates="user", cascade_delete=True)
     assigned_tasks: list["Task"] = Relationship(
         back_populates="assignee",
