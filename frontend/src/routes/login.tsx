@@ -4,11 +4,11 @@ import {
   Link as RouterLink,
   redirect,
 } from "@tanstack/react-router"
+import { ArrowRight, Mail, Shield, Wrench } from "lucide-react"
 import { useForm } from "react-hook-form"
 import { z } from "zod"
 
 import type { Body_login_login_access_token as AccessToken } from "@/client"
-import { AuthLayout } from "@/components/Common/AuthLayout"
 import {
   Form,
   FormControl,
@@ -68,75 +68,125 @@ function Login() {
   }
 
   return (
-    <AuthLayout>
-      <Form {...form}>
-        <form
-          onSubmit={form.handleSubmit(onSubmit)}
-          className="flex flex-col gap-6"
-        >
-          <div className="flex flex-col items-center gap-2 text-center">
-            <h1 className="text-2xl font-bold">Login to your account</h1>
+    <main className="relative min-h-dvh overflow-hidden bg-background text-foreground">
+      <div className="pointer-events-none absolute -left-20 -top-20 h-56 w-56 rounded-full bg-primary/15 blur-3xl" />
+      <div className="pointer-events-none absolute -bottom-20 -right-16 h-64 w-64 rounded-full bg-primary/10 blur-3xl" />
+
+      <div className="mx-auto grid min-h-dvh w-full max-w-6xl grid-cols-1 px-3 py-6 sm:px-6 sm:py-10 lg:grid-cols-2 lg:gap-10">
+        <section className="order-2 mt-6 flex flex-col justify-center gap-5 lg:order-1 lg:mt-0">
+          <div className="rounded-2xl border bg-card/70 p-4 backdrop-blur-sm sm:p-6">
+            <h2 className="text-lg font-semibold sm:text-xl">Saree ERP</h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Hệ thống quản trị doanh nghiệp, theo dõi task, project và phân
+              quyền tập trung.
+            </p>
+            <div className="mt-4 grid gap-2 text-sm text-muted-foreground">
+              <div className="flex items-center gap-2">
+                <Shield className="size-4 text-primary" />
+                <span>Bảo mật đăng nhập theo session và refresh token</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Wrench className="size-4 text-primary" />
+                <span>Tối ưu cho mobile, tablet và desktop</span>
+              </div>
+            </div>
           </div>
+        </section>
 
-          <div className="grid gap-4">
-            <FormField
-              control={form.control}
-              name="username"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Email</FormLabel>
-                  <FormControl>
-                    <Input
-                      data-testid="email-input"
-                      placeholder="user@example.com"
-                      type="email"
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormMessage className="text-xs" />
-                </FormItem>
-              )}
-            />
+        <section className="order-1 flex items-center justify-center lg:order-2">
+          <div className="w-full max-w-md rounded-2xl border bg-card/85 p-4 shadow-xl backdrop-blur-sm sm:p-8">
+            <div className="mb-6 flex flex-col items-center text-center">
+              <img
+                src="/assets/saree_image/logo_saree.png"
+                alt="Saree logo"
+                className="h-14 w-auto sm:h-16"
+              />
+              <h1 className="mt-4 text-2xl font-bold tracking-tight sm:text-3xl">
+                Đăng nhập
+              </h1>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Truy cập hệ thống ERP của công ty bạn
+              </p>
+            </div>
 
-            <FormField
-              control={form.control}
-              name="password"
-              render={({ field }) => (
-                <FormItem>
-                  <div className="flex items-center">
-                    <FormLabel>Password</FormLabel>
-                    <RouterLink
-                      to="/recover-password"
-                      className="ml-auto text-sm underline-offset-4 hover:underline"
-                    >
-                      Forgot your password?
-                    </RouterLink>
-                  </div>
-                  <FormControl>
-                    <PasswordInput
-                      data-testid="password-input"
-                      placeholder="Password"
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormMessage className="text-xs" />
-                </FormItem>
-              )}
-            />
+            <Form {...form}>
+              <form
+                onSubmit={form.handleSubmit(onSubmit)}
+                className="space-y-4"
+              >
+                <FormField
+                  control={form.control}
+                  name="username"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Email của bạn</FormLabel>
+                      <FormControl>
+                        <div className="relative">
+                          <Mail className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                          <Input
+                            data-testid="email-input"
+                            placeholder="ten@congty.com"
+                            type="email"
+                            className="h-11 pl-10"
+                            {...field}
+                          />
+                        </div>
+                      </FormControl>
+                      <FormMessage className="text-xs" />
+                    </FormItem>
+                  )}
+                />
 
-            <LoadingButton type="submit" loading={loginMutation.isPending}>
-              Log In
-            </LoadingButton>
+                <FormField
+                  control={form.control}
+                  name="password"
+                  render={({ field }) => (
+                    <FormItem>
+                      <div className="flex items-center">
+                        <FormLabel>Mật khẩu</FormLabel>
+                        <RouterLink
+                          to="/recover-password"
+                          className="ml-auto text-xs text-primary underline-offset-4 hover:underline sm:text-sm"
+                        >
+                          Quên mật khẩu?
+                        </RouterLink>
+                      </div>
+                      <FormControl>
+                        <PasswordInput
+                          data-testid="password-input"
+                          placeholder="••••••••"
+                          className="h-11"
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage className="text-xs" />
+                    </FormItem>
+                  )}
+                />
+
+                <LoadingButton
+                  type="submit"
+                  loading={loginMutation.isPending}
+                  className="h-11 w-full"
+                >
+                  Đăng nhập
+                  <ArrowRight className="size-4" />
+                </LoadingButton>
+              </form>
+            </Form>
+
+            <div className="mt-4 text-center text-xs text-muted-foreground sm:text-sm">
+              Chưa có tài khoản?{" "}
+              <RouterLink
+                to="/signup"
+                className="text-primary underline-offset-4 hover:underline"
+              >
+                Đăng ký
+              </RouterLink>
+            </div>
           </div>
-
-          <div className="text-center text-sm">
-            Don't have an account yet?{" "}
-            <RouterLink to="/signup" className="underline underline-offset-4">
-              Sign up
-            </RouterLink>
-          </div>
-        </form>
-      </Form>
-    </AuthLayout>
+        </section>
+      </div>
+    </main>
   )
 }

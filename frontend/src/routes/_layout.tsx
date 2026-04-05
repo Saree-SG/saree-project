@@ -1,4 +1,4 @@
-import { createFileRoute, Outlet, redirect } from "@tanstack/react-router"
+import { createFileRoute, Outlet, redirect, useRouterState } from "@tanstack/react-router"
 
 import { Footer } from "@/components/Common/Footer"
 import AppSidebar from "@/components/Sidebar/AppSidebar"
@@ -23,6 +23,21 @@ export const Route = createFileRoute("/_layout")({
 
 function Layout() {
   const isRefreshing = useRefreshState()
+  const pathname = useRouterState({ select: (s) => s.location.pathname })
+  const isChatRoute = pathname.startsWith("/chat")
+
+  if (isChatRoute) {
+    return (
+      <SidebarProvider>
+        <AppSidebar />
+        <SidebarInset>
+          <main className="h-dvh w-full overflow-hidden">
+            <Outlet />
+          </main>
+        </SidebarInset>
+      </SidebarProvider>
+    )
+  }
 
   return (
     <SidebarProvider>

@@ -28,6 +28,10 @@ export type AuditLogPublic = {
     created_at: string;
 };
 
+export type Body_chat_upload_attachment = {
+    file: (Blob | File);
+};
+
 export type Body_login_login_access_token = {
     grant_type?: (string | null);
     username: string;
@@ -35,6 +39,94 @@ export type Body_login_login_access_token = {
     scope?: string;
     client_id?: (string | null);
     client_secret?: (string | null);
+};
+
+/**
+ * Chat attachment response.
+ */
+export type ChatAttachmentPublic = {
+    id: string;
+    message_id: string;
+    filename: string;
+    mime_type: (string | null);
+    size_bytes: (number | null);
+    public_url: (string | null);
+    created_at: string;
+};
+
+/**
+ * Add a member to a room.
+ */
+export type ChatMemberAdd = {
+    user_id: string;
+    role?: 'owner' | 'admin' | 'member';
+};
+
+export type role = 'owner' | 'admin' | 'member';
+
+/**
+ * Chat member response enriched with basic user info.
+ */
+export type ChatMemberWithUserPublic = {
+    room_id: string;
+    user_id: string;
+    role: string;
+    joined_at: string;
+    left_at: (string | null);
+    email: string;
+    full_name?: (string | null);
+};
+
+/**
+ * Create a message in a room (text only).
+ */
+export type ChatMessageCreate = {
+    content: string;
+};
+
+/**
+ * Chat message response.
+ */
+export type ChatMessagePublic = {
+    id: string;
+    room_id: string;
+    sender_id: string;
+    message_type: string;
+    content: (string | null);
+    created_at: string;
+};
+
+/**
+ * Create a chat room (direct/group).
+ */
+export type ChatRoomCreate = {
+    room_type?: 'direct' | 'group';
+    name?: (string | null);
+    room_color?: (string | null);
+    member_user_ids?: Array<(string)>;
+};
+
+export type room_type = 'direct' | 'group';
+
+/**
+ * Chat room response.
+ */
+export type ChatRoomPublic = {
+    id: string;
+    company_id: string;
+    room_type: string;
+    name: (string | null);
+    room_color: (string | null);
+    created_by: string;
+    created_at: string;
+};
+
+/**
+ * Update chat room fields (currently only name).
+ */
+export type ChatRoomUpdate = {
+    name?: (string | null);
+    room_color?: (string | null);
 };
 
 export type CompanyCreate = {
@@ -84,6 +176,39 @@ export type Message = {
 export type NewPassword = {
     token: string;
     new_password: string;
+};
+
+export type OrgTreeDepartmentGroupPublic = {
+    department_id: (string | null);
+    department_name: string;
+    roles: Array<OrgTreeRoleNodePublic>;
+};
+
+export type OrgTreeMemberPublic = {
+    user_id: string;
+    full_name: (string | null);
+    email: string;
+    department_id: (string | null);
+    department_name: (string | null);
+    is_current_user?: boolean;
+};
+
+export type OrgTreePublic = {
+    company_id: string;
+    company_name: string;
+    current_user_id: string;
+    current_role_id: (string | null);
+    current_role_level: (number | null);
+    departments: Array<OrgTreeDepartmentGroupPublic>;
+};
+
+export type OrgTreeRoleNodePublic = {
+    role_id: string;
+    role_name: string;
+    role_display_name: string;
+    role_level: number;
+    relation_to_current: string;
+    members: Array<OrgTreeMemberPublic>;
 };
 
 export type PrivateUserCreate = {
@@ -186,24 +311,6 @@ export type RoleDependencyPublic = {
     created_at: string;
 };
 
-export type TaskChecklistCreate = {
-    content: string;
-};
-
-export type TaskChecklistPublic = {
-    id: string;
-    task_id: string;
-    content: string;
-    is_completed: boolean;
-    completed_by: (string | null);
-    completed_at: (string | null);
-    created_at: string;
-};
-
-export type TaskChecklistUpdate = {
-    is_completed: boolean;
-};
-
 export type TaskCommentApprovalUpdate = {
     approval_status: 'APPROVED' | 'REJECTED';
 };
@@ -223,6 +330,7 @@ export type TaskCommentPublic = {
     id: string;
     task_id: string;
     author_id: string;
+    author_name?: (string | null);
     created_at: string;
     is_edited: boolean;
     requested_end_time: (string | null);
@@ -268,6 +376,23 @@ export type TaskLevelConfigPublic = {
     max_children: (number | null);
 };
 
+export type TaskProgressReportCreate = {
+    photo_url: string;
+    progress_percent: number;
+    note?: (string | null);
+};
+
+export type TaskProgressReportPublic = {
+    id: string;
+    task_id: string;
+    reporter_id: string;
+    reporter_name?: (string | null);
+    photo_url: string;
+    progress_percent: number;
+    note: (string | null);
+    created_at: string;
+};
+
 export type TaskProofCreate = {
     file_url: string;
     file_type?: string;
@@ -310,6 +435,7 @@ export type TaskPublic = {
     is_on_critical_path: boolean;
     created_at: string;
     updated_at: string;
+    reported_progress_total?: number;
 };
 
 export type TasksPublic = {
@@ -415,6 +541,75 @@ export type ValidationError = {
         [key: string]: unknown;
     };
 };
+
+export type ChatListMyRoomsResponse = (Array<ChatRoomPublic>);
+
+export type ChatCreateRoomData = {
+    requestBody: ChatRoomCreate;
+};
+
+export type ChatCreateRoomResponse = (ChatRoomPublic);
+
+export type ChatGetRoomData = {
+    roomId: string;
+};
+
+export type ChatGetRoomResponse = (ChatRoomPublic);
+
+export type ChatUpdateRoomData = {
+    requestBody: ChatRoomUpdate;
+    roomId: string;
+};
+
+export type ChatUpdateRoomResponse = (ChatRoomPublic);
+
+export type ChatDeleteRoomData = {
+    roomId: string;
+};
+
+export type ChatDeleteRoomResponse = (void);
+
+export type ChatListMembersData = {
+    roomId: string;
+};
+
+export type ChatListMembersResponse = (Array<ChatMemberWithUserPublic>);
+
+export type ChatAddMemberData = {
+    requestBody: ChatMemberAdd;
+    roomId: string;
+};
+
+export type ChatAddMemberResponse = (ChatMemberWithUserPublic);
+
+export type ChatRemoveMemberData = {
+    roomId: string;
+    userId: string;
+};
+
+export type ChatRemoveMemberResponse = (void);
+
+export type ChatListMessagesData = {
+    limit?: number;
+    roomId: string;
+    skip?: number;
+};
+
+export type ChatListMessagesResponse = (Array<ChatMessagePublic>);
+
+export type ChatCreateMessageData = {
+    requestBody: ChatMessageCreate;
+    roomId: string;
+};
+
+export type ChatCreateMessageResponse = (ChatMessagePublic);
+
+export type ChatUploadAttachmentData = {
+    formData: Body_chat_upload_attachment;
+    roomId: string;
+};
+
+export type ChatUploadAttachmentResponse = (ChatAttachmentPublic);
 
 export type DashboardOverviewData = {
     departmentId?: (string | null);
@@ -638,6 +833,13 @@ export type RolesListUserCompanyRolesResponse = (Array<UserCompanyRolePublic>);
 
 export type RolesMyAccountProfileResponse = (AccountProfilePublic);
 
+export type RolesGetOrgTreeData = {
+    companyId: string;
+    departmentId?: (string | null);
+};
+
+export type RolesGetOrgTreeResponse = (OrgTreePublic);
+
 export type TasksCreateRootTaskData = {
     projectId: string;
     requestBody: TaskCreate;
@@ -749,26 +951,18 @@ export type TasksAddDependencyData = {
 
 export type TasksAddDependencyResponse = (unknown);
 
-export type TasksAddChecklistItemData = {
-    requestBody: TaskChecklistCreate;
+export type TasksAddProgressReportData = {
+    requestBody: TaskProgressReportCreate;
     taskId: string;
 };
 
-export type TasksAddChecklistItemResponse = (TaskChecklistPublic);
+export type TasksAddProgressReportResponse = (TaskProgressReportPublic);
 
-export type TasksListChecklistItemsData = {
+export type TasksListProgressReportsData = {
     taskId: string;
 };
 
-export type TasksListChecklistItemsResponse = (Array<TaskChecklistPublic>);
-
-export type TasksUpdateChecklistItemData = {
-    checklistId: string;
-    requestBody: TaskChecklistUpdate;
-    taskId: string;
-};
-
-export type TasksUpdateChecklistItemResponse = (TaskChecklistPublic);
+export type TasksListProgressReportsResponse = (Array<TaskProgressReportPublic>);
 
 export type TasksGetTaskAuditData = {
     taskId: string;
@@ -783,6 +977,12 @@ export type TasksCheckConflictsData = {
 export type TasksCheckConflictsResponse = ({
     [key: string]: unknown;
 });
+
+export type UsersReadUserByEmailData = {
+    email: string;
+};
+
+export type UsersReadUserByEmailResponse = (UserPublic);
 
 export type UsersReadUsersData = {
     limit?: number;
