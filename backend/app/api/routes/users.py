@@ -28,6 +28,26 @@ from app.utils import generate_new_account_email, send_email
 router = APIRouter(prefix="/users", tags=["users"])
 
 
+@router.get("/by-email", response_model=UserPublic)
+def read_user_by_email(
+    email: str,
+    session: SessionDep,
+    current_user: CurrentUser,
+) -> Any:
+    """Lookup a user by email (same-company only unless superuser)."""
+
+    user = crud.get_user_by_email(session=session, email=email)
+    if user is None:
+        raise HTTPException(status_code=404, detail="User not found")
+    if current_user.is_superuser:
+        return user
+    if current_user.company_id is None or user.company_id is None:
+        raise HTTPException(status_code=403, detail="Company scope required")
+    if current_user.company_id != user.company_id:
+        raise HTTPException(status_code=403, detail="Not allowed")
+    return user
+
+
 @router.get(
     "/",
     dependencies=[Depends(get_current_active_superuser)],

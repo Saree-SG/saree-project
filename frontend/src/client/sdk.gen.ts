@@ -3,7 +3,251 @@
 import type { CancelablePromise } from './core/CancelablePromise';
 import { OpenAPI } from './core/OpenAPI';
 import { request as __request } from './core/request';
-import type { DashboardOverviewData, DashboardOverviewResponse, DashboardProjectStatsData, DashboardProjectStatsResponse, DashboardUserWorkloadData, DashboardUserWorkloadResponse, DashboardLeaderboardData, DashboardLeaderboardResponse, DashboardOverdueReportData, DashboardOverdueReportResponse, DashboardTaskCalendarData, DashboardTaskCalendarResponse, LoginLoginAccessTokenData, LoginLoginAccessTokenResponse, LoginTestTokenResponse, LoginRefreshAccessTokenData, LoginRefreshAccessTokenResponse, LoginLogoutData, LoginLogoutResponse, LoginRecoverPasswordData, LoginRecoverPasswordResponse, LoginResetPasswordData, LoginResetPasswordResponse, LoginRecoverPasswordHtmlContentData, LoginRecoverPasswordHtmlContentResponse, PrivateCreateUserData, PrivateCreateUserResponse, ProjectsListProjectsData, ProjectsListProjectsResponse, ProjectsCreateProjectData, ProjectsCreateProjectResponse, ProjectsGetProjectData, ProjectsGetProjectResponse, ProjectsUpdateProjectData, ProjectsUpdateProjectResponse, ProjectsUpsertLevelConfigData, ProjectsUpsertLevelConfigResponse, ProjectsGetLevelConfigsData, ProjectsGetLevelConfigsResponse, ProjectsGetMembersData, ProjectsGetMembersResponse, ProjectsAddMemberData, ProjectsAddMemberResponse, RolesListRoleDependenciesData, RolesListRoleDependenciesResponse, RolesListCompanyRolesData, RolesListCompanyRolesResponse, RolesListCompaniesResponse, RolesCreateCompanyData, RolesCreateCompanyResponse, RolesUpdateCompanyData, RolesUpdateCompanyResponse, RolesCreateDepartmentData, RolesCreateDepartmentResponse, RolesListDepartmentsData, RolesListDepartmentsResponse, RolesCreateRoleData, RolesCreateRoleResponse, RolesCreateRoleDependencyData, RolesCreateRoleDependencyResponse, RolesAssignUserCompanyRoleData, RolesAssignUserCompanyRoleResponse, RolesListUserCompanyRolesData, RolesListUserCompanyRolesResponse, RolesMyAccountProfileResponse, TasksCreateRootTaskData, TasksCreateRootTaskResponse, TasksListProjectTasksData, TasksListProjectTasksResponse, TasksCreateChildTaskData, TasksCreateChildTaskResponse, TasksGetTaskData, TasksGetTaskResponse, TasksUpdateTaskData, TasksUpdateTaskResponse, TasksDeleteTaskData, TasksDeleteTaskResponse, TasksMyDashboardResponse, TasksUpdateTaskStatusData, TasksUpdateTaskStatusResponse, TasksCloneTaskData, TasksCloneTaskResponse, TasksAddCommentData, TasksAddCommentResponse, TasksListCommentsData, TasksListCommentsResponse, TasksApproveDelayRequestData, TasksApproveDelayRequestResponse, TasksUploadProofData, TasksUploadProofResponse, TasksListProofsData, TasksListProofsResponse, TasksReviewProofData, TasksReviewProofResponse, TasksAddDependencyData, TasksAddDependencyResponse, TasksAddChecklistItemData, TasksAddChecklistItemResponse, TasksListChecklistItemsData, TasksListChecklistItemsResponse, TasksUpdateChecklistItemData, TasksUpdateChecklistItemResponse, TasksGetTaskAuditData, TasksGetTaskAuditResponse, TasksCheckConflictsData, TasksCheckConflictsResponse, UsersReadUsersData, UsersReadUsersResponse, UsersCreateUserData, UsersCreateUserResponse, UsersReadUserMeResponse, UsersDeleteUserMeResponse, UsersUpdateUserMeData, UsersUpdateUserMeResponse, UsersUpdatePasswordMeData, UsersUpdatePasswordMeResponse, UsersRegisterUserData, UsersRegisterUserResponse, UsersReadUserByIdData, UsersReadUserByIdResponse, UsersUpdateUserData, UsersUpdateUserResponse, UsersDeleteUserData, UsersDeleteUserResponse, UtilsTestEmailData, UtilsTestEmailResponse, UtilsHealthCheckResponse } from './types.gen';
+import type { ChatListMyRoomsResponse, ChatCreateRoomData, ChatCreateRoomResponse, ChatGetRoomData, ChatGetRoomResponse, ChatUpdateRoomData, ChatUpdateRoomResponse, ChatDeleteRoomData, ChatDeleteRoomResponse, ChatListMembersData, ChatListMembersResponse, ChatAddMemberData, ChatAddMemberResponse, ChatRemoveMemberData, ChatRemoveMemberResponse, ChatListMessagesData, ChatListMessagesResponse, ChatCreateMessageData, ChatCreateMessageResponse, ChatUploadAttachmentData, ChatUploadAttachmentResponse, DashboardOverviewData, DashboardOverviewResponse, DashboardProjectStatsData, DashboardProjectStatsResponse, DashboardUserWorkloadData, DashboardUserWorkloadResponse, DashboardLeaderboardData, DashboardLeaderboardResponse, DashboardOverdueReportData, DashboardOverdueReportResponse, DashboardTaskCalendarData, DashboardTaskCalendarResponse, LoginLoginAccessTokenData, LoginLoginAccessTokenResponse, LoginTestTokenResponse, LoginRefreshAccessTokenData, LoginRefreshAccessTokenResponse, LoginLogoutData, LoginLogoutResponse, LoginRecoverPasswordData, LoginRecoverPasswordResponse, LoginResetPasswordData, LoginResetPasswordResponse, LoginRecoverPasswordHtmlContentData, LoginRecoverPasswordHtmlContentResponse, PrivateCreateUserData, PrivateCreateUserResponse, ProjectsListProjectsData, ProjectsListProjectsResponse, ProjectsCreateProjectData, ProjectsCreateProjectResponse, ProjectsGetProjectData, ProjectsGetProjectResponse, ProjectsUpdateProjectData, ProjectsUpdateProjectResponse, ProjectsUpsertLevelConfigData, ProjectsUpsertLevelConfigResponse, ProjectsGetLevelConfigsData, ProjectsGetLevelConfigsResponse, ProjectsGetMembersData, ProjectsGetMembersResponse, ProjectsAddMemberData, ProjectsAddMemberResponse, RolesListRoleDependenciesData, RolesListRoleDependenciesResponse, RolesListCompanyRolesData, RolesListCompanyRolesResponse, RolesListCompaniesResponse, RolesCreateCompanyData, RolesCreateCompanyResponse, RolesUpdateCompanyData, RolesUpdateCompanyResponse, RolesCreateDepartmentData, RolesCreateDepartmentResponse, RolesListDepartmentsData, RolesListDepartmentsResponse, RolesCreateRoleData, RolesCreateRoleResponse, RolesCreateRoleDependencyData, RolesCreateRoleDependencyResponse, RolesAssignUserCompanyRoleData, RolesAssignUserCompanyRoleResponse, RolesListUserCompanyRolesData, RolesListUserCompanyRolesResponse, RolesMyAccountProfileResponse, RolesGetOrgTreeData, RolesGetOrgTreeResponse, TasksCreateRootTaskData, TasksCreateRootTaskResponse, TasksListProjectTasksData, TasksListProjectTasksResponse, TasksCreateChildTaskData, TasksCreateChildTaskResponse, TasksGetTaskData, TasksGetTaskResponse, TasksUpdateTaskData, TasksUpdateTaskResponse, TasksDeleteTaskData, TasksDeleteTaskResponse, TasksMyDashboardResponse, TasksUpdateTaskStatusData, TasksUpdateTaskStatusResponse, TasksCloneTaskData, TasksCloneTaskResponse, TasksAddCommentData, TasksAddCommentResponse, TasksListCommentsData, TasksListCommentsResponse, TasksApproveDelayRequestData, TasksApproveDelayRequestResponse, TasksUploadProofData, TasksUploadProofResponse, TasksListProofsData, TasksListProofsResponse, TasksReviewProofData, TasksReviewProofResponse, TasksAddDependencyData, TasksAddDependencyResponse, TasksAddProgressReportData, TasksAddProgressReportResponse, TasksListProgressReportsData, TasksListProgressReportsResponse, TasksGetTaskAuditData, TasksGetTaskAuditResponse, TasksCheckConflictsData, TasksCheckConflictsResponse, UsersReadUserByEmailData, UsersReadUserByEmailResponse, UsersReadUsersData, UsersReadUsersResponse, UsersCreateUserData, UsersCreateUserResponse, UsersReadUserMeResponse, UsersDeleteUserMeResponse, UsersUpdateUserMeData, UsersUpdateUserMeResponse, UsersUpdatePasswordMeData, UsersUpdatePasswordMeResponse, UsersRegisterUserData, UsersRegisterUserResponse, UsersReadUserByIdData, UsersReadUserByIdResponse, UsersUpdateUserData, UsersUpdateUserResponse, UsersDeleteUserData, UsersDeleteUserResponse, UtilsTestEmailData, UtilsTestEmailResponse, UtilsHealthCheckResponse } from './types.gen';
+
+export class ChatService {
+    /**
+     * List My Rooms
+     * List rooms the current user belongs to.
+     * @returns ChatRoomPublic Successful Response
+     * @throws ApiError
+     */
+    public static listMyRooms(): CancelablePromise<ChatListMyRoomsResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/v1/chat/rooms'
+        });
+    }
+    
+    /**
+     * Create Room
+     * Create a chat room and add members.
+     * @param data The data for the request.
+     * @param data.requestBody
+     * @returns ChatRoomPublic Successful Response
+     * @throws ApiError
+     */
+    public static createRoom(data: ChatCreateRoomData): CancelablePromise<ChatCreateRoomResponse> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/api/v1/chat/rooms',
+            body: data.requestBody,
+            mediaType: 'application/json',
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Get Room
+     * Get room details (member-only).
+     * @param data The data for the request.
+     * @param data.roomId
+     * @returns ChatRoomPublic Successful Response
+     * @throws ApiError
+     */
+    public static getRoom(data: ChatGetRoomData): CancelablePromise<ChatGetRoomResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/v1/chat/rooms/{room_id}',
+            path: {
+                room_id: data.roomId
+            },
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Update Room
+     * Update room metadata (member-only temporary policy).
+     * @param data The data for the request.
+     * @param data.roomId
+     * @param data.requestBody
+     * @returns ChatRoomPublic Successful Response
+     * @throws ApiError
+     */
+    public static updateRoom(data: ChatUpdateRoomData): CancelablePromise<ChatUpdateRoomResponse> {
+        return __request(OpenAPI, {
+            method: 'PATCH',
+            url: '/api/v1/chat/rooms/{room_id}',
+            path: {
+                room_id: data.roomId
+            },
+            body: data.requestBody,
+            mediaType: 'application/json',
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Delete Room
+     * Delete a room (admin-only).
+     * @param data The data for the request.
+     * @param data.roomId
+     * @returns void Successful Response
+     * @throws ApiError
+     */
+    public static deleteRoom(data: ChatDeleteRoomData): CancelablePromise<ChatDeleteRoomResponse> {
+        return __request(OpenAPI, {
+            method: 'DELETE',
+            url: '/api/v1/chat/rooms/{room_id}',
+            path: {
+                room_id: data.roomId
+            },
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * List Members
+     * List members of a room (member-only).
+     * @param data The data for the request.
+     * @param data.roomId
+     * @returns ChatMemberWithUserPublic Successful Response
+     * @throws ApiError
+     */
+    public static listMembers(data: ChatListMembersData): CancelablePromise<ChatListMembersResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/v1/chat/rooms/{room_id}/members',
+            path: {
+                room_id: data.roomId
+            },
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Add Member
+     * Add member to room (admin-only).
+     * @param data The data for the request.
+     * @param data.roomId
+     * @param data.requestBody
+     * @returns ChatMemberWithUserPublic Successful Response
+     * @throws ApiError
+     */
+    public static addMember(data: ChatAddMemberData): CancelablePromise<ChatAddMemberResponse> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/api/v1/chat/rooms/{room_id}/members',
+            path: {
+                room_id: data.roomId
+            },
+            body: data.requestBody,
+            mediaType: 'application/json',
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Remove Member
+     * Remove a member from a room (admin-only).
+     * @param data The data for the request.
+     * @param data.roomId
+     * @param data.userId
+     * @returns void Successful Response
+     * @throws ApiError
+     */
+    public static removeMember(data: ChatRemoveMemberData): CancelablePromise<ChatRemoveMemberResponse> {
+        return __request(OpenAPI, {
+            method: 'DELETE',
+            url: '/api/v1/chat/rooms/{room_id}/members/{user_id}',
+            path: {
+                room_id: data.roomId,
+                user_id: data.userId
+            },
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * List Messages
+     * List message history in a room (member-only).
+     * @param data The data for the request.
+     * @param data.roomId
+     * @param data.skip
+     * @param data.limit
+     * @returns ChatMessagePublic Successful Response
+     * @throws ApiError
+     */
+    public static listMessages(data: ChatListMessagesData): CancelablePromise<ChatListMessagesResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/v1/chat/rooms/{room_id}/messages',
+            path: {
+                room_id: data.roomId
+            },
+            query: {
+                skip: data.skip,
+                limit: data.limit
+            },
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Create Message
+     * Create a text message in a room (member-only).
+     * @param data The data for the request.
+     * @param data.roomId
+     * @param data.requestBody
+     * @returns ChatMessagePublic Successful Response
+     * @throws ApiError
+     */
+    public static createMessage(data: ChatCreateMessageData): CancelablePromise<ChatCreateMessageResponse> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/api/v1/chat/rooms/{room_id}/messages',
+            path: {
+                room_id: data.roomId
+            },
+            body: data.requestBody,
+            mediaType: 'application/json',
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Upload Attachment
+     * Upload an attachment and create a file-message in the room (member-only).
+     * @param data The data for the request.
+     * @param data.roomId
+     * @param data.formData
+     * @returns ChatAttachmentPublic Successful Response
+     * @throws ApiError
+     */
+    public static uploadAttachment(data: ChatUploadAttachmentData): CancelablePromise<ChatUploadAttachmentResponse> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/api/v1/chat/rooms/{room_id}/attachments',
+            path: {
+                room_id: data.roomId
+            },
+            formData: data.formData,
+            mediaType: 'multipart/form-data',
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+}
 
 export class DashboardService {
     /**
@@ -727,6 +971,29 @@ export class RolesService {
             url: '/api/v1/roles/me/profile'
         });
     }
+    
+    /**
+     * Get Org Tree
+     * Return organization tree grouped by department and sorted from low to high role levels.
+     * @param data The data for the request.
+     * @param data.companyId
+     * @param data.departmentId
+     * @returns OrgTreePublic Successful Response
+     * @throws ApiError
+     */
+    public static getOrgTree(data: RolesGetOrgTreeData): CancelablePromise<RolesGetOrgTreeResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/v1/roles/org-tree',
+            query: {
+                company_id: data.companyId,
+                department_id: data.departmentId
+            },
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
 }
 
 export class TasksService {
@@ -1098,18 +1365,18 @@ export class TasksService {
     }
     
     /**
-     * Add Checklist Item
-     * Create checklist item for task.
+     * Add Progress Report
+     * Worker submits photo URL and self-reported percent; total >= 100%% marks task done.
      * @param data The data for the request.
      * @param data.taskId
      * @param data.requestBody
-     * @returns TaskChecklistPublic Successful Response
+     * @returns TaskProgressReportPublic Successful Response
      * @throws ApiError
      */
-    public static addChecklistItem(data: TasksAddChecklistItemData): CancelablePromise<TasksAddChecklistItemResponse> {
+    public static addProgressReport(data: TasksAddProgressReportData): CancelablePromise<TasksAddProgressReportResponse> {
         return __request(OpenAPI, {
             method: 'POST',
-            url: '/api/v1/tasks/{task_id}/checklists',
+            url: '/api/v1/tasks/{task_id}/progress-reports',
             path: {
                 task_id: data.taskId
             },
@@ -1122,46 +1389,20 @@ export class TasksService {
     }
     
     /**
-     * List Checklist Items
-     * List checklist items for task.
+     * List Progress Reports
+     * List worker progress submissions (photo + percent) for a task.
      * @param data The data for the request.
      * @param data.taskId
-     * @returns TaskChecklistPublic Successful Response
+     * @returns TaskProgressReportPublic Successful Response
      * @throws ApiError
      */
-    public static listChecklistItems(data: TasksListChecklistItemsData): CancelablePromise<TasksListChecklistItemsResponse> {
+    public static listProgressReports(data: TasksListProgressReportsData): CancelablePromise<TasksListProgressReportsResponse> {
         return __request(OpenAPI, {
             method: 'GET',
-            url: '/api/v1/tasks/{task_id}/checklists',
+            url: '/api/v1/tasks/{task_id}/progress-reports',
             path: {
                 task_id: data.taskId
             },
-            errors: {
-                422: 'Validation Error'
-            }
-        });
-    }
-    
-    /**
-     * Update Checklist Item
-     * Toggle checklist completion state.
-     * @param data The data for the request.
-     * @param data.taskId
-     * @param data.checklistId
-     * @param data.requestBody
-     * @returns TaskChecklistPublic Successful Response
-     * @throws ApiError
-     */
-    public static updateChecklistItem(data: TasksUpdateChecklistItemData): CancelablePromise<TasksUpdateChecklistItemResponse> {
-        return __request(OpenAPI, {
-            method: 'PATCH',
-            url: '/api/v1/tasks/{task_id}/checklists/{checklist_id}',
-            path: {
-                task_id: data.taskId,
-                checklist_id: data.checklistId
-            },
-            body: data.requestBody,
-            mediaType: 'application/json',
             errors: {
                 422: 'Validation Error'
             }
@@ -1210,6 +1451,27 @@ export class TasksService {
 }
 
 export class UsersService {
+    /**
+     * Read User By Email
+     * Lookup a user by email (same-company only unless superuser).
+     * @param data The data for the request.
+     * @param data.email
+     * @returns UserPublic Successful Response
+     * @throws ApiError
+     */
+    public static readUserByEmail(data: UsersReadUserByEmailData): CancelablePromise<UsersReadUserByEmailResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/v1/users/by-email',
+            query: {
+                email: data.email
+            },
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
     /**
      * Read Users
      * Retrieve users.

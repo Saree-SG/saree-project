@@ -115,6 +115,31 @@ DEFAULT_DEPARTMENTS = [
 ]
 
 
+DEMO_ROLES = [
+    {
+        "name": "demo_director",
+        "display_name": "Giám đốc (Demo)",
+        "level": 1,
+        "is_system": False,
+        "description": "Role demo để test sơ đồ tổ chức và phân cấp.",
+    },
+    {
+        "name": "demo_department_head",
+        "display_name": "Trưởng Phòng (Demo)",
+        "level": 2,
+        "is_system": False,
+        "description": "Role demo để test cấp phòng ban.",
+    },
+    {
+        "name": "demo_worker",
+        "display_name": "Thợ (Demo)",
+        "level": 3,
+        "is_system": False,
+        "description": "Role demo để test nhân sự thực thi công việc.",
+    },
+]
+
+
 # ---------------------------------------------------------------------------
 # Seed logic
 # ---------------------------------------------------------------------------
@@ -189,6 +214,27 @@ def seed(session: Session, company_id: uuid.UUID) -> None:
             role_by_name[r_data["name"]] = role
     print(f"  ✓ {len(SYSTEM_ROLES)} roles ensured")
 
+    print("▶ Seeding demo roles...")
+    demo_by_name: dict[str, Role] = {}
+    for r_data in DEMO_ROLES:
+        existing = session.exec(
+            select(Role).where(Role.name == r_data["name"], Role.company_id == company_id)
+        ).first()
+        if existing:
+            existing.display_name = r_data["display_name"]
+            existing.level = r_data["level"]
+            existing.is_system = False
+            existing.description = r_data.get("description")
+            session.add(existing)
+            demo_by_name[r_data["name"]] = existing
+        else:
+            role = Role(**r_data, company_id=company_id)
+            session.add(role)
+            session.flush()
+            demo_by_name[r_data["name"]] = role
+    session.commit()
+    print(f"  ✓ {len(DEMO_ROLES)} demo roles ensured")
+
     print("▶ Assigning permissions to roles...")
     for role_name, perm_codes in ROLE_PERMISSION_MAP.items():
         role = role_by_name.get(role_name)
@@ -222,6 +268,37 @@ def seed(session: Session, company_id: uuid.UUID) -> None:
     session.commit()
     print(f"  ✓ {len(DEFAULT_DEPARTMENTS)} departments ensured")
 
+    print("▶ Seeding demo role hierarchy (REPORTS_TO)...")
+    demo_director = demo_by_name.get("demo_director")
+    demo_department_head = demo_by_name.get("demo_department_head")
+    demo_worker = demo_by_name.get("demo_worker")
+    if demo_director and demo_department_head and demo_worker:
+        pairs = [
+            (demo_department_head.id, demo_director.id),
+            (demo_worker.id, demo_department_head.id),
+        ]
+        for from_role_id, to_role_id in pairs:
+            existing = session.exec(
+                select(RoleDependency).where(
+                    RoleDependency.company_id == company_id,
+                    RoleDependency.from_role_id == from_role_id,
+                    RoleDependency.to_role_id == to_role_id,
+                    RoleDependency.relation_type == "REPORTS_TO",
+                )
+            ).first()
+            if existing is None:
+                session.add(
+                    RoleDependency(
+                        company_id=company_id,
+                        from_role_id=from_role_id,
+                        to_role_id=to_role_id,
+                        relation_type="REPORTS_TO",
+                        is_active=True,
+                    )
+                )
+        session.commit()
+        print("  ✓ Demo role dependencies ensured")
+
     print("▶ Ensuring first superuser has Director membership...")
     admin_user = session.exec(select(User).where(User.is_superuser == True)).first()  # noqa: E712
     director_role = role_by_name.get("director")
@@ -246,6 +323,34 @@ def seed(session: Session, company_id: uuid.UUID) -> None:
         session.add(admin_user)
         session.commit()
         print("  ✓ Superuser mapped as Director in default company")
+
+    print("▶ Assigning demo roles to superuser for preview...")
+    if admin_user:
+        tech_department = session.exec(
+            select(Department).where(Department.company_id == company_id, Department.name == "Kỹ thuật")
+        ).first()
+        if tech_department:
+            admin_user.department_id = tech_department.id
+            session.add(admin_user)
+        if demo_worker:
+            existing_demo = session.exec(
+                select(UserCompanyRole).where(
+                    UserCompanyRole.user_id == admin_user.id,
+                    UserCompanyRole.company_id == company_id,
+                    UserCompanyRole.role_id == demo_worker.id,
+                )
+            ).first()
+            if existing_demo is None:
+                session.add(
+                    UserCompanyRole(
+                        user_id=admin_user.id,
+                        company_id=company_id,
+                        role_id=demo_worker.id,
+                        is_primary=False,
+                    )
+                )
+        session.commit()
+        print("  ✓ Demo role assignment ensured")
 
     print("✅ Seed complete!")
 

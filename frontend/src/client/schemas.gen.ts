@@ -127,6 +127,19 @@ export const AuditLogPublicSchema = {
     title: 'AuditLogPublic'
 } as const;
 
+export const Body_chat_upload_attachmentSchema = {
+    properties: {
+        file: {
+            type: 'string',
+            format: 'binary',
+            title: 'File'
+        }
+    },
+    type: 'object',
+    required: ['file'],
+    title: 'Body_chat-upload_attachment'
+} as const;
+
 export const Body_login_login_access_tokenSchema = {
     properties: {
         grant_type: {
@@ -182,6 +195,332 @@ export const Body_login_login_access_tokenSchema = {
     type: 'object',
     required: ['username', 'password'],
     title: 'Body_login-login_access_token'
+} as const;
+
+export const ChatAttachmentPublicSchema = {
+    properties: {
+        id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Id'
+        },
+        message_id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Message Id'
+        },
+        filename: {
+            type: 'string',
+            title: 'Filename'
+        },
+        mime_type: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Mime Type'
+        },
+        size_bytes: {
+            anyOf: [
+                {
+                    type: 'integer'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Size Bytes'
+        },
+        public_url: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Public Url'
+        },
+        created_at: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Created At'
+        }
+    },
+    type: 'object',
+    required: ['id', 'message_id', 'filename', 'mime_type', 'size_bytes', 'public_url', 'created_at'],
+    title: 'ChatAttachmentPublic',
+    description: 'Chat attachment response.'
+} as const;
+
+export const ChatMemberAddSchema = {
+    properties: {
+        user_id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'User Id'
+        },
+        role: {
+            type: 'string',
+            enum: ['owner', 'admin', 'member'],
+            title: 'Role',
+            default: 'member'
+        }
+    },
+    type: 'object',
+    required: ['user_id'],
+    title: 'ChatMemberAdd',
+    description: 'Add a member to a room.'
+} as const;
+
+export const ChatMemberWithUserPublicSchema = {
+    properties: {
+        room_id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Room Id'
+        },
+        user_id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'User Id'
+        },
+        role: {
+            type: 'string',
+            title: 'Role'
+        },
+        joined_at: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Joined At'
+        },
+        left_at: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'date-time'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Left At'
+        },
+        email: {
+            type: 'string',
+            title: 'Email'
+        },
+        full_name: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Full Name'
+        }
+    },
+    type: 'object',
+    required: ['room_id', 'user_id', 'role', 'joined_at', 'left_at', 'email'],
+    title: 'ChatMemberWithUserPublic',
+    description: 'Chat member response enriched with basic user info.'
+} as const;
+
+export const ChatMessageCreateSchema = {
+    properties: {
+        content: {
+            type: 'string',
+            title: 'Content'
+        }
+    },
+    type: 'object',
+    required: ['content'],
+    title: 'ChatMessageCreate',
+    description: 'Create a message in a room (text only).'
+} as const;
+
+export const ChatMessagePublicSchema = {
+    properties: {
+        id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Id'
+        },
+        room_id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Room Id'
+        },
+        sender_id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Sender Id'
+        },
+        message_type: {
+            type: 'string',
+            title: 'Message Type'
+        },
+        content: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Content'
+        },
+        created_at: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Created At'
+        }
+    },
+    type: 'object',
+    required: ['id', 'room_id', 'sender_id', 'message_type', 'content', 'created_at'],
+    title: 'ChatMessagePublic',
+    description: 'Chat message response.'
+} as const;
+
+export const ChatRoomCreateSchema = {
+    properties: {
+        room_type: {
+            type: 'string',
+            enum: ['direct', 'group'],
+            title: 'Room Type',
+            default: 'group'
+        },
+        name: {
+            anyOf: [
+                {
+                    type: 'string',
+                    maxLength: 255
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Name'
+        },
+        room_color: {
+            anyOf: [
+                {
+                    type: 'string',
+                    maxLength: 32
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Room Color'
+        },
+        member_user_ids: {
+            items: {
+                type: 'string',
+                format: 'uuid'
+            },
+            type: 'array',
+            title: 'Member User Ids'
+        }
+    },
+    type: 'object',
+    title: 'ChatRoomCreate',
+    description: 'Create a chat room (direct/group).'
+} as const;
+
+export const ChatRoomPublicSchema = {
+    properties: {
+        id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Id'
+        },
+        company_id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Company Id'
+        },
+        room_type: {
+            type: 'string',
+            title: 'Room Type'
+        },
+        name: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Name'
+        },
+        room_color: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Room Color'
+        },
+        created_by: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Created By'
+        },
+        created_at: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Created At'
+        }
+    },
+    type: 'object',
+    required: ['id', 'company_id', 'room_type', 'name', 'room_color', 'created_by', 'created_at'],
+    title: 'ChatRoomPublic',
+    description: 'Chat room response.'
+} as const;
+
+export const ChatRoomUpdateSchema = {
+    properties: {
+        name: {
+            anyOf: [
+                {
+                    type: 'string',
+                    maxLength: 255
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Name'
+        },
+        room_color: {
+            anyOf: [
+                {
+                    type: 'string',
+                    maxLength: 32
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Room Color'
+        }
+    },
+    type: 'object',
+    title: 'ChatRoomUpdate',
+    description: 'Update chat room fields (currently only name).'
 } as const;
 
 export const CompanyCreateSchema = {
@@ -400,6 +739,181 @@ export const NewPasswordSchema = {
     type: 'object',
     required: ['token', 'new_password'],
     title: 'NewPassword'
+} as const;
+
+export const OrgTreeDepartmentGroupPublicSchema = {
+    properties: {
+        department_id: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'uuid'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Department Id'
+        },
+        department_name: {
+            type: 'string',
+            title: 'Department Name'
+        },
+        roles: {
+            items: {
+                '$ref': '#/components/schemas/OrgTreeRoleNodePublic'
+            },
+            type: 'array',
+            title: 'Roles'
+        }
+    },
+    type: 'object',
+    required: ['department_id', 'department_name', 'roles'],
+    title: 'OrgTreeDepartmentGroupPublic'
+} as const;
+
+export const OrgTreeMemberPublicSchema = {
+    properties: {
+        user_id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'User Id'
+        },
+        full_name: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Full Name'
+        },
+        email: {
+            type: 'string',
+            title: 'Email'
+        },
+        department_id: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'uuid'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Department Id'
+        },
+        department_name: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Department Name'
+        },
+        is_current_user: {
+            type: 'boolean',
+            title: 'Is Current User',
+            default: false
+        }
+    },
+    type: 'object',
+    required: ['user_id', 'full_name', 'email', 'department_id', 'department_name'],
+    title: 'OrgTreeMemberPublic'
+} as const;
+
+export const OrgTreePublicSchema = {
+    properties: {
+        company_id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Company Id'
+        },
+        company_name: {
+            type: 'string',
+            title: 'Company Name'
+        },
+        current_user_id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Current User Id'
+        },
+        current_role_id: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'uuid'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Current Role Id'
+        },
+        current_role_level: {
+            anyOf: [
+                {
+                    type: 'integer'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Current Role Level'
+        },
+        departments: {
+            items: {
+                '$ref': '#/components/schemas/OrgTreeDepartmentGroupPublic'
+            },
+            type: 'array',
+            title: 'Departments'
+        }
+    },
+    type: 'object',
+    required: ['company_id', 'company_name', 'current_user_id', 'current_role_id', 'current_role_level', 'departments'],
+    title: 'OrgTreePublic'
+} as const;
+
+export const OrgTreeRoleNodePublicSchema = {
+    properties: {
+        role_id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Role Id'
+        },
+        role_name: {
+            type: 'string',
+            title: 'Role Name'
+        },
+        role_display_name: {
+            type: 'string',
+            title: 'Role Display Name'
+        },
+        role_level: {
+            type: 'integer',
+            title: 'Role Level'
+        },
+        relation_to_current: {
+            type: 'string',
+            title: 'Relation To Current'
+        },
+        members: {
+            items: {
+                '$ref': '#/components/schemas/OrgTreeMemberPublic'
+            },
+            type: 'array',
+            title: 'Members'
+        }
+    },
+    type: 'object',
+    required: ['role_id', 'role_name', 'role_display_name', 'role_level', 'relation_to_current', 'members'],
+    title: 'OrgTreeRoleNodePublic'
 } as const;
 
 export const PrivateUserCreateSchema = {
@@ -864,85 +1378,6 @@ export const RoleDependencyPublicSchema = {
     title: 'RoleDependencyPublic'
 } as const;
 
-export const TaskChecklistCreateSchema = {
-    properties: {
-        content: {
-            type: 'string',
-            title: 'Content'
-        }
-    },
-    type: 'object',
-    required: ['content'],
-    title: 'TaskChecklistCreate'
-} as const;
-
-export const TaskChecklistPublicSchema = {
-    properties: {
-        id: {
-            type: 'string',
-            format: 'uuid',
-            title: 'Id'
-        },
-        task_id: {
-            type: 'string',
-            format: 'uuid',
-            title: 'Task Id'
-        },
-        content: {
-            type: 'string',
-            title: 'Content'
-        },
-        is_completed: {
-            type: 'boolean',
-            title: 'Is Completed'
-        },
-        completed_by: {
-            anyOf: [
-                {
-                    type: 'string',
-                    format: 'uuid'
-                },
-                {
-                    type: 'null'
-                }
-            ],
-            title: 'Completed By'
-        },
-        completed_at: {
-            anyOf: [
-                {
-                    type: 'string',
-                    format: 'date-time'
-                },
-                {
-                    type: 'null'
-                }
-            ],
-            title: 'Completed At'
-        },
-        created_at: {
-            type: 'string',
-            format: 'date-time',
-            title: 'Created At'
-        }
-    },
-    type: 'object',
-    required: ['id', 'task_id', 'content', 'is_completed', 'completed_by', 'completed_at', 'created_at'],
-    title: 'TaskChecklistPublic'
-} as const;
-
-export const TaskChecklistUpdateSchema = {
-    properties: {
-        is_completed: {
-            type: 'boolean',
-            title: 'Is Completed'
-        }
-    },
-    type: 'object',
-    required: ['is_completed'],
-    title: 'TaskChecklistUpdate'
-} as const;
-
 export const TaskCommentApprovalUpdateSchema = {
     properties: {
         approval_status: {
@@ -1023,6 +1458,17 @@ export const TaskCommentPublicSchema = {
             type: 'string',
             format: 'uuid',
             title: 'Author Id'
+        },
+        author_name: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Author Name'
         },
         created_at: {
             type: 'string',
@@ -1247,6 +1693,94 @@ export const TaskLevelConfigPublicSchema = {
     type: 'object',
     required: ['id', 'project_id', 'level', 'label', 'requires_proof', 'can_have_children', 'max_children'],
     title: 'TaskLevelConfigPublic'
+} as const;
+
+export const TaskProgressReportCreateSchema = {
+    properties: {
+        photo_url: {
+            type: 'string',
+            maxLength: 1000,
+            title: 'Photo Url'
+        },
+        progress_percent: {
+            type: 'integer',
+            maximum: 100,
+            minimum: 1,
+            title: 'Progress Percent'
+        },
+        note: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Note'
+        }
+    },
+    type: 'object',
+    required: ['photo_url', 'progress_percent'],
+    title: 'TaskProgressReportCreate'
+} as const;
+
+export const TaskProgressReportPublicSchema = {
+    properties: {
+        id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Id'
+        },
+        task_id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Task Id'
+        },
+        reporter_id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Reporter Id'
+        },
+        reporter_name: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Reporter Name'
+        },
+        photo_url: {
+            type: 'string',
+            title: 'Photo Url'
+        },
+        progress_percent: {
+            type: 'integer',
+            title: 'Progress Percent'
+        },
+        note: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Note'
+        },
+        created_at: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Created At'
+        }
+    },
+    type: 'object',
+    required: ['id', 'task_id', 'reporter_id', 'photo_url', 'progress_percent', 'note', 'created_at'],
+    title: 'TaskProgressReportPublic'
 } as const;
 
 export const TaskProofCreateSchema = {
@@ -1517,6 +2051,11 @@ export const TaskPublicSchema = {
             type: 'string',
             format: 'date-time',
             title: 'Updated At'
+        },
+        reported_progress_total: {
+            type: 'integer',
+            title: 'Reported Progress Total',
+            default: 0
         }
     },
     type: 'object',

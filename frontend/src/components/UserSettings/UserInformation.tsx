@@ -34,9 +34,17 @@ const formSchema = z.object({
 })
 
 type FormData = z.infer<typeof formSchema>
-const ALLOWED_COMPANY_ROLE_NAMES = new Set(["director", "department_head", "worker"])
+const ALLOWED_COMPANY_ROLE_NAMES = new Set([
+  "director",
+  "department_head",
+  "worker",
+])
 
-const UserInformation = () => {
+type UserInformationProps = {
+  embedded?: boolean
+}
+
+const UserInformation = ({ embedded = false }: UserInformationProps) => {
   const queryClient = useQueryClient()
   const { showSuccessToast, showErrorToast } = useCustomToast()
   const [editMode, setEditMode] = useState(false)
@@ -69,20 +77,24 @@ const UserInformation = () => {
     }))
     .filter(
       (value, index, array) =>
-        array.findIndex((item) => item.companyId === value.companyId) === index
+        array.findIndex((item) => item.companyId === value.companyId) === index,
     )
 
   const effectiveCompanyId =
-    selectedCompanyId || memberships.find((item) => item.is_primary)?.company_id || ""
+    selectedCompanyId ||
+    memberships.find((item) => item.is_primary)?.company_id ||
+    ""
 
   const { data: companyRoles } = useQuery({
     queryKey: ["roles", "catalog", effectiveCompanyId],
-    queryFn: () => RolesService.listCompanyRoles({ companyId: effectiveCompanyId }),
+    queryFn: () =>
+      RolesService.listCompanyRoles({ companyId: effectiveCompanyId }),
     enabled: Boolean(currentUser?.is_superuser && effectiveCompanyId),
   })
 
   const validCompanyRoles = (companyRoles ?? []).filter(
-    (role) => Boolean(role.id) && ALLOWED_COMPANY_ROLE_NAMES.has(role.name || "")
+    (role) =>
+      Boolean(role.id) && ALLOWED_COMPANY_ROLE_NAMES.has(role.name || ""),
   )
 
   const toggleEditMode = () => {
@@ -115,7 +127,9 @@ const UserInformation = () => {
     onSuccess: async () => {
       showSuccessToast("Primary role updated")
       setSelectedRoleId("")
-      await queryClient.invalidateQueries({ queryKey: ["roles", "my-account-profile"] })
+      await queryClient.invalidateQueries({
+        queryKey: ["roles", "my-account-profile"],
+      })
     },
     onError: handleError.bind(showErrorToast),
   })
@@ -140,8 +154,10 @@ const UserInformation = () => {
   }
 
   return (
-    <div className="max-w-md">
-      <h3 className="text-lg font-semibold py-4">User Information</h3>
+    <div className={embedded ? "w-full" : "max-w-md"}>
+      {!embedded ? (
+        <h3 className="py-4 text-lg font-semibold">User Information</h3>
+      ) : null}
       <Form {...form}>
         <form
           onSubmit={form.handleSubmit(onSubmit)}
@@ -232,7 +248,10 @@ const UserInformation = () => {
           </p>
         ) : (
           memberships.map((membership) => (
-            <div key={`${membership.company_id}-${membership.role_id}`} className="rounded-md border p-3">
+            <div
+              key={`${membership.company_id}-${membership.role_id}`}
+              className="rounded-md border p-3"
+            >
               <p className="text-sm font-medium">{membership.company_name}</p>
               <p className="text-sm text-muted-foreground">
                 {membership.role_display_name} (Level {membership.role_level})
@@ -244,7 +263,13 @@ const UserInformation = () => {
       </div>
 
       {currentUser?.is_superuser ? (
-        <div className="mt-6 space-y-3 rounded-md border p-4">
+        <div
+          className={
+            embedded
+              ? "mt-6 space-y-3 rounded-md border p-4"
+              : "mt-6 space-y-3 rounded-md border p-4"
+          }
+        >
           <h4 className="text-base font-semibold">Admin Role Assignment</h4>
           <p className="text-sm text-muted-foreground">
             Assign primary role by company using dropdown.

@@ -148,3 +148,25 @@ def require_permission(permission_code: str, require_project_id: bool = False):
         return current_user
 
     return _check
+
+
+def require_any_permission(*permission_codes: str):
+    """
+    FastAPI dependency: user must have at least one of the listed permissions.
+    """
+
+    async def _check(
+        current_user: User = Depends(get_current_user),
+        session: Session = Depends(get_db),
+    ) -> User:
+        if current_user.is_superuser:
+            return current_user
+        for code in permission_codes:
+            if has_permission(session, current_user, code):
+                return current_user
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"One of permissions {list(permission_codes)} required.",
+        )
+
+    return _check

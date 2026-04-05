@@ -19,6 +19,10 @@ from app.models.org import (
     Department,
     DepartmentCreate,
     DepartmentPublic,
+    OrgTreeDepartmentGroupPublic,
+    OrgTreeMemberPublic,
+    OrgTreePublic,
+    OrgTreeRoleNodePublic,
     Role,
     RoleCreate,
     RoleDependency,
@@ -135,6 +139,22 @@ def _can_assign_role(
         return target_role.level > actor_top_level
 
     return False
+
+
+def _sync_user_company_id_from_memberships(session: Session, user: User) -> None:
+    """Synchronize user.company_id from primary company role assignments."""
+
+    rows = session.exec(
+        select(UserCompanyRole).where(UserCompanyRole.user_id == user.id)
+    ).all()
+    primary = next((row for row in rows if row.is_primary), None)
+    if primary is not None:
+        user.company_id = primary.company_id
+    elif rows:
+        user.company_id = rows[0].company_id
+    else:
+        user.company_id = None
+    session.add(user)
 
 
 @router.get("/", response_model=list[RoleDependencyPublic])
@@ -446,18 +466,19 @@ def assign_user_company_role(
     else:
         assignment = UserCompanyRole(**body.model_dump())
         session.add(assignment)
+        session.flush()
 
     if body.is_primary:
         rows = session.exec(
             select(UserCompanyRole).where(
                 UserCompanyRole.user_id == body.user_id,
-                UserCompanyRole.company_id == body.company_id,
             )
         ).all()
         for row in rows:
             row.is_primary = row.role_id == body.role_id
             session.add(row)
 
+    _sync_user_company_id_from_memberships(session, user)
     session.commit()
     session.refresh(assignment)
     return UserCompanyRolePublic(
@@ -538,4 +559,120 @@ def my_account_profile(
         email=current_user.email,
         full_name=current_user.full_name,
         memberships=memberships,
+    )
+
+
+@router.get("/org-tree", response_model=OrgTreePublic)
+def get_org_tree(
+    company_id: uuid.UUID = Query(...),
+    department_id: uuid.UUID | None = Query(default=None),
+    session: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Return organization tree grouped by department and sorted from low to high role levels."""
+
+    company = session.get(Company, company_id)
+    if company is None:
+        raise HTTPException(status_code=404, detail="Company not found")
+
+    assignments = session.exec(
+        select(UserCompanyRole).where(UserCompanyRole.company_id == company_id)
+    ).all()
+
+    current_user_assignments = [row for row in assignments if row.user_id == current_user.id]
+    if not current_user.is_superuser and not current_user_assignments:
+        raise HTTPException(status_code=403, detail="You are not a member of this company")
+
+    role_ids = {row.role_id for row in assignments}
+    roles = session.exec(select(Role).where(Role.id.in_(role_ids))).all() if role_ids else []
+    role_by_id = {role.id: role for role in roles}
+
+    user_ids = {row.user_id for row in assignments}
+    users = session.exec(select(User).where(User.id.in_(user_ids))).all() if user_ids else []
+    user_by_id = {user.id: user for user in users}
+
+    department_ids = {user.department_id for user in users if user.department_id is not None}
+    departments = (
+        session.exec(select(Department).where(Department.id.in_(department_ids))).all()
+        if department_ids
+        else []
+    )
+    department_name_by_id = {dept.id: dept.name for dept in departments}
+
+    current_primary = next((row for row in current_user_assignments if row.is_primary), None)
+    if current_primary is None and current_user_assignments:
+        current_primary = current_user_assignments[0]
+    current_role = role_by_id.get(current_primary.role_id) if current_primary else None
+    current_role_level = current_role.level if current_role else None
+
+    rows_by_department: dict[uuid.UUID | None, list[UserCompanyRole]] = defaultdict(list)
+    for row in assignments:
+        user = user_by_id.get(row.user_id)
+        if user is None:
+            continue
+        if department_id is not None and user.department_id != department_id:
+            continue
+        rows_by_department[user.department_id].append(row)
+
+    department_groups: list[OrgTreeDepartmentGroupPublic] = []
+    for dept_id, dept_rows in rows_by_department.items():
+        role_to_members: dict[uuid.UUID, list[OrgTreeMemberPublic]] = defaultdict(list)
+        for row in dept_rows:
+            role = role_by_id.get(row.role_id)
+            user = user_by_id.get(row.user_id)
+            if role is None or user is None:
+                continue
+            role_to_members[role.id].append(
+                OrgTreeMemberPublic(
+                    user_id=user.id,
+                    full_name=user.full_name,
+                    email=user.email,
+                    department_id=user.department_id,
+                    department_name=department_name_by_id.get(user.department_id),
+                    is_current_user=user.id == current_user.id,
+                )
+            )
+
+        role_nodes: list[OrgTreeRoleNodePublic] = []
+        for role_id, members in role_to_members.items():
+            role = role_by_id.get(role_id)
+            if role is None:
+                continue
+            relation = "peer"
+            if current_role_level is not None:
+                if role.level < current_role_level:
+                    relation = "below"
+                elif role.level > current_role_level:
+                    relation = "above"
+                else:
+                    relation = "peer"
+            role_nodes.append(
+                OrgTreeRoleNodePublic(
+                    role_id=role.id,
+                    role_name=role.name,
+                    role_display_name=role.display_name,
+                    role_level=role.level,
+                    relation_to_current=relation,
+                    members=sorted(members, key=lambda m: (m.full_name or m.email).lower()),
+                )
+            )
+        role_nodes.sort(key=lambda node: node.role_level)
+
+        department_groups.append(
+            OrgTreeDepartmentGroupPublic(
+                department_id=dept_id,
+                department_name=department_name_by_id.get(dept_id, "No Department"),
+                roles=role_nodes,
+            )
+        )
+
+    department_groups.sort(key=lambda group: group.department_name.lower())
+
+    return OrgTreePublic(
+        company_id=company.id,
+        company_name=company.name,
+        current_user_id=current_user.id,
+        current_role_id=current_role.id if current_role else None,
+        current_role_level=current_role_level,
+        departments=department_groups,
     )

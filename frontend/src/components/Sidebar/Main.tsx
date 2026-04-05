@@ -1,6 +1,4 @@
 import { Link as RouterLink, useRouterState } from "@tanstack/react-router"
-import type { LucideIcon } from "lucide-react"
-
 import {
   SidebarGroup,
   SidebarGroupContent,
@@ -9,15 +7,10 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar"
-
-export type Item = {
-  icon: LucideIcon
-  title: string
-  path: string
-}
+import { type LayoutNavItem, isLayoutNavItemActive } from "@/config/layoutNav"
 
 interface MainProps {
-  items: Item[]
+  items: LayoutNavItem[]
 }
 
 export function Main({ items }: MainProps) {
@@ -36,7 +29,7 @@ export function Main({ items }: MainProps) {
       <SidebarGroupContent>
         <SidebarMenu>
           {items.map((item) => {
-            const isActive = currentPath === item.path
+            const isActive = isLayoutNavItemActive(item, currentPath)
 
             return (
               <SidebarMenuItem key={item.title}>

@@ -94,7 +94,8 @@ const EditUser = ({ user, onSuccess }: EditUserProps) => {
     queryFn: () => RolesService.listUserCompanyRoles({ userId: user.id }),
   })
 
-  const primaryAssignment = assignments?.find((item) => item.is_primary) || assignments?.[0]
+  const primaryAssignment =
+    assignments?.find((item) => item.is_primary) || assignments?.[0]
 
   useEffect(() => {
     if (primaryAssignment && !form.getValues("company_id")) {
@@ -107,10 +108,13 @@ const EditUser = ({ user, onSuccess }: EditUserProps) => {
 
   const { data: companyRoles } = useQuery({
     queryKey: ["roles", "catalog", selectedCompanyId],
-    queryFn: () => RolesService.listCompanyRoles({ companyId: selectedCompanyId || "" }),
+    queryFn: () =>
+      RolesService.listCompanyRoles({ companyId: selectedCompanyId || "" }),
     enabled: Boolean(selectedCompanyId),
   })
-  const validCompanyRoles = (companyRoles ?? []).filter((role) => Boolean(role.id))
+  const validCompanyRoles = (companyRoles ?? []).filter((role) =>
+    Boolean(role.id),
+  )
 
   const assignRoleMutation = useMutation({
     mutationFn: (payload: { companyId: string; roleId: string }) =>
@@ -148,7 +152,10 @@ const EditUser = ({ user, onSuccess }: EditUserProps) => {
     await mutation.mutateAsync(submitData)
 
     if (company_id && role_id) {
-      await assignRoleMutation.mutateAsync({ companyId: company_id, roleId: role_id })
+      await assignRoleMutation.mutateAsync({
+        companyId: company_id,
+        roleId: role_id,
+      })
       showSuccessToast("User company-role updated")
     }
   }

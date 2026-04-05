@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Pencil } from "lucide-react"
 import { useState } from "react"
 
-import { RolesService, type CompanyPublic } from "@/client"
+import { type CompanyPublic, RolesService } from "@/client"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -22,7 +22,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
 import useCustomToast from "@/hooks/useCustomToast"
 import { handleError } from "@/utils"
 
@@ -51,7 +58,9 @@ const CompanyManagement = () => {
     queryFn: () => RolesService.listCompanies(),
   })
   const [open, setOpen] = useState(false)
-  const [editingCompany, setEditingCompany] = useState<CompanyPublic | null>(null)
+  const [editingCompany, setEditingCompany] = useState<CompanyPublic | null>(
+    null,
+  )
   const [name, setName] = useState("")
   const [roleName, setRoleName] = useState("")
   const [roleDisplayName, setRoleDisplayName] = useState("")
@@ -61,7 +70,8 @@ const CompanyManagement = () => {
 
   const { data: companyRoles } = useQuery({
     queryKey: ["roles", "catalog", editingCompany?.id || ""],
-    queryFn: () => RolesService.listCompanyRoles({ companyId: editingCompany?.id || "" }),
+    queryFn: () =>
+      RolesService.listCompanyRoles({ companyId: editingCompany?.id || "" }),
     enabled: Boolean(editingCompany?.id),
   })
 
@@ -109,7 +119,9 @@ const CompanyManagement = () => {
     },
     onSuccess: async () => {
       showSuccessToast("Role added to company")
-      await queryClient.invalidateQueries({ queryKey: ["roles", "catalog", editingCompany?.id || ""] })
+      await queryClient.invalidateQueries({
+        queryKey: ["roles", "catalog", editingCompany?.id || ""],
+      })
       setRoleName("")
       setRoleDisplayName("")
       setRoleLevel("3")
@@ -138,7 +150,9 @@ const CompanyManagement = () => {
           {(companies ?? []).map((company) => (
             <TableRow key={company.id}>
               <TableCell>{company.name}</TableCell>
-              <TableCell className="text-muted-foreground">{company.slug}</TableCell>
+              <TableCell className="text-muted-foreground">
+                {company.slug}
+              </TableCell>
               <TableCell>{company.is_active ? "Active" : "Inactive"}</TableCell>
               <TableCell className="text-right">
                 <Button
@@ -160,23 +174,28 @@ const CompanyManagement = () => {
       </Table>
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-3xl">
+        <DialogContent className="flex max-h-[90dvh] max-w-3xl flex-col overflow-hidden">
           <DialogHeader>
             <DialogTitle>Edit Company</DialogTitle>
             <DialogDescription>
-              Update company info and define role logic per feature/action in one place.
+              Update company info and define role logic per feature/action in
+              one place.
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4">
+          <div className="flex-1 space-y-4 overflow-y-auto pr-1">
             <div>
               <p className="text-sm font-medium mb-2">Company Name</p>
-              <Input value={name} onChange={(event) => setName(event.target.value)} />
+              <Input
+                value={name}
+                onChange={(event) => setName(event.target.value)}
+              />
             </div>
 
             <div className="rounded-md border p-3 space-y-3">
               <h4 className="font-semibold">Add Role For This Company</h4>
               <p className="text-xs text-muted-foreground">
-                Define role logic clearly by feature/action. Example: task.create, task.delete, project.manage_members.
+                Define role logic clearly by feature/action. Example:
+                task.create, task.delete, project.manage_members.
               </p>
               <div className="grid gap-3 md:grid-cols-2">
                 <Input
@@ -207,7 +226,9 @@ const CompanyManagement = () => {
                   onChange={(event) => setRoleDescription(event.target.value)}
                 />
                 <div className="md:col-span-2">
-                  <p className="text-xs font-medium mb-1">Role Logic (JSON policy doc)</p>
+                  <p className="text-xs font-medium mb-1">
+                    Role Logic (JSON policy doc)
+                  </p>
                   <textarea
                     className="w-full rounded-md border p-2 text-xs font-mono min-h-44"
                     aria-label="Role logic policy document JSON"
@@ -226,7 +247,10 @@ const CompanyManagement = () => {
                       }
                       createRoleMutation.mutate({
                         companyId: editingCompany.id,
-                        roleName: roleName.trim().toLowerCase().replace(/ /g, "_"),
+                        roleName: roleName
+                          .trim()
+                          .toLowerCase()
+                          .replace(/ /g, "_"),
                         roleDisplayName: roleDisplayName.trim(),
                         roleLevel: Number(roleLevel),
                         roleDescription: roleDescription.trim(),
@@ -241,32 +265,36 @@ const CompanyManagement = () => {
 
               <div>
                 <p className="text-sm font-medium mb-2">Current Roles</p>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Display Name</TableHead>
-                      <TableHead>Key</TableHead>
-                      <TableHead>Level</TableHead>
-                      <TableHead>Description</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {(companyRoles ?? []).map((role) => (
-                      <TableRow key={role.id}>
-                        <TableCell>{role.display_name}</TableCell>
-                        <TableCell className="text-muted-foreground">{role.name}</TableCell>
-                        <TableCell>L{role.level}</TableCell>
-                        <TableCell className="text-muted-foreground">
-                          {role.description || "N/A"}
-                        </TableCell>
+                <div className="max-h-56 overflow-auto rounded-md border">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Display Name</TableHead>
+                        <TableHead>Key</TableHead>
+                        <TableHead>Level</TableHead>
+                        <TableHead>Description</TableHead>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                    </TableHeader>
+                    <TableBody>
+                      {(companyRoles ?? []).map((role) => (
+                        <TableRow key={role.id}>
+                          <TableCell>{role.display_name}</TableCell>
+                          <TableCell className="text-muted-foreground">
+                            {role.name}
+                          </TableCell>
+                          <TableCell>L{role.level}</TableCell>
+                          <TableCell className="text-muted-foreground">
+                            {role.description || "N/A"}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
               </div>
             </div>
           </div>
-          <DialogFooter>
+          <DialogFooter className="border-t bg-background pt-3">
             <DialogClose asChild>
               <Button variant="outline" disabled={updateMutation.isPending}>
                 Cancel
@@ -278,7 +306,10 @@ const CompanyManagement = () => {
                 if (!editingCompany || !name.trim()) {
                   return
                 }
-                updateMutation.mutate({ companyId: editingCompany.id, name: name.trim() })
+                updateMutation.mutate({
+                  companyId: editingCompany.id,
+                  name: name.trim(),
+                })
               }}
             >
               Save

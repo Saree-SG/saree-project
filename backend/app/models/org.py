@@ -301,6 +301,39 @@ class AccountProfilePublic(SQLModel):
     memberships: list[AccountMembershipPublic]
 
 
+class OrgTreeMemberPublic(SQLModel):
+    user_id: uuid.UUID
+    full_name: str | None
+    email: str
+    department_id: uuid.UUID | None
+    department_name: str | None
+    is_current_user: bool = False
+
+
+class OrgTreeRoleNodePublic(SQLModel):
+    role_id: uuid.UUID
+    role_name: str
+    role_display_name: str
+    role_level: int
+    relation_to_current: str
+    members: list[OrgTreeMemberPublic]
+
+
+class OrgTreeDepartmentGroupPublic(SQLModel):
+    department_id: uuid.UUID | None
+    department_name: str
+    roles: list[OrgTreeRoleNodePublic]
+
+
+class OrgTreePublic(SQLModel):
+    company_id: uuid.UUID
+    company_name: str
+    current_user_id: uuid.UUID
+    current_role_id: uuid.UUID | None
+    current_role_level: int | None
+    departments: list[OrgTreeDepartmentGroupPublic]
+
+
 # ---------------------------------------------------------------------------
 # ProjectMemberRole — Contextual role within a specific project
 # ---------------------------------------------------------------------------
