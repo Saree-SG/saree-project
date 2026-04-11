@@ -1,17 +1,22 @@
-import sentry_sdk
-from fastapi import FastAPI
-from fastapi.routing import APIRoute
 from pathlib import Path
-from starlette.middleware.cors import CORSMiddleware
-from starlette.staticfiles import StaticFiles
+
+import sentry_sdk
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
-from fastapi import HTTPException, Request
+from fastapi.routing import APIRoute
+from loguru import logger
+from starlette.middleware.cors import CORSMiddleware
+from starlette.staticfiles import StaticFiles
+from starlette.websockets import WebSocket
 
 from app.api.main import api_router
 from app.core.config import settings
-from app.core.logging import RequestLoggingMiddleware, log_validation_error, setup_loguru
-from loguru import logger
+from app.core.logging import (
+    RequestLoggingMiddleware,
+    log_validation_error,
+    setup_loguru,
+)
 
 
 def custom_generate_unique_id(route: APIRoute) -> str:
@@ -40,12 +45,12 @@ async def request_validation_exception_handler(request: Request, exc: RequestVal
 
 
 @app.exception_handler(HTTPException)
-async def http_exception_handler(request: Request, exc: HTTPException):
+async def http_exception_handler(request: Request | WebSocket, exc: HTTPException):
     logger.warning(
         "HTTPException {status} {method} {path} detail={detail}",
         status=exc.status_code,
-        method=request.method,
-        path=str(request.url.path),
+        method=getattr(request, "method", "WEBSOCKET"),
+        path=str(getattr(request, "url", "websocket")).split("?", 1)[0],
         detail=exc.detail,
     )
     return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail})

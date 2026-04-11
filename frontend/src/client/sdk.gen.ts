@@ -3,7 +3,7 @@
 import type { CancelablePromise } from './core/CancelablePromise';
 import { OpenAPI } from './core/OpenAPI';
 import { request as __request } from './core/request';
-import type { ChatListMyRoomsResponse, ChatCreateRoomData, ChatCreateRoomResponse, ChatGetRoomData, ChatGetRoomResponse, ChatUpdateRoomData, ChatUpdateRoomResponse, ChatDeleteRoomData, ChatDeleteRoomResponse, ChatListMembersData, ChatListMembersResponse, ChatAddMemberData, ChatAddMemberResponse, ChatRemoveMemberData, ChatRemoveMemberResponse, ChatListMessagesData, ChatListMessagesResponse, ChatCreateMessageData, ChatCreateMessageResponse, ChatUploadAttachmentData, ChatUploadAttachmentResponse, DashboardOverviewData, DashboardOverviewResponse, DashboardProjectStatsData, DashboardProjectStatsResponse, DashboardUserWorkloadData, DashboardUserWorkloadResponse, DashboardLeaderboardData, DashboardLeaderboardResponse, DashboardOverdueReportData, DashboardOverdueReportResponse, DashboardTaskCalendarData, DashboardTaskCalendarResponse, LoginLoginAccessTokenData, LoginLoginAccessTokenResponse, LoginTestTokenResponse, LoginRefreshAccessTokenData, LoginRefreshAccessTokenResponse, LoginLogoutData, LoginLogoutResponse, LoginRecoverPasswordData, LoginRecoverPasswordResponse, LoginResetPasswordData, LoginResetPasswordResponse, LoginRecoverPasswordHtmlContentData, LoginRecoverPasswordHtmlContentResponse, PrivateCreateUserData, PrivateCreateUserResponse, ProjectsListProjectsData, ProjectsListProjectsResponse, ProjectsCreateProjectData, ProjectsCreateProjectResponse, ProjectsGetProjectData, ProjectsGetProjectResponse, ProjectsUpdateProjectData, ProjectsUpdateProjectResponse, ProjectsUpsertLevelConfigData, ProjectsUpsertLevelConfigResponse, ProjectsGetLevelConfigsData, ProjectsGetLevelConfigsResponse, ProjectsGetMembersData, ProjectsGetMembersResponse, ProjectsAddMemberData, ProjectsAddMemberResponse, RolesListRoleDependenciesData, RolesListRoleDependenciesResponse, RolesListCompanyRolesData, RolesListCompanyRolesResponse, RolesListCompaniesResponse, RolesCreateCompanyData, RolesCreateCompanyResponse, RolesUpdateCompanyData, RolesUpdateCompanyResponse, RolesCreateDepartmentData, RolesCreateDepartmentResponse, RolesListDepartmentsData, RolesListDepartmentsResponse, RolesCreateRoleData, RolesCreateRoleResponse, RolesCreateRoleDependencyData, RolesCreateRoleDependencyResponse, RolesAssignUserCompanyRoleData, RolesAssignUserCompanyRoleResponse, RolesListUserCompanyRolesData, RolesListUserCompanyRolesResponse, RolesMyAccountProfileResponse, RolesGetOrgTreeData, RolesGetOrgTreeResponse, TasksCreateRootTaskData, TasksCreateRootTaskResponse, TasksListProjectTasksData, TasksListProjectTasksResponse, TasksCreateChildTaskData, TasksCreateChildTaskResponse, TasksGetTaskData, TasksGetTaskResponse, TasksUpdateTaskData, TasksUpdateTaskResponse, TasksDeleteTaskData, TasksDeleteTaskResponse, TasksMyDashboardResponse, TasksUpdateTaskStatusData, TasksUpdateTaskStatusResponse, TasksCloneTaskData, TasksCloneTaskResponse, TasksAddCommentData, TasksAddCommentResponse, TasksListCommentsData, TasksListCommentsResponse, TasksApproveDelayRequestData, TasksApproveDelayRequestResponse, TasksUploadProofData, TasksUploadProofResponse, TasksListProofsData, TasksListProofsResponse, TasksReviewProofData, TasksReviewProofResponse, TasksAddDependencyData, TasksAddDependencyResponse, TasksAddProgressReportData, TasksAddProgressReportResponse, TasksListProgressReportsData, TasksListProgressReportsResponse, TasksGetTaskAuditData, TasksGetTaskAuditResponse, TasksCheckConflictsData, TasksCheckConflictsResponse, UsersReadUserByEmailData, UsersReadUserByEmailResponse, UsersReadUsersData, UsersReadUsersResponse, UsersCreateUserData, UsersCreateUserResponse, UsersReadUserMeResponse, UsersDeleteUserMeResponse, UsersUpdateUserMeData, UsersUpdateUserMeResponse, UsersUpdatePasswordMeData, UsersUpdatePasswordMeResponse, UsersRegisterUserData, UsersRegisterUserResponse, UsersReadUserByIdData, UsersReadUserByIdResponse, UsersUpdateUserData, UsersUpdateUserResponse, UsersDeleteUserData, UsersDeleteUserResponse, UtilsTestEmailData, UtilsTestEmailResponse, UtilsHealthCheckResponse } from './types.gen';
+import type { ChatListMyRoomsResponse, ChatCreateRoomData, ChatCreateRoomResponse, ChatGetRoomData, ChatGetRoomResponse, ChatUpdateRoomData, ChatUpdateRoomResponse, ChatDeleteRoomData, ChatDeleteRoomResponse, ChatListMembersData, ChatListMembersResponse, ChatAddMemberData, ChatAddMemberResponse, ChatRemoveMemberData, ChatRemoveMemberResponse, ChatListMessagesData, ChatListMessagesResponse, ChatCreateMessageData, ChatCreateMessageResponse, ChatUploadAttachmentData, ChatUploadAttachmentResponse, DashboardOverviewData, DashboardOverviewResponse, DashboardProjectStatsData, DashboardProjectStatsResponse, DashboardUserWorkloadData, DashboardUserWorkloadResponse, DashboardLeaderboardData, DashboardLeaderboardResponse, DashboardOverdueReportData, DashboardOverdueReportResponse, DashboardTaskCalendarData, DashboardTaskCalendarResponse, LoginLoginAccessTokenData, LoginLoginAccessTokenResponse, LoginTestTokenResponse, LoginRefreshAccessTokenData, LoginRefreshAccessTokenResponse, LoginLogoutData, LoginLogoutResponse, LoginRecoverPasswordData, LoginRecoverPasswordResponse, LoginResetPasswordData, LoginResetPasswordResponse, LoginRecoverPasswordHtmlContentData, LoginRecoverPasswordHtmlContentResponse, PrivateCreateUserData, PrivateCreateUserResponse, ProjectsListProjectsData, ProjectsListProjectsResponse, ProjectsCreateProjectData, ProjectsCreateProjectResponse, ProjectsGetProjectData, ProjectsGetProjectResponse, ProjectsUpdateProjectData, ProjectsUpdateProjectResponse, ProjectsUpsertLevelConfigData, ProjectsUpsertLevelConfigResponse, ProjectsGetLevelConfigsData, ProjectsGetLevelConfigsResponse, ProjectsGetMembersData, ProjectsGetMembersResponse, ProjectsAddMemberData, ProjectsAddMemberResponse, RolesListRoleDependenciesData, RolesListRoleDependenciesResponse, RolesListCompanyRolesData, RolesListCompanyRolesResponse, RolesListCompaniesResponse, RolesCreateCompanyData, RolesCreateCompanyResponse, RolesUpdateCompanyData, RolesUpdateCompanyResponse, RolesCreateDepartmentData, RolesCreateDepartmentResponse, RolesListDepartmentsData, RolesListDepartmentsResponse, RolesCreateRoleData, RolesCreateRoleResponse, RolesCreateRoleDependencyData, RolesCreateRoleDependencyResponse, RolesAssignUserCompanyRoleData, RolesAssignUserCompanyRoleResponse, RolesListUserCompanyRolesData, RolesListUserCompanyRolesResponse, RolesMyAccountProfileResponse, RolesGetOrgTreeData, RolesGetOrgTreeResponse, TasksCreateRootTaskData, TasksCreateRootTaskResponse, TasksListProjectTasksData, TasksListProjectTasksResponse, TasksCreateChildTaskData, TasksCreateChildTaskResponse, TasksGetTaskData, TasksGetTaskResponse, TasksUpdateTaskData, TasksUpdateTaskResponse, TasksDeleteTaskData, TasksDeleteTaskResponse, TasksMyDashboardResponse, TasksUpdateTaskStatusData, TasksUpdateTaskStatusResponse, TasksCloneTaskData, TasksCloneTaskResponse, TasksAddCommentData, TasksAddCommentResponse, TasksListCommentsData, TasksListCommentsResponse, TasksApproveDelayRequestData, TasksApproveDelayRequestResponse, TasksUploadProofData, TasksUploadProofResponse, TasksListProofsData, TasksListProofsResponse, TasksReviewProofData, TasksReviewProofResponse, TasksAddDependencyData, TasksAddDependencyResponse, TasksUploadProgressReportPhotoData, TasksUploadProgressReportPhotoResponse, TasksAddProgressReportData, TasksAddProgressReportResponse, TasksListProgressReportsData, TasksListProgressReportsResponse, TasksGetTaskAuditData, TasksGetTaskAuditResponse, TasksCheckConflictsData, TasksCheckConflictsResponse, UsersReadUserByEmailData, UsersReadUserByEmailResponse, UsersReadUsersData, UsersReadUsersResponse, UsersCreateUserData, UsersCreateUserResponse, UsersReadUserMeResponse, UsersDeleteUserMeResponse, UsersUpdateUserMeData, UsersUpdateUserMeResponse, UsersUpdatePasswordMeData, UsersUpdatePasswordMeResponse, UsersRegisterUserData, UsersRegisterUserResponse, UsersReadUserByIdData, UsersReadUserByIdResponse, UsersUpdateUserData, UsersUpdateUserResponse, UsersDeleteUserData, UsersDeleteUserResponse, UtilsTestEmailData, UtilsTestEmailResponse, UtilsHealthCheckResponse } from './types.gen';
 
 export class ChatService {
     /**
@@ -682,9 +682,10 @@ export class ProjectsService {
     
     /**
      * Get Members
+     * List project members with user full name, email, and role display label.
      * @param data The data for the request.
      * @param data.projectId
-     * @returns unknown Successful Response
+     * @returns ProjectMemberWithUserPublic Successful Response
      * @throws ApiError
      */
     public static getMembers(data: ProjectsGetMembersData): CancelablePromise<ProjectsGetMembersResponse> {
@@ -1140,7 +1141,7 @@ export class TasksService {
     
     /**
      * My Dashboard
-     * Personal task dashboard: today / due_soon / overdue_critical.
+     * Personal task dashboard with company/project metadata and filter options.
      * @returns unknown Successful Response
      * @throws ApiError
      */
@@ -1353,8 +1354,8 @@ export class TasksService {
         return __request(OpenAPI, {
             method: 'POST',
             url: '/api/v1/tasks/{task_id}/dependencies',
-            path: {
-                task_id: data.taskId
+            query: {
+                _task_id: data.taskId
             },
             body: data.requestBody,
             mediaType: 'application/json',
@@ -1365,8 +1366,32 @@ export class TasksService {
     }
     
     /**
+     * Upload Progress Report Photo
+     * Persist an image from the assignee's device; use photo_url in add progress report.
+     * @param data The data for the request.
+     * @param data.taskId
+     * @param data.formData
+     * @returns TaskProgressPhotoUploadPublic Successful Response
+     * @throws ApiError
+     */
+    public static uploadProgressReportPhoto(data: TasksUploadProgressReportPhotoData): CancelablePromise<TasksUploadProgressReportPhotoResponse> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/api/v1/tasks/{task_id}/progress-reports/upload-photo',
+            path: {
+                task_id: data.taskId
+            },
+            formData: data.formData,
+            mediaType: 'multipart/form-data',
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
      * Add Progress Report
-     * Worker submits photo URL and self-reported percent; total >= 100%% marks task done.
+     * Worker submits photo URL and percent; sum capped at 100%%; auto in_progress / done.
      * @param data The data for the request.
      * @param data.taskId
      * @param data.requestBody

@@ -1,69 +1,60 @@
-"""Chat REST API router (rooms, members, message history, attachments)."""
+"""Chat REST routes — full async."""
 
 from __future__ import annotations
 
 import uuid
 
-from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
-from sqlmodel import Session, func, select
+from fastapi import APIRouter, File, HTTPException, Query, UploadFile, status
+from sqlalchemy import select
 
-from app.api.deps import get_current_user, get_db
-from app.shared.storage import LocalStorage
+from app.api.deps import AsyncSessionDep, CurrentUser
 from app.models.chat import (
-    ChatAttachment,
     ChatAttachmentPublic,
     ChatMember,
     ChatMemberAdd,
-    ChatMemberPublic,
     ChatMemberWithUserPublic,
     ChatMessage,
     ChatMessageCreate,
     ChatMessagePublic,
-    ChatRoom,
     ChatRoomCreate,
     ChatRoomPublic,
     ChatRoomUpdate,
 )
-from app.models.user import User
-from app.shared.chat_service import (
-    get_room_or_404,
-    require_active_member,
-    require_company,
-    require_room_admin,
-)
+from app.repositories.chat_repository import ChatRepository
+from app.repositories.user_repository import UserRepository
+from app.shared.storage import LocalStorage
 
 router = APIRouter(tags=["chat"])
-
 
 _storage = LocalStorage()
 
 
+# ---------------------------------------------------------------------------
+# Rooms
+# ---------------------------------------------------------------------------
+
 @router.post("/chat/rooms", response_model=ChatRoomPublic, status_code=status.HTTP_201_CREATED)
-def create_room(
+async def create_room(
     body: ChatRoomCreate,
-    session: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
+    session: AsyncSessionDep,
+    current_user: CurrentUser,
+) -> ChatRoomPublic:
     """Create a chat room and add members."""
+    repo = ChatRepository(session)
+    user_repo = UserRepository(session)
+    company_id = await repo.get_user_company_id(current_user.id, current_user.company_id)
 
-    company_id = require_company(session, current_user)
-    room = ChatRoom(
-        company_id=company_id,
-        room_type=body.room_type,
-        name=body.name,
-        room_color=body.room_color,
-        created_by=current_user.id,
-    )
-    session.add(room)
-    session.flush()
-
-    # Creator is always a member (owner)
-    session.add(ChatMember(room_id=room.id, user_id=current_user.id, role="owner"))
+    room = await repo.create_room({
+        "company_id": company_id,
+        "room_type": body.room_type,
+        "name": body.name,
+        "room_color": getattr(body, "room_color", None),
+        "created_by": current_user.id,
+    })
+    await repo.add_member(room.id, current_user.id, "owner")
 
     if body.member_user_ids:
-        users = session.exec(
-            select(User).where(User.id.in_(body.member_user_ids))  # type: ignore[attr-defined]
-        ).all()
+        users = await user_repo.list_by_ids(list(body.member_user_ids))
         found = {u.id for u in users}
         missing = [str(uid) for uid in body.member_user_ids if uid not in found]
         if missing:
@@ -73,109 +64,106 @@ def create_room(
                 raise HTTPException(422, "All members must be in the same company")
             if u.id == current_user.id:
                 continue
-            session.add(ChatMember(room_id=room.id, user_id=u.id, role="member"))
+            await repo.add_member(room.id, u.id, "member")
 
-    session.commit()
-    session.refresh(room)
-    return room
+    return room  # type: ignore[return-value]
 
 
 @router.get("/chat/rooms", response_model=list[ChatRoomPublic])
-def list_my_rooms(
-    session: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
+async def list_my_rooms(
+    session: AsyncSessionDep,
+    current_user: CurrentUser,
+) -> list[ChatRoomPublic]:
     """List rooms the current user belongs to."""
-
-    require_company(session, current_user)
-    room_ids = session.exec(
-        select(ChatMember.room_id).where(
-            ChatMember.user_id == current_user.id, ChatMember.left_at.is_(None)
-        )
-    ).all()
-    if not room_ids:
-        return []
-    return session.exec(select(ChatRoom).where(ChatRoom.id.in_(room_ids))).all()  # type: ignore[attr-defined]
+    repo = ChatRepository(session)
+    return list(await repo.list_rooms_for_user(current_user.id))  # type: ignore[return-value]
 
 
 @router.get("/chat/rooms/{room_id}", response_model=ChatRoomPublic)
-def get_room(
+async def get_room(
     room_id: uuid.UUID,
-    session: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
+    session: AsyncSessionDep,
+    current_user: CurrentUser,
+) -> ChatRoomPublic:
     """Get room details (member-only)."""
-
-    require_active_member(session, room_id, current_user.id)
-    return get_room_or_404(session, room_id)
+    repo = ChatRepository(session)
+    await repo.require_active_member(room_id, current_user.id)
+    return await repo.get_room_or_404(room_id)  # type: ignore[return-value]
 
 
 @router.patch("/chat/rooms/{room_id}", response_model=ChatRoomPublic)
-def update_room(
+async def update_room(
     room_id: uuid.UUID,
     body: ChatRoomUpdate,
-    session: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    """Update room metadata (member-only temporary policy)."""
-
-    require_active_member(session, room_id, current_user.id)
-    room = get_room_or_404(session, room_id)
+    session: AsyncSessionDep,
+    current_user: CurrentUser,
+) -> ChatRoomPublic:
+    """Update room metadata."""
+    repo = ChatRepository(session)
+    await repo.require_active_member(room_id, current_user.id)
+    room = await repo.get_room_or_404(room_id)
     update_data = body.model_dump(exclude_unset=True)
-    for k, v in update_data.items():
-        setattr(room, k, v)
-    session.add(room)
-    session.commit()
-    session.refresh(room)
-    return room
+    room = await repo.update_room(room, update_data)
+    return room  # type: ignore[return-value]
 
 
 @router.delete("/chat/rooms/{room_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_room(
+async def delete_room(
     room_id: uuid.UUID,
-    session: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
+    session: AsyncSessionDep,
+    current_user: CurrentUser,
+) -> None:
     """Delete a room (admin-only)."""
+    repo = ChatRepository(session)
+    await repo.require_room_admin(room_id, current_user.id)
+    room = await repo.get_room_or_404(room_id)
 
-    require_room_admin(session, room_id, current_user.id)
-    room = get_room_or_404(session, room_id)
-
-    # Manual cascade delete (attachments -> messages -> members -> room)
-    message_ids = session.exec(select(ChatMessage.id).where(ChatMessage.room_id == room_id)).all()
+    msg_ids_result = await session.execute(
+        select(ChatMessage.id).where(ChatMessage.room_id == room_id)
+    )
+    message_ids = msg_ids_result.scalars().all()
     if message_ids:
-        attachments = session.exec(
-            select(ChatAttachment).where(ChatAttachment.message_id.in_(message_ids))  # type: ignore[attr-defined]
-        ).all()
-        for a in attachments:
-            session.delete(a)
-        messages = session.exec(select(ChatMessage).where(ChatMessage.id.in_(message_ids))).all()  # type: ignore[attr-defined]
-        for m in messages:
-            session.delete(m)
+        from app.models.chat import ChatAttachment
+        att_result = await session.execute(
+            select(ChatAttachment).where(
+                ChatAttachment.message_id.in_(message_ids)  # type: ignore[arg-type]
+            )
+        )
+        for att in att_result.scalars().all():
+            await session.delete(att)
+        msg_result = await session.execute(
+            select(ChatMessage).where(
+                ChatMessage.id.in_(message_ids)  # type: ignore[arg-type]
+            )
+        )
+        for msg in msg_result.scalars().all():
+            await session.delete(msg)
+    mem_result = await session.execute(
+        select(ChatMember).where(ChatMember.room_id == room_id)
+    )
+    for mem in mem_result.scalars().all():
+        await session.delete(mem)
+    await session.delete(room)
 
-    members = session.exec(select(ChatMember).where(ChatMember.room_id == room_id)).all()
-    for mem in members:
-        session.delete(mem)
 
-    session.delete(room)
-    session.commit()
-
+# ---------------------------------------------------------------------------
+# Members
+# ---------------------------------------------------------------------------
 
 @router.get("/chat/rooms/{room_id}/members", response_model=list[ChatMemberWithUserPublic])
-def list_members(
+async def list_members(
     room_id: uuid.UUID,
-    session: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
+    session: AsyncSessionDep,
+    current_user: CurrentUser,
+) -> list[ChatMemberWithUserPublic]:
     """List members of a room (member-only)."""
-
-    require_active_member(session, room_id, current_user.id)
-    rows = session.exec(
-        select(ChatMember, User)
-        .join(User, User.id == ChatMember.user_id)
-        .where(ChatMember.room_id == room_id)
-        .order_by(ChatMember.joined_at)
-    ).all()
+    repo = ChatRepository(session)
+    user_repo = UserRepository(session)
+    await repo.require_active_member(room_id, current_user.id)
+    members = await repo.list_members(room_id)
+    user_ids = [m.user_id for m in members]
+    users = await user_repo.list_by_ids(user_ids)
+    by_id = {u.id: u for u in users}
     return [
         ChatMemberWithUserPublic(
             room_id=m.room_id,
@@ -183,10 +171,10 @@ def list_members(
             role=m.role,
             joined_at=m.joined_at,
             left_at=m.left_at,
-            email=u.email,
-            full_name=u.full_name,
+            email=by_id[m.user_id].email if m.user_id in by_id else None,
+            full_name=by_id[m.user_id].full_name if m.user_id in by_id else None,
         )
-        for (m, u) in rows
+        for m in members
     ]
 
 
@@ -195,45 +183,33 @@ def list_members(
     response_model=ChatMemberWithUserPublic,
     status_code=status.HTTP_201_CREATED,
 )
-def add_member(
+async def add_member(
     room_id: uuid.UUID,
     body: ChatMemberAdd,
-    session: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
+    session: AsyncSessionDep,
+    current_user: CurrentUser,
+) -> ChatMemberWithUserPublic:
     """Add member to room (admin-only)."""
-
-    require_room_admin(session, room_id, current_user.id)
-    room = get_room_or_404(session, room_id)
-    u = session.get(User, body.user_id)
-    if not u:
-        raise HTTPException(404, "User not found")
+    repo = ChatRepository(session)
+    user_repo = UserRepository(session)
+    await repo.require_room_admin(room_id, current_user.id)
+    room = await repo.get_room_or_404(room_id)
+    u = await user_repo.get_or_404(body.user_id)
     if u.company_id != room.company_id:
         raise HTTPException(422, "User must be in same company as room")
 
-    existing = session.get(ChatMember, (room_id, body.user_id))
+    existing = await repo.get_member(room_id, body.user_id)
     if existing and existing.left_at is None:
         raise HTTPException(409, "User is already a member")
     if existing and existing.left_at is not None:
         existing.left_at = None
         existing.role = body.role
         session.add(existing)
-        session.commit()
-        session.refresh(existing)
-        return ChatMemberWithUserPublic(
-            room_id=existing.room_id,
-            user_id=existing.user_id,
-            role=existing.role,
-            joined_at=existing.joined_at,
-            left_at=existing.left_at,
-            email=u.email,
-            full_name=u.full_name,
-        )
+        await session.flush()
+        m = existing
+    else:
+        m = await repo.add_member(room_id, body.user_id, body.role)
 
-    m = ChatMember(room_id=room_id, user_id=body.user_id, role=body.role)
-    session.add(m)
-    session.commit()
-    session.refresh(m)
     return ChatMemberWithUserPublic(
         room_id=m.room_id,
         user_id=m.user_id,
@@ -246,40 +222,38 @@ def add_member(
 
 
 @router.delete("/chat/rooms/{room_id}/members/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
-def remove_member(
+async def remove_member(
     room_id: uuid.UUID,
     user_id: uuid.UUID,
-    session: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
+    session: AsyncSessionDep,
+    current_user: CurrentUser,
+) -> None:
     """Remove a member from a room (admin-only)."""
-
-    require_room_admin(session, room_id, current_user.id)
-    m = session.get(ChatMember, (room_id, user_id))
+    repo = ChatRepository(session)
+    await repo.require_room_admin(room_id, current_user.id)
+    m = await repo.get_member(room_id, user_id)
     if not m:
         raise HTTPException(404, "Member not found")
-    session.delete(m)
-    session.commit()
+    await session.delete(m)
 
+
+# ---------------------------------------------------------------------------
+# Messages
+# ---------------------------------------------------------------------------
 
 @router.get("/chat/rooms/{room_id}/messages", response_model=list[ChatMessagePublic])
-def list_messages(
+async def list_messages(
     room_id: uuid.UUID,
-    skip: int = 0,
+    session: AsyncSessionDep,
+    current_user: CurrentUser,
+    before_id: uuid.UUID | None = Query(default=None),
     limit: int = Query(default=50, le=200),
-    session: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
+) -> list[ChatMessagePublic]:
     """List message history in a room (member-only)."""
-
-    require_active_member(session, room_id, current_user.id)
-    return session.exec(
-        select(ChatMessage)
-        .where(ChatMessage.room_id == room_id)
-        .order_by(ChatMessage.created_at.desc())
-        .offset(skip)
-        .limit(limit)
-    ).all()
+    repo = ChatRepository(session)
+    await repo.require_active_member(room_id, current_user.id)
+    messages = await repo.list_messages(room_id, before_id, limit)
+    return list(messages)  # type: ignore[return-value]
 
 
 @router.post(
@@ -287,25 +261,22 @@ def list_messages(
     response_model=ChatMessagePublic,
     status_code=status.HTTP_201_CREATED,
 )
-def create_message(
+async def create_message(
     room_id: uuid.UUID,
     body: ChatMessageCreate,
-    session: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    """Create a text message in a room (member-only)."""
-
-    require_active_member(session, room_id, current_user.id)
-    msg = ChatMessage(
-        room_id=room_id,
-        sender_id=current_user.id,
-        message_type="text",
-        content=body.content,
-    )
-    session.add(msg)
-    session.commit()
-    session.refresh(msg)
-    return msg
+    session: AsyncSessionDep,
+    current_user: CurrentUser,
+) -> ChatMessagePublic:
+    """Send a text message (member-only)."""
+    repo = ChatRepository(session)
+    await repo.require_active_member(room_id, current_user.id)
+    msg = await repo.create_message({
+        "room_id": room_id,
+        "sender_id": current_user.id,
+        "message_type": "text",
+        "content": body.content,
+    })
+    return msg  # type: ignore[return-value]
 
 
 @router.post(
@@ -315,38 +286,33 @@ def create_message(
 )
 async def upload_attachment(
     room_id: uuid.UUID,
+    session: AsyncSessionDep,
+    current_user: CurrentUser,
     file: UploadFile = File(...),
-    session: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    """Upload an attachment and create a file-message in the room (member-only)."""
-
-    require_active_member(session, room_id, current_user.id)
+) -> ChatAttachmentPublic:
+    """Upload an attachment and create a file-message in the room."""
+    repo = ChatRepository(session)
+    await repo.require_active_member(room_id, current_user.id)
     try:
         stored = await _storage.save_upload(file)
-    except ValueError as e:
-        raise HTTPException(422, str(e))
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from exc
 
-    msg = ChatMessage(
-        room_id=room_id,
-        sender_id=current_user.id,
-        message_type="file",
-        content=None,
-    )
-    session.add(msg)
-    session.flush()
+    msg = await repo.create_message({
+        "room_id": room_id,
+        "sender_id": current_user.id,
+        "message_type": "file",
+        "content": None,
+    })
+    att = await repo.create_attachment({
+        "message_id": msg.id,
+        "filename": file.filename,
+        "mime_type": file.content_type,
+        "size_bytes": stored.size_bytes,
+        "storage_path": stored.storage_path,
+        "public_url": stored.public_url,
+    })
 
-    att = ChatAttachment(
-        message_id=msg.id,
-        filename=file.filename,
-        mime_type=file.content_type,
-        size_bytes=stored.size_bytes,
-        storage_path=stored.storage_path,
-        public_url=stored.public_url,
-    )
-    session.add(att)
-    session.commit()
-    session.refresh(att)
     return ChatAttachmentPublic(
         id=att.id,
         message_id=att.message_id,
@@ -356,4 +322,3 @@ async def upload_attachment(
         public_url=att.public_url,
         created_at=att.created_at,
     )
-

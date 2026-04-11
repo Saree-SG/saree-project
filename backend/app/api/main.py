@@ -1,7 +1,17 @@
 from fastapi import APIRouter
 
-from app.api.routes import login, private, users, utils, roles, chat, chat_ws
-from app.api.routes import projects, tasks, dashboard
+from app.api.routes import (
+    chat,
+    chat_ws,
+    dashboard,
+    login,
+    private,
+    projects,
+    roles,
+    tasks,
+    users,
+    utils,
+)
 from app.core.config import settings
 
 api_router = APIRouter()

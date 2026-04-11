@@ -69,9 +69,13 @@ export async function createChatRoom(body: {
   room_color?: string | null
   member_user_ids?: string[]
 }): Promise<ChatRoom> {
-  const r = await axios.post<ChatRoom>(`${OpenAPI.BASE}/api/v1/chat/rooms`, body, {
-    headers: authHeaders(),
-  })
+  const r = await axios.post<ChatRoom>(
+    `${OpenAPI.BASE}/api/v1/chat/rooms`,
+    body,
+    {
+      headers: authHeaders(),
+    },
+  )
   return r.data
 }
 
@@ -98,10 +102,13 @@ export async function deleteChatRoom(roomId: string): Promise<void> {
 }
 
 export async function getUserByEmail(email: string): Promise<UserPublic> {
-  const r = await axios.get<UserPublic>(`${OpenAPI.BASE}/api/v1/users/by-email`, {
-    params: { email },
-    headers: authHeaders(),
-  })
+  const r = await axios.get<UserPublic>(
+    `${OpenAPI.BASE}/api/v1/users/by-email`,
+    {
+      params: { email },
+      headers: authHeaders(),
+    },
+  )
   return r.data
 }
 
@@ -130,9 +137,12 @@ export async function removeRoomMember(params: {
   roomId: string
   userId: string
 }): Promise<void> {
-  await axios.delete(`${OpenAPI.BASE}/api/v1/chat/rooms/${params.roomId}/members/${params.userId}`, {
-    headers: authHeaders(),
-  })
+  await axios.delete(
+    `${OpenAPI.BASE}/api/v1/chat/rooms/${params.roomId}/members/${params.userId}`,
+    {
+      headers: authHeaders(),
+    },
+  )
 }
 
 export async function listRoomMessages(params: {
@@ -175,4 +185,3 @@ export async function uploadRoomAttachment(params: {
   )
   return r.data
 }
-

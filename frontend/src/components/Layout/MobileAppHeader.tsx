@@ -1,5 +1,5 @@
-import { ChevronLeft } from "lucide-react"
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router"
+import { ChevronLeft } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
@@ -10,7 +10,10 @@ type Crumb = { label: string; to?: string }
  * Derives breadcrumb trail labels and optional parent links from the URL path.
  */
 function computeBreadcrumbs(pathname: string): Crumb[] {
-  const normalized = pathname.endsWith("/") && pathname.length > 1 ? pathname.slice(0, -1) : pathname
+  const normalized =
+    pathname.endsWith("/") && pathname.length > 1
+      ? pathname.slice(0, -1)
+      : pathname
 
   if (normalized === "" || normalized === "/") {
     return [{ label: "Tổng quan" }]
@@ -19,10 +22,7 @@ function computeBreadcrumbs(pathname: string): Crumb[] {
     return [{ label: "Công việc" }]
   }
   if (/^\/tasks\/[^/]+$/.test(normalized)) {
-    return [
-      { label: "Công việc", to: "/tasks" },
-      { label: "Chi tiết" },
-    ]
+    return [{ label: "Công việc", to: "/tasks" }, { label: "Chi tiết" }]
   }
   if (normalized.startsWith("/chat")) {
     return [{ label: "Chat" }]
@@ -34,10 +34,7 @@ function computeBreadcrumbs(pathname: string): Crumb[] {
     return [{ label: "Cài đặt" }]
   }
   if (/^\/projects\/[^/]+$/.test(normalized)) {
-    return [
-      { label: "Tổng quan", to: "/" },
-      { label: "Dự án" },
-    ]
+    return [{ label: "Tổng quan", to: "/" }, { label: "Dự án" }]
   }
   if (normalized === "/items") {
     return [{ label: "Items" }]
@@ -49,7 +46,10 @@ function computeBreadcrumbs(pathname: string): Crumb[] {
  * Chooses explicit parent navigation or browser history for the mobile back control.
  */
 function resolveMobileBackTarget(pathname: string): string | "history" | null {
-  const normalized = pathname.endsWith("/") && pathname.length > 1 ? pathname.slice(0, -1) : pathname
+  const normalized =
+    pathname.endsWith("/") && pathname.length > 1
+      ? pathname.slice(0, -1)
+      : pathname
   if (normalized === "" || normalized === "/") {
     return null
   }
@@ -66,7 +66,9 @@ function resolveMobileBackTarget(pathname: string): string | "history" | null {
  * Sticky mobile top bar with back control and breadcrumbs (hidden from md breakpoint up).
  */
 export function MobileAppHeader() {
-  const pathname = useRouterState({ select: (state) => state.location.pathname })
+  const pathname = useRouterState({
+    select: (state) => state.location.pathname,
+  })
   const navigate = useNavigate()
   const crumbs = computeBreadcrumbs(pathname)
   const backTarget = resolveMobileBackTarget(pathname)
@@ -109,8 +111,13 @@ export function MobileAppHeader() {
         <nav className="min-w-0 flex-1 overflow-x-auto" aria-label="Breadcrumb">
           <ol className="flex items-center gap-1 whitespace-nowrap text-sm">
             {crumbs.map((crumb, index) => (
-              <li key={`${crumb.label}-${index}`} className="flex items-center gap-1">
-                {index > 0 ? <span className="text-muted-foreground">/</span> : null}
+              <li
+                key={`${crumb.label}-${index}`}
+                className="flex items-center gap-1"
+              >
+                {index > 0 ? (
+                  <span className="text-muted-foreground">/</span>
+                ) : null}
                 {crumb.to && index < crumbs.length - 1 ? (
                   <Link
                     to={crumb.to}
@@ -119,7 +126,9 @@ export function MobileAppHeader() {
                     {crumb.label}
                   </Link>
                 ) : (
-                  <span className="font-semibold text-foreground">{crumb.label}</span>
+                  <span className="font-semibold text-foreground">
+                    {crumb.label}
+                  </span>
                 )}
               </li>
             ))}

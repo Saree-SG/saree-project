@@ -1,13 +1,30 @@
-import { createFileRoute } from "@tanstack/react-router"
-import { useEffect, useMemo, useRef, useState } from "react"
-import { ArrowLeft, MoreVertical, Plus, SendHorizontal } from "lucide-react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-
-import useCustomToast from "@/hooks/useCustomToast"
+import { createFileRoute } from "@tanstack/react-router"
+import { ArrowLeft, MoreVertical, Plus, SendHorizontal } from "lucide-react"
+import { useEffect, useMemo, useRef, useState } from "react"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import { SidebarTrigger } from "@/components/ui/sidebar"
 import useAuth from "@/hooks/useAuth"
 import { useChatSocket } from "@/hooks/useChatSocket"
+import useCustomToast from "@/hooks/useCustomToast"
 import {
   addRoomMember,
+  type ChatMember,
+  type ChatMessage,
+  type ChatRoom,
   createChatRoom,
   deleteChatRoom,
   getUserByEmail,
@@ -15,15 +32,9 @@ import {
   listRoomMembers,
   listRoomMessages,
   removeRoomMember,
-  type ChatMember,
-  type ChatMessage,
-  type ChatRoom,
   updateChatRoom,
   uploadRoomAttachment,
 } from "@/modules/chat/chatApi"
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import { SidebarTrigger } from "@/components/ui/sidebar"
 import { handleError } from "@/utils"
 
 export const Route = createFileRoute("/_layout/chat")({
@@ -33,14 +44,22 @@ export const Route = createFileRoute("/_layout/chat")({
 function roomInitials(name: string | null | undefined) {
   if (!name) return "CH"
   const parts = name.trim().split(/\s+/).filter(Boolean)
-  return parts.slice(0, 2).map((value) => value[0]?.toUpperCase() || "").join("") || "CH"
+  return (
+    parts
+      .slice(0, 2)
+      .map((value) => value[0]?.toUpperCase() || "")
+      .join("") || "CH"
+  )
 }
 
 function formatMessageTime(iso: string | null | undefined) {
   if (!iso) return ""
   const dateValue = new Date(iso)
   if (Number.isNaN(dateValue.getTime())) return ""
-  return dateValue.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+  return dateValue.toLocaleTimeString([], {
+    hour: "2-digit",
+    minute: "2-digit",
+  })
 }
 
 function ChatPage() {
@@ -80,7 +99,11 @@ function ChatPage() {
 
   const createRoomMutation = useMutation({
     mutationFn: async () =>
-      createChatRoom({ room_type: "group", name: "New room", member_user_ids: [] }),
+      createChatRoom({
+        room_type: "group",
+        name: "New room",
+        member_user_ids: [],
+      }),
     onSuccess: async (room) => {
       showSuccessToast("Room created")
       await queryClient.invalidateQueries({ queryKey: ["chat", "rooms"] })
@@ -90,14 +113,19 @@ function ChatPage() {
   })
 
   const updateRoomMutation = useMutation({
-    mutationFn: async (params: { roomId: string; name: string | null; room_color: string | null }) =>
-      updateChatRoom(params),
+    mutationFn: async (params: {
+      roomId: string
+      name: string | null
+      room_color: string | null
+    }) => updateChatRoom(params),
     onSuccess: async (room) => {
       showSuccessToast("Room updated")
       setRoomEditOpen(false)
       await queryClient.invalidateQueries({ queryKey: ["chat", "rooms"] })
       if (selectedRoomId) {
-        await queryClient.invalidateQueries({ queryKey: ["chat", "messages", selectedRoomId] })
+        await queryClient.invalidateQueries({
+          queryKey: ["chat", "messages", selectedRoomId],
+        })
       }
       setSelectedRoomId(room.id)
     },
@@ -117,10 +145,13 @@ function ChatPage() {
   })
 
   const uploadMutation = useMutation({
-    mutationFn: async (file: File) => uploadRoomAttachment({ roomId: selectedRoomId!, file }),
+    mutationFn: async (file: File) =>
+      uploadRoomAttachment({ roomId: selectedRoomId!, file }),
     onSuccess: async () => {
       showSuccessToast("Uploaded")
-      await queryClient.invalidateQueries({ queryKey: ["chat", "messages", selectedRoomId] })
+      await queryClient.invalidateQueries({
+        queryKey: ["chat", "messages", selectedRoomId],
+      })
     },
     onError: handleError.bind(showErrorToast),
   })
@@ -138,27 +169,33 @@ function ChatPage() {
     onSuccess: async () => {
       showSuccessToast("Invited")
       setInviteEmail("")
-      await queryClient.invalidateQueries({ queryKey: ["chat", "members", selectedRoomId] })
+      await queryClient.invalidateQueries({
+        queryKey: ["chat", "members", selectedRoomId],
+      })
     },
     onError: handleError.bind(showErrorToast),
   })
 
   const removeMemberMutation = useMutation({
-    mutationFn: async (userId: string) => removeRoomMember({ roomId: selectedRoomId!, userId }),
+    mutationFn: async (userId: string) =>
+      removeRoomMember({ roomId: selectedRoomId!, userId }),
     onSuccess: async () => {
       showSuccessToast("Removed")
-      await queryClient.invalidateQueries({ queryKey: ["chat", "members", selectedRoomId] })
+      await queryClient.invalidateQueries({
+        queryKey: ["chat", "members", selectedRoomId],
+      })
     },
     onError: handleError.bind(showErrorToast),
   })
 
   const selectedRoom: ChatRoom | undefined =
-    (roomsQuery.data ?? []).find((room) => room.id === selectedRoomId) ?? undefined
+    (roomsQuery.data ?? []).find((room) => room.id === selectedRoomId) ??
+    undefined
 
   useEffect(() => {
     setRoomNameInput(selectedRoom?.name ?? "")
     setRoomColorInput(selectedRoom?.room_color ?? "#2563eb")
-  }, [selectedRoom?.id, selectedRoom?.name, selectedRoom?.room_color])
+  }, [selectedRoom?.name, selectedRoom?.room_color])
 
   const filteredRooms = useMemo(() => {
     const queryValue = roomQuery.trim().toLowerCase()
@@ -170,25 +207,41 @@ function ChatPage() {
     })
   }, [roomQuery, roomsQuery.data])
 
-  const memberCount = (membersQuery.data ?? []).filter((member) => !member.left_at).length
+  const memberCount = (membersQuery.data ?? []).filter(
+    (member) => !member.left_at,
+  ).length
 
   const memberNameById = useMemo(() => {
     const memberMap = new Map<string, string>()
     for (const member of membersQuery.data ?? []) {
-      memberMap.set(member.user_id, (member.full_name || member.email || member.user_id).trim())
+      memberMap.set(
+        member.user_id,
+        (member.full_name || member.email || member.user_id).trim(),
+      )
     }
     if (currentUser?.id) {
-      memberMap.set(currentUser.id, currentUser.full_name || currentUser.email || "You")
+      memberMap.set(
+        currentUser.id,
+        currentUser.full_name || currentUser.email || "You",
+      )
     }
     return memberMap
-  }, [currentUser?.email, currentUser?.full_name, currentUser?.id, membersQuery.data])
+  }, [
+    currentUser?.email,
+    currentUser?.full_name,
+    currentUser?.id,
+    membersQuery.data,
+  ])
 
   const liveMessages = useMemo(() => {
     const baseMessages = (messagesQuery.data ?? []).slice().reverse()
     const incomingMessages = socket.events
       .filter((eventValue) => eventValue.type === "message.new")
       .map((eventValue) => (eventValue as any).message as ChatMessage)
-      .filter((messageValue) => !baseMessages.some((base) => base.id === messageValue.id))
+      .filter(
+        (messageValue) =>
+          !baseMessages.some((base) => base.id === messageValue.id),
+      )
     return [...baseMessages, ...incomingMessages]
   }, [messagesQuery.data, socket.events])
 
@@ -211,12 +264,14 @@ function ChatPage() {
     const messageListElement = messageListRef.current
     if (!messageListElement) return
     const distanceFromBottom =
-      messageListElement.scrollHeight - messageListElement.scrollTop - messageListElement.clientHeight
+      messageListElement.scrollHeight -
+      messageListElement.scrollTop -
+      messageListElement.clientHeight
     const shouldStickBottom = distanceFromBottom < 180
     if (shouldStickBottom) {
       messageListElement.scrollTop = messageListElement.scrollHeight
     }
-  }, [liveMessages.length])
+  }, [])
 
   return (
     <div className="flex h-full min-h-0 w-full flex-1 flex-col bg-white md:static md:h-full md:rounded-2xl md:border">
@@ -267,19 +322,30 @@ function ChatPage() {
                   {roomInitials(room.name)}
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-semibold">{room.name || "Untitled chat"}</p>
-                  <p className="truncate text-xs text-slate-500">{room.room_type}</p>
+                  <p className="truncate text-sm font-semibold">
+                    {room.name || "Untitled chat"}
+                  </p>
+                  <p className="truncate text-xs text-slate-500">
+                    {room.room_type}
+                  </p>
                 </div>
               </button>
             ))}
 
             {!roomsQuery.isLoading && filteredRooms.length === 0 ? (
-              <p className="px-2 py-5 text-xs text-slate-500">No rooms found.</p>
+              <p className="px-2 py-5 text-xs text-slate-500">
+                No rooms found.
+              </p>
             ) : null}
           </div>
         </aside>
 
-        <div className={["min-w-0 flex-1", selectedRoomId ? "block" : "hidden md:block"].join(" ")}>
+        <div
+          className={[
+            "min-w-0 flex-1",
+            selectedRoomId ? "block" : "hidden md:block",
+          ].join(" ")}
+        >
           <div className="grid h-full grid-rows-[4rem_minmax(0,1fr)_auto]">
             <div className="flex items-center justify-between border-b bg-white px-2 md:px-4">
               <div className="flex min-w-0 items-center gap-1.5">
@@ -296,7 +362,9 @@ function ChatPage() {
                     {selectedRoom?.name || "Select a conversation"}
                   </h2>
                   <p className="truncate text-[11px] text-slate-500">
-                    {selectedRoomId ? `${memberCount} members · ${socket.status}` : "No room selected"}
+                    {selectedRoomId
+                      ? `${memberCount} members · ${socket.status}`
+                      : "No room selected"}
                   </p>
                 </div>
               </div>
@@ -330,8 +398,11 @@ function ChatPage() {
                   <DropdownMenuItem
                     variant="destructive"
                     onClick={() => {
-                      if (!selectedRoomId || deleteRoomMutation.isPending) return
-                      const confirmed = window.confirm("Delete this room permanently?")
+                      if (!selectedRoomId || deleteRoomMutation.isPending)
+                        return
+                      const confirmed = window.confirm(
+                        "Delete this room permanently?",
+                      )
                       if (!confirmed) return
                       deleteRoomMutation.mutate(selectedRoomId)
                     }}
@@ -345,7 +416,9 @@ function ChatPage() {
                 <DialogContent className="max-w-md">
                   <DialogHeader>
                     <DialogTitle>Edit Room</DialogTitle>
-                    <DialogDescription>Update room name and color.</DialogDescription>
+                    <DialogDescription>
+                      Update room name and color.
+                    </DialogDescription>
                   </DialogHeader>
                   <form
                     className="space-y-4"
@@ -362,19 +435,27 @@ function ChatPage() {
                     }}
                   >
                     <div className="space-y-1">
-                      <label htmlFor="chat-room-name-input" className="text-sm font-medium">
+                      <label
+                        htmlFor="chat-room-name-input"
+                        className="text-sm font-medium"
+                      >
                         Room name
                       </label>
                       <input
                         id="chat-room-name-input"
                         value={roomNameInput}
-                        onChange={(eventValue) => setRoomNameInput(eventValue.target.value)}
+                        onChange={(eventValue) =>
+                          setRoomNameInput(eventValue.target.value)
+                        }
                         placeholder="Room name"
                         className="h-10 w-full rounded-lg border px-3 text-sm outline-none"
                       />
                     </div>
                     <div className="space-y-1">
-                      <label htmlFor="chat-room-color-input" className="text-sm font-medium">
+                      <label
+                        htmlFor="chat-room-color-input"
+                        className="text-sm font-medium"
+                      >
                         Room color
                       </label>
                       <div className="flex items-center gap-2">
@@ -383,13 +464,17 @@ function ChatPage() {
                           type="color"
                           title="Pick room color"
                           value={roomColorInput}
-                          onChange={(eventValue) => setRoomColorInput(eventValue.target.value)}
+                          onChange={(eventValue) =>
+                            setRoomColorInput(eventValue.target.value)
+                          }
                           className="h-10 w-12 rounded border p-1"
                         />
                         <input
                           id="chat-room-color-input"
                           value={roomColorInput}
-                          onChange={(eventValue) => setRoomColorInput(eventValue.target.value)}
+                          onChange={(eventValue) =>
+                            setRoomColorInput(eventValue.target.value)
+                          }
                           placeholder="#2563eb"
                           className="h-10 flex-1 rounded-lg border px-3 text-sm outline-none"
                         />
@@ -411,7 +496,9 @@ function ChatPage() {
                   <div className="border-b p-4">
                     <DialogHeader>
                       <DialogTitle>Group Settings</DialogTitle>
-                      <DialogDescription>Invite and manage members in this room.</DialogDescription>
+                      <DialogDescription>
+                        Invite and manage members in this room.
+                      </DialogDescription>
                     </DialogHeader>
                   </div>
 
@@ -427,7 +514,9 @@ function ChatPage() {
                   >
                     <input
                       value={inviteEmail}
-                      onChange={(eventValue) => setInviteEmail(eventValue.target.value)}
+                      onChange={(eventValue) =>
+                        setInviteEmail(eventValue.target.value)
+                      }
                       placeholder="Invite by email..."
                       className="h-10 flex-1 rounded-lg border px-3 text-sm outline-none"
                     />
@@ -452,7 +541,9 @@ function ChatPage() {
                           >
                             <div className="min-w-0">
                               <p className="truncate text-sm font-semibold">
-                                {member.full_name || member.email || member.user_id}
+                                {member.full_name ||
+                                  member.email ||
+                                  member.user_id}
                               </p>
                               <p className="text-xs text-slate-500">
                                 {member.email} · {member.role}
@@ -461,7 +552,9 @@ function ChatPage() {
                             <button
                               type="button"
                               disabled={removeMemberMutation.isPending}
-                              onClick={() => removeMemberMutation.mutate(member.user_id)}
+                              onClick={() =>
+                                removeMemberMutation.mutate(member.user_id)
+                              }
                               className="rounded-md border px-2 py-1 text-xs hover:bg-slate-50 disabled:opacity-60"
                             >
                               Remove
@@ -475,15 +568,28 @@ function ChatPage() {
               </Dialog>
             </div>
 
-            <div ref={messageListRef} className="min-h-0 overflow-y-auto px-2 py-3 md:px-4 md:py-5">
+            <div
+              ref={messageListRef}
+              className="min-h-0 overflow-y-auto px-2 py-3 md:px-4 md:py-5"
+            >
               {!selectedRoomId ? (
-                <p className="text-sm text-slate-500">Select a room to start chatting.</p>
+                <p className="text-sm text-slate-500">
+                  Select a room to start chatting.
+                </p>
               ) : (
                 <div className="space-y-3">
                   {liveMessages.map((messageValue) => {
-                    const isCurrentUser = messageValue.sender_id === currentUser?.id
+                    const isCurrentUser =
+                      messageValue.sender_id === currentUser?.id
                     return (
-                      <div key={messageValue.id} className={isCurrentUser ? "flex justify-end" : "flex justify-start"}>
+                      <div
+                        key={messageValue.id}
+                        className={
+                          isCurrentUser
+                            ? "flex justify-end"
+                            : "flex justify-start"
+                        }
+                      >
                         <div
                           className={[
                             "max-w-[calc(100%-0.5rem)] rounded-2xl px-3 py-2 shadow-sm md:max-w-[74%]",
@@ -494,14 +600,20 @@ function ChatPage() {
                         >
                           <div className="mb-1 flex items-center justify-between gap-3">
                             <span className="truncate text-[11px] font-semibold opacity-90">
-                              {isCurrentUser ? "You" : memberNameById.get(messageValue.sender_id) || messageValue.sender_id}
+                              {isCurrentUser
+                                ? "You"
+                                : memberNameById.get(messageValue.sender_id) ||
+                                  messageValue.sender_id}
                             </span>
                             <span className="text-[10px] opacity-80">
                               {formatMessageTime(messageValue.created_at)}
                             </span>
                           </div>
                           <p className="whitespace-pre-wrap text-sm leading-relaxed">
-                            {messageValue.content ?? (messageValue.message_type === "file" ? "(file)" : "")}
+                            {messageValue.content ??
+                              (messageValue.message_type === "file"
+                                ? "(file)"
+                                : "")}
                           </p>
                         </div>
                       </div>
@@ -551,7 +663,9 @@ function ChatPage() {
                   value={draft}
                   disabled={!selectedRoomId}
                   onChange={(eventValue) => setDraft(eventValue.target.value)}
-                  placeholder={selectedRoomId ? "Type a message..." : "Select a room first"}
+                  placeholder={
+                    selectedRoomId ? "Type a message..." : "Select a room first"
+                  }
                   className="h-10 flex-1 rounded-full bg-transparent px-2 text-sm outline-none disabled:opacity-60"
                 />
 
@@ -571,4 +685,3 @@ function ChatPage() {
     </div>
   )
 }
-

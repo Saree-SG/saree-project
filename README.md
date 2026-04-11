@@ -208,7 +208,7 @@ The input variables, with their default values (some auto generated) are:
 
 ## Backend Development
 
-Backend docs: [backend/README.md](./backend/README.md).
+Backend docs: [backend/README.md](./backend/README.md) (includes **Saree process demo reset** — wipes tenant DB and seeds roles/tasks from `Document/Quy_trình.txt`).
 
 ## Frontend Development
 
@@ -223,6 +223,24 @@ Deployment docs: [deployment.md](./deployment.md).
 General development docs: [development.md](./development.md).
 
 This includes using Docker Compose, custom local domains, `.env` configurations, etc.
+
+### Run with Docker (Frontend + Backend + Postgres)
+
+Prerequisites: Docker Desktop (or Docker Engine + Compose).
+
+```bash
+docker compose up --build
+```
+
+- Frontend: `http://localhost:5173`
+- Backend: `http://localhost:8111` (OpenAPI: `http://localhost:8111/api/v1/openapi.json`)
+- Postgres: `localhost:5432` (user/db/password: `saree`)
+
+By default, the backend container will run `reset_saree_process_demo` on startup (**wipes tenant data**) to seed the Saree scenario accounts and demo projects/tasks. To disable this:
+
+```bash
+RUN_SAREE_RESET=0 docker compose up --build
+```
 
 ## Release Notes
 

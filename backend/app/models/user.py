@@ -96,6 +96,7 @@ class User(UserBase, table=True):
 class UserPublic(UserBase):
     id: uuid.UUID
     created_at: datetime | None = None
+    company_id: uuid.UUID | None = None
     department_id: uuid.UUID | None = None
     job_title: str | None = None
     availability_status: str = "free"

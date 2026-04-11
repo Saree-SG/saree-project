@@ -1,8 +1,8 @@
-import { Link, createFileRoute } from "@tanstack/react-router"
-import { useMemo, useState } from "react"
 import { useQuery } from "@tanstack/react-query"
+import { createFileRoute, Link } from "@tanstack/react-router"
+import { useMemo } from "react"
 
-import { TasksService, type TaskPublic } from "@/client"
+import { type TaskPublic, TasksService } from "@/client"
 
 export const Route = createFileRoute("/_layout/tasks/")({
   component: MyTasksPage,
@@ -11,15 +11,16 @@ export const Route = createFileRoute("/_layout/tasks/")({
   }),
 })
 
-type CompanyOption = {
-  company_id: string
-  company_name: string
-}
-
-type ProjectOption = {
+type ProjectBucket = {
   project_id: string
   project_name: string
+  items: MyTaskItem[]
+}
+
+type CompanyBucket = {
   company_id: string
+  company_name: string
+  projects: ProjectBucket[]
 }
 
 type MyTaskItem = {
@@ -30,64 +31,112 @@ type MyTaskItem = {
   company_name: string
 }
 
+type AutoExpandTarget = {
+  companyId: string
+  projectId: string
+}
+
 type MyDashboardPayload = {
   overdue_critical?: MyTaskItem[]
   overdue_local?: MyTaskItem[]
   due_soon?: MyTaskItem[]
   today?: MyTaskItem[]
-  companies?: CompanyOption[]
-  projects?: ProjectOption[]
 }
 
 /**
- * Keeps rows that match optional company and project filters.
+ * Groups task rows by company, then project, with stable alphabetical ordering.
  */
-function filterMyTaskItems(
-  items: MyTaskItem[] | undefined,
-  companyId: string,
-  projectId: string,
-): MyTaskItem[] {
-  const list = items ?? []
-  return list.filter((row) => {
-    if (companyId && row.company_id !== companyId) {
-      return false
-    }
-    if (projectId && row.project_id !== projectId) {
-      return false
-    }
-    return true
-  })
-}
-
-/**
- * Groups task rows by project for subsection headings.
- */
-function groupByProject(rows: MyTaskItem[]) {
-  const order: string[] = []
-  const byKey = new Map<
+function groupByCompanyThenProject(rows: MyTaskItem[]): CompanyBucket[] {
+  const companyOrder: string[] = []
+  const byCompany = new Map<
     string,
-    { project_name: string; company_name: string; items: MyTaskItem[] }
-  >()
-  for (const row of rows) {
-    const key = `${row.company_id}::${row.project_id}`
-    if (!byKey.has(key)) {
-      order.push(key)
-      byKey.set(key, {
-        project_name: row.project_name,
-        company_name: row.company_name,
-        items: [],
-      })
+    {
+      company_name: string
+      projectOrder: string[]
+      projects: Map<string, { project_name: string; items: MyTaskItem[] }>
     }
-    byKey.get(key)!.items.push(row)
+  >()
+
+  for (const row of rows) {
+    let companyEntry = byCompany.get(row.company_id)
+    if (!companyEntry) {
+      companyOrder.push(row.company_id)
+      companyEntry = {
+        company_name: row.company_name,
+        projectOrder: [],
+        projects: new Map(),
+      }
+      byCompany.set(row.company_id, companyEntry)
+    }
+    let projectEntry = companyEntry.projects.get(row.project_id)
+    if (!projectEntry) {
+      companyEntry.projectOrder.push(row.project_id)
+      projectEntry = { project_name: row.project_name, items: [] }
+      companyEntry.projects.set(row.project_id, projectEntry)
+    }
+    projectEntry.items.push(row)
   }
-  return order.map((key) => {
-    const bucket = byKey.get(key)!
-    return { key, ...bucket }
+
+  const sortedCompanyIds = [...companyOrder].sort((a, b) => {
+    const nameA = byCompany.get(a)?.company_name ?? ""
+    const nameB = byCompany.get(b)?.company_name ?? ""
+    return nameA.localeCompare(nameB, "vi", { sensitivity: "base" })
+  })
+
+  return sortedCompanyIds.map((companyId) => {
+    const companyEntry = byCompany.get(companyId)!
+    const sortedProjectIds = [...companyEntry.projectOrder].sort((a, b) => {
+      const nameA = companyEntry.projects.get(a)?.project_name ?? ""
+      const nameB = companyEntry.projects.get(b)?.project_name ?? ""
+      return nameA.localeCompare(nameB, "vi", { sensitivity: "base" })
+    })
+    return {
+      company_id: companyId,
+      company_name: companyEntry.company_name,
+      projects: sortedProjectIds.map((projectId) => {
+        const projectEntry = companyEntry.projects.get(projectId)!
+        return {
+          project_id: projectId,
+          project_name: projectEntry.project_name,
+          items: projectEntry.items,
+        }
+      }),
+    }
   })
 }
 
-function TaskRow({ row }: { row: MyTaskItem }) {
+/**
+ * Pick one company/project branch to auto-open by nearest deadline.
+ */
+function pickAutoExpandTarget(rows: MyTaskItem[]): AutoExpandTarget | null {
+  if (rows.length === 0) {
+    return null
+  }
+  const sortedRows = rows
+    .slice()
+    .sort(
+      (a, b) =>
+        new Date(a.task.end_time).getTime() - new Date(b.task.end_time).getTime(),
+    )
+  const topRow = sortedRows[0]
+  return {
+    companyId: topRow.company_id,
+    projectId: topRow.project_id,
+  }
+}
+
+/**
+ * Single task card linking to detail; optional company/project line when not inside a project tree.
+ */
+function TaskRow({
+  row,
+  showContext,
+}: {
+  row: MyTaskItem
+  showContext?: boolean
+}) {
   const task = row.task
+  const context = showContext !== false
   return (
     <Link
       to="/tasks/$taskId"
@@ -95,18 +144,25 @@ function TaskRow({ row }: { row: MyTaskItem }) {
       className="block rounded-lg border bg-white p-3 shadow-sm hover:bg-slate-50"
     >
       <p className="text-sm font-bold">{task.name}</p>
-      <p className="text-[11px] text-muted-foreground">
-        {row.company_name} · {row.project_name}
-      </p>
+      {context ? (
+        <p className="text-[11px] text-muted-foreground">
+          {row.company_name} · {row.project_name}
+        </p>
+      ) : null}
       <p className="text-[11px] text-muted-foreground">
         Hạn: {new Date(task.end_time).toLocaleString()}
       </p>
-      <p className="mt-1 text-[10px] font-bold uppercase text-primary">{task.computed_status ?? task.status}</p>
+      <p className="mt-1 text-[10px] font-bold uppercase text-primary">
+        {task.computed_status ?? task.status}
+      </p>
     </Link>
   )
 }
 
-function Section({
+/**
+ * Renders one priority band as nested company → project disclosure trees.
+ */
+function PriorityTreeSection({
   title,
   items,
 }: {
@@ -116,122 +172,100 @@ function Section({
   if (items.length === 0) {
     return null
   }
-  const groups = groupByProject(items)
+  const tree = groupByCompanyThenProject(items)
+  const autoExpandTarget = pickAutoExpandTarget(items)
   return (
     <section className="space-y-3">
       <h2 className="text-sm font-bold">{title}</h2>
-      {groups.map((group) => (
-        <div key={group.key} className="space-y-2">
-          <p className="text-xs font-semibold text-primary">
-            {group.project_name}
-            <span className="font-normal text-muted-foreground"> — {group.company_name}</span>
-          </p>
-          <div className="space-y-2">
-            {group.items.map((row) => (
-              <TaskRow key={row.task.id} row={row} />
-            ))}
-          </div>
-        </div>
-      ))}
+      <div className="space-y-2">
+        {tree.map((company) => {
+          const companyTaskCount = company.projects.reduce(
+            (n, p) => n + p.items.length,
+            0,
+          )
+          const isAutoExpandCompany =
+            autoExpandTarget?.companyId === company.company_id
+          return (
+            <details
+              key={company.company_id}
+              open={isAutoExpandCompany}
+              className="group rounded-xl border border-slate-200 bg-slate-50/60 open:bg-slate-50/80"
+            >
+              <summary className="flex cursor-pointer list-none items-center justify-between gap-2 p-3 text-sm font-bold text-slate-800 [&::-webkit-details-marker]:hidden">
+                <span className="min-w-0 truncate">{company.company_name}</span>
+                <span className="shrink-0 text-xs font-semibold text-muted-foreground">
+                  {companyTaskCount} việc
+                </span>
+              </summary>
+              <div className="space-y-2 border-t border-slate-200/80 bg-white px-2 py-3">
+                {company.projects.map((project) => (
+                  <details
+                    key={project.project_id}
+                    open={
+                      isAutoExpandCompany &&
+                      autoExpandTarget?.projectId === project.project_id
+                    }
+                    className="rounded-lg border border-slate-100 bg-slate-50/40 open:bg-white"
+                  >
+                    <summary className="flex cursor-pointer list-none items-center justify-between gap-2 p-2.5 pl-3 text-xs font-bold text-primary [&::-webkit-details-marker]:hidden">
+                      <span className="min-w-0 truncate">
+                        {project.project_name}
+                      </span>
+                      <span className="shrink-0 text-[10px] font-semibold text-muted-foreground">
+                        {project.items.length}
+                      </span>
+                    </summary>
+                    <div className="space-y-2 border-t border-slate-100 p-2 pl-3">
+                      {project.items.map((row) => (
+                        <TaskRow
+                          key={row.task.id}
+                          row={row}
+                          showContext={false}
+                        />
+                      ))}
+                    </div>
+                  </details>
+                ))}
+              </div>
+            </details>
+          )
+        })}
+      </div>
     </section>
   )
 }
 
+/**
+ * Lists the current user’s tasks from my dashboard, grouped by priority and nested company → project.
+ */
 function MyTasksPage() {
-  const [companyFilter, setCompanyFilter] = useState("")
-  const [projectFilter, setProjectFilter] = useState("")
-
   const dashboardQuery = useQuery({
     queryKey: ["my-tasks-dashboard"],
-    queryFn: async () => (await TasksService.myDashboard()) as MyDashboardPayload,
+    queryFn: async () =>
+      (await TasksService.myDashboard()) as MyDashboardPayload,
   })
 
   const data = dashboardQuery.data
 
-  const projectOptions = useMemo(() => {
-    const all = data?.projects ?? []
-    if (!companyFilter) {
-      return all
-    }
-    return all.filter((p) => p.company_id === companyFilter)
-  }, [data?.projects, companyFilter])
-
-  const filtered = useMemo(() => {
-    return {
-      overdue_critical: filterMyTaskItems(data?.overdue_critical, companyFilter, projectFilter),
-      overdue_local: filterMyTaskItems(data?.overdue_local, companyFilter, projectFilter),
-      due_soon: filterMyTaskItems(data?.due_soon, companyFilter, projectFilter),
-      today: filterMyTaskItems(data?.today, companyFilter, projectFilter),
-    }
-  }, [data, companyFilter, projectFilter])
-
-  const totalFiltered =
-    filtered.overdue_critical.length +
-    filtered.overdue_local.length +
-    filtered.due_soon.length +
-    filtered.today.length
-
-  const totalAll =
-    (data?.overdue_critical?.length ?? 0) +
-    (data?.overdue_local?.length ?? 0) +
-    (data?.due_soon?.length ?? 0) +
-    (data?.today?.length ?? 0)
+  const totalAll = useMemo(() => {
+    return (
+      (data?.overdue_critical?.length ?? 0) +
+      (data?.overdue_local?.length ?? 0) +
+      (data?.due_soon?.length ?? 0) +
+      (data?.today?.length ?? 0)
+    )
+  }, [data])
 
   return (
     <div className="mx-auto w-full max-w-3xl space-y-6 px-2 pb-24 pt-3 sm:px-4">
       <div>
-        <h1 className="text-2xl font-extrabold tracking-tight">Công việc của tôi</h1>
+        <h1 className="text-2xl font-extrabold tracking-tight">
+          Công việc của tôi
+        </h1>
         <p className="text-sm text-muted-foreground">
-          Lọc theo công ty và dự án; trong mỗi mức ưu tiên, task được nhóm theo dự án.
+          Mở từng công ty, rồi dự án để xem task. Các mức ưu tiên (quá hạn, sắp
+          đến hạn…) giữ nguyên bên dưới.
         </p>
-      </div>
-
-      <div className="flex flex-col gap-3 rounded-xl border bg-white p-4 sm:flex-row sm:flex-wrap sm:items-end">
-        <div className="min-w-40 flex-1 space-y-1">
-          <label htmlFor="my-tasks-company" className="text-xs font-semibold text-muted-foreground">
-            Công ty
-          </label>
-          <select
-            id="my-tasks-company"
-            title="Lọc theo công ty"
-            aria-label="Lọc theo công ty"
-            className="h-10 w-full rounded-md border bg-background px-3 text-sm"
-            value={companyFilter}
-            onChange={(eventValue) => {
-              setCompanyFilter(eventValue.target.value)
-              setProjectFilter("")
-            }}
-            disabled={dashboardQuery.isLoading}
-          >
-            <option value="">Tất cả công ty</option>
-            {(data?.companies ?? []).map((c) => (
-              <option key={c.company_id} value={c.company_id}>
-                {c.company_name}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div className="min-w-40 flex-1 space-y-1">
-          <label htmlFor="my-tasks-project" className="text-xs font-semibold text-muted-foreground">
-            Dự án
-          </label>
-          <select
-            id="my-tasks-project"
-            title="Lọc theo dự án"
-            aria-label="Lọc theo dự án"
-            className="h-10 w-full rounded-md border bg-background px-3 text-sm"
-            value={projectFilter}
-            onChange={(eventValue) => setProjectFilter(eventValue.target.value)}
-            disabled={dashboardQuery.isLoading}
-          >
-            <option value="">Tất cả dự án</option>
-            {projectOptions.map((p) => (
-              <option key={p.project_id} value={p.project_id}>
-                {p.project_name}
-              </option>
-            ))}
-          </select>
-        </div>
       </div>
 
       {dashboardQuery.isLoading ? (
@@ -239,25 +273,30 @@ function MyTasksPage() {
       ) : null}
 
       {dashboardQuery.isError ? (
-        <p className="text-sm text-destructive">Không tải được danh sách task.</p>
-      ) : null}
-
-      {!dashboardQuery.isLoading && !dashboardQuery.isError && totalAll === 0 ? (
-        <p className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">
-          Không có task đang mở. Khi được giao việc, danh sách sẽ hiển thị tại đây.
+        <p className="text-sm text-destructive">
+          Không tải được danh sách task.
         </p>
       ) : null}
 
-      {!dashboardQuery.isLoading && !dashboardQuery.isError && totalAll > 0 && totalFiltered === 0 ? (
+      {!dashboardQuery.isLoading &&
+      !dashboardQuery.isError &&
+      totalAll === 0 ? (
         <p className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">
-          Không có task nào khớp bộ lọc. Thử chọn &quot;Tất cả&quot; hoặc dự án khác.
+          Không có task đang mở. Khi được giao việc, danh sách sẽ hiển thị tại
+          đây.
         </p>
       ) : null}
 
-      <Section title="Quá hạn (nghiêm trọng)" items={filtered.overdue_critical} />
-      <Section title="Quá hạn (cảnh báo)" items={filtered.overdue_local} />
-      <Section title="Sắp đến hạn" items={filtered.due_soon} />
-      <Section title="Hôm nay" items={filtered.today} />
+      <PriorityTreeSection
+        title="Quá hạn (nghiêm trọng)"
+        items={data?.overdue_critical ?? []}
+      />
+      <PriorityTreeSection
+        title="Quá hạn (cảnh báo)"
+        items={data?.overdue_local ?? []}
+      />
+      <PriorityTreeSection title="Sắp đến hạn" items={data?.due_soon ?? []} />
+      <PriorityTreeSection title="Hôm nay" items={data?.today ?? []} />
     </div>
   )
 }

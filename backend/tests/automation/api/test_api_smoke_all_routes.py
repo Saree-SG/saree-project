@@ -19,7 +19,7 @@ from app.models.task import (
 from app.models.project import Project, TaskLevelConfig
 from app.models.org import ProjectMemberRole
 from app.models.user import User
-from app.scripts.seed_defaults import main as seed_defaults_main
+from app.scripts.seed_defaults import seed as seed_defaults_seed
 
 from tests.utils.utils import random_lower_string
 
@@ -132,10 +132,21 @@ def _login_tokens(
 import pytest
 
 
-@pytest.fixture(scope="session", autouse=True)
-def seed_defaults_once() -> None:
-    """Seed RBAC defaults and a base company once for the test session."""
-    seed_defaults_main()
+@pytest.fixture(scope="function", autouse=True)
+def seed_defaults_once(db: Session) -> None:
+    """Seed RBAC defaults and a base company once for the test session.
+
+    Must use the test session/engine (isolated schema) instead of the script's
+    global engine, otherwise tables won't exist in the public schema.
+    """
+
+    company = db.exec(select(Company).where(Company.slug == "default")).first()
+    if company is None:
+        company = Company(name="Default Company", slug="default")
+        db.add(company)
+        db.commit()
+        db.refresh(company)
+    seed_defaults_seed(db, company.id)
 
 
 @pytest.fixture(autouse=True)
@@ -150,7 +161,7 @@ def disable_event_bus_emit(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(event_bus, "emit", noop_emit)
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="function")
 def default_company_and_admin(db: Session) -> uuid.UUID:
     """Ensure the first superuser has company_id set to the seeded company."""
     company = db.exec(select(Company).where(Company.slug == "default")).first()
@@ -168,7 +179,7 @@ def default_company_and_admin(db: Session) -> uuid.UUID:
     return company.id
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="function")
 def mes_entities(
     client: TestClient,
     db: Session,

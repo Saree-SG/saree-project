@@ -1,3 +1,6 @@
+# compose.override.yml — local dev overrides (auto-merged by docker compose)
+# Contains: proxy, dev reload, mailcatcher, adminer, playwright
+# Saree reset (wipe tenant data) is opt-in: set RUN_SAREE_RESET=1 in .env or environment
 services:
 
   # Local services are available on their ports, but also available on:
@@ -51,6 +54,7 @@ services:
       - "5432:5432"
 
   redis:
+    image: redis:7.4-alpine
     restart: "no"
     ports:
       - "6379:6379"
@@ -61,6 +65,7 @@ services:
       retries: 20
 
   adminer:
+    image: adminer:latest
     restart: "no"
     ports:
       - "8080:8080"
@@ -68,16 +73,19 @@ services:
   backend:
     restart: "no"
     ports:
-      - "8000:8000"
+      - "8111:8111"
     build:
       context: .
       dockerfile: backend/Dockerfile
     # command: sleep infinity  # Infinite loop to keep container alive doing nothing
     command:
-      - fastapi
-      - run
+      - uvicorn
+      - app.main:app
+      - --host
+      - "0.0.0.0"
+      - --port
+      - "8111"
       - --reload
-      - "app/main.py"
     develop:
       watch:
         - path: ./backend
@@ -99,7 +107,7 @@ services:
       EMAILS_FROM_EMAIL: "noreply@example.com"
       REDIS_URL: "redis://redis:6379/0"
       CHAT_UPLOAD_DIR: "/data/uploads/chat"
-      PUBLIC_BASE_URL: "http://localhost:8000"
+      PUBLIC_BASE_URL: "http://localhost:8111"
 
   mailcatcher:
     image: schickling/mailcatcher
@@ -115,7 +123,7 @@ services:
       context: .
       dockerfile: frontend/Dockerfile
       args:
-        - VITE_API_URL=http://localhost:8000
+        - VITE_API_URL=http://localhost:8111
         - NODE_ENV=development
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost/ >/dev/null 2>&1 || exit 1"]

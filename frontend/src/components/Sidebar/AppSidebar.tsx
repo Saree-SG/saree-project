@@ -1,6 +1,3 @@
-import { useQuery } from "@tanstack/react-query"
-
-import { RolesService } from "@/client"
 import { SidebarAppearance } from "@/components/Common/Appearance"
 import { Logo } from "@/components/Common/Logo"
 import {
@@ -10,24 +7,29 @@ import {
   SidebarHeader,
 } from "@/components/ui/sidebar"
 import { buildLayoutNavItems } from "@/config/layoutNav"
-import useAuth, { isLoggedIn } from "@/hooks/useAuth"
-import { isManagementUser } from "@/utils/accountAccess"
+import useAuth from "@/hooks/useAuth"
+import { useMyPermissions } from "@/hooks/useMyPermissions"
+import { canAccessDashboard, canManageCompany } from "@/utils/accountAccess"
 import { Main } from "./Main"
 import { User } from "./User"
 
 export function AppSidebar() {
   const { user: currentUser } = useAuth()
 
-  const profileQuery = useQuery({
-    queryKey: ["roles", "my-account-profile"],
-    queryFn: () => RolesService.myAccountProfile(),
-    enabled: Boolean(currentUser) && isLoggedIn(),
-  })
+  const permissionsQuery = useMyPermissions()
+  const permissions = permissionsQuery.data ?? []
 
   const showManagement =
-    Boolean(currentUser?.is_superuser) || isManagementUser(profileQuery.data)
+    Boolean(currentUser?.is_superuser) || canAccessDashboard(permissions)
 
-  const items = buildLayoutNavItems(Boolean(currentUser?.is_superuser), showManagement)
+  const showCompanyManagement =
+    Boolean(currentUser?.is_superuser) || canManageCompany(permissions)
+
+  const items = buildLayoutNavItems(
+    Boolean(currentUser?.is_superuser),
+    showManagement,
+    showCompanyManagement,
+  )
 
   return (
     <Sidebar collapsible="icon">

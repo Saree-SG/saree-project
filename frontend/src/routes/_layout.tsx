@@ -1,4 +1,9 @@
-import { createFileRoute, Outlet, redirect, useRouterState } from "@tanstack/react-router"
+import {
+  createFileRoute,
+  Outlet,
+  redirect,
+  useRouterState,
+} from "@tanstack/react-router"
 
 import { Footer } from "@/components/Common/Footer"
 import { MobileAppHeader } from "@/components/Layout/MobileAppHeader"

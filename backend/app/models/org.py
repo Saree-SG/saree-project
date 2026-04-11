@@ -5,8 +5,7 @@ Org & RBAC models:
 
 import uuid
 from datetime import datetime, timezone
-from typing import Any
-from typing import Literal
+from typing import Any, Literal
 
 from sqlalchemy import JSON, DateTime, Text, UniqueConstraint
 from sqlmodel import Field, Relationship, SQLModel
@@ -173,6 +172,19 @@ class PermissionPublic(SQLModel):
     description: str
 
 
+class RolePermissionAssignRequest(SQLModel):
+    """Payload to replace a role's permission set."""
+
+    permission_codes: list[str]
+
+
+class RolePermissionAssignResponse(SQLModel):
+    """Result of role permission assignment."""
+
+    role_id: uuid.UUID
+    assigned_permission_codes: list[str]
+
+
 # ---------------------------------------------------------------------------
 # RolePermission (N:N Role ↔ Permission)
 # ---------------------------------------------------------------------------
@@ -235,6 +247,27 @@ class UserCompanyRolePublic(SQLModel):
     company_name: str
     is_primary: bool
     assigned_at: datetime
+
+
+class CompanyMemberPublic(SQLModel):
+    """Member projection for company management UI."""
+
+    user_id: uuid.UUID
+    email: str
+    full_name: str | None
+    role_id: uuid.UUID
+    role_name: str
+    role_display_name: str
+    role_level: int
+    is_primary: bool
+
+
+class CompanyMemberRoleUpdateRequest(SQLModel):
+    """Payload to update company member role assignment."""
+
+    current_role_id: uuid.UUID
+    new_role_id: uuid.UUID
+    is_primary: bool = False
 
 
 class RoleDependency(SQLModel, table=True):
@@ -362,3 +395,14 @@ class ProjectMemberPublic(SQLModel):
     user_id: uuid.UUID
     role_id: uuid.UUID
     joined_at: datetime
+
+
+class ProjectMemberWithUserPublic(SQLModel):
+    """Project membership with resolved user and role labels for API clients."""
+
+    user_id: uuid.UUID
+    role_id: uuid.UUID
+    joined_at: datetime
+    full_name: str | None = None
+    email: str
+    role_display_name: str

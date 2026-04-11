@@ -21,6 +21,7 @@ import { Input } from "@/components/ui/input"
 import { LoadingButton } from "@/components/ui/loading-button"
 import { PasswordInput } from "@/components/ui/password-input"
 import useAuth, { isLoggedIn } from "@/hooks/useAuth"
+import { clearSession } from "@/modules/auth/tokenStore"
 
 const formSchema = z.object({
   username: z.email(),
@@ -36,6 +37,7 @@ export const Route = createFileRoute("/login")({
   component: Login,
   beforeLoad: async () => {
     if (isLoggedIn()) {
+      clearSession()
       throw redirect({
         to: "/",
       })

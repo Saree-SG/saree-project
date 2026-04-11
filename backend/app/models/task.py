@@ -128,6 +128,8 @@ class TaskPublic(TaskBase):
     computed_status: str | None = None   # overdue_local | overdue_critical | due_soon (server-computed)
     assignor_id: uuid.UUID
     assignee_id: uuid.UUID
+    assignee_name: str | None = None
+    assignor_name: str | None = None
     actual_end_time: datetime | None
     is_on_critical_path: bool
     created_at: datetime
