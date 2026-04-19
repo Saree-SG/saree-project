@@ -288,6 +288,9 @@ function TaskDetailPage() {
   const [progressImageLightboxUrl, setProgressImageLightboxUrl] = useState<
     string | null
   >(null)
+  const [progressReportPhotoFailed, setProgressReportPhotoFailed] = useState<
+    Record<string, boolean>
+  >({})
 
   const [wsConnected, setWsConnected] = useState(false)
 
@@ -313,6 +316,10 @@ function TaskDetailPage() {
     showSuccessToastRef.current = showSuccessToast
     showErrorToastRef.current = showErrorToast
   }, [showErrorToast, showSuccessToast])
+
+  useEffect(() => {
+    setProgressReportPhotoFailed({})
+  }, [taskId])
 
   const taskQuery = useQuery({
     queryKey: ["task-detail", "task", taskId],
@@ -974,12 +981,43 @@ function TaskDetailPage() {
         </div>
       </section>
 
-      {parentBreadcrumbs.length > 0 ? (
+      {/* ── Subtask indicator banner (only shown for subtasks) ── */}
+      {task?.parent_id ? (
+        <div className="flex flex-col gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-2.5 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-3 sm:gap-y-2">
+          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-1">
+            <span className="shrink-0 rounded bg-amber-400 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-white">
+              Công việc con
+            </span>
+            {parentBreadcrumbs.length > 0 ? (
+              <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-1 gap-y-1 text-xs text-amber-700">
+                <span className="shrink-0 text-amber-400">thuộc</span>
+                {parentBreadcrumbs.map((item) => (
+                  <span
+                    key={item.id}
+                    className="flex min-w-0 max-w-full items-center gap-1"
+                  >
+                    <Link
+                      to="/tasks/$taskId"
+                      params={{ taskId: item.id }}
+                      className="min-w-0 max-w-full break-words font-semibold underline underline-offset-2"
+                    >
+                      {item.name}
+                    </Link>
+                    <span className="shrink-0 text-amber-300">/</span>
+                  </span>
+                ))}
+              </div>
+            ) : null}
+          </div>
+          {task.progress_weight != null ? (
+            <span className="shrink-0 text-[11px] font-semibold text-amber-700 sm:text-right">
+              Mức đóng góp: {task.progress_weight}%
+            </span>
+          ) : null}
+        </div>
+      ) : parentBreadcrumbs.length > 0 ? (
         <section className="rounded-xl border bg-white px-4 py-3 shadow-sm">
-          <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-            Breadcrumb
-          </p>
-          <div className="mt-1 flex flex-wrap items-center gap-1 text-xs">
+          <div className="flex flex-wrap items-center gap-1 text-xs">
             {parentBreadcrumbs.map((item) => (
               <span key={item.id} className="flex items-center gap-1">
                 <Link
@@ -997,12 +1035,21 @@ function TaskDetailPage() {
         </section>
       ) : null}
 
-      <section className="space-y-4 rounded-xl border bg-white p-5 shadow-sm">
+      {/* ── Task / Subtask header card ── */}
+      <section className={[
+        "space-y-4 rounded-xl border p-5 shadow-sm",
+        task?.parent_id ? "border-amber-200 bg-amber-50/40" : "bg-white",
+      ].join(" ")}>
         <div className="flex items-start justify-between gap-3">
           <div className="space-y-1">
+            {task?.parent_id && (
+              <p className="text-[10px] font-bold uppercase tracking-widest text-amber-500">
+                Công việc con
+              </p>
+            )}
             <h3 className="text-lg font-bold">{task?.name ?? "Task"}</h3>
             <p className="text-sm text-muted-foreground">
-              Due {task ? new Date(task.end_time).toLocaleString() : "-"}
+              Hạn: {task ? new Date(task.end_time).toLocaleString("vi-VN") : "-"}
             </p>
             {canUpdateTaskDeadline ? (
               <button
@@ -1013,12 +1060,18 @@ function TaskDetailPage() {
                   setDeadlineDialogOpen(true)
                 }}
               >
-                Cập nhật deadline
+                Đổi deadline
               </button>
             ) : null}
           </div>
-          <span className="rounded bg-primary/10 px-2 py-1 text-[10px] font-black uppercase text-primary">
-            {task?.status ?? "todo"}
+          <span className={[
+            "rounded px-2 py-1 text-[10px] font-black uppercase",
+            task?.parent_id ? "bg-amber-100 text-amber-700" : "bg-primary/10 text-primary",
+          ].join(" ")}>
+            {task?.status === "todo" ? "Chờ làm"
+              : task?.status === "in_progress" ? "Đang làm"
+              : task?.status === "done" ? "Hoàn thành"
+              : task?.status ?? "todo"}
           </span>
         </div>
 
@@ -1033,7 +1086,7 @@ function TaskDetailPage() {
             ].join(" ")}
             onClick={() => updateStatusMutation.mutate("todo")}
           >
-            Pending
+            Chờ làm
           </button>
           <button
             type="button"
@@ -1045,7 +1098,7 @@ function TaskDetailPage() {
             ].join(" ")}
             onClick={() => updateStatusMutation.mutate("in_progress")}
           >
-            Working
+            Đang làm
           </button>
           <button
             type="button"
@@ -1057,13 +1110,13 @@ function TaskDetailPage() {
             ].join(" ")}
             onClick={() => {
               if ((task?.reported_progress_total ?? 0) < 100) {
-                showErrorToast("Chưa thể hoàn thành: tổng tiến độ (báo cáo + công việc con) phải đạt 100%")
+                showErrorToast("Chưa thể đánh dấu hoàn thành khi tiến độ chưa đạt 100%")
                 return
               }
               updateStatusMutation.mutate("done")
             }}
           >
-            Complete
+            Hoàn thành
           </button>
         </div>
       </section>
@@ -1131,7 +1184,7 @@ function TaskDetailPage() {
                       </span>
                     )}
                   </div>
-                  <p className="text-[13px]">{req.content}</p>
+                  <p className="break-words text-[13px]">{req.content}</p>
                   {isPending &&
                   canApproveDelay &&
                   (currentUser?.is_superuser ||
@@ -1199,7 +1252,7 @@ function TaskDetailPage() {
         <h4 className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
           Description
         </h4>
-        <div className="rounded-lg bg-slate-100 p-4 text-sm leading-relaxed">
+        <div className="break-words rounded-lg bg-slate-100 p-4 text-sm leading-relaxed">
           {task?.description || "No description."}
         </div>
       </section>
@@ -1236,28 +1289,26 @@ function TaskDetailPage() {
                   params={{ taskId: subtask.id }}
                   className="block rounded-lg border border-slate-200 bg-slate-50 p-3 hover:bg-slate-100"
                 >
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0">
-                      <p className="text-sm font-bold">{subtask.name}</p>
-                      <p className="text-[11px] text-muted-foreground">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
+                    <div className="min-w-0 flex-1 space-y-1">
+                      <p className="break-words text-sm font-bold">{subtask.name}</p>
+                      <p className="break-words text-[11px] text-muted-foreground">
                         {subtask.assignee_name ?? subtask.assignee_id} · Hạn{" "}
                         {new Date(subtask.end_time).toLocaleString("vi-VN")}
                       </p>
+                    </div>
+                    <div className="flex shrink-0 flex-row flex-wrap items-end justify-between gap-x-4 gap-y-1 sm:flex-col sm:items-end sm:justify-start sm:text-right">
+                      <p className="text-[10px] font-bold uppercase text-primary">
+                        {subtask.computed_status ?? subtask.status}
+                      </p>
+                      <p className="text-sm font-bold text-slate-800">{completionPct}%</p>
                       {weight != null ? (
-                        <p className="text-[10px] text-slate-400">
-                          Trọng số {weight}% → đóng góp {Math.round(weight * completionPct / 100)}% vào task cha
+                        <p className="max-w-full break-words text-left text-[10px] text-slate-400 sm:text-right">
+                          đóng góp {Math.round((weight * completionPct) / 100)}/{weight}%
                         </p>
                       ) : (
                         <p className="text-[10px] text-amber-500">Chưa đặt trọng số</p>
                       )}
-                    </div>
-                    <div className="shrink-0 text-right">
-                      <p className="text-[10px] font-bold uppercase text-primary">
-                        {subtask.computed_status ?? subtask.status}
-                      </p>
-                      <p className="text-[11px] font-semibold text-slate-700">
-                        {completionPct}%
-                      </p>
                     </div>
                   </div>
                   <div className="mt-2">
@@ -1286,43 +1337,45 @@ function TaskDetailPage() {
           </p>
         </div>
 
-        {/* Two-bar breakdown */}
+        {/* Progress bar */}
         <div className="space-y-1.5">
-          {/* Total bar */}
           <progress
             max={100}
             value={totalProgress}
             className="h-2.5 w-full [&::-webkit-progress-bar]:rounded-full [&::-webkit-progress-bar]:bg-slate-100 [&::-webkit-progress-value]:rounded-full [&::-webkit-progress-value]:bg-primary"
           />
-          {/* Breakdown rows */}
+          {/* Breakdown: only shown for root tasks with subtasks */}
           {subtaskRows.length > 0 && (
-            <div className="grid grid-cols-2 gap-2 text-[10px]">
-              <div>
-                <p className="text-muted-foreground">
-                  Công việc con ({totalChildWeight}% trọng số)
-                </p>
-                <p className="font-semibold text-slate-700">{childContribution}% đóng góp</p>
+            <div className="grid grid-cols-1 gap-2 rounded-lg bg-slate-50 px-3 py-2 text-[11px] min-[380px]:grid-cols-2">
+              <div className="min-w-0">
+                <p className="break-words text-muted-foreground">Từ công việc con</p>
+                <p className="font-semibold text-slate-700">{childContribution}%</p>
               </div>
-              <div>
-                <p className="text-muted-foreground">
-                  Báo cáo trực tiếp ({wReport}% trọng số)
+              <div className="min-w-0">
+                <p className="break-words text-muted-foreground">
+                  Báo cáo tại đây {wReport < 100 ? `(tối đa ${wReport}%)` : ""}
                 </p>
-                <p className="font-semibold text-slate-700">
-                  {selfProgress}% tự thân → {directContribution}% đóng góp
+                <p className="break-words font-semibold text-slate-700">
+                  {directContribution}%
+                  {selfProgress > 0 && selfProgress !== directContribution ? (
+                    <span className="ml-1 font-normal text-muted-foreground">
+                      (đã báo {selfProgress}%)
+                    </span>
+                  ) : null}
                 </p>
               </div>
             </div>
           )}
           {subtaskRows.length === 0 && (
-            <p className="text-[10px] text-muted-foreground">
-              Báo cáo trực tiếp: {selfProgress}/100% · Tổng đạt 100% thì task tự chuyển sang Done.
+            <p className="text-[11px] text-muted-foreground">
+              Đã báo cáo {selfProgress}/100% · Khi đạt 100% sẽ tự chuyển sang Hoàn thành.
             </p>
           )}
         </div>
 
         {totalChildWeight > 100 && (
           <p className="rounded-md bg-red-50 px-3 py-2 text-[11px] font-semibold text-red-600">
-            Tổng trọng số công việc con ({totalChildWeight}%) vượt quá 100%. Hãy điều chỉnh lại.
+            Tổng mức đóng góp của công việc con ({totalChildWeight}%) đang vượt quá 100%. Hãy điều chỉnh lại.
           </p>
         )}
         <>
@@ -1406,7 +1459,7 @@ function TaskDetailPage() {
                 htmlFor="progress-pct"
                 className="text-[11px] font-semibold text-muted-foreground"
               >
-                % tự thân (1–{maxRemainingProgress})
+                % hoàn thành (1–{maxRemainingProgress})
               </label>
               <input
                 id="progress-pct"
@@ -1419,11 +1472,6 @@ function TaskDetailPage() {
                 disabled={task?.status === "done" || selfProgress >= 100}
                 className="h-9 w-full rounded-md border px-3 text-sm outline-none disabled:opacity-60"
               />
-              {wReport < 100 && (
-                <p className="text-[10px] text-muted-foreground">
-                  Trọng số báo cáo: {wReport}%
-                </p>
-              )}
             </div>
           </div>
           <div className="mb-3 space-y-1">
@@ -1474,42 +1522,60 @@ function TaskDetailPage() {
           </button>
         </div>
         <div className="space-y-3">
-          {(progressReportsQuery.data ?? []).map((row) => (
-            <div
-              key={row.id}
-              className="flex gap-3 rounded-lg border bg-slate-50 p-3"
-            >
-              <button
-                type="button"
-                title="Xem ảnh báo cáo"
-                className="shrink-0 cursor-zoom-in rounded-md border-0 bg-transparent p-0"
-                onClick={() =>
-                  setProgressImageLightboxUrl(
-                    resolveBackendMediaUrl(row.photo_url),
-                  )
-                }
+          {(progressReportsQuery.data ?? []).map((row) => {
+            const thumbSrc = resolveBackendMediaUrl(row.photo_url)
+            const thumbFailed = Boolean(progressReportPhotoFailed[row.id])
+            const showThumb = Boolean(thumbSrc) && !thumbFailed
+            return (
+              <div
+                key={row.id}
+                className="flex min-w-0 gap-3 rounded-lg border bg-slate-50 p-3"
               >
-                <img
-                  src={resolveBackendMediaUrl(row.photo_url)}
-                  alt="Ảnh báo cáo tiến độ"
-                  className="h-20 w-20 rounded-md border object-cover"
-                />
-              </button>
-              <div className="min-w-0 flex-1 text-sm">
-                <p className="font-bold text-primary">
-                  +{row.progress_percent}%
-                </p>
-                <p className="text-[11px] text-muted-foreground">
-                  {row.reporter_name ?? row.reporter_id}
-                  {" · "}
-                  {new Date(row.created_at).toLocaleString()}
-                </p>
-                {row.note ? (
-                  <p className="mt-1 text-[13px]">{row.note}</p>
-                ) : null}
+                {showThumb ? (
+                  <button
+                    type="button"
+                    title="Xem ảnh báo cáo"
+                    className="h-20 w-20 shrink-0 cursor-zoom-in overflow-hidden rounded-md border-0 bg-transparent p-0"
+                    onClick={() => setProgressImageLightboxUrl(thumbSrc)}
+                  >
+                    <img
+                      src={thumbSrc}
+                      alt="Ảnh báo cáo tiến độ"
+                      className="h-full w-full rounded-md object-cover"
+                      loading="lazy"
+                      decoding="async"
+                      onError={() =>
+                        setProgressReportPhotoFailed((previous) => ({
+                          ...previous,
+                          [row.id]: true,
+                        }))
+                      }
+                    />
+                  </button>
+                ) : (
+                  <div
+                    className="flex h-20 w-20 shrink-0 items-center justify-center rounded-md border border-dashed bg-muted px-1 text-center text-[9px] font-medium leading-tight text-muted-foreground"
+                    title={thumbFailed ? "Không tải được ảnh" : "Chưa có ảnh"}
+                  >
+                    {thumbFailed ? "Lỗi ảnh" : "—"}
+                  </div>
+                )}
+                <div className="min-w-0 flex-1 text-sm">
+                  <p className="font-bold text-primary">
+                    +{row.progress_percent}%
+                  </p>
+                  <p className="break-words text-[11px] text-muted-foreground">
+                    {row.reporter_name ?? row.reporter_id}
+                    {" · "}
+                    {new Date(row.created_at).toLocaleString()}
+                  </p>
+                  {row.note ? (
+                    <p className="mt-1 break-words text-[13px]">{row.note}</p>
+                  ) : null}
+                </div>
               </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
         </>
       </section>
@@ -1880,7 +1946,7 @@ function TaskDetailPage() {
             <img
               src={progressImageLightboxUrl}
               alt="Ảnh báo cáo tiến độ phóng to"
-              className="mx-auto max-h-[70vh] w-full object-contain"
+              className="mx-auto max-h-[min(70vh,80dvh)] w-full max-w-full object-contain"
             />
           ) : null}
           <DialogFooter>
@@ -1973,8 +2039,8 @@ function TaskDetailPage() {
             <div className="flex gap-3">
               <div className="min-w-0 flex-1 space-y-1">
                 <label className="text-xs font-semibold text-muted-foreground">
-                  Trọng số (W) cho công việc cha
-                  <span className="ml-1 font-normal text-muted-foreground">(1–100)</span>
+                  Đóng góp bao nhiêu % vào công việc cha?
+                  <span className="ml-1 font-normal">(1–100)</span>
                 </label>
                 <input
                   inputMode="numeric"
@@ -1992,8 +2058,8 @@ function TaskDetailPage() {
                   "text-[10px]",
                   totalChildWeight > 100 ? "text-red-500 font-semibold" : "text-muted-foreground",
                 ].join(" ")}>
-                  Đã dùng: {totalChildWeight}% · Còn dành cho báo cáo trực tiếp: {wReport}%
-                  {totalChildWeight > 100 && " · VƯỢT 100%!"}
+                  Các công việc con đã chiếm {totalChildWeight}% · Còn lại {wReport}% cho báo cáo trực tiếp
+                  {totalChildWeight > 100 && " · Vượt 100%, cần điều chỉnh!"}
                 </p>
               </div>
             </div>

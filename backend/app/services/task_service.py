@@ -207,8 +207,8 @@ async def _rollup_completion_pct(
         child_weights_total = 0.0
         child_contribution = 0.0
         for child in children:
-            # Subtask completion = its own direct reports (no deeper children allowed)
-            child_self = float(await repo.sum_progress(child.id))
+            # Subtask completion = its own direct reports, capped at 100
+            child_self = min(100.0, float(await repo.sum_progress(child.id)))
             w_i = float(child.progress_weight or 0)
             child_contribution += w_i * child_self / 100.0
             child_weights_total += w_i
@@ -971,12 +971,18 @@ class TaskService:
                     f'{actor_name} đã cập nhật "thảo luận" cho công việc "{task.name}".'
                 ),
             }
-            await self._emit_task_ws(
-                task_id,
-                "task.discussion_added",
-                payload,
-            )
+            await self._emit_task_ws(task_id, "task.discussion_added", payload)
             await self._notify_task_participants(task, "task.discussion_added", payload)
+            # Persist bell notification for all participants except the author
+            for participant_id in {task.assignee_id, task.assignor_id} - {current_user.id}:
+                await self._notify(
+                    user_id=participant_id,
+                    notif_type="discussion_added",
+                    title=f'{actor_name} bình luận trong "{task.name}"',
+                    body=body.content[:200] if body.content else None,
+                    entity_type="task",
+                    entity_id=task_id,
+                )
 
         return _comment_to_public(comment, current_user)
 
@@ -1344,12 +1350,18 @@ class TaskService:
                 f'{actor_name} đã cập nhật "báo cáo tiến độ" cho công việc "{task.name}".'
             ),
         }
-        await self._emit_task_ws(
-            task_id,
-            "task.progress_reported",
-            payload,
-        )
+        await self._emit_task_ws(task_id, "task.progress_reported", payload)
         await self._notify_task_participants(task, "task.progress_reported", payload)
+        # Persist bell notification for assignor (manager sees workers' progress reports)
+        if task.assignor_id != current_user.id:
+            await self._notify(
+                user_id=task.assignor_id,
+                notif_type="progress_reported",
+                title=f'{actor_name} báo cáo tiến độ +{body.progress_percent}% cho "{task.name}"',
+                body=body.note,
+                entity_type="task",
+                entity_id=task_id,
+            )
 
         return _report_to_public(report, current_user)
 
