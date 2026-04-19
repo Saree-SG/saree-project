@@ -1,5 +1,5 @@
-import { Link as RouterLink, useRouterState } from "@tanstack/react-router"
 import { useQuery } from "@tanstack/react-query"
+import { Link as RouterLink, useRouterState } from "@tanstack/react-router"
 
 import { RolesService } from "@/client"
 import {
@@ -7,15 +7,17 @@ import {
   isLayoutNavItemActive,
 } from "@/config/layoutNav"
 import useAuth, { isLoggedIn } from "@/hooks/useAuth"
-import { isManagementUser } from "@/utils/accountAccess"
 import { cn } from "@/lib/utils"
+import { isCompanyDirector, isManagementUser } from "@/utils/accountAccess"
 
 /**
  * Fixed bottom tab bar for small screens; mirrors primary routes plus Cài đặt.
  */
 export function MobileBottomNav() {
   const { user: currentUser } = useAuth()
-  const pathname = useRouterState({ select: (state) => state.location.pathname })
+  const pathname = useRouterState({
+    select: (state) => state.location.pathname,
+  })
 
   const profileQuery = useQuery({
     queryKey: ["roles", "my-account-profile"],
@@ -26,9 +28,12 @@ export function MobileBottomNav() {
   const showManagement =
     Boolean(currentUser?.is_superuser) || isManagementUser(profileQuery.data)
 
+  const showCompanyManagement = isCompanyDirector(profileQuery.data)
+
   const items = buildMobileBottomNavItems(
     Boolean(currentUser?.is_superuser),
     showManagement,
+    showCompanyManagement,
   )
 
   return (

@@ -197,6 +197,19 @@ export const Body_login_login_access_tokenSchema = {
     title: 'Body_login-login_access_token'
 } as const;
 
+export const Body_tasks_upload_progress_report_photoSchema = {
+    properties: {
+        file: {
+            type: 'string',
+            format: 'binary',
+            title: 'File'
+        }
+    },
+    type: 'object',
+    required: ['file'],
+    title: 'Body_tasks-upload_progress_report_photo'
+} as const;
+
 export const ChatAttachmentPublicSchema = {
     properties: {
         id: {
@@ -998,6 +1011,49 @@ export const ProjectCreateSchema = {
     title: 'ProjectCreate'
 } as const;
 
+export const ProjectMemberWithUserPublicSchema = {
+    properties: {
+        user_id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'User Id'
+        },
+        role_id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Role Id'
+        },
+        joined_at: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Joined At'
+        },
+        full_name: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Full Name'
+        },
+        email: {
+            type: 'string',
+            title: 'Email'
+        },
+        role_display_name: {
+            type: 'string',
+            title: 'Role Display Name'
+        }
+    },
+    type: 'object',
+    required: ['user_id', 'role_id', 'joined_at', 'email', 'role_display_name'],
+    title: 'ProjectMemberWithUserPublic',
+    description: 'Project membership with resolved user and role labels for API clients.'
+} as const;
+
 export const ProjectPublicSchema = {
     properties: {
         name: {
@@ -1695,6 +1751,19 @@ export const TaskLevelConfigPublicSchema = {
     title: 'TaskLevelConfigPublic'
 } as const;
 
+export const TaskProgressPhotoUploadPublicSchema = {
+    properties: {
+        photo_url: {
+            type: 'string',
+            title: 'Photo Url'
+        }
+    },
+    type: 'object',
+    required: ['photo_url'],
+    title: 'TaskProgressPhotoUploadPublic',
+    description: 'Response after saving a progress-report image to storage.'
+} as const;
+
 export const TaskProgressReportCreateSchema = {
     properties: {
         photo_url: {
@@ -2025,6 +2094,28 @@ export const TaskPublicSchema = {
             type: 'string',
             format: 'uuid',
             title: 'Assignee Id'
+        },
+        assignee_name: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Assignee Name'
+        },
+        assignor_name: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Assignor Name'
         },
         actual_end_time: {
             anyOf: [

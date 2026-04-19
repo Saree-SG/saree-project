@@ -14,6 +14,7 @@ dependencies = [
     "alembic<2.0.0,>=1.12.1",
     "httpx<1.0.0,>=0.25.1",
     "psycopg[binary]<4.0.0,>=3.1.13",
+    "greenlet>=3.0.0,<4.0.0",
     "sqlmodel<1.0.0,>=0.0.21",
     "pydantic-settings<3.0.0,>=2.2.1",
     "sentry-sdk[fastapi]>=2.0.0,<3.0.0",
@@ -21,6 +22,9 @@ dependencies = [
     "pwdlib[argon2,bcrypt]>=0.3.0",
     "redis>=6.4.0",
     "loguru>=0.7.3",
+    "asyncpg>=0.29.0,<1.0.0",
+    "celery[redis]>=5.3.0,<6.0.0",
+    "kombu>=5.3.0,<6.0.0",
 ]
 
 [dependency-groups]
@@ -62,6 +66,13 @@ ignore = [
     "W191",  # indentation contains tabs
     "B904",  # Allow raising exceptions without from e, for HTTPException
 ]
+
+[tool.ruff.lint.per-file-ignores]
+"app/scripts/reset_saree_process_demo.py" = ["T201"]
+"app/scripts/seed_defaults.py" = ["T201"]
+"app/scripts/director_dashboard_demo_data.py" = ["T201"]
+"app/scripts/wipe_tasks_keep_accounts.py" = ["T201"]
+"app/jobs/*.py" = ["T201"]
 
 [tool.ruff.lint.pyupgrade]
 # Preserve types, even if a file imports `from __future__ import annotations`.

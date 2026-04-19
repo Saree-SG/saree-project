@@ -1,5 +1,12 @@
 import type { LucideIcon } from "lucide-react"
-import { ClipboardList, LayoutDashboard, MessageCircle, Settings, Users } from "lucide-react"
+import {
+  Building2,
+  ClipboardList,
+  LayoutDashboard,
+  MessageCircle,
+  Settings,
+  Users,
+} from "lucide-react"
 
 export type LayoutNavItem = {
   icon: LucideIcon
@@ -14,6 +21,7 @@ export type LayoutNavItem = {
 export function buildLayoutNavItems(
   isSuperuser: boolean,
   showManagement: boolean,
+  showCompanyManagement: boolean,
 ): LayoutNavItem[] {
   const items: LayoutNavItem[] = []
   if (showManagement) {
@@ -30,6 +38,9 @@ export function buildLayoutNavItems(
     matchPrefix: true,
   })
   items.push({ icon: MessageCircle, title: "Chat", path: "/chat" })
+  if (showCompanyManagement) {
+    items.push({ icon: Building2, title: "Quản lý công ty", path: "/company" })
+  }
   if (isSuperuser) {
     items.push({ icon: Users, title: "Admin", path: "/admin" })
   }
@@ -42,9 +53,10 @@ export function buildLayoutNavItems(
 export function buildMobileBottomNavItems(
   isSuperuser: boolean,
   showManagement: boolean,
+  showCompanyManagement: boolean,
 ): LayoutNavItem[] {
   return [
-    ...buildLayoutNavItems(isSuperuser, showManagement),
+    ...buildLayoutNavItems(isSuperuser, showManagement, showCompanyManagement),
     { icon: Settings, title: "Cài đặt", path: "/settings" },
   ]
 }
@@ -52,7 +64,10 @@ export function buildMobileBottomNavItems(
 /**
  * Returns whether the current path should highlight the given nav item.
  */
-export function isLayoutNavItemActive(item: LayoutNavItem, pathname: string): boolean {
+export function isLayoutNavItemActive(
+  item: LayoutNavItem,
+  pathname: string,
+): boolean {
   if (item.matchPrefix) {
     if (item.path === "/tasks") {
       return pathname === "/tasks" || pathname.startsWith("/tasks/")

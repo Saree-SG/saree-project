@@ -7,7 +7,7 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar"
-import { type LayoutNavItem, isLayoutNavItemActive } from "@/config/layoutNav"
+import { isLayoutNavItemActive, type LayoutNavItem } from "@/config/layoutNav"
 
 interface MainProps {
   items: LayoutNavItem[]

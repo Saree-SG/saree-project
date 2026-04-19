@@ -29,6 +29,18 @@ Make sure your editor is using the correct Python virtual environment, with the 
 
 Modify or add SQLModel models for data and SQL tables in `./backend/app/models.py`, API endpoints in `./backend/app/api/`, CRUD (Create, Read, Update, Delete) utils in `./backend/app/crud.py`.
 
+## Saree process demo reset
+
+Wipes **all** tenant data (companies, projects, tasks, chat, org roles, non-superuser users) and seeds **Công ty Saree** (`slug=saree`) with roles aligned to `Document/Quy_trình.txt`, seven departments, nine demo users, three sample projects, and ~20 tasks.
+
+```console
+$ uv run python -m app.scripts.reset_saree_process_demo --confirm
+```
+
+- **Password** for every `*@saree-process.demo` user: `SareeDemo2024!` (printed at end of run).
+- **Blocked in production** unless `ALLOW_RESET=1` is set (still avoid on real data without backup).
+- Idempotent **RBAC/departments** for any company: `uv run python -m app.scripts.seed_defaults` (creates `default` company if missing).
+
 ## VS Code
 
 There are already configurations in place to run the backend through the VS Code debugger, so that you can use breakpoints, pause and explore variables, etc.

@@ -2,6 +2,11 @@
 
 ## Latest Changes
 
+### Saree ERP
+
+* Reset script `app.scripts.reset_saree_process_demo` replaces tenant DB content with **Công ty Saree**, process roles (sales, engineer, materials, planner, workshop_lead, site_supply, installer, …), departments, demo users (`*@saree-process.demo`), and WBS tasks. Use `--confirm`; production requires `ALLOW_RESET=1`. See `backend/README.md`.
+* `seed_defaults` extended with the same system roles and departments for new companies; frontend management nav includes those role names in `MANAGEMENT_ROLE_NAMES`.
+
 ### Refactors
 
 * 🔧 Add FastAPI VS Code extension to recommended extensions. PR [#2206](https://github.com/fastapi/full-stack-fastapi-template/pull/2206) by [@tiangolo](https://github.com/tiangolo).

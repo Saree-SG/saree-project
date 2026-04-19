@@ -1,0 +1,91 @@
+QUY TRÌNH SẢN XUẤT
+I/ NHẬN YÊU CẦU BÁO GIÁ :
+Phòng kinh doanh nhận thông tin về 1 dự án mới của khách hàng sẽ tiến hành các bước như sau :
+1/ Thu thập thông tin : 
+-	Gọi điện thoại trao đổi trực tiếp lấy thông tin về yêu cầu của chủ đầu tư.
+-	Cử người đến khảo sát đo đạc tại hiện trường.
+-	Báo cáo lên ban giám đốc phê duyệt để chuyển qua bộ phận thiết kế.
+2/ Chuyển qua bộ phân thiết kế lên thiết kế hệ thống :
+-	Bộ phận kỹ thuật lên thiết kế hệ thống theo yêu cầu của chủ đầu tư theo các số liệu khảo sát được.
+-	Báo cáo lên ban giám đốc để thống nhất lên phương án thiết kế sao cho đáp ứng được yêu cầu kỹ thuật cũng như khả năng tài chính của khách hàng.
+-	Sau khi thiết kế xong, trình cho ban giám đốc phê duyệt về phương án thiết kế để bắt đầu làm chào giá.
+-	Làm 1 bảng chào giá khung với các thông số kỹ thuật, số lượng chính xác theo thiết kế đã được phê duyệt (nhưng chưa có đơn giá) để chuyển qua bộ phận vật tư kiểm tra tính toán đơn giá từng hạng mục theo chi tiết kỹ thuật của thiết kế.
+3/ Chuyển qua bộ phận vật tư :
+-	Kiểm tra lấy đơn giá từng hạng mục vật tư thiết bị theo đúng yêu cầu kỹ thuật của phòng kỹ thuật đã gởi trong bảng chào giá khung điền vào bảng chào giá để chuyển qua phòng kinh doanh chờ phê duyệt giá.
+4/ Chuyển qua bộ phận kinh doanh :
+-	Bảng chào giá khung với đơn giá mua vào thực tế của từng hạng mục vật tư đã được phòng vật tư kiểm tra bổ sung vào sẽ được chuyển qua phòng kinh doanh để tính thêm vào hệ số giá của từng khách hàng. Tính hoàn chỉnh bảng chào giá.
+-	Kiểm tra lần cuối toàn bộ bảng chào giá (tính toán lại các giá trị, trình bày lại bố cục bảng chào giá theo quy chuẩn…)
+-	Trình qua ban giám đốc đợi phê duyệt.
+-	Gởi đi cho khách hàng.
+-	Theo dõi tiến độ, trào đổi thu nhận phản hồi của khách hàng về bảng chào giá.
+-	Báo cáo lại kết quả chào giá, các yêu cầu phản hồi của khách hàng, điều chỉnh lại chào giá nếu có, chuyển qua quy trình sản xuất nếu thành công hoặc đóng lại hồ sơ nếu thất bại.
+•	Yêu cầu báo cáo : 
+-	Thể hiện tiến độ chào giá, tới giai đoạn nào, lý do còn chưa hoàn tất…
+-	Các chào giá được phân loại sắp xếp theo tên công ty, theo khoảng thời gian chào giá, theo tên hạng mục thiết bị, theo tên dự án… dễ dàng truy xuất kiểm tra lại trong tương lai khi có 1 dự án tương tự hoặc khách hàng cũ có dự án mới.
+-	Lưu lại lịch sử trao đổi thương lượng, các vấn đề xảy ra, các yêu cầu thay đổi điều chỉnh trong quá trình chào giá, các ghi chú trong quá trình thương lượng.
+-	Thống kê số liệu để phân tích tính hiệu quả của bộ phân kinh doanh, thiết kế : tổng số lượng chào giá trong khoảng thời gian, tổng số chào giá của công ty A, tổng số chào giá của hạng mục thiết bị này (vd tổng số chào giá cung cấp thiết bị A trong năm nay), tỷ lệ chào giá thành công/ thất bại cho (khoảng thời gian, của khách hàng A, của thiết bị này…)
+-	Các công cụ lọc để so sánh phân tích tìm nguyên nhân thất bại khi chào giá (do cách tiếp thị, do thiết kế không tốt hay do giá không cạnh tranh…)
+II / GIAI ĐOẠN TRIỂN KHAI SẢN XUẤT TẠI NHÀ MÁY :
+1/ Xác nhận đặt hàng, triển khai sản xuất thiết bị :
+-	Phòng kinh doanh lên hợp đồng thiết bị gởi cho khách hàng.
+-	Yêu cầu phòng kỹ thuật hiệu chỉnh hoàn thiện bản vẽ hệ thống thiết bị để gởi cho khách hàng đính kèm theo hợp đồng.
+-	Xác nhận đã ký hợp đồng.
+-	Xác nhận đã tạm ứng đợt 1 theo hợp đồng.
+2/ Triển khai đưa ra tiến hành sản xuất thiết bị :
+-	Chuyển toàn bộ các thông tin trong bảng thông tin thiết bị cura hợp đồng đã ký kết với các điều chỉnh mới nhất cho phòng kỹ thuật và phòng kế hoạch để lên kế hoạch sản xuất.
+Phòng kỹ thuật :
+* Kiểm tra điều chỉnh lại bảng vẽ thiết kế, bổ sung các điều chỉnh phát sinh thêm trong quá trình thương lượng với khách hàng.
+* Phát hành bản vẽ chi tiết từng hạng mục chi tiết nhỏ phát hành cho các tổ sản xuất tương ứng trong nhà máy bắt đầu chế tạo thiết bị theo đúng bản vẽ thiết kế.
+* Theo dõi quá trình sản xuất vật tư thiết bị của các tổ sản xuất đảm bảo đúng quy cách chất lượng như trong thiết kế. Trong quá trình sản xuất thực tế nếu có vấn đề gì trở ngại cần điều chỉnh hay thay đổi sẽ phối hợp làm việc với tổ trưởng mỗi tổ để tìm giải pháp xử lý và xin chỉ đạo của ban giám đốc để tiến hành điều chỉnh.
+Phòng kế hoạch :
+* Lên kế hoạch bố trí sản xuất của mỗi tổ sản xuất, sự phân bổ thời gian, lịch trình sản xuất của từng tổ sao cho đáp ứng đạt được tiến độ thời gian đã đề ra .
+* Phân phối công việc cho từng tổ, điều phối nhân sự giữa các tổ sao cho đáp ứng được yêu cầu công việc thực tế và tiến độ đã đề ra.
+*Điều hành mọi hoạt động sản xuất trong nhà máy.
+Tổ trưởng tổ sản xuất :
+* Nhận các yêu cầu về sản xuất chế tạo thiết bị, sắp xếp triển khai công việc cho các tổ viên trong tổ bắt đầu sản xuất .
+* Theo dõi tiến độ sản xuất, năng suất làm việc của mỗi thành viên trong tổ, đôn đốc nhắc nhở hoặc báo cáo lên ban giám đốc các tổ viên không chấp hành hoặc không hoàn thành đúng tiến độ được giao. 
+* Cho nhận xét báo cáo đánh giá về mỗi tổ viên, các vấn đề phát sinh trong tổ, nguyên nhân khách quan chủ quan không đạt chỉ tiêu được giao…
+* Điều chỉnh sắp xếp lại kế hoạch sản xuất khi có điều chỉnh hoặc có phân bổ lại công việc phòng kế hoạch giao xuống (vd có 1 công việc cần gấp hơn nên phải sắp xếp lại làm công việc đó trước sau đó mới làm tiếp công việc hiện tại) Tính toán cập nhật lại tiến độ thực tế, báo cáo nguyên nhân, đưa ra giải pháp để xử lý sao cho luôn hoàn thành được chỉ tiêu kế hoạch đã đề ra (vd xin làm thêm giờ, bổ sung thêm nhân sự để tăng tốc cho kịp tiến độ) 
+Phòng vật tư :
+* Nhận các yêu cầu về quy cách chủng loại vật tư phụ kiện để sản xuất thiết bị tại nhà máy do phòng kỹ thuật yêu cầu theo bản vẽ, các tổ trưởng yêu cầu, phòng kế hoạch yêu cầu, phòng cung ứng vật tư công trình... Các tổ nhóm yêu cầu vật tư sẽ gởi yêu cầu lên cho phòng kỹ thuật kiểm tra phê duyệt về số lượng, quy cách kỹ thuật xem có đúng như thiết kế đã tính toán hay không, và ban giám đốc phê duyệt đồng ý cung cấp. Sau đó bộ phân vật tư sẽ thực hiện các bước như sau :
+- Khảo sát tìm nhà phân phối có giá tốt nhất nhưng phải đạt các thông số kỹ thuật yêu cầu. Làm yêu cầu chào giá từ các nhà cung cấp, Sàng lọc chọn ra 03 nhà cung cấp tốt nhất trình cho ban giám đốc phê duyệt đặt hàng
+- Sau khi được phê duyệt chọn nhà cung cấp, tiến hành đặt hàng, thoả thuận các phương thưc đặt hàng, thanh toán…
+- Chuyển đơn đặt hàng qua phòng kế toán để sắp xếp thanh toán theo đúng thoả thuận với nhà cung cấp.
+- Chuyển nội dung, quy cách, số lượng của vật tư thiết bị đã đặt hàng cho bên kho theo dõi và nhận hàng nhập kho.
+- Sau khi kho nhận hàng, tiến hành nhập kho sẽ thông báo  với các tổ trưởng và người liên quan bên nhận vật tư thiêt bị theo phiếu yêu cầu đã được phê duyệt.
+
+Phòng cung ứng vật tư công trình :
+-	Nhận yêu cầu vật tư thiết bị từ phòng kỹ thuật (theo số liệu tính toán ban đầu) , phòng kế hoạch (các thiết bị sau khi hoàn thành sản xuất tại xưởng), các trưởng nhóm tại công trình (các vật tư thực tế sau khi đo đạc thi công thực tế tại nhà máy)
+-	Chuyển các yêu cầu này cho phòng kỹ thuật kiểm tra phê duyệt, xin phê duyệt của ban giám đốc đồng ý.
+-	Viết phiếu yêu cầu các vật tư thiết bị theo số lượng và quy cách đã được phê duyệt gởi cho phòng kế hoạch.
+-	Sau khi các kho và phòng kế hoạch thông báo đã có vật tư thiết bị như yêu cầu, tổng kết lại toàn bộ vật tư thiết bị hiện có lên kế hoạch vận chuyển đến công trình (cần bao nhiêu xe để vận chuyển, liên hệ hỏi giá thuê xe, phương thức bốc xếp vận chuyển, tuyến đường...)
+-	Xin phê duyệt của ban giám đốc về kế hoạch vận chuyển vật tư thiết bị đến công trình, sau khi được duyệt sẽ tiến hành vận chuyển vật tư thiết bị đến công trình trong thời gian sớm nhất để đảm bảo tiến độ lắp đặt tại công trình.
+
+•	Yêu cầu báo cáo : 
+-	Thể hiện tiến độ sản xuất thực tế so với kế hoạch đã đề ra, đã tới giai đoạn nào, lý do còn chưa hoàn tất… Ước tính thời gian hoàn thành dự án, các yếu tố nào đang ảnh hưởng trực tiếp tới tiến độ sản xuất, giải pháp xử lý.
+-	Lưu trữ thời gian từng bước triển khai trong quy trình để làm công cụ kiểm tra, đánh giá về tiến độ sản xuất thiết bị trong nhà máy, năng suất mỗi tổ, mỗi cá nhân làm cơ sở để điều chỉnh, đánh giá hiệu quả, khen thưởng.
+-	Lưu lại lịch sử trao đổi điều chỉnh giữu các phòng ban làm căn cứ xác định trách nhiệm khi có vấn đề sai sót xảy ra.
+-	Mỗi bộ phận chỉ có 1 tổ trưởng tham gia sử dụng app, chịu trách nhiệm báo cáo tiến độ và trao đổi giữ các nhóm trong dự án.
+-	Có 1 trang chat chung giữa các bộ phân trong khâu sản xuất tại nhà máy cho mỗi dự án, có mục upload các tài liệu, bản vẽ, hình ảnh …báo cáo cập nhật tiến độ cũng như làm bằng chứng khi truy xét vấn đề.
+-	Có công cụ phân tích, đánh giá hoạt động của mỗi tổ : tổng số lượng công việc đã làm, tổng số giờ công, tỷ lệ hoàn thành, tỷ lệ trễ hạn, hiệu suất làm việc…
+
+III / GIAI ĐOẠN TRIỂN KHAI LẮP ĐẶT TẠI CÔNG TRÌNH  :
+-	Nhóm thợ lắp đặt tại công trình là 1 nhóm độc lập với nhân công sản xuất tại nhà máy. Nhóm này hoạt động tại các tỉnh, nếu có công trình sẽ tập trung lại lắp đặt các thiết bị từ nhà máy gởi xuống kết nối thành hệ thống hoàn chỉnh cho khách hàng. Nếu không có công trình thì sẽ rải ra mỗi khu vực có các công ty khách hàng để hỗ trợ kiểm tra bảo dưỡng xử lý khi có sự cố vấn đề đối với hệ thống Saree đã lắp đặt.
+-	Nhóm này được chia thành các nhóm nhỏ theo ngành nghề như sau :
+•	Nhóm điện (03 người) : các thợ chuyên về điện công nghiệp.
+•	Nhóm hàn (04 người)  : các thợ chuyên về hàn đường ống kết nối các thiết bị.
+•	Nhóm lắp đặt băng chuyền (02 người) : nhóm thợ chuyên lắp đặt cân chỉnh băng chuyền IQF là 1 sản phẩm chủ lực của SAREE
+•	Nhóm lạnh (07 người) : nhóm thợ lắp đặt các thiết bị còn lại trong hệ thống.
+•	Nhóm bọc cách nhiệt (thuê ngoài) : nhóm chuyên bọc bảo ôn các đường ống và bình bầu sau khi kết nối hoàn chỉnh hệ thống.
+•	Nhóm lắp kho lạnh (thuê ngoài) : nhóm chuyên lắp đặt panel kho lạnh.
+-	Mỗi khi có 1 dự án mới, ban giám đốc sẽ phân bổ các nhân sự có liên quan đảm trách các khâu trong quá trình lắp đặt đến công trình để thi công lắp đặt các thiết bị từ công ty đưa xuống thành 01 hệ thống hoàn chỉnh. 
+-	Tuỳ loài thiết bị, khối lượng công trình, tiến độ đưa vật tư thiết bị đến công trình mà ban giám đốc sắp xếp số lượng nhân viên kỹ thuật đến tham gia, thời gian đến, thời hạn làm xong để kịp tiến độ chung của toàn bộ công trình. 
+-	Các khâu thi công có mối liên quan phụ thuộc lẫn nhau, có thứ tự thi công và 1 số yêu cầu riêng (công việc A phải xong thì công việc B mới bắt đầu được, hoặc công việc C muốn thi công được phải thì bên nhà máy phải làm xong nền móng…).
+•	Yêu cầu báo cáo : 
+-	Quản lý được tiến độ dự án, khối lượng công việc làm mỗi ngày
+-	Thống kê đánh giá được mức độ hiệu quả của từng cá nhân, của toàn đội, toàn dự án (người nào làm hiệu quả cao, hoàn thiện công việc nhanh, khả năng làm tốt ít xảy ra vấn đề sai sót hư hỏng). Từ đó làm cơ sở chấm điểm thi đua, khen thưởng cuối năm.
+-	Chấm công mỗi cá nhân :  mấy giờ đến công trường làm việc, thời gian rời đi, chụp hình báo cáo tình trạng công việc mỗi ngày.
+-	Trang chat trao đổi thông tin, báo cáo các vấn đề xảy ra trong công việc : có gởi thông báo riêng trực tiếp cho ban giám đốc, gởi trong nguyên team thi công. 
+-	Khắc phục được 1 số vấn đề hiện nay : đi trễ về sớm do ở công trình không có người giám sát chấm công, làm việc không hiệu quả, câu giờ ngồi chơi làm ảnh hưởng đến tâm lý chung với những người khác. Nếu bị thúc ép làm nhanh thì không có chất lượng, cẩu thả không làm đúng quy trình theo quy định gây hư hỏng hệ thống về lâu dài.
+-	Thống kê được các vấn đề lỗi xảy ra trong quá trình thi công, xem xét xác định nguyên nhân và có giải pháp khắc phục về sau.
+-	Lưu lại toàn bộ quá trình thi công nếu có, các lỗi và cách xử lý trong quá trình lắp đặt làm cơ sở chẩn đoán các vấn đề phát sinh về sau trong quá trình hoạt động, cải tiến sản phẩm ngày càng tốt hơn khi chế tạo tại nhà máy hoặc dễ lắp đặt hơn tại công trình.
