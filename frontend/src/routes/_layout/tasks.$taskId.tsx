@@ -1237,27 +1237,27 @@ function TaskDetailPage() {
                   className="block rounded-lg border border-slate-200 bg-slate-50 p-3 hover:bg-slate-100"
                 >
                   <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0">
+                    <div className="min-w-0 flex-1">
                       <p className="text-sm font-bold">{subtask.name}</p>
                       <p className="text-[11px] text-muted-foreground">
                         {subtask.assignee_name ?? subtask.assignee_id} · Hạn{" "}
                         {new Date(subtask.end_time).toLocaleString("vi-VN")}
                       </p>
-                      {weight != null ? (
-                        <p className="text-[10px] text-slate-400">
-                          Trọng số {weight}% → đóng góp {Math.round(weight * completionPct / 100)}% vào task cha
-                        </p>
-                      ) : (
-                        <p className="text-[10px] text-amber-500">Chưa đặt trọng số</p>
-                      )}
                     </div>
                     <div className="shrink-0 text-right">
                       <p className="text-[10px] font-bold uppercase text-primary">
                         {subtask.computed_status ?? subtask.status}
                       </p>
-                      <p className="text-[11px] font-semibold text-slate-700">
-                        {completionPct}%
-                      </p>
+                      {/* Subtask's own 0-100% completion */}
+                      <p className="text-sm font-bold text-slate-800">{completionPct}%</p>
+                      {weight != null ? (
+                        <p className="text-[10px] text-slate-400">
+                          {/* Weight × subtask% / 100 = actual contribution to parent */}
+                          đóng góp {Math.round(weight * completionPct / 100)}/{weight}%
+                        </p>
+                      ) : (
+                        <p className="text-[10px] text-amber-500">Chưa đặt trọng số</p>
+                      )}
                     </div>
                   </div>
                   <div className="mt-2">

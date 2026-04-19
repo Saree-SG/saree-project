@@ -102,6 +102,11 @@ function Layout() {
         ) {
           void queryClient.invalidateQueries({ queryKey: ["my-tasks-dashboard"] })
           void queryClient.invalidateQueries({ queryKey: ["project-dashboard"] })
+          // Refresh notification bell immediately on any relevant event
+          if (!isOwnEvent) {
+            void queryClient.invalidateQueries({ queryKey: ["notifications-unread-count"] })
+            void queryClient.invalidateQueries({ queryKey: ["notifications-list"] })
+          }
         }
 
         if (!isOwnEvent && !isOnThisTaskPage) {

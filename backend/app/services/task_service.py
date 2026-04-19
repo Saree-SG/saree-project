@@ -207,8 +207,8 @@ async def _rollup_completion_pct(
         child_weights_total = 0.0
         child_contribution = 0.0
         for child in children:
-            # Subtask completion = its own direct reports (no deeper children allowed)
-            child_self = float(await repo.sum_progress(child.id))
+            # Subtask completion = its own direct reports, capped at 100
+            child_self = min(100.0, float(await repo.sum_progress(child.id)))
             w_i = float(child.progress_weight or 0)
             child_contribution += w_i * child_self / 100.0
             child_weights_total += w_i
