@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 
-import { connectChatWs, type ChatWsEvent } from "@/modules/chat/chatWs"
+import { type ChatWsEvent, connectChatWs } from "@/modules/chat/chatWs"
 
 export function useChatSocket(roomId: string | null) {
   const [status, setStatus] = useState<
@@ -52,4 +52,3 @@ export function useChatSocket(roomId: string | null) {
 
   return api
 }
-

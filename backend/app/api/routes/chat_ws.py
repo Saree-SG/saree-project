@@ -1,4 +1,4 @@
-"""Chat WebSocket router (realtime messaging)."""
+"""Chat WebSocket router — realtime messaging with async session."""
 
 from __future__ import annotations
 
@@ -6,22 +6,23 @@ import uuid
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect
-from sqlmodel import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_db
+from app.api.deps import get_ws_session_factory
 from app.core.auth.security import decode_token
 from app.core.auth.session_service import get_session_service
-from app.models.chat import ChatMessage
 from app.models.user import User
+from app.repositories.chat_repository import ChatRepository
+from app.repositories.user_repository import UserRepository
 from app.shared.chat_realtime import chat_fanout, chat_manager
-from app.shared.chat_service import require_active_member
 
 router = APIRouter(tags=["chat"])
 
 
-def get_current_user_from_ws(websocket: WebSocket, session: Session) -> User:
+async def get_current_user_from_ws(
+    websocket: WebSocket, session: AsyncSession
+) -> User:
     """Authenticate websocket via Bearer header or `token` query param."""
-
     auth = websocket.headers.get("authorization") or websocket.headers.get("Authorization")
     if auth and auth.lower().startswith("bearer "):
         token = auth.split(" ", 1)[1].strip()
@@ -34,7 +35,8 @@ def get_current_user_from_ws(websocket: WebSocket, session: Session) -> User:
         raise HTTPException(403, "Invalid token type")
     if not get_session_service().validate_access_payload(token_data):
         raise HTTPException(401, "Session revoked or expired")
-    user = session.get(User, token_data.sub)
+    user_repo = UserRepository(session)
+    user = await user_repo.get_by_id(token_data.sub)
     if not user:
         raise HTTPException(404, "User not found")
     if not user.is_active:
@@ -44,22 +46,31 @@ def get_current_user_from_ws(websocket: WebSocket, session: Session) -> User:
 
 @router.websocket("/chat/ws")
 async def chat_ws(
-    websocket: WebSocket, room_id: uuid.UUID, session: Session = Depends(get_db)
+    websocket: WebSocket,
+    room_id: uuid.UUID,
+    session_factory=Depends(get_ws_session_factory),
 ) -> None:
-    """WebSocket endpoint for a single room."""
+    """WebSocket endpoint for a single chat room.
 
-    try:
-        current_user = get_current_user_from_ws(websocket, session)
-    except HTTPException as e:
-        await websocket.close(code=4403, reason=str(e.detail))
-        return
-
-    require_active_member(session, room_id, current_user.id)
+    Uses a dedicated short-lived session per message write so that each
+    message is committed immediately and visible to other connections.
+    A long-lived request-scoped transaction is not appropriate here.
+    """
+    async with session_factory() as auth_session:
+        async with auth_session.begin():
+            try:
+                current_user = await get_current_user_from_ws(websocket, auth_session)
+                chat_repo = ChatRepository(auth_session)
+                await chat_repo.require_active_member(room_id, current_user.id)
+            except HTTPException as e:
+                await websocket.close(code=4403, reason=str(e.detail))
+                return
 
     await chat_manager.connect(websocket, room_id=room_id, user_id=current_user.id)
     await chat_fanout.ensure_room_listener(room_id)
     await chat_fanout.publish(
-        room_id, {"type": "presence.join", "room_id": str(room_id), "user_id": str(current_user.id)}
+        room_id,
+        {"type": "presence.join", "room_id": str(room_id), "user_id": str(current_user.id)},
     )
 
     try:
@@ -86,16 +97,16 @@ async def chat_ws(
                 )
                 continue
 
-            require_active_member(session, room_id, current_user.id)
-            m = ChatMessage(
-                room_id=room_id,
-                sender_id=current_user.id,
-                message_type="text",
-                content=content,
-            )
-            session.add(m)
-            session.commit()
-            session.refresh(m)
+            async with session_factory() as msg_session:
+                async with msg_session.begin():
+                    msg_repo = ChatRepository(msg_session)
+                    await msg_repo.require_active_member(room_id, current_user.id)
+                    m = await msg_repo.create_message({
+                        "room_id": room_id,
+                        "sender_id": current_user.id,
+                        "message_type": "text",
+                        "content": content,
+                    })
 
             await chat_fanout.publish(
                 room_id,
@@ -121,4 +132,3 @@ async def chat_ws(
             room_id,
             {"type": "presence.leave", "room_id": str(room_id), "user_id": str(current_user.id)},
         )
-

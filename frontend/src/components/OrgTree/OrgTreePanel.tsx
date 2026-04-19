@@ -14,7 +14,11 @@ export default function OrgTreePanel({
   companyName,
   departmentId,
 }: OrgTreePanelProps) {
-  const { data: orgTree, isPending, isError } = useQuery({
+  const {
+    data: orgTree,
+    isPending,
+    isError,
+  } = useQuery({
     queryKey: ["roles", "org-tree", companyId, departmentId || ""],
     queryFn: () =>
       getOrgTree({
@@ -73,4 +77,3 @@ export default function OrgTreePanel({
     </section>
   )
 }
-

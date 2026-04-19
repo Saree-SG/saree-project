@@ -3,9 +3,9 @@ import { createFileRoute } from "@tanstack/react-router"
 import { Building2, Lock, LogOut, Mail, UserRound } from "lucide-react"
 
 import { RolesService } from "@/client"
+import OrgTreePanel from "@/components/OrgTree/OrgTreePanel"
 import ChangePassword from "@/components/UserSettings/ChangePassword"
 import UserInformation from "@/components/UserSettings/UserInformation"
-import OrgTreePanel from "@/components/OrgTree/OrgTreePanel"
 import { Button } from "@/components/ui/button"
 import useAuth from "@/hooks/useAuth"
 

@@ -19,8 +19,10 @@ export type ChatWsEvent =
     }
 
 function toWsBase(httpBase: string) {
-  if (httpBase.startsWith("https://")) return `wss://${httpBase.slice("https://".length)}`
-  if (httpBase.startsWith("http://")) return `ws://${httpBase.slice("http://".length)}`
+  if (httpBase.startsWith("https://"))
+    return `wss://${httpBase.slice("https://".length)}`
+  if (httpBase.startsWith("http://"))
+    return `ws://${httpBase.slice("http://".length)}`
   return httpBase
 }
 
@@ -66,4 +68,3 @@ export function connectChatWs(params: {
     close: () => ws.close(),
   }
 }
-

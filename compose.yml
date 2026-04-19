@@ -1,209 +1,142 @@
 services:
-
   db:
-    image: postgres:18
-    restart: always
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
-      interval: 10s
-      retries: 5
-      start_period: 30s
-      timeout: 10s
-    volumes:
-      - app-db-data:/var/lib/postgresql/data/pgdata
-    env_file:
-      - .env
+    image: postgres:16-alpine
+    container_name: saree-db
     environment:
-      - PGDATA=/var/lib/postgresql/data/pgdata
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD?Variable not set}
-      - POSTGRES_USER=${POSTGRES_USER?Variable not set}
-      - POSTGRES_DB=${POSTGRES_DB?Variable not set}
+      POSTGRES_USER: saree
+      POSTGRES_PASSWORD: 2nl2ull7
+      POSTGRES_DB: saree-erp-project
+    ports:
+      - "5432:5432"
+    volumes:
+      - saree-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U saree -d saree"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
 
   redis:
-    image: redis:7.4-alpine
-    restart: always
-    command: ["redis-server", "--appendonly", "yes"]
-    volumes:
-      - app-redis-data:/data
+    image: redis:7-alpine
+    container_name: saree-redis
+    ports:
+      - "6379:6379"
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
-      timeout: 3s
-      retries: 20
-
-  adminer:
-    image: adminer
-    restart: always
-    networks:
-      - traefik-public
-      - default
-    depends_on:
-      - db
-    environment:
-      - ADMINER_DESIGN=pepa-linha-dark
-    labels:
-      - traefik.enable=true
-      - traefik.docker.network=traefik-public
-      - traefik.constraint-label=traefik-public
-      - traefik.http.routers.${STACK_NAME?Variable not set}-adminer-http.rule=Host(`adminer.${DOMAIN?Variable not set}`)
-      - traefik.http.routers.${STACK_NAME?Variable not set}-adminer-http.entrypoints=http
-      - traefik.http.routers.${STACK_NAME?Variable not set}-adminer-http.middlewares=https-redirect
-      - traefik.http.routers.${STACK_NAME?Variable not set}-adminer-https.rule=Host(`adminer.${DOMAIN?Variable not set}`)
-      - traefik.http.routers.${STACK_NAME?Variable not set}-adminer-https.entrypoints=https
-      - traefik.http.routers.${STACK_NAME?Variable not set}-adminer-https.tls=true
-      - traefik.http.routers.${STACK_NAME?Variable not set}-adminer-https.tls.certresolver=le
-      - traefik.http.services.${STACK_NAME?Variable not set}-adminer.loadbalancer.server.port=8080
-
-  prestart:
-    image: '${DOCKER_IMAGE_BACKEND?Variable not set}:${TAG-latest}'
-    build:
-      context: .
-      dockerfile: backend/Dockerfile
-    networks:
-      - traefik-public
-      - default
-    depends_on:
-      db:
-        condition: service_healthy
-        restart: true
-      redis:
-        condition: service_healthy
-    command: bash scripts/prestart.sh
-    env_file:
-      - .env
-    environment:
-      - DOMAIN=${DOMAIN}
-      - FRONTEND_HOST=${FRONTEND_HOST?Variable not set}
-      - ENVIRONMENT=${ENVIRONMENT}
-      - BACKEND_CORS_ORIGINS=${BACKEND_CORS_ORIGINS}
-      - SECRET_KEY=${SECRET_KEY?Variable not set}
-      - FIRST_SUPERUSER=${FIRST_SUPERUSER?Variable not set}
-      - FIRST_SUPERUSER_PASSWORD=${FIRST_SUPERUSER_PASSWORD?Variable not set}
-      - SMTP_HOST=${SMTP_HOST}
-      - SMTP_USER=${SMTP_USER}
-      - SMTP_PASSWORD=${SMTP_PASSWORD}
-      - EMAILS_FROM_EMAIL=${EMAILS_FROM_EMAIL}
-      - POSTGRES_SERVER=db
-      - POSTGRES_PORT=${POSTGRES_PORT}
-      - POSTGRES_DB=${POSTGRES_DB}
-      - POSTGRES_USER=${POSTGRES_USER?Variable not set}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD?Variable not set}
-      - SENTRY_DSN=${SENTRY_DSN}
-      - REDIS_URL=redis://redis:6379/0
-      - CHAT_UPLOAD_DIR=/data/uploads/chat
-      - TASK_PROGRESS_UPLOAD_DIR=/data/uploads/task_progress
-      - PUBLIC_BASE_URL=https://api.${DOMAIN?Variable not set}
-    volumes:
-      - app-uploads-data:/data/uploads
+      timeout: 5s
+      retries: 10
 
   backend:
-    image: '${DOCKER_IMAGE_BACKEND?Variable not set}:${TAG-latest}'
-    restart: always
-    networks:
-      - traefik-public
-      - default
-    depends_on:
-      db:
-        condition: service_healthy
-        restart: true
-      redis:
-        condition: service_healthy
-      prestart:
-        condition: service_completed_successfully
-    env_file:
-      - .env
-    environment:
-      - DOMAIN=${DOMAIN}
-      - FRONTEND_HOST=${FRONTEND_HOST?Variable not set}
-      - ENVIRONMENT=${ENVIRONMENT}
-      - BACKEND_CORS_ORIGINS=${BACKEND_CORS_ORIGINS}
-      - SECRET_KEY=${SECRET_KEY?Variable not set}
-      - FIRST_SUPERUSER=${FIRST_SUPERUSER?Variable not set}
-      - FIRST_SUPERUSER_PASSWORD=${FIRST_SUPERUSER_PASSWORD?Variable not set}
-      - SMTP_HOST=${SMTP_HOST}
-      - SMTP_USER=${SMTP_USER}
-      - SMTP_PASSWORD=${SMTP_PASSWORD}
-      - EMAILS_FROM_EMAIL=${EMAILS_FROM_EMAIL}
-      - POSTGRES_SERVER=db
-      - POSTGRES_PORT=${POSTGRES_PORT}
-      - POSTGRES_DB=${POSTGRES_DB}
-      - POSTGRES_USER=${POSTGRES_USER?Variable not set}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD?Variable not set}
-      - SENTRY_DSN=${SENTRY_DSN}
-      - REDIS_URL=redis://redis:6379/0
-      - CHAT_UPLOAD_DIR=/data/uploads/chat
-      - TASK_PROGRESS_UPLOAD_DIR=/data/uploads/task_progress
-      - PUBLIC_BASE_URL=https://api.${DOMAIN?Variable not set}
-    volumes:
-      - app-uploads-data:/data/uploads
-
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/utils/health-check/"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
     build:
       context: .
       dockerfile: backend/Dockerfile
-    labels:
-      - traefik.enable=true
-      - traefik.docker.network=traefik-public
-      - traefik.constraint-label=traefik-public
+    container_name: saree-backend
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      # Core app
+      ENVIRONMENT: local
+      PROJECT_NAME: "Saree ERP"
+      SECRET_KEY: "dev-secret-change-me"
 
-      - traefik.http.services.${STACK_NAME?Variable not set}-backend.loadbalancer.server.port=8000
+      # DB
+      POSTGRES_SERVER: db
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: saree
+      POSTGRES_PASSWORD: saree
+      POSTGRES_DB: saree
 
-      - traefik.http.routers.${STACK_NAME?Variable not set}-backend-http.rule=Host(`api.${DOMAIN?Variable not set}`)
-      - traefik.http.routers.${STACK_NAME?Variable not set}-backend-http.entrypoints=http
+      # Redis
+      REDIS_URL: "redis://redis:6379/0"
 
-      - traefik.http.routers.${STACK_NAME?Variable not set}-backend-https.rule=Host(`api.${DOMAIN?Variable not set}`)
-      - traefik.http.routers.${STACK_NAME?Variable not set}-backend-https.entrypoints=https
-      - traefik.http.routers.${STACK_NAME?Variable not set}-backend-https.tls=true
-      - traefik.http.routers.${STACK_NAME?Variable not set}-backend-https.tls.certresolver=le
+      # First superuser (created by app/initial_data.py)
+      FIRST_SUPERUSER: "admin@saree-process.demo"
+      FIRST_SUPERUSER_PASSWORD: "AdminDemo2024!"
 
-      # Enable redirection for HTTP and HTTPS
-      - traefik.http.routers.${STACK_NAME?Variable not set}-backend-http.middlewares=https-redirect
+      # CORS / frontend
+      FRONTEND_HOST: "http://localhost:5173"
+      BACKEND_CORS_ORIGINS: "http://localhost:5173"
+
+      # NOTE: auto-reset removed from default compose to prevent accidental wipe.
+      # Use compose.override.yml or run manually: docker compose exec backend python -m app.scripts.reset_saree_process_demo --confirm
+    volumes:
+      - ./uploads:/app/uploads
+    ports:
+      - "8111:8111"
+    command:
+      [
+        "bash",
+        "-lc",
+        "scripts/prestart.sh && uvicorn app.main:app --host 0.0.0.0 --port 8111",
+      ]
+
+  celery_worker:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: saree-celery-worker
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      ENVIRONMENT: local
+      SECRET_KEY: "dev-secret-change-me"
+      POSTGRES_SERVER: db
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: saree
+      POSTGRES_PASSWORD: saree
+      POSTGRES_DB: saree
+      REDIS_URL: "redis://redis:6379/0"
+    volumes:
+      - ./uploads:/app/uploads
+    command:
+      [
+        "bash",
+        "-lc",
+        "celery -A app.core.celery_app.celery_app worker --loglevel=info --concurrency=2",
+      ]
+
+  celery_beat:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: saree-celery-beat
+    depends_on:
+      - redis
+      - db
+    environment:
+      ENVIRONMENT: local
+      SECRET_KEY: "dev-secret-change-me"
+      POSTGRES_SERVER: db
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: saree
+      POSTGRES_PASSWORD: saree
+      POSTGRES_DB: saree
+      REDIS_URL: "redis://redis:6379/0"
+    command:
+      [
+        "bash",
+        "-lc",
+        "celery -A app.core.celery_app.celery_app beat --loglevel=info",
+      ]
 
   frontend:
-    image: '${DOCKER_IMAGE_FRONTEND?Variable not set}:${TAG-latest}'
-    restart: always
-    networks:
-      - traefik-public
-      - default
     build:
       context: .
       dockerfile: frontend/Dockerfile
       args:
-        - VITE_API_URL=https://api.${DOMAIN?Variable not set}
-        - NODE_ENV=production
-    labels:
-      - traefik.enable=true
-      - traefik.docker.network=traefik-public
-      - traefik.constraint-label=traefik-public
+        VITE_API_URL: "http://localhost:8111"
+    container_name: saree-frontend
+    depends_on:
+      - backend
+    ports:
+      - "5173:80"
 
-      - traefik.http.services.${STACK_NAME?Variable not set}-frontend.loadbalancer.server.port=80
-
-      - traefik.http.routers.${STACK_NAME?Variable not set}-frontend-http.rule=Host(`dashboard.${DOMAIN?Variable not set}`)
-      - traefik.http.routers.${STACK_NAME?Variable not set}-frontend-http.entrypoints=http
-
-      - traefik.http.routers.${STACK_NAME?Variable not set}-frontend-https.rule=Host(`dashboard.${DOMAIN?Variable not set}`)
-      - traefik.http.routers.${STACK_NAME?Variable not set}-frontend-https.entrypoints=https
-      - traefik.http.routers.${STACK_NAME?Variable not set}-frontend-https.tls=true
-      - traefik.http.routers.${STACK_NAME?Variable not set}-frontend-https.tls.certresolver=le
-
-      # Enable redirection for HTTP and HTTPS
-      - traefik.http.routers.${STACK_NAME?Variable not set}-frontend-http.middlewares=https-redirect
-    healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost/ >/dev/null 2>&1 || exit 1"]
-      interval: 10s
-      timeout: 5s
-      retries: 10
 volumes:
-  app-db-data:
-  app-redis-data:
-  app-uploads-data:
-
-networks:
-  traefik-public:
-    # Allow setting it to false for testing
-    external: true
+  saree-postgres-data:

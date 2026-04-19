@@ -11,7 +11,11 @@ function extractErrorMessage(err: ApiError): string {
     if (detail && typeof detail === "object" && "message" in detail) {
       return String((detail as { message: string }).message)
     }
-    if (Array.isArray(detail) && detail.length > 0 && typeof detail[0]?.msg === "string") {
+    if (
+      Array.isArray(detail) &&
+      detail.length > 0 &&
+      typeof detail[0]?.msg === "string"
+    ) {
       return detail[0].msg
     }
     return err.message

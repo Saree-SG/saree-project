@@ -1,12 +1,11 @@
-from datetime import datetime, timedelta, timezone
+from datetime import timedelta
 from typing import Any
 
 from pwdlib import PasswordHash
 from pwdlib.hashers.argon2 import Argon2Hasher
 from pwdlib.hashers.bcrypt import BcryptHasher
 
-from app.core.auth.security import ALGORITHM, create_access_token as auth_create_access_token
-from app.core.config import settings
+from app.core.auth.security import create_access_token as auth_create_access_token
 
 password_hash = PasswordHash(
     (

@@ -15,13 +15,18 @@ export default function OrgTreeDepartmentTree({
     <div className="space-y-3">
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-semibold">{departmentName}</h3>
-        <span className="text-xs text-muted-foreground">{roles.length} levels</span>
+        <span className="text-xs text-muted-foreground">
+          {roles.length} levels
+        </span>
       </div>
       <div className="space-y-0">
         {roles.map((roleNode, index) => {
           const isCurrentRole = roleNode.role_id === currentRoleId
           return (
-            <div key={roleNode.role_id} className="relative flex flex-col items-center">
+            <div
+              key={roleNode.role_id}
+              className="relative flex flex-col items-center"
+            >
               {index > 0 ? <span className="h-5 w-px bg-border" /> : null}
               <div
                 className={
@@ -31,7 +36,9 @@ export default function OrgTreeDepartmentTree({
                 }
               >
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <p className="text-sm font-semibold">{roleNode.role_display_name}</p>
+                  <p className="text-sm font-semibold">
+                    {roleNode.role_display_name}
+                  </p>
                   <div className="flex items-center gap-2">
                     <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
                       Level {roleNode.role_level}
@@ -43,7 +50,9 @@ export default function OrgTreeDepartmentTree({
                     ) : null}
                   </div>
                 </div>
-                <p className="mt-1 text-xs text-muted-foreground">{roleNode.role_name}</p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {roleNode.role_name}
+                </p>
                 <div className="mt-3 flex flex-wrap gap-2">
                   {roleNode.members.length === 0 ? (
                     <span className="rounded-md border border-dashed px-2 py-1 text-xs text-muted-foreground">
@@ -65,7 +74,9 @@ export default function OrgTreeDepartmentTree({
                   )}
                 </div>
               </div>
-              {index < roles.length - 1 ? <span className="h-5 w-px bg-border" /> : null}
+              {index < roles.length - 1 ? (
+                <span className="h-5 w-px bg-border" />
+              ) : null}
             </div>
           )
         })}
@@ -73,4 +84,3 @@ export default function OrgTreeDepartmentTree({
     </div>
   )
 }
-

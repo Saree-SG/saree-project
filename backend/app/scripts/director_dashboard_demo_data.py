@@ -1,4 +1,13 @@
-"""Seed and export/import demo data for director dashboard."""
+"""Legacy seed/export for director dashboard (slug ``default``).
+
+Prefer a full process-aligned demo via:
+
+  uv run python -m app.scripts.reset_saree_process_demo --confirm
+
+That script wipes tenant tables and seeds ``Công ty Saree`` (slug ``saree``) with
+roles/tasks from Quy trình Sản xuất. This module remains for optional JSON
+export/import against the ``default`` company if you recreate it manually.
+"""
 
 from __future__ import annotations
 
@@ -13,12 +22,25 @@ from sqlmodel import Session, SQLModel, select
 
 from app import crud
 from app.core.db import engine
-from app.models.org import Company, Department, Permission, ProjectMemberRole, Role, UserCompanyRole
+from app.models.org import (
+    Company,
+    Department,
+    Permission,
+    ProjectMemberRole,
+    Role,
+    UserCompanyRole,
+)
 from app.models.project import Project
-from app.models.task import AuditLog, Task, TaskComment, TaskDependency, TaskProgressReport, TaskProof
+from app.models.task import (
+    AuditLog,
+    Task,
+    TaskComment,
+    TaskDependency,
+    TaskProgressReport,
+    TaskProof,
+)
 from app.models.user import User, UserCreate
 from app.scripts.seed_defaults import seed as seed_defaults_roles
-
 
 DEFAULT_EXPORT_PATH = Path("demo/director_dashboard_data.json")
 
@@ -456,7 +478,12 @@ def model_to_dict(model: SQLModel) -> dict[str, Any]:
 
 
 def export_demo_data(session: Session, output_path: Path) -> dict[str, Any]:
-    """Export company-scoped demo data into a JSON bundle."""
+    """
+    Export company-scoped demo data into a JSON bundle.
+
+    Bundle matches the ``default`` slug company only; after ``reset_saree_process_demo``
+    the primary tenant is ``saree`` — re-export from that company if you extend this helper.
+    """
 
     company = get_or_create_default_company(session)
     project_ids = session.exec(select(Project.id).where(Project.company_id == company.id)).all()

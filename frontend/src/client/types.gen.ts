@@ -41,6 +41,10 @@ export type Body_login_login_access_token = {
     client_secret?: (string | null);
 };
 
+export type Body_tasks_upload_progress_report_photo = {
+    file: (Blob | File);
+};
+
 /**
  * Chat attachment response.
  */
@@ -228,6 +232,18 @@ export type ProjectCreate = {
     department_id?: (string | null);
 };
 
+/**
+ * Project membership with resolved user and role labels for API clients.
+ */
+export type ProjectMemberWithUserPublic = {
+    user_id: string;
+    role_id: string;
+    joined_at: string;
+    full_name?: (string | null);
+    email: string;
+    role_display_name: string;
+};
+
 export type ProjectPublic = {
     name: string;
     code: string;
@@ -346,6 +362,7 @@ export type TaskCreate = {
     project_id: string;
     parent_id?: (string | null);
     assignee_id: string;
+    progress_weight?: (number | null);
 };
 
 export type TaskDependencyCreate = {
@@ -374,6 +391,13 @@ export type TaskLevelConfigPublic = {
     requires_proof: boolean;
     can_have_children: boolean;
     max_children: (number | null);
+};
+
+/**
+ * Response after saving a progress-report image to storage.
+ */
+export type TaskProgressPhotoUploadPublic = {
+    photo_url: string;
 };
 
 export type TaskProgressReportCreate = {
@@ -431,11 +455,14 @@ export type TaskPublic = {
     computed_status?: (string | null);
     assignor_id: string;
     assignee_id: string;
+    assignee_name?: (string | null);
+    assignor_name?: (string | null);
     actual_end_time: (string | null);
     is_on_critical_path: boolean;
     created_at: string;
     updated_at: string;
     reported_progress_total?: number;
+    progress_weight?: (number | null);
 };
 
 export type TasksPublic = {
@@ -753,9 +780,7 @@ export type ProjectsGetMembersData = {
     projectId: string;
 };
 
-export type ProjectsGetMembersResponse = (Array<{
-    [key: string]: unknown;
-}>);
+export type ProjectsGetMembersResponse = (Array<ProjectMemberWithUserPublic>);
 
 export type ProjectsAddMemberData = {
     projectId: string;
@@ -950,6 +975,13 @@ export type TasksAddDependencyData = {
 };
 
 export type TasksAddDependencyResponse = (unknown);
+
+export type TasksUploadProgressReportPhotoData = {
+    formData: Body_tasks_upload_progress_report_photo;
+    taskId: string;
+};
+
+export type TasksUploadProgressReportPhotoResponse = (TaskProgressPhotoUploadPublic);
 
 export type TasksAddProgressReportData = {
     requestBody: TaskProgressReportCreate;

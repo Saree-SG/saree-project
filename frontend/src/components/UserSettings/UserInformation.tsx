@@ -24,6 +24,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import useAuth from "@/hooks/useAuth"
+import { useMyPermissions } from "@/hooks/useMyPermissions"
 import useCustomToast from "@/hooks/useCustomToast"
 import { cn } from "@/lib/utils"
 import { handleError } from "@/utils"
@@ -34,12 +35,6 @@ const formSchema = z.object({
 })
 
 type FormData = z.infer<typeof formSchema>
-const ALLOWED_COMPANY_ROLE_NAMES = new Set([
-  "director",
-  "department_head",
-  "worker",
-])
-
 type UserInformationProps = {
   embedded?: boolean
 }
@@ -49,6 +44,11 @@ const UserInformation = ({ embedded = false }: UserInformationProps) => {
   const { showSuccessToast, showErrorToast } = useCustomToast()
   const [editMode, setEditMode] = useState(false)
   const { user: currentUser } = useAuth()
+  const permissionsQuery = useMyPermissions()
+  const canManageUsers = Boolean(
+    currentUser?.is_superuser ||
+      (permissionsQuery.data ?? []).includes("USER_MANAGE"),
+  )
   const [selectedCompanyId, setSelectedCompanyId] = useState("")
   const [selectedRoleId, setSelectedRoleId] = useState("")
 
@@ -93,8 +93,7 @@ const UserInformation = ({ embedded = false }: UserInformationProps) => {
   })
 
   const validCompanyRoles = (companyRoles ?? []).filter(
-    (role) =>
-      Boolean(role.id) && ALLOWED_COMPANY_ROLE_NAMES.has(role.name || ""),
+    (role) => Boolean(role.id),
   )
 
   const toggleEditMode = () => {
@@ -262,7 +261,27 @@ const UserInformation = ({ embedded = false }: UserInformationProps) => {
         )}
       </div>
 
-      {currentUser?.is_superuser ? (
+      <div className="mt-6 space-y-3">
+        <h4 className="text-base font-semibold">Effective Permissions</h4>
+        {(permissionsQuery.data ?? []).length === 0 ? (
+          <p className="text-sm text-muted-foreground">
+            No permissions resolved for this account.
+          </p>
+        ) : (
+          <div className="flex flex-wrap gap-2">
+            {(permissionsQuery.data ?? []).map((code) => (
+              <span
+                key={code}
+                className="rounded-md border bg-muted px-2 py-1 text-xs font-medium"
+              >
+                {code}
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {canManageUsers ? (
         <div
           className={
             embedded

@@ -5,13 +5,12 @@ from __future__ import annotations
 import logging
 import sys
 import time
-from typing import Any, Callable
+from typing import Any
 
 from fastapi import Request
 from fastapi.exceptions import RequestValidationError
 from loguru import logger
-from starlette.middleware.base import BaseHTTPMiddleware
-from starlette.responses import Response
+from starlette.types import ASGIApp, Receive, Scope, Send
 
 
 class InterceptHandler(logging.Handler):
@@ -71,53 +70,63 @@ def _safe_body_for_log(request: Request, raw: bytes, limit: int = 8_192) -> str 
         return "<body decode failed>"
 
 
-class RequestLoggingMiddleware(BaseHTTPMiddleware):
-    """Log requests with timing and error details."""
+class RequestLoggingMiddleware:
+    """Log requests with timing and error details.
 
-    async def dispatch(self, request: Request, call_next: Callable[[Request], Any]) -> Response:
+    Implemented as plain ASGI middleware (not BaseHTTPMiddleware) to preserve
+    exception handling and CORS behavior.
+    """
+
+    def __init__(self, app: ASGIApp) -> None:
+        self.app = app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+
         start = time.perf_counter()
 
-        raw_body = b""
-        try:
-            raw_body = await request.body()
-            request._body = raw_body  # type: ignore[attr-defined]
-        except Exception:
-            pass
+        status_code: int | None = None
+
+        async def send_wrapper(message: dict[str, Any]) -> None:
+            nonlocal status_code
+            if message["type"] == "http.response.start":
+                status_code = int(message["status"])
+            await send(message)
 
         try:
-            response = await call_next(request)
+            await self.app(scope, receive, send_wrapper)
         except Exception:
             duration_ms = int((time.perf_counter() - start) * 1000)
             logger.exception(
                 "Unhandled exception {method} {path} ({duration_ms}ms)",
-                method=request.method,
-                path=str(request.url.path),
+                method=scope.get("method"),
+                path=scope.get("path"),
                 duration_ms=duration_ms,
             )
             raise
 
         duration_ms = int((time.perf_counter() - start) * 1000)
-        status = response.status_code
+        method = scope.get("method")
+        path = scope.get("path")
+        status = status_code or 0
         if status >= 400:
-            body_txt = _safe_body_for_log(request, raw_body)
             logger.warning(
-                "HTTP {status} {method} {path} ({duration_ms}ms) query={query} body={body}",
+                "HTTP {status} {method} {path} ({duration_ms}ms)",
                 status=status,
-                method=request.method,
-                path=str(request.url.path),
+                method=method,
+                path=path,
                 duration_ms=duration_ms,
-                query=dict(request.query_params),
-                body=body_txt,
             )
         else:
             logger.info(
                 "HTTP {status} {method} {path} ({duration_ms}ms)",
                 status=status,
-                method=request.method,
-                path=str(request.url.path),
+                method=method,
+                path=path,
                 duration_ms=duration_ms,
             )
-        return response
 
 
 def log_validation_error(request: Request, exc: RequestValidationError) -> None:

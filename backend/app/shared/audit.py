@@ -1,42 +1,41 @@
 """
-Audit service — append-only write_audit_log().
+Audit service — async append-only write helper.
 
-Any module can call this without importing Task/Project/etc.
-entity_type is a free string so future modules plug in automatically.
+Callers must NOT commit; the caller's transaction boundary handles commit.
 """
+
 from __future__ import annotations
 
 import json
 import uuid
 from typing import Any
 
-from sqlmodel import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.task import AuditLog
 
 
-def _normalize_json(value: Any | None) -> Any | None:
+def _normalize_json(value: Any) -> Any:
     """Normalize Python payload into JSON-serializable data."""
-
     if value is None:
         return None
     return json.loads(json.dumps(value, default=str))
 
 
-def write_audit_log(
-    session: Session,
+async def write_audit_log(
+    session: AsyncSession,
     actor_id: uuid.UUID,
     action: str,
     entity_type: str,
     entity_id: uuid.UUID,
-    old_value: Any | None = None,
-    new_value: Any | None = None,
+    old_value: Any = None,
+    new_value: Any = None,
     ip_address: str | None = None,
     user_agent: str | None = None,
 ) -> AuditLog:
     """
-    Write an immutable audit record.
-    old_value / new_value are stored as JSON object payloads.
+    Write an immutable audit record within the current transaction.
+    Flushes immediately so the caller can reference the generated PK.
     """
     log = AuditLog(
         actor_id=actor_id,
@@ -49,5 +48,5 @@ def write_audit_log(
         user_agent=user_agent,
     )
     session.add(log)
-    # NOTE: caller is responsible for session.commit()
+    await session.flush()
     return log
