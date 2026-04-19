@@ -54,7 +54,7 @@ services:
       - "5432:5432"
 
   redis:
-    image: redis:7.4-alpine
+    image: redis:8.6-alpine
     restart: "no"
     ports:
       - "6379:6379"
