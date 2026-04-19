@@ -1,5 +1,6 @@
 import secrets
 import warnings
+from pathlib import Path
 from typing import Annotated, Any, Literal
 
 from pydantic import (
@@ -23,6 +24,9 @@ def parse_cors(v: Any) -> list[str] | str:
     raise ValueError(v)
 
 
+_BACKEND_ROOT = Path(__file__).resolve().parents[2]
+
+
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         # Prefer ./backend/.env when running inside backend/,
@@ -41,9 +45,9 @@ class Settings(BaseSettings):
     FRONTEND_HOST: str = "http://localhost:5173"
     ENVIRONMENT: Literal["local", "staging", "production"] = "local"
 
-    # Chat / uploads
-    CHAT_UPLOAD_DIR: str = "../uploads/chat"
-    TASK_PROGRESS_UPLOAD_DIR: str = "../uploads/task_progress"
+    # Chat / uploads (anchored to backend/ so cwd does not split save vs static mount)
+    CHAT_UPLOAD_DIR: str = str(_BACKEND_ROOT / "uploads" / "chat")
+    TASK_PROGRESS_UPLOAD_DIR: str = str(_BACKEND_ROOT / "uploads" / "task_progress")
     PUBLIC_BASE_URL: AnyUrl | None = None
 
     BACKEND_CORS_ORIGINS: Annotated[

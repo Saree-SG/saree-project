@@ -13,6 +13,7 @@ from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, 
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import AsyncSessionDep, CurrentUser
+from app.core.config import settings
 from app.models.task import (
     AuditLogPublic,
     GanttPublic,
@@ -38,7 +39,10 @@ from app.shared.storage import LocalStorage
 
 router = APIRouter(tags=["tasks"])
 
-_progress_storage = LocalStorage(base_dir="uploads/task_progress", static_url_segment="task_progress")
+_progress_storage = LocalStorage(
+    base_dir=settings.TASK_PROGRESS_UPLOAD_DIR,
+    static_url_segment="task-progress",
+)
 
 
 # ---------------------------------------------------------------------------

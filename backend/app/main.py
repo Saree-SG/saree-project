@@ -89,3 +89,8 @@ app.mount(
     StaticFiles(directory=str(task_progress_upload_dir)),
     name="task-progress-static",
 )
+app.mount(
+    "/static/task_progress",
+    StaticFiles(directory=str(task_progress_upload_dir)),
+    name="task-progress-static-underscore",
+)
