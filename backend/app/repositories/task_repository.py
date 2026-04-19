@@ -214,6 +214,21 @@ class TaskRepository(BaseRepository[Task]):
         result = await self._execute(stmt)
         return result.scalars().all()
 
+    async def has_pending_delay_request(self, task_id: uuid.UUID) -> bool:
+        """Return True if a delay justification comment is still awaiting approval."""
+        stmt = (
+            select(func.count())
+            .select_from(TaskComment)
+            .where(
+                TaskComment.task_id == task_id,
+                TaskComment.comment_type == "delay_justification",
+                TaskComment.approval_status == "PENDING",
+            )
+        )
+        result = await self._execute(stmt)
+        count = result.scalar_one()
+        return (count or 0) > 0
+
     async def get_comment_or_404(self, comment_id: uuid.UUID) -> TaskComment:
         """Load task comment by PK; raise 404 if not found."""
         comment = await self._session.get(TaskComment, comment_id)
@@ -306,6 +321,59 @@ class TaskRepository(BaseRepository[Task]):
         )
         result = await self._execute(stmt)
         return result.scalars().all()
+
+    async def list_project_dependencies(self, project_id: uuid.UUID) -> Sequence[TaskDependency]:
+        """Return all dependency links where BOTH tasks belong to the given project."""
+        task_subq = (
+            select(Task.id)
+            .where(Task.project_id == project_id, Task.is_deleted == False)  # noqa: E712
+            .scalar_subquery()
+        )
+        stmt = select(TaskDependency).where(
+            TaskDependency.blocking_task_id.in_(task_subq),
+            TaskDependency.dependent_task_id.in_(task_subq),
+        )
+        result = await self._execute(stmt)
+        return result.scalars().all()
+
+    async def get_dependency_by_id(self, dep_id: uuid.UUID) -> TaskDependency | None:
+        """Load a TaskDependency by PK."""
+        return await self._session.get(TaskDependency, dep_id)
+
+    async def delete_dependency(self, dep: TaskDependency) -> None:
+        """Remove a dependency link."""
+        await self._session.delete(dep)
+        await self._session.flush()
+
+    async def list_all_project_tasks(self, project_id: uuid.UUID) -> Sequence[Task]:
+        """Return ALL non-deleted tasks for a project (no pagination — for CPM/Gantt)."""
+        stmt = select(Task).where(
+            Task.project_id == project_id,
+            Task.is_deleted == False,  # noqa: E712
+        )
+        result = await self._execute(stmt)
+        return result.scalars().all()
+
+    async def bulk_sum_progress(self, project_id: uuid.UUID) -> dict[uuid.UUID, int]:
+        """
+        Return cumulative progress_percent per task for ALL tasks in a project.
+        Single query using GROUP BY — avoids N+1 when analyzing many tasks.
+        """
+        task_subq = (
+            select(Task.id)
+            .where(Task.project_id == project_id, Task.is_deleted == False)  # noqa: E712
+            .scalar_subquery()
+        )
+        stmt = (
+            select(
+                TaskProgressReport.task_id,
+                func.coalesce(func.sum(TaskProgressReport.progress_percent), 0).label("total"),
+            )
+            .where(TaskProgressReport.task_id.in_(task_subq))
+            .group_by(TaskProgressReport.task_id)
+        )
+        result = await self._execute(stmt)
+        return {row.task_id: int(row.total) for row in result.all()}
 
     # ------------------------------------------------------------------
     # Sub-entity: audit log

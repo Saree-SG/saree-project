@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
 import { ArrowLeft, MoreVertical, Plus, SendHorizontal } from "lucide-react"
 import { useEffect, useMemo, useRef, useState } from "react"
+import { z } from "zod"
 import {
   Dialog,
   DialogContent,
@@ -37,7 +38,12 @@ import {
 } from "@/modules/chat/chatApi"
 import { handleError } from "@/utils"
 
+const searchSchema = z.object({
+  room: z.string().optional(),
+})
+
 export const Route = createFileRoute("/_layout/chat")({
+  validateSearch: searchSchema,
   component: ChatPage,
 })
 
@@ -67,7 +73,10 @@ function ChatPage() {
   const { showErrorToast, showSuccessToast } = useCustomToast()
   const { user: currentUser } = useAuth()
 
-  const [selectedRoomId, setSelectedRoomId] = useState<string | null>(null)
+  const { room } = Route.useSearch()
+  const [selectedRoomId, setSelectedRoomId] = useState<string | null>(
+    room ?? null,
+  )
   const [roomQuery, setRoomQuery] = useState("")
   const [draft, setDraft] = useState("")
   const [inviteEmail, setInviteEmail] = useState("")
@@ -85,14 +94,21 @@ function ChatPage() {
     queryFn: listMyChatRooms,
   })
 
+  const selectedRoomExists = Boolean(
+    selectedRoomId &&
+      (roomsQuery.data ?? []).some((roomValue) => roomValue.id === selectedRoomId),
+  )
+
   const messagesQuery = useQuery({
-    enabled: Boolean(selectedRoomId),
+    enabled: Boolean(selectedRoomId && roomsQuery.isSuccess && selectedRoomExists),
     queryKey: ["chat", "messages", selectedRoomId],
     queryFn: () => listRoomMessages({ roomId: selectedRoomId! }),
   })
 
   const membersQuery = useQuery({
-    enabled: Boolean(selectedRoomId),
+    enabled: Boolean(
+      selectedRoomId && roomsQuery.isSuccess && selectedRoomExists,
+    ),
     queryKey: ["chat", "members", selectedRoomId],
     queryFn: () => listRoomMembers(selectedRoomId!),
   })
@@ -191,6 +207,10 @@ function ChatPage() {
   const selectedRoom: ChatRoom | undefined =
     (roomsQuery.data ?? []).find((room) => room.id === selectedRoomId) ??
     undefined
+
+  useEffect(() => {
+    setSelectedRoomId(room ?? null)
+  }, [room])
 
   useEffect(() => {
     setRoomNameInput(selectedRoom?.name ?? "")

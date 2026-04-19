@@ -362,6 +362,7 @@ export type TaskCreate = {
     project_id: string;
     parent_id?: (string | null);
     assignee_id: string;
+    progress_weight?: (number | null);
 };
 
 export type TaskDependencyCreate = {
@@ -461,6 +462,7 @@ export type TaskPublic = {
     created_at: string;
     updated_at: string;
     reported_progress_total?: number;
+    progress_weight?: (number | null);
 };
 
 export type TasksPublic = {

@@ -1,6 +1,7 @@
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router"
 import { ChevronLeft } from "lucide-react"
 
+import { NotificationBell } from "@/components/notifications/NotificationBell"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 
@@ -134,6 +135,9 @@ export function MobileAppHeader() {
             ))}
           </ol>
         </nav>
+        <div className="shrink-0 pr-1">
+          <NotificationBell />
+        </div>
       </div>
     </header>
   )

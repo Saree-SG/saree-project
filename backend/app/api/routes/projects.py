@@ -11,8 +11,10 @@ from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import AsyncSessionDep, CurrentUser
+from app.models.chat import ChatRoomPublic
 from app.models.org import ProjectMemberWithUserPublic
 from app.models.project import (
+    DelayWarningsPublic,
     ProjectCreate,
     ProjectPublic,
     ProjectsPublic,
@@ -158,3 +160,27 @@ async def remove_member(
 ) -> None:
     """Remove a member from a project."""
     await _svc(session).remove_member(project_id, user_id)
+
+
+@router.get("/{project_id}/delay-warnings", response_model=DelayWarningsPublic)
+async def get_delay_warnings(
+    project_id: uuid.UUID,
+    session: AsyncSessionDep,
+    _current_user: CurrentUser,
+) -> DelayWarningsPublic:
+    """Run 4-layer delay prediction for a project and return all active warnings."""
+    return await _svc(session).get_delay_warnings(project_id)
+
+
+@router.post(
+    "/{project_id}/create-chat-room",
+    response_model=ChatRoomPublic,
+    status_code=status.HTTP_201_CREATED,
+)
+async def create_project_chat_room(
+    project_id: uuid.UUID,
+    session: AsyncSessionDep,
+    current_user: User = Depends(require_permission("PROJECT_MANAGE_MEMBERS")),
+) -> ChatRoomPublic:
+    """Create a project-linked chat room when missing."""
+    return await _svc(session).create_project_chat_room(project_id, current_user)

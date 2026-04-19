@@ -5,9 +5,11 @@ from app.api.routes import (
     chat_ws,
     dashboard,
     login,
+    notifications,
     private,
     projects,
     roles,
+    task_ws,
     tasks,
     users,
     utils,
@@ -23,11 +25,13 @@ api_router.include_router(roles.router)
 api_router.include_router(utils.router)
 api_router.include_router(chat.router)
 api_router.include_router(chat_ws.router)
+api_router.include_router(task_ws.router)
 
 # --- New MES routes ---
 api_router.include_router(projects.router)
 api_router.include_router(tasks.router)
 api_router.include_router(dashboard.router)
+api_router.include_router(notifications.router)
 
 if settings.ENVIRONMENT == "local":
     api_router.include_router(private.router)

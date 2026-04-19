@@ -1,5 +1,5 @@
 """
-Project models: Project, TaskLevelConfig.
+Project models: Project, TaskLevelConfig, DelayWarning.
 """
 
 import uuid
@@ -32,6 +32,7 @@ class Project(ProjectBase, table=True):
     department_id: uuid.UUID | None = Field(default=None, foreign_key="department.id", index=True)
     pm_id: uuid.UUID = Field(foreign_key="user.id", index=True)   # Project Manager
     created_by: uuid.UUID = Field(foreign_key="user.id")
+    chat_room_id: uuid.UUID | None = Field(default=None, foreign_key="chatroom.id", index=True)
     created_at: datetime = Field(
         default_factory=_utcnow, sa_type=DateTime(timezone=True)  # type: ignore
     )
@@ -66,6 +67,7 @@ class ProjectPublic(ProjectBase):
     company_id: uuid.UUID
     department_id: uuid.UUID | None
     pm_id: uuid.UUID
+    chat_room_id: uuid.UUID | None = None
     created_at: datetime
     updated_at: datetime
 
@@ -116,3 +118,22 @@ class TaskLevelConfigCreate(SQLModel):
     can_have_children: bool = True
     max_children: int | None = None
     assignable_role_ids: list[uuid.UUID] | None = None
+
+
+# ---------------------------------------------------------------------------
+# Delay warnings (non-table, computed on-demand)
+# ---------------------------------------------------------------------------
+
+class DelayWarningPublic(SQLModel):
+    severity: str               # "red" | "orange" | "yellow"
+    layer: int                  # 1..4
+    title: str
+    detail: str
+    task_id: str | None = None
+    task_name: str | None = None
+    estimated_delay_days: int | None = None
+
+
+class DelayWarningsPublic(SQLModel):
+    warnings: list[DelayWarningPublic]
+    analyzed_at: datetime

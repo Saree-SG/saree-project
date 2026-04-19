@@ -1,6 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { createFileRoute, Link, redirect } from "@tanstack/react-router"
+import { createFileRoute, Link, redirect, useNavigate } from "@tanstack/react-router"
 import { useEffect, useMemo, useState } from "react"
+
+import { ProjectGantt } from "@/components/Gantt/ProjectGantt"
+import { DelayWarnings } from "@/components/Project/DelayWarnings"
 
 import {
   ApiError,
@@ -34,6 +37,7 @@ import {
 } from "@/components/ui/select"
 import useCustomToast from "@/hooks/useCustomToast"
 import { clearSession } from "@/modules/auth/tokenStore"
+import { createProjectChatRoom } from "@/modules/chat/chatApi"
 import { listCompanyMembers, readMyPermissions } from "@/modules/rbac/rbacApi"
 import { handleError } from "@/utils"
 import { hasPermission } from "@/utils/accountAccess"
@@ -85,10 +89,23 @@ function statusLabel(status: string) {
   return "TODO"
 }
 
+/**
+ * Calculate whole overdue days from task end time.
+ */
+function getOverdueDays(endTime: string): number {
+  const end = new Date(endTime)
+  const diffMs = Date.now() - end.getTime()
+  if (diffMs <= 0) {
+    return 0
+  }
+  return Math.max(1, Math.floor(diffMs / (24 * 60 * 60 * 1000)))
+}
+
 function ProjectTaskDashboardPage() {
   const { projectId } = Route.useParams()
   const queryClient = useQueryClient()
   const { showErrorToast, showSuccessToast } = useCustomToast()
+  const navigate = useNavigate()
 
   const [editOpen, setEditOpen] = useState(false)
   const [memberOpen, setMemberOpen] = useState(false)
@@ -96,6 +113,7 @@ function ProjectTaskDashboardPage() {
   const [projectNameDraft, setProjectNameDraft] = useState("")
   const [projectCodeDraft, setProjectCodeDraft] = useState("")
   const [projectStatusDraft, setProjectStatusDraft] = useState("planning")
+  const [projectEndDateDraft, setProjectEndDateDraft] = useState("")
   const [memberEmailDraft, setMemberEmailDraft] = useState("")
   const [memberSelectedUserId, setMemberSelectedUserId] = useState<string>("")
   const [memberPickerOpen, setMemberPickerOpen] = useState(false)
@@ -106,6 +124,8 @@ function ProjectTaskDashboardPage() {
   const [taskAssigneePickerOpen, setTaskAssigneePickerOpen] = useState(false)
   const [taskStartDateDraft, setTaskStartDateDraft] = useState("")
   const [taskEndDateDraft, setTaskEndDateDraft] = useState("")
+  const [showOverdueOnly, setShowOverdueOnly] = useState(false)
+  const [taskView, setTaskView] = useState<"list" | "gantt">("list")
 
   const projectQuery = useQuery({
     queryKey: ["project-dashboard", "project", projectId],
@@ -164,6 +184,7 @@ function ProjectTaskDashboardPage() {
     setProjectNameDraft(project.name)
     setProjectCodeDraft(project.code)
     setProjectStatusDraft(project.status || "planning")
+    setProjectEndDateDraft(project.end_date || "")
   }, [editOpen, projectQuery.data])
 
   useEffect(() => {
@@ -189,6 +210,7 @@ function ProjectTaskDashboardPage() {
         requestBody: {
           name: projectNameDraft.trim() || null,
           status: projectStatusDraft || null,
+          end_date: projectEndDateDraft || null,
         },
       })
     },
@@ -204,6 +226,18 @@ function ProjectTaskDashboardPage() {
       await queryClient.invalidateQueries({
         queryKey: ["dashboard", "project-stats"],
       })
+    },
+    onError: handleError.bind(showErrorToast),
+  })
+
+  const createProjectChatRoomMutation = useMutation({
+    mutationFn: () => createProjectChatRoom(projectId),
+    onSuccess: async (room) => {
+      showSuccessToast("Chat nhóm dự án đã sẵn sàng")
+      await queryClient.invalidateQueries({
+        queryKey: ["project-dashboard", "project", projectId],
+      })
+      navigate({ to: "/chat", search: { room: room.id } })
     },
     onError: handleError.bind(showErrorToast),
   })
@@ -390,15 +424,35 @@ function ProjectTaskDashboardPage() {
   }, [membersQuery.data, workloadQuery.data])
 
   const detailedTasks = useMemo(() => {
-    return (tasksQuery.data ?? []).slice(0, 10).map((task) => {
-      const reportedProgress = task.reported_progress_total ?? 0
+    const now = Date.now()
+    const mapped = (tasksQuery.data ?? []).map((task) => {
+      const computed = task.computed_status ?? ""
+      const overdueByComputed = computed.includes("overdue")
+      const overdueByDate =
+        new Date(task.end_time).getTime() < now && task.status !== "done"
+      const isOverdue = overdueByComputed || overdueByDate
+      const isDueSoon = computed === "due_soon" && !isOverdue
       return {
         ...task,
         assigneeName: task.assignee_name?.trim() || task.assignee_id,
-        reportedProgress,
+        reportedProgress: task.reported_progress_total ?? 0,
+        isOverdue,
+        isDueSoon,
+        overdueDays: isOverdue ? getOverdueDays(task.end_time) : 0,
       }
     })
-  }, [tasksQuery.data])
+    mapped.sort((a, b) => {
+      if (a.isOverdue !== b.isOverdue) {
+        return a.isOverdue ? -1 : 1
+      }
+      if (a.isDueSoon !== b.isDueSoon) {
+        return a.isDueSoon ? -1 : 1
+      }
+      return new Date(a.end_time).getTime() - new Date(b.end_time).getTime()
+    })
+    const filtered = showOverdueOnly ? mapped.filter((task) => task.isOverdue) : mapped
+    return filtered.slice(0, 10)
+  }, [showOverdueOnly, tasksQuery.data])
 
   return (
     <div className="mx-auto w-full max-w-3xl space-y-5 px-2 pb-24 sm:px-4">
@@ -419,6 +473,26 @@ function ProjectTaskDashboardPage() {
                 disabled={!projectQuery.data}
               >
                 Thêm nhân viên
+              </Button>
+            </PermissionGuard>
+            <PermissionGuard permission="PROJECT_VIEW">
+              <Button
+                type="button"
+                variant="outline"
+                disabled={!projectQuery.data || createProjectChatRoomMutation.isPending}
+                onClick={() => {
+                  const chatRoomId = (projectQuery.data as any)?.chat_room_id as
+                    | string
+                    | null
+                    | undefined
+                  if (chatRoomId) {
+                    navigate({ to: "/chat", search: { room: chatRoomId } })
+                    return
+                  }
+                  createProjectChatRoomMutation.mutate()
+                }}
+              >
+                💬 Chat nhóm dự án
               </Button>
             </PermissionGuard>
             <PermissionGuard permission="PROJECT_UPDATE">
@@ -456,9 +530,16 @@ function ProjectTaskDashboardPage() {
             </div>
           </div>
           <div className="text-right text-xs">
-            <p className="font-semibold text-red-600">
+            <button
+              type="button"
+              className={[
+                "font-semibold text-red-600 underline-offset-2",
+                showOverdueOnly ? "underline" : "hover:underline",
+              ].join(" ")}
+              onClick={() => setShowOverdueOnly((prev) => !prev)}
+            >
               {stats?.overdue_tasks ?? 0} overdue
-            </p>
+            </button>
             <p className="text-muted-foreground">
               Status: {projectQuery.data?.status ?? "N/A"}
             </p>
@@ -469,6 +550,10 @@ function ProjectTaskDashboardPage() {
           value={Math.max(0, Math.min(100, stats?.completion_pct ?? 0))}
           className="mt-4 h-2 w-full [&::-webkit-progress-bar]:rounded-full [&::-webkit-progress-bar]:bg-slate-100 [&::-webkit-progress-value]:rounded-full [&::-webkit-progress-value]:bg-primary"
         />
+      </section>
+
+      <section className="rounded-xl border bg-white p-5 shadow-sm">
+        <DelayWarnings projectId={projectId} />
       </section>
 
       <section className="space-y-3">
@@ -504,16 +589,58 @@ function ProjectTaskDashboardPage() {
       </section>
 
       <section className="space-y-3">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-3">
           <h2 className="text-lg font-bold">Detailed Tasks</h2>
+          {/* View switcher */}
+          <div className="flex rounded-lg border bg-white p-0.5 text-xs font-semibold shadow-sm">
+            <button
+              type="button"
+              onClick={() => setTaskView("list")}
+              className={[
+                "rounded-md px-3 py-1.5 transition-colors",
+                taskView === "list"
+                  ? "bg-primary text-white"
+                  : "text-muted-foreground hover:text-foreground",
+              ].join(" ")}
+            >
+              Danh sách
+            </button>
+            <button
+              type="button"
+              onClick={() => setTaskView("gantt")}
+              className={[
+                "rounded-md px-3 py-1.5 transition-colors",
+                taskView === "gantt"
+                  ? "bg-primary text-white"
+                  : "text-muted-foreground hover:text-foreground",
+              ].join(" ")}
+            >
+              Gantt
+            </button>
+          </div>
         </div>
+
+        {/* Gantt view */}
+        {taskView === "gantt" && (
+          <ProjectGantt projectId={projectId} />
+        )}
+
+        {/* List view */}
+        {taskView === "list" && (
         <div className="space-y-3">
           {detailedTasks.map((task) => (
             <Link
               key={task.id}
               to="/tasks/$taskId"
               params={{ taskId: task.id }}
-              className="block space-y-3 rounded-xl border bg-white p-4 shadow-sm"
+              className={[
+                "block space-y-3 rounded-xl border bg-white p-4 shadow-sm",
+                task.isOverdue
+                  ? "border-red-400"
+                  : task.isDueSoon
+                    ? "border-amber-400"
+                    : "",
+              ].join(" ")}
             >
               <div className="flex items-start gap-3">
                 <div className="mt-0.5 h-10 w-10 shrink-0 rounded-full bg-primary/10" />
@@ -522,7 +649,16 @@ function ProjectTaskDashboardPage() {
                   <p className="text-[11px] text-primary">
                     {task.assigneeName}
                   </p>
-                  <p className="text-[11px] text-muted-foreground">
+                  <p
+                    className={[
+                      "text-[11px]",
+                      task.isOverdue
+                        ? "font-semibold text-red-600"
+                        : task.isDueSoon
+                          ? "font-semibold text-amber-600"
+                          : "text-muted-foreground",
+                    ].join(" ")}
+                  >
                     Due: {new Date(task.end_time).toLocaleDateString()}
                   </p>
                 </div>
@@ -530,6 +666,16 @@ function ProjectTaskDashboardPage() {
                   <p className="text-[10px] font-bold text-muted-foreground">
                     {statusLabel(task.status)}
                   </p>
+                  {task.isOverdue ? (
+                    <p className="mt-1 rounded bg-red-100 px-2 py-0.5 text-[10px] font-bold text-red-700">
+                      Trễ {task.overdueDays} ngày
+                    </p>
+                  ) : null}
+                  {task.isDueSoon ? (
+                    <p className="mt-1 rounded bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-700">
+                      Sắp tới hạn
+                    </p>
+                  ) : null}
                 </div>
               </div>
               <div className="space-y-1">
@@ -546,6 +692,7 @@ function ProjectTaskDashboardPage() {
             </Link>
           ))}
         </div>
+        )}
       </section>
 
       <section className="grid grid-cols-2 gap-3">
@@ -607,6 +754,16 @@ function ProjectTaskDashboardPage() {
                   <SelectItem value="cancelled">cancelled</SelectItem>
                 </SelectContent>
               </Select>
+            </div>
+            <div className="space-y-1">
+              <p className="text-xs font-semibold text-muted-foreground">
+                Deadline dự án
+              </p>
+              <Input
+                type="date"
+                value={projectEndDateDraft}
+                onChange={(e) => setProjectEndDateDraft(e.target.value)}
+              />
             </div>
           </div>
           <DialogFooter>

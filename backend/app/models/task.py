@@ -55,6 +55,9 @@ class Task(TaskBase, table=True):
     # Critical path (cached — recalculated async after dep changes)
     is_on_critical_path: bool = False
 
+    # Progress allocation: % of parent task this subtask covers (None = use 100)
+    progress_weight: int | None = Field(default=None)
+
     # Soft delete
     is_deleted: bool = False
     deleted_at: datetime | None = None
@@ -103,6 +106,7 @@ class TaskCreate(TaskBase):
     parent_id: uuid.UUID | None = None
     assignee_id: uuid.UUID
     priority: str = "medium"
+    progress_weight: int | None = None   # % of parent task this subtask covers
 
 
 class TaskUpdate(SQLModel):
@@ -135,11 +139,29 @@ class TaskPublic(TaskBase):
     created_at: datetime
     updated_at: datetime
     reported_progress_total: int = 0
+    progress_weight: int | None = None   # % of parent this subtask covers
 
 
 class TasksPublic(SQLModel):
     data: list[TaskPublic]
     count: int
+
+
+class DependencyPublic(SQLModel):
+    """Response schema for a task dependency link."""
+
+    id: uuid.UUID
+    blocking_task_id: uuid.UUID
+    dependent_task_id: uuid.UUID
+    dependency_type: str
+    lag_hours: int
+
+
+class GanttPublic(SQLModel):
+    """Response schema for the project Gantt endpoint."""
+
+    tasks: list[TaskPublic]
+    dependencies: list[DependencyPublic]
 
 
 # ---------------------------------------------------------------------------
@@ -372,6 +394,7 @@ class AuditLog(SQLModel, table=True):
 class AuditLogPublic(SQLModel):
     id: uuid.UUID
     actor_id: uuid.UUID
+    actor_name: str | None = None
     action: str
     entity_type: str
     entity_id: uuid.UUID

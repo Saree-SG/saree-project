@@ -79,6 +79,20 @@ export async function createChatRoom(body: {
   return r.data
 }
 
+/**
+ * Create (or ensure) a chat room for a given project.
+ */
+export async function createProjectChatRoom(
+  projectId: string,
+): Promise<ChatRoom> {
+  const r = await axios.post<ChatRoom>(
+    `${OpenAPI.BASE}/api/v1/projects/${projectId}/create-chat-room`,
+    {},
+    { headers: authHeaders() },
+  )
+  return r.data
+}
+
 export async function updateChatRoom(params: {
   roomId: string
   name?: string | null

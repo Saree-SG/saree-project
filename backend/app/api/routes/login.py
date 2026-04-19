@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -33,6 +34,7 @@ from app.utils import (
 )
 
 router = APIRouter(tags=["login"])
+logger = logging.getLogger(__name__)
 
 
 @router.post("/login/access-token")
@@ -46,6 +48,11 @@ async def login_access_token(
         raise HTTPException(status_code=400, detail="Incorrect email or password")
     if not user.is_active:
         raise HTTPException(status_code=400, detail="Inactive user")
+    logger.info(
+        "login issued username=%s user_id=%s",
+        form_data.username,
+        user.id,
+    )
     return get_session_service().issue_login_tokens(str(user.id))
 
 

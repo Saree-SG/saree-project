@@ -15,6 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.deps import AsyncSessionDep, CurrentUser
 from app.models.task import (
     AuditLogPublic,
+    GanttPublic,
     TaskCommentApprovalUpdate,
     TaskCommentCreate,
     TaskCommentPublic,
@@ -81,12 +82,17 @@ async def create_child_task(
     session: AsyncSessionDep,
     current_user: User = Depends(require_permission("TASK_CREATE")),
 ) -> TaskPublic:
-    """Create a sub-task under an existing task."""
+    """Create a subtask (level 1) under a root task. Sub-subtasks are not allowed."""
     svc = _svc(session)
     parent = await svc._task_repo.get_or_404(parent_id)
+    if parent.level >= 1:
+        raise HTTPException(
+            422,
+            "Không thể tạo công việc con của subtask. Hệ thống chỉ hỗ trợ 2 cấp: Task → Subtask.",
+        )
     body.project_id = parent.project_id
     body.parent_id = parent_id
-    return await svc.create_task(body, level=parent.level + 1, current_user=current_user)
+    return await svc.create_task(body, level=1, current_user=current_user)
 
 
 # ---------------------------------------------------------------------------
@@ -294,6 +300,34 @@ async def add_dependency(
 ) -> dict:
     """Create a dependency link between two tasks."""
     return await _svc(session).add_dependency(task_id, body, _current_user)
+
+
+@router.delete(
+    "/tasks/{task_id}/dependencies/{dep_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+async def remove_dependency(
+    task_id: uuid.UUID,
+    dep_id: uuid.UUID,
+    session: AsyncSessionDep,
+    _current_user: User = Depends(require_permission("TASK_UPDATE")),
+) -> None:
+    """Remove a dependency link and recalculate the critical path."""
+    await _svc(session).remove_dependency(task_id, dep_id, _current_user)
+
+
+# ---------------------------------------------------------------------------
+# Gantt
+# ---------------------------------------------------------------------------
+
+@router.get("/projects/{project_id}/gantt", response_model=GanttPublic)
+async def get_project_gantt(
+    project_id: uuid.UUID,
+    session: AsyncSessionDep,
+    _current_user: CurrentUser,
+) -> GanttPublic:
+    """Return all tasks + dependency links for the project Gantt chart."""
+    return await _svc(session).get_project_gantt(project_id)
 
 
 # ---------------------------------------------------------------------------

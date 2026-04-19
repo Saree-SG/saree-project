@@ -4,6 +4,13 @@ Import order matters: base models first, then relations.
 """
 
 # Core / Auth (keep backward compat with existing code)
+# Notifications
+from app.models.notification import (  # noqa: F401
+    Notification,
+    NotificationPublic,
+    NotificationUnreadCount,
+)
+
 # Chat
 from app.models.chat import (  # noqa: F401
     ChatAttachment,

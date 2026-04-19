@@ -41,6 +41,7 @@ type MyDashboardPayload = {
   overdue_local?: MyTaskItem[]
   due_soon?: MyTaskItem[]
   today?: MyTaskItem[]
+  ongoing?: MyTaskItem[]
 }
 
 /**
@@ -252,7 +253,8 @@ function MyTasksPage() {
       (data?.overdue_critical?.length ?? 0) +
       (data?.overdue_local?.length ?? 0) +
       (data?.due_soon?.length ?? 0) +
-      (data?.today?.length ?? 0)
+      (data?.today?.length ?? 0) +
+      (data?.ongoing?.length ?? 0)
     )
   }, [data])
 
@@ -263,8 +265,8 @@ function MyTasksPage() {
           Công việc của tôi
         </h1>
         <p className="text-sm text-muted-foreground">
-          Mở từng công ty, rồi dự án để xem task. Các mức ưu tiên (quá hạn, sắp
-          đến hạn…) giữ nguyên bên dưới.
+          Mở từng công ty, rồi dự án để xem task. Việc chưa quá hạn nhưng không
+          thuộc “hôm nay” nằm ở mục Đang thực hiện.
         </p>
       </div>
 
@@ -297,6 +299,10 @@ function MyTasksPage() {
       />
       <PriorityTreeSection title="Sắp đến hạn" items={data?.due_soon ?? []} />
       <PriorityTreeSection title="Hôm nay" items={data?.today ?? []} />
+      <PriorityTreeSection
+        title="Đang thực hiện"
+        items={data?.ongoing ?? []}
+      />
     </div>
   )
 }
