@@ -212,6 +212,8 @@ async def project_stats(
         result.append({
             "project_id": str(p.id),
             "name": p.name,
+            "code": p.code,
+            "end_date": p.end_date.isoformat() if p.end_date else None,
             "status": p.status,
             "total_tasks": total,
             "done_tasks": done,
@@ -385,8 +387,10 @@ async def overdue_report(
         item = {
             "task_id": str(t.id),
             "name": t.name,
+            "status": t.status,
             "assignee_id": str(t.assignee_id),
             "assignee_name": assignee_name_by_id.get(str(t.assignee_id), str(t.assignee_id)),
+            "start_time": t.start_time.isoformat(),
             "end_time": t.end_time.isoformat(),
             "project_id": str(t.project_id),
             "project_name": project_name_by_id.get(str(t.project_id), str(t.project_id)),

@@ -21,6 +21,8 @@ from app.models.org import (
     Department,
     DepartmentCreate,
     DepartmentPublic,
+    DepartmentUpdate,
+    UserDepartmentAssign,
     OrgTreeDepartmentGroupPublic,
     OrgTreeMemberPublic,
     OrgTreePublic,
@@ -448,6 +450,116 @@ async def list_departments(
         )
         for r in rows
     ]
+
+
+@router.patch(
+    "/companies/{company_id}/departments/{department_id}",
+    response_model=DepartmentPublic,
+)
+async def update_department(
+    company_id: uuid.UUID,
+    department_id: uuid.UUID,
+    body: DepartmentUpdate,
+    session: AsyncSessionDep,
+    current_user: CurrentUser,
+) -> DepartmentPublic:
+    """Update department name, type, active status, or parent."""
+    repo = RoleRepository(session)
+    await _ensure_company_manage_permission(repo, current_user, company_id)
+    dept = await repo.get_department_or_404(department_id)
+    if dept.company_id != company_id:
+        raise HTTPException(422, "Department does not belong to company")
+    data = body.model_dump(exclude_unset=True)
+    dept = await repo.update_department(dept, data)
+    return DepartmentPublic(
+        id=dept.id,
+        company_id=dept.company_id,
+        parent_id=dept.parent_id,
+        name=dept.name,
+        dept_type=dept.dept_type,
+        is_active=dept.is_active,
+    )
+
+
+@router.delete(
+    "/companies/{company_id}/departments/{department_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+async def delete_department(
+    company_id: uuid.UUID,
+    department_id: uuid.UUID,
+    session: AsyncSessionDep,
+    current_user: CurrentUser,
+) -> None:
+    """Hard-delete a department. Fails if users are still assigned."""
+    repo = RoleRepository(session)
+    await _ensure_company_manage_permission(repo, current_user, company_id)
+    dept = await repo.get_department_or_404(department_id)
+    if dept.company_id != company_id:
+        raise HTTPException(422, "Department does not belong to company")
+    result = await session.execute(
+        select(User).where(User.department_id == department_id).limit(1)
+    )
+    if result.scalars().first():
+        raise HTTPException(
+            409,
+            "Không thể xóa phòng ban vì vẫn còn nhân viên. Vui lòng chuyển nhân viên trước.",
+        )
+    await repo.delete_department(dept)
+
+
+@router.post(
+    "/companies/{company_id}/departments/{department_id}/assign-user",
+    response_model=DepartmentPublic,
+)
+async def assign_user_to_department(
+    company_id: uuid.UUID,
+    department_id: uuid.UUID,
+    body: UserDepartmentAssign,
+    session: AsyncSessionDep,
+    current_user: CurrentUser,
+) -> DepartmentPublic:
+    """Assign a user to this department."""
+    repo = RoleRepository(session)
+    await _ensure_company_manage_permission(repo, current_user, company_id)
+    dept = await repo.get_department_or_404(department_id)
+    if dept.company_id != company_id:
+        raise HTTPException(422, "Department does not belong to company")
+    user = await session.get(User, body.user_id)
+    if user is None:
+        raise HTTPException(404, "User not found")
+    user.department_id = department_id
+    session.add(user)
+    await session.flush()
+    return DepartmentPublic(
+        id=dept.id,
+        company_id=dept.company_id,
+        parent_id=dept.parent_id,
+        name=dept.name,
+        dept_type=dept.dept_type,
+        is_active=dept.is_active,
+    )
+
+
+@router.delete(
+    "/companies/{company_id}/members/{user_id}/department",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+async def unassign_user_from_department(
+    company_id: uuid.UUID,
+    user_id: uuid.UUID,
+    session: AsyncSessionDep,
+    current_user: CurrentUser,
+) -> None:
+    """Remove department assignment from a user."""
+    repo = RoleRepository(session)
+    await _ensure_company_manage_permission(repo, current_user, company_id)
+    user = await session.get(User, user_id)
+    if user is None:
+        raise HTTPException(404, "User not found")
+    user.department_id = None
+    session.add(user)
+    await session.flush()
 
 
 # ---------------------------------------------------------------------------

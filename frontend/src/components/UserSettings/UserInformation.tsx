@@ -295,7 +295,7 @@ const UserInformation = ({ embedded = false }: UserInformationProps) => {
           </p>
 
           <div className="space-y-2">
-            <FormLabel>Company</FormLabel>
+            <p className="text-sm font-medium">Company</p>
             <Select
               value={effectiveCompanyId}
               onValueChange={(value) => {
@@ -317,7 +317,7 @@ const UserInformation = ({ embedded = false }: UserInformationProps) => {
           </div>
 
           <div className="space-y-2">
-            <FormLabel>Role</FormLabel>
+            <p className="text-sm font-medium">Role</p>
             <Select value={selectedRoleId} onValueChange={setSelectedRoleId}>
               <SelectTrigger className="w-full">
                 <SelectValue placeholder="Select role" />

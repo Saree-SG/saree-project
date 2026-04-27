@@ -19,9 +19,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.task import (
     AuditLogPublic,
+    BlockerInfo,
     DependencyPublic,
     GanttPublic,
     Task,
+    TaskAssignee,
+    TaskAssigneeAdd,
+    TaskAssigneePublic,
     TaskComment,
     TaskCommentApprovalUpdate,
     TaskCommentCreate,
@@ -29,12 +33,16 @@ from app.models.task import (
     TaskCreate,
     TaskDependency,
     TaskDependencyCreate,
+    TaskLinkedEntityPublic,
+    TaskObserverAdd,
+    TaskObserverPublic,
     TaskProgressReport,
     TaskProgressReportCreate,
     TaskProgressReportPublic,
     TaskProofCreate,
     TaskProofPublic,
     TaskPublic,
+    TaskReassignRequest,
     TasksPublic,
     TaskStatusUpdate,
     TaskUpdate,
@@ -101,6 +109,29 @@ def _display_name(user: User | None) -> str | None:
     if user is None:
         return None
     return user.full_name or user.email
+
+
+def _merge_legacy_linked_entity(
+    task: Task,
+    linked_entities: list[TaskLinkedEntityPublic],
+) -> list[TaskLinkedEntityPublic]:
+    """Return linked entities including legacy singular linked_entity fields."""
+    if task.linked_entity_id is None or task.linked_entity_type is None:
+        return linked_entities
+
+    for entity in linked_entities:
+        if entity.entity_id == task.linked_entity_id:
+            return linked_entities
+
+    legacy_row = TaskLinkedEntityPublic(
+        id=uuid.uuid4(),
+        task_id=task.id,
+        entity_type=task.linked_entity_type,
+        entity_id=task.linked_entity_id,
+        created_by=task.assignor_id,
+        created_at=task.updated_at,
+    )
+    return [legacy_row, *linked_entities]
 
 
 # ---------------------------------------------------------------------------
@@ -231,19 +262,74 @@ async def _enrich(
     user_lookup: dict[uuid.UUID, User] | None = None,
     rollup_cache: dict[uuid.UUID, float] | None = None,
 ) -> TaskPublic:
-    """Build TaskPublic with computed_status, progress total, and display names."""
+    """Build TaskPublic with computed_status, progress total, display names, extra assignees."""
     repo = TaskRepository(session)
     parent = await repo.get_by_id(task.parent_id) if task.parent_id else None
     computed = compute_task_status(task, parent)
     reported = round(await _rollup_completion_pct(repo, task.id, rollup_cache))
 
+    user_repo = UserRepository(session)
     if user_lookup is not None:
         assignee = user_lookup.get(task.assignee_id)
         assignor = user_lookup.get(task.assignor_id)
     else:
-        user_repo = UserRepository(session)
         assignee = await user_repo.get_by_id(task.assignee_id)
         assignor = await user_repo.get_by_id(task.assignor_id)
+
+    waiting_for_links = await repo.list_waiting_for_links(task.id)
+    blocked_by: list[BlockerInfo] = []
+    for link in waiting_for_links:
+        blocker = await repo.get_by_id(link.blocking_task_id)
+        if blocker and blocker.status != "done":
+            blocked_by.append(BlockerInfo(id=blocker.id, name=blocker.name, status=blocker.status))
+
+    extra_rows = await repo.list_extra_assignees(task.id)
+    extra_assignees: list[TaskAssigneePublic] = []
+    for row in extra_rows:
+        if user_lookup is not None:
+            u = user_lookup.get(row.user_id)
+        else:
+            u = await user_repo.get_by_id(row.user_id)
+        extra_assignees.append(
+            TaskAssigneePublic(
+                id=row.id,
+                task_id=row.task_id,
+                user_id=row.user_id,
+                user_name=_display_name(u),
+                assigned_by=row.assigned_by,
+                assigned_at=row.assigned_at,
+            )
+        )
+
+    observer_rows = await repo.list_observers(task.id)
+    observers: list[TaskObserverPublic] = []
+    for row in observer_rows:
+        if user_lookup is not None:
+            u = user_lookup.get(row.user_id)
+        else:
+            u = await user_repo.get_by_id(row.user_id)
+        observers.append(
+            TaskObserverPublic(
+                task_id=row.task_id,
+                user_id=row.user_id,
+                user_name=_display_name(u),
+                added_at=row.added_at,
+            )
+        )
+
+    linked_entities = await repo.list_task_linked_entities(task.id)
+    linked_entities_public = [
+        TaskLinkedEntityPublic(
+            id=row.id,
+            task_id=row.task_id,
+            entity_type=row.entity_type,
+            entity_id=row.entity_id,
+            created_by=row.created_by,
+            created_at=row.created_at,
+        )
+        for row in linked_entities
+    ]
+    merged_linked_entities = _merge_legacy_linked_entity(task, linked_entities_public)
 
     return TaskPublic(
         **task.model_dump(),
@@ -251,6 +337,10 @@ async def _enrich(
         reported_progress_total=reported,
         assignee_name=_display_name(assignee),
         assignor_name=_display_name(assignor),
+        blocked_by=blocked_by,
+        extra_assignees=extra_assignees,
+        observers=observers,
+        linked_entities=merged_linked_entities,
     )
 
 
@@ -651,8 +741,24 @@ class TaskService:
         task = await self._task_repo.get_or_404(task_id)
         old_status = task.status
 
-        if task.assignee_id != current_user.id and not current_user.is_superuser:
+        is_assignee = await self._task_repo.is_assignee(task_id, current_user.id)
+        if not is_assignee and not current_user.is_superuser:
             raise HTTPException(403, "Can only update status of own tasks")
+
+        if body.status in ("in_progress", "done"):
+            waiting_links = await self._task_repo.list_waiting_for_links(task_id)
+            blockers = []
+            for link in waiting_links:
+                blocker = await self._task_repo.get_by_id(link.blocking_task_id)
+                if blocker and blocker.status != "done":
+                    blockers.append(blocker.name)
+            if blockers:
+                names = ", ".join(f'"{n}"' for n in blockers)
+                raise HTTPException(
+                    422,
+                    f"Công việc đang bị chặn bởi: {names}. Vui lòng hoàn thành các công việc trước đó.",
+                )
+
         if body.status == "done":
             combined_total = await _rollup_completion_pct(self._task_repo, task_id)
             if combined_total < 100:
@@ -713,6 +819,208 @@ class TaskService:
                 entity_id=task_id,
             )
 
+        return await _enrich(task, self._session)
+
+    # ------------------------------------------------------------------
+    # Extra assignees
+    # ------------------------------------------------------------------
+
+    async def add_extra_assignee(
+        self, task_id: uuid.UUID, body: TaskAssigneeAdd, current_user: User
+    ) -> TaskPublic:
+        """Add a co-worker to a task; idempotent if already assigned."""
+        task = await self._task_repo.get_or_404(task_id)
+
+        if body.user_id == task.assignee_id:
+            raise HTTPException(400, "Người này đã là người phụ trách chính của task.")
+
+        existing = await self._task_repo.get_extra_assignee(task_id, body.user_id)
+        if existing:
+            raise HTTPException(409, "Người này đã được thêm vào task.")
+
+        user = await self._user_repo.get_by_id(body.user_id)
+        if user is None:
+            raise HTTPException(404, "User not found")
+
+        await self._task_repo.add_extra_assignee(task_id, body.user_id, current_user.id)
+        await self._audit_repo.write(
+            actor_id=current_user.id,
+            action="task.assignee_added",
+            entity_type="task",
+            entity_id=task_id,
+            new_value={"user_id": str(body.user_id)},
+        )
+
+        actor_name = _display_name(current_user) or "Quản lý"
+        await self._notify(
+            user_id=body.user_id,
+            notif_type="task_assigned",
+            title=f'Bạn được thêm vào công việc "{task.name}"',
+            body=f"Được thêm bởi {actor_name}",
+            entity_type="task",
+            entity_id=task_id,
+        )
+        await self._emit_task_user_ws(
+            body.user_id,
+            task_id,
+            "task.assigned",
+            {
+                "actor_id": str(current_user.id),
+                "actor_name": actor_name,
+                "task_name": task.name,
+                "message": f'{actor_name} đã thêm bạn vào công việc "{task.name}".',
+            },
+        )
+        return await _enrich(task, self._session)
+
+    async def remove_extra_assignee(
+        self, task_id: uuid.UUID, user_id: uuid.UUID, current_user: User
+    ) -> TaskPublic:
+        """Remove a co-worker from a task."""
+        task = await self._task_repo.get_or_404(task_id)
+        row = await self._task_repo.get_extra_assignee(task_id, user_id)
+        if row is None:
+            raise HTTPException(404, "Người này không có trong danh sách phụ trách task.")
+        await self._task_repo.remove_extra_assignee(row)
+        await self._audit_repo.write(
+            actor_id=current_user.id,
+            action="task.assignee_removed",
+            entity_type="task",
+            entity_id=task_id,
+            new_value={"user_id": str(user_id)},
+        )
+        return await _enrich(task, self._session)
+
+    # ------------------------------------------------------------------
+    # Observers
+    # ------------------------------------------------------------------
+
+    async def add_observer(
+        self, task_id: uuid.UUID, body: TaskObserverAdd, current_user: User
+    ) -> TaskPublic:
+        """Add a watch-only observer to a task."""
+        task = await self._task_repo.get_or_404(task_id)
+
+        if body.user_id == task.assignee_id:
+            raise HTTPException(400, "Người phụ trách chính không thể là observer.")
+        extra = await self._task_repo.get_extra_assignee(task_id, body.user_id)
+        if extra:
+            raise HTTPException(400, "Người này đang là người phụ trách task, không thể là observer.")
+        existing = await self._task_repo.get_observer(task_id, body.user_id)
+        if existing:
+            raise HTTPException(409, "Người này đã là observer của task.")
+
+        user = await self._user_repo.get_by_id(body.user_id)
+        if user is None:
+            raise HTTPException(404, "User not found")
+
+        await self._task_repo.add_observer(task_id, body.user_id)
+        await self._audit_repo.write(
+            actor_id=current_user.id,
+            action="task.observer_added",
+            entity_type="task",
+            entity_id=task_id,
+            new_value={"user_id": str(body.user_id)},
+        )
+        actor_name = _display_name(current_user) or "Quản lý"
+        await self._notify(
+            user_id=body.user_id,
+            notif_type="task_observer_added",
+            title=f'Bạn được thêm theo dõi công việc "{task.name}"',
+            body=f"Thêm bởi {actor_name}",
+            entity_type="task",
+            entity_id=task_id,
+        )
+        return await _enrich(task, self._session)
+
+    async def remove_observer(
+        self, task_id: uuid.UUID, user_id: uuid.UUID, current_user: User
+    ) -> TaskPublic:
+        """Remove an observer from a task."""
+        task = await self._task_repo.get_or_404(task_id)
+        row = await self._task_repo.get_observer(task_id, user_id)
+        if row is None:
+            raise HTTPException(404, "Người này không trong danh sách observer.")
+        await self._task_repo.remove_observer(row)
+        await self._audit_repo.write(
+            actor_id=current_user.id,
+            action="task.observer_removed",
+            entity_type="task",
+            entity_id=task_id,
+            new_value={"user_id": str(user_id)},
+        )
+        return await _enrich(task, self._session)
+
+    # ------------------------------------------------------------------
+    # Reassign primary assignee
+    # ------------------------------------------------------------------
+
+    async def reassign_task(
+        self, task_id: uuid.UUID, body: TaskReassignRequest, current_user: User
+    ) -> TaskPublic:
+        """Transfer primary assignee to another user.
+
+        Old assignee is automatically moved to extra_assignees so they retain
+        visibility and audit trail. If new assignee was previously an extra
+        assignee, that row is removed to avoid duplication.
+        """
+        task = await self._task_repo.get_or_404(task_id)
+        old_assignee_id = task.assignee_id
+
+        if body.new_assignee_id == old_assignee_id:
+            raise HTTPException(400, "Người này đã là người phụ trách chính.")
+
+        new_user = await self._user_repo.get_by_id(body.new_assignee_id)
+        if new_user is None:
+            raise HTTPException(404, "User not found")
+
+        # If new assignee was an extra assignee, remove that row first
+        existing_extra = await self._task_repo.get_extra_assignee(task_id, body.new_assignee_id)
+        if existing_extra:
+            await self._task_repo.remove_extra_assignee(existing_extra)
+
+        # If new assignee was an observer, remove observer role
+        existing_obs = await self._task_repo.get_observer(task_id, body.new_assignee_id)
+        if existing_obs:
+            await self._task_repo.remove_observer(existing_obs)
+
+        # Move old assignee to extra assignees (if not already there)
+        old_extra = await self._task_repo.get_extra_assignee(task_id, old_assignee_id)
+        if old_extra is None:
+            await self._task_repo.add_extra_assignee(task_id, old_assignee_id, current_user.id)
+
+        # Update primary assignee
+        task = await self._task_repo.update_fields(task, {"assignee_id": body.new_assignee_id})
+
+        await self._audit_repo.write(
+            actor_id=current_user.id,
+            action="task.reassigned",
+            entity_type="task",
+            entity_id=task_id,
+            old_value={"assignee_id": str(old_assignee_id)},
+            new_value={"assignee_id": str(body.new_assignee_id)},
+        )
+
+        actor_name = _display_name(current_user) or "Quản lý"
+        await self._notify(
+            user_id=body.new_assignee_id,
+            notif_type="task_assigned",
+            title=f'Bạn được giao phụ trách công việc "{task.name}"',
+            body=f"Chuyển giao bởi {actor_name}",
+            entity_type="task",
+            entity_id=task_id,
+        )
+        await self._emit_task_user_ws(
+            body.new_assignee_id,
+            task_id,
+            "task.assigned",
+            {
+                "actor_id": str(current_user.id),
+                "actor_name": actor_name,
+                "task_name": task.name,
+                "message": f'{actor_name} đã chuyển giao công việc "{task.name}" cho bạn.',
+            },
+        )
         return await _enrich(task, self._session)
 
     # ------------------------------------------------------------------

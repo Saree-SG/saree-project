@@ -1,3 +1,5 @@
+# Production: app + DB + Redis + Adminer (Traefik phía ngoài: compose.traefik.yml + mạng traefik-public).
+# Không dùng compose.override.yml. Hướng dẫn: DOCKER_COMPOSE.md và deployment.md.
 services:
 
   db:

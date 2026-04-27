@@ -487,7 +487,8 @@ export function ProjectGantt({ projectId }: Props) {
             {/* ── Task bars ── */}
             {taskRows.map((row) => {
               const { task, barX, barY, barW } = row
-              const color = statusColor(task)
+              const isBlocked = (task.blocked_by?.length ?? 0) > 0
+              const color = isBlocked ? "#f59e0b" : statusColor(task)
 
               // Drag preview overrides barW
               const displayW =
@@ -544,6 +545,21 @@ export function ProjectGantt({ projectId }: Props) {
                   >
                     {task.name.length > 22 ? `${task.name.slice(0, 22)}…` : task.name}
                   </text>
+
+                  {/* Blocked indicator icon */}
+                  {isBlocked && (
+                    <text
+                      x={barX + displayW - 18}
+                      y={svgBarY + BAR_H / 2 + 4}
+                      fontSize={11}
+                      style={{ userSelect: "none", pointerEvents: "none" }}
+                    >
+                      🔒
+                      <title>
+                        {`Bị chặn bởi: ${task.blocked_by!.map((b) => b.name).join(", ")}`}
+                      </title>
+                    </text>
+                  )}
 
                   {/* Right-edge drag handle */}
                   <rect

@@ -1,3 +1,5 @@
+# Traefik riêng cho server (HTTPS / Let’s Encrypt). Chạy một lần; stack app dùng compose.prod.yml.
+# DOCKER_COMPOSE.md
 services:
   traefik:
     image: traefik:3.6

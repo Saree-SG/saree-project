@@ -17,22 +17,27 @@ from app.core.config import settings
 from app.models.task import (
     AuditLogPublic,
     GanttPublic,
+    TaskAssigneeAdd,
     TaskCommentApprovalUpdate,
     TaskCommentCreate,
     TaskCommentPublic,
     TaskCreate,
     TaskDependencyCreate,
+    TaskObserverAdd,
     TaskProgressPhotoUploadPublic,
     TaskProgressReportCreate,
     TaskProgressReportPublic,
     TaskProofCreate,
     TaskProofPublic,
     TaskPublic,
+    TaskReassignRequest,
     TasksPublic,
     TaskStatusUpdate,
     TaskUpdate,
 )
+from app.models.inventory import LinkedEntityCreate
 from app.models.user import User
+from app.services.linked_entity_service import LinkedEntityService
 from app.services.task_service import TaskService
 from app.shared.permission import require_permission
 from app.shared.storage import LocalStorage
@@ -185,6 +190,82 @@ async def delete_task(
 
 
 # ---------------------------------------------------------------------------
+# Extra assignees
+# ---------------------------------------------------------------------------
+
+@router.post(
+    "/tasks/{task_id}/assignees",
+    response_model=TaskPublic,
+    status_code=status.HTTP_201_CREATED,
+)
+async def add_extra_assignee(
+    task_id: uuid.UUID,
+    body: TaskAssigneeAdd,
+    session: AsyncSessionDep,
+    current_user: User = Depends(require_permission("TASK_UPDATE")),
+) -> TaskPublic:
+    """Add a co-worker to a task (extra assignee)."""
+    return await _svc(session).add_extra_assignee(task_id, body, current_user)
+
+
+@router.delete("/tasks/{task_id}/assignees/{user_id}", response_model=TaskPublic)
+async def remove_extra_assignee(
+    task_id: uuid.UUID,
+    user_id: uuid.UUID,
+    session: AsyncSessionDep,
+    current_user: User = Depends(require_permission("TASK_UPDATE")),
+) -> TaskPublic:
+    """Remove a co-worker from a task."""
+    return await _svc(session).remove_extra_assignee(task_id, user_id, current_user)
+
+
+# ---------------------------------------------------------------------------
+# Observers
+# ---------------------------------------------------------------------------
+
+@router.post(
+    "/tasks/{task_id}/observers",
+    response_model=TaskPublic,
+    status_code=status.HTTP_201_CREATED,
+)
+async def add_observer(
+    task_id: uuid.UUID,
+    body: TaskObserverAdd,
+    session: AsyncSessionDep,
+    current_user: User = Depends(require_permission("TASK_UPDATE")),
+) -> TaskPublic:
+    """Add a watch-only observer to a task."""
+    return await _svc(session).add_observer(task_id, body, current_user)
+
+
+@router.delete("/tasks/{task_id}/observers/{user_id}", response_model=TaskPublic)
+async def remove_observer(
+    task_id: uuid.UUID,
+    user_id: uuid.UUID,
+    session: AsyncSessionDep,
+    current_user: User = Depends(require_permission("TASK_UPDATE")),
+) -> TaskPublic:
+    """Remove an observer from a task."""
+    return await _svc(session).remove_observer(task_id, user_id, current_user)
+
+
+# ---------------------------------------------------------------------------
+# Reassign primary assignee
+# ---------------------------------------------------------------------------
+
+@router.patch("/tasks/{task_id}/reassign", response_model=TaskPublic)
+async def reassign_task(
+    task_id: uuid.UUID,
+    body: TaskReassignRequest,
+    session: AsyncSessionDep,
+    current_user: User = Depends(require_permission("TASK_UPDATE")),
+) -> TaskPublic:
+    """Transfer the primary assignee to another user.
+    Old assignee is moved to extra_assignees automatically."""
+    return await _svc(session).reassign_task(task_id, body, current_user)
+
+
+# ---------------------------------------------------------------------------
 # Clone
 # ---------------------------------------------------------------------------
 
@@ -289,6 +370,22 @@ async def list_proofs(
 ) -> list[TaskProofPublic]:
     """List proofs for a task."""
     return await _svc(session).list_proofs(task_id)
+
+
+# ---------------------------------------------------------------------------
+# Linked business entity (procurement / inventory)
+# ---------------------------------------------------------------------------
+
+@router.post("/tasks/{task_id}/linked-entity", response_model=TaskPublic)
+async def create_linked_entity(
+    task_id: uuid.UUID,
+    body: LinkedEntityCreate,
+    session: AsyncSessionDep,
+    current_user: User = Depends(require_permission("TASK_UPDATE")),
+) -> TaskPublic:
+    """Create a business entity (PurchaseRequest or MaterialIssue) linked to this task
+    based on the task's module_tag, then update the task with the linked entity reference."""
+    return await LinkedEntityService(session).create_and_link(task_id, current_user, body)
 
 
 # ---------------------------------------------------------------------------

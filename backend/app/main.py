@@ -94,3 +94,19 @@ app.mount(
     StaticFiles(directory=str(task_progress_upload_dir)),
     name="task-progress-static-underscore",
 )
+
+quotation_upload_dir = Path(settings.QUOTATION_UPLOAD_DIR).resolve()
+quotation_upload_dir.mkdir(parents=True, exist_ok=True)
+app.mount(
+    "/static/quotation",
+    StaticFiles(directory=str(quotation_upload_dir)),
+    name="quotation-static",
+)
+
+inventory_issue_upload_dir = Path(settings.INVENTORY_ISSUE_UPLOAD_DIR).resolve()
+inventory_issue_upload_dir.mkdir(parents=True, exist_ok=True)
+app.mount(
+    "/static/inventory-issue",
+    StaticFiles(directory=str(inventory_issue_upload_dir)),
+    name="inventory-issue-static",
+)
