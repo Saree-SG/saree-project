@@ -3,6 +3,7 @@ import { createFileRoute, Link, redirect } from "@tanstack/react-router"
 import { Plus, Search, Star, Trash2, Pencil } from "lucide-react"
 import { useState } from "react"
 import { toast } from "sonner"
+import { useDebounce } from "@/hooks/useDebounce"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -61,7 +62,7 @@ function SuppliersPage() {
   const canDelete = hasPermission(permissions, "SUPPLIER_DELETE")
 
   const [search, setSearch] = useState("")
-  const [debouncedSearch, setDebouncedSearch] = useState("")
+  const debouncedSearch = useDebounce(search, 400)
   const [createOpen, setCreateOpen] = useState(false)
 
   const queryClient = useQueryClient()
@@ -79,15 +80,6 @@ function SuppliersPage() {
     },
     onError: () => toast.error("Xóa thất bại"),
   })
-
-  const handleSearch = (val: string) => {
-    setSearch(val)
-    clearTimeout((window as unknown as { _supplierSearchTimer?: ReturnType<typeof setTimeout> })._supplierSearchTimer)
-    ;(window as unknown as { _supplierSearchTimer?: ReturnType<typeof setTimeout> })._supplierSearchTimer = setTimeout(
-      () => setDebouncedSearch(val),
-      400,
-    )
-  }
 
   const suppliers = data?.data ?? []
 
@@ -109,7 +101,7 @@ function SuppliersPage() {
           className="pl-8"
           placeholder="Tìm tên hoặc người liên hệ..."
           value={search}
-          onChange={(e) => handleSearch(e.target.value)}
+          onChange={(e) => setSearch(e.target.value)}
         />
       </div>
 

@@ -26,6 +26,7 @@ import { clearSession } from "@/modules/auth/tokenStore"
 import { listQuotations } from "@/modules/quotation/quotationApi"
 import {
   EQUIPMENT_CATEGORIES,
+  getStageFilterLabel,
   STAGE_CONFIG,
   STATUS_CONFIG,
 } from "@/modules/quotation/stageConfig"
@@ -208,9 +209,9 @@ function FilterBar({
         <SelectContent>
           <SelectItem value="_all">Tất cả giai đoạn</SelectItem>
           {(Object.entries(STAGE_CONFIG) as [QuotationStage, (typeof STAGE_CONFIG)[QuotationStage]][]).map(
-            ([key, cfg]) => (
+            ([key]) => (
               <SelectItem key={key} value={key}>
-                {cfg.label}
+                {getStageFilterLabel(key)}
               </SelectItem>
             ),
           )}
@@ -280,6 +281,9 @@ function MyActionBadge({
     if (stage === "S6_SALES_FINALIZE" && perms.has("QUOTATION_FINALIZE")) return true
     if (stage === "S7_DIRECTOR_APPROVE_QUOTE" && perms.has("QUOTATION_APPROVE_FINAL")) return true
     if (stage === "S8_SENT_TO_CLIENT" && perms.has("QUOTATION_SEND_CLIENT")) return true
+    if (stage === "S8B_NEGOTIATION_REVIEW" && perms.has("QUOTATION_APPROVE_NEGOTIATION")) {
+      return true
+    }
     return false
   })()
 
@@ -430,7 +434,7 @@ function QuotationsPage() {
                     <Link
                       to="/quotations/$quotationId"
                       params={{ quotationId: q.id }}
-                      search={{ tab: "overview" }}
+                      search={{ tab: "history" }}
                       className="font-semibold text-primary hover:underline"
                     >
                       {q.quote_number}
@@ -440,7 +444,7 @@ function QuotationsPage() {
                     <Link
                       to="/quotations/$quotationId"
                       params={{ quotationId: q.id }}
-                      search={{ tab: "overview" }}
+                      search={{ tab: "history" }}
                       className="font-medium hover:underline line-clamp-1"
                     >
                       {q.project_name}
@@ -461,7 +465,7 @@ function QuotationsPage() {
                     <StageBadge stage={q.current_stage} />
                   </TableCell>
                   <TableCell className="text-right text-sm font-medium">
-                    {formatVND(q.total_sale_price)}
+                    {formatVND(q.total_contract_value)}
                   </TableCell>
                   <TableCell className="text-xs text-muted-foreground">
                     {formatDate(q.created_at)}

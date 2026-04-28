@@ -13,6 +13,7 @@
  */
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { useNavigate } from "@tanstack/react-router"
 import { useCallback, useEffect, useRef, useState } from "react"
 
 import useCustomToast from "@/hooks/useCustomToast"
@@ -84,8 +85,16 @@ type TaskRow = {
 type Props = { projectId: string }
 
 export function ProjectGantt({ projectId }: Props) {
+  const navigate = useNavigate()
   const queryClient = useQueryClient()
   const { showSuccessToast, showErrorToast } = useCustomToast()
+
+  function handleOpenTask(taskId: string) {
+    void navigate({ to: "/tasks/$taskId", params: { taskId } })
+    window.setTimeout(() => {
+      window.scrollTo({ top: 0, behavior: "auto" })
+    }, 0)
+  }
 
   const ganttQuery = useQuery({
     queryKey: ["gantt", projectId],
@@ -324,12 +333,14 @@ export function ProjectGantt({ projectId }: Props) {
           {taskRows.map(({ task }) => (
             <div
               key={task.id}
-              className="flex items-center gap-1.5 border-b px-2 text-xs"
+              className="flex cursor-pointer items-center gap-1.5 border-b px-2 text-xs transition-colors hover:bg-slate-100/80"
               style={{
                 height: ROW_H,
                 paddingLeft: 8 + task.level * INDENT_PX,
                 background: statusBg(task),
               }}
+              onClick={() => handleOpenTask(task.id)}
+              title={task.name}
             >
               {/* Critical path indicator */}
               {task.is_on_critical_path && (
@@ -415,9 +426,6 @@ export function ProjectGantt({ projectId }: Props) {
                   strokeWidth={1.5}
                   strokeDasharray="4 3"
                 />
-                <text x={todayX + 3} y={14} fontSize={9} fill="#3b82f6" fontWeight={700}>
-                  Hôm nay
-                </text>
               </g>
             )}
 
@@ -500,6 +508,16 @@ export function ProjectGantt({ projectId }: Props) {
 
               return (
                 <g key={task.id}>
+                  <title>
+                    {`${task.name} • ${fmtDate(new Date(task.start_time))} - ${fmtDate(
+                      dragEndPx?.taskId === task.id
+                        ? addDays(
+                            new Date(task.start_time),
+                            Math.round((dragEndPx.px - barX) / PX_PER_DAY),
+                          )
+                        : new Date(task.end_time),
+                    )} • ${Math.min(100, task.reported_progress_total)}%`}
+                  </title>
                   {/* Main bar background */}
                   <rect
                     x={barX}
@@ -534,17 +552,16 @@ export function ProjectGantt({ projectId }: Props) {
                     strokeWidth={task.is_on_critical_path ? 2 : 1}
                   />
 
-                  {/* Task name inside bar */}
-                  <text
-                    x={barX + 6}
-                    y={svgBarY + BAR_H / 2 + 4}
-                    fontSize={10}
-                    fontWeight={600}
-                    fill={color}
-                    style={{ userSelect: "none", pointerEvents: "none" }}
-                  >
-                    {task.name.length > 22 ? `${task.name.slice(0, 22)}…` : task.name}
-                  </text>
+                  <rect
+                    x={barX}
+                    y={svgBarY}
+                    width={Math.max(0, displayW - 10)}
+                    height={BAR_H}
+                    rx={4}
+                    fill="transparent"
+                    className="cursor-pointer"
+                    onClick={() => handleOpenTask(task.id)}
+                  />
 
                   {/* Blocked indicator icon */}
                   {isBlocked && (
@@ -585,24 +602,6 @@ export function ProjectGantt({ projectId }: Props) {
                     opacity={0.5}
                     style={{ pointerEvents: "none" }}
                   />
-
-                  {/* Deadline label on the right of bar */}
-                  <text
-                    x={barX + displayW + 4}
-                    y={svgBarY + BAR_H / 2 + 4}
-                    fontSize={9}
-                    fill="#64748b"
-                    style={{ pointerEvents: "none", userSelect: "none" }}
-                  >
-                    {fmtDate(
-                      dragEndPx?.taskId === task.id
-                        ? addDays(
-                            new Date(task.start_time),
-                            Math.round((dragEndPx.px - barX) / PX_PER_DAY),
-                          )
-                        : new Date(task.end_time),
-                    )}
-                  </text>
                 </g>
               )
             })}

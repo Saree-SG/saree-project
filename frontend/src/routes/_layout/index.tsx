@@ -9,8 +9,9 @@ import {
   FileText,
   FolderOpen,
   Users,
+  Zap,
 } from "lucide-react"
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 
 import {
   ApiError,
@@ -94,6 +95,7 @@ type WorkloadPayload = {
   user_id: string
   user_name?: string
   active_tasks: number
+  department_name?: string | null
 }
 
 type MemberCandidate = {
@@ -102,22 +104,24 @@ type MemberCandidate = {
   full_name?: string | null
 }
 
-type OverdueTask = {
-  task_id: string
-  name: string
-  status: string
-  assignee_id: string
-  assignee_name?: string
-  start_time: string
-  end_time: string
+type ProjectWarning = {
   project_id: string
   project_name?: string
-  is_on_critical_path: boolean
+  project_status?: string | null
+  severity: "critical" | "warning" | "watch"
+  overdue_tasks: number
+  warning_tasks: number
+  watch_tasks: number
+  nearest_task_name: string
+  nearest_task_end_time: string
+  delay_days: number
+  days_left: number
 }
 
 type OverduePayload = {
-  overdue_critical: OverdueTask[]
-  overdue_local: OverdueTask[]
+  critical: ProjectWarning[]
+  warning: ProjectWarning[]
+  watch: ProjectWarning[]
 }
 
 // ── Route ─────────────────────────────────────────────────────────────────────
@@ -195,6 +199,39 @@ function formatDate(iso: string) {
   }
 }
 
+/**
+ * Return project warning severity style and label.
+ */
+function getProjectWarningSeverity(
+  severity: ProjectWarning["severity"],
+  delayDays: number,
+  daysLeft: number,
+): {
+  label: string
+  badgeClassName: string
+  IconComponent: typeof Clock
+} {
+  if (severity === "critical") {
+    return {
+      label: `Trễ ${delayDays} ngày`,
+      badgeClassName: "bg-red-100 text-red-700 border-red-200",
+      IconComponent: Zap,
+    }
+  }
+  if (severity === "warning") {
+    return {
+      label: `Level 2 · Còn ${daysLeft} ngày`,
+      badgeClassName: "bg-orange-100 text-orange-700 border-orange-200",
+      IconComponent: AlertTriangle,
+    }
+  }
+  return {
+    label: `Level 3 · Còn ${daysLeft} ngày`,
+    badgeClassName: "bg-yellow-100 text-yellow-700 border-yellow-200",
+    IconComponent: Clock,
+  }
+}
+
 // ── Dashboard ─────────────────────────────────────────────────────────────────
 
 function Dashboard() {
@@ -203,10 +240,61 @@ function Dashboard() {
   const [departmentFilter, setDepartmentFilter] = useState<string>("")
   const [createProjectOpen, setCreateProjectOpen] = useState(false)
   const [projectNameDraft, setProjectNameDraft] = useState("")
+  const [projectStatsKeyword, setProjectStatsKeyword] = useState("")
+  const [projectWarningFilter, setProjectWarningFilter] = useState<"all" | ProjectWarning["severity"]>("all")
   const [projectMemberKeyword, setProjectMemberKeyword] = useState("")
   const [selectedMemberIds, setSelectedMemberIds] = useState<string[]>([])
   const [projectMemberPickerOpen, setProjectMemberPickerOpen] = useState(false)
+  const [workloadNameFilter, setWorkloadNameFilter] = useState("")
+  const [workloadDepartmentFilter, setWorkloadDepartmentFilter] = useState("all")
+  const [workloadLevelFilter, setWorkloadLevelFilter] = useState<
+    "all" | "high" | "medium" | "low"
+  >("all")
+  const [highlightedSectionId, setHighlightedSectionId] = useState<string | null>(null)
+  const highlightTimeoutRef = useRef<number | null>(null)
   const queryClient = useQueryClient()
+
+  useEffect(() => {
+    return () => {
+      if (highlightTimeoutRef.current !== null) {
+        window.clearTimeout(highlightTimeoutRef.current)
+      }
+    }
+  }, [])
+
+  function scrollToSection(sectionId: string) {
+    const section = document.getElementById(sectionId)
+    if (!section) {
+      return
+    }
+
+    const headerOffset = window.innerWidth >= 768 ? 88 : 76
+    const targetTop =
+      window.scrollY + section.getBoundingClientRect().top - headerOffset
+
+    window.scrollTo({
+      top: Math.max(0, targetTop),
+      behavior: "smooth",
+    })
+    setHighlightedSectionId(sectionId)
+
+    if (highlightTimeoutRef.current !== null) {
+      window.clearTimeout(highlightTimeoutRef.current)
+    }
+
+    highlightTimeoutRef.current = window.setTimeout(() => {
+      setHighlightedSectionId((currentValue) =>
+        currentValue === sectionId ? null : currentValue,
+      )
+      highlightTimeoutRef.current = null
+    }, 2200)
+  }
+
+  function getSectionHighlightClass(sectionId: string) {
+    return highlightedSectionId === sectionId
+      ? "-mx-2 rounded-2xl border border-primary/60 bg-primary/5 px-2 py-2 ring-2 ring-primary/20 shadow-md transition-all duration-300 md:-mx-3 md:px-3"
+      : "transition-all duration-300"
+  }
 
   const profileQuery = useQuery({
     queryKey: ["dashboard", "profile"],
@@ -352,29 +440,46 @@ function Dashboard() {
     return projectStatsQuery.data ?? []
   }, [projectStatsQuery.data])
 
+  const projectStatsSearch = useMemo(
+    () => projectStatsKeyword.trim().toLowerCase(),
+    [projectStatsKeyword],
+  )
+  const filteredProjects = useMemo(() => {
+    if (!projectStatsSearch) return mergedProjects
+    return mergedProjects.filter((p) =>
+      p.name.toLowerCase().includes(projectStatsSearch),
+    )
+  }, [mergedProjects, projectStatsSearch])
+
   const projectsByStatus = useMemo(() => {
-    const active: typeof mergedProjects = []
-    const done: typeof mergedProjects = []
-    const notStarted: typeof mergedProjects = []
-    for (const p of mergedProjects) {
+    const active: typeof filteredProjects = []
+    const done: typeof filteredProjects = []
+    const notStarted: typeof filteredProjects = []
+    for (const p of filteredProjects) {
       if (p.status === "completed" || p.status === "cancelled") done.push(p)
       else if (p.status === "planning") notStarted.push(p)
       else active.push(p) // in_progress, on_hold, active, etc.
     }
     return { active, done, notStarted }
-  }, [mergedProjects])
+  }, [filteredProjects])
 
-  const overdueTasks = useMemo(() => {
+  const projectWarnings = useMemo(() => {
     const od = overdueQuery.data
     if (!od) return []
     return [
-      ...od.overdue_critical.map((t) => ({ ...t, isCritical: true })),
-      ...od.overdue_local.map((t) => ({ ...t, isCritical: false })),
+      ...od.critical,
+      ...od.warning,
+      ...od.watch,
     ].sort((a, b) => {
-      if (a.isCritical !== b.isCritical) return a.isCritical ? -1 : 1
-      return new Date(a.end_time).getTime() - new Date(b.end_time).getTime()
+      const order = { critical: 0, warning: 1, watch: 2 }
+      if (order[a.severity] !== order[b.severity]) return order[a.severity] - order[b.severity]
+      return new Date(a.nearest_task_end_time).getTime() - new Date(b.nearest_task_end_time).getTime()
     })
   }, [overdueQuery.data])
+  const filteredProjectWarnings = useMemo(() => {
+    if (projectWarningFilter === "all") return projectWarnings
+    return projectWarnings.filter((item) => item.severity === projectWarningFilter)
+  }, [projectWarningFilter, projectWarnings])
 
   const topWorkers = useMemo(
     () =>
@@ -396,6 +501,38 @@ function Dashboard() {
       pct: Math.round((r.active_tasks / max) * 100),
     }))
   }, [workloadQuery.data])
+
+  const workloadDepartmentOptions = useMemo(() => {
+    const names = new Set<string>()
+    for (const row of workloadSorted) {
+      if (row.department_name?.trim()) {
+        names.add(row.department_name.trim())
+      }
+    }
+    return Array.from(names).sort((a, b) => a.localeCompare(b, "vi"))
+  }, [workloadSorted])
+
+  const filteredWorkloads = useMemo(() => {
+    const keyword = workloadNameFilter.trim().toLowerCase()
+    return workloadSorted.filter((item) => {
+      const name = (item.user_name ?? item.user_id).toLowerCase()
+      const matchName = !keyword || name.includes(keyword)
+      const matchDepartment =
+        workloadDepartmentFilter === "all" ||
+        (item.department_name ?? "Không rõ") === workloadDepartmentFilter
+      const matchLevel =
+        workloadLevelFilter === "all" ||
+        (workloadLevelFilter === "high" && item.pct >= 80) ||
+        (workloadLevelFilter === "medium" && item.pct >= 40 && item.pct < 80) ||
+        (workloadLevelFilter === "low" && item.pct < 40)
+      return matchName && matchDepartment && matchLevel
+    })
+  }, [
+    workloadDepartmentFilter,
+    workloadLevelFilter,
+    workloadNameFilter,
+    workloadSorted,
+  ])
 
   const memberCandidates = useMemo(() => {
     const keyword = projectMemberKeyword.trim().toLowerCase()
@@ -479,14 +616,22 @@ function Dashboard() {
 
       {/* ── KPI Cards ───────────────────────────────────────────────────────── */}
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        <div className="rounded-xl border bg-card p-4">
+        <button
+          type="button"
+          onClick={() => scrollToSection("project-stats-section")}
+          className="rounded-xl border bg-card p-4 text-left transition hover:shadow-sm"
+        >
           <div className="flex items-center gap-2 text-muted-foreground">
             <FolderOpen className="size-4" />
             <span className="text-xs font-medium">Dự án</span>
           </div>
           <p className="mt-2 text-3xl font-black">{overview?.total_projects ?? "—"}</p>
-        </div>
-        <div className="rounded-xl border bg-card p-4">
+        </button>
+        <button
+          type="button"
+          onClick={() => scrollToSection("project-stats-section")}
+          className="rounded-xl border bg-card p-4 text-left transition hover:shadow-sm"
+        >
           <div className="flex items-center gap-2 text-muted-foreground">
             <CheckCircle2 className="size-4" />
             <span className="text-xs font-medium">Task hoàn thành</span>
@@ -497,17 +642,25 @@ function Dashboard() {
               / {overview?.total_tasks ?? "—"}
             </span>
           </p>
-        </div>
-        <div className="rounded-xl border bg-card p-4">
+        </button>
+        <button
+          type="button"
+          onClick={() => scrollToSection("project-warning-section")}
+          className="rounded-xl border bg-card p-4 text-left transition hover:shadow-sm"
+        >
           <div className="flex items-center gap-2 text-muted-foreground">
             <AlertTriangle className="size-4" />
-            <span className="text-xs font-medium">Task trễ</span>
+            <span className="text-xs font-medium">Cảnh báo dự án</span>
           </div>
-          <p className={`mt-2 text-3xl font-black ${(overview?.overdue_tasks ?? 0) > 0 ? "text-red-600" : "text-muted-foreground"}`}>
-            {overview?.overdue_tasks ?? "—"}
+          <p className={`mt-2 text-3xl font-black ${projectWarnings.length > 0 ? "text-red-600" : "text-muted-foreground"}`}>
+            {projectWarnings.length}
           </p>
-        </div>
-        <div className="rounded-xl border bg-card p-4">
+        </button>
+        <button
+          type="button"
+          onClick={() => scrollToSection("project-stats-section")}
+          className="rounded-xl border bg-card p-4 text-left transition hover:shadow-sm"
+        >
           <div className="flex items-center gap-2 text-muted-foreground">
             <BarChart3 className="size-4" />
             <span className="text-xs font-medium">Tỷ lệ hoàn thành</span>
@@ -516,7 +669,7 @@ function Dashboard() {
             {overview?.completion_rate_pct ?? "—"}%
           </p>
           <ProgressBar value={overview?.completion_rate_pct ?? 0} className="mt-2" />
-        </div>
+        </button>
       </div>
 
       {/* ── Widget Báo Giá chờ xử lý ────────────────────────────────────────── */}
@@ -545,7 +698,7 @@ function Dashboard() {
                   key={q.id}
                   to="/quotations/$quotationId"
                   params={{ quotationId: q.id }}
-                  search={{ tab: "overview" }}
+                  search={{ tab: "history" }}
                   className="flex items-center justify-between gap-3 rounded-xl border bg-card p-3 hover:bg-muted/40 transition-colors"
                 >
                   <div className="min-w-0 flex-1">
@@ -564,7 +717,7 @@ function Dashboard() {
 
       {/* ── Widget Mua hàng cần xử lý ──────────────────────────────────────── */}
       {(pendingProcurementQuery.data?.length ?? 0) > 0 && (
-        <section>
+        <section id="procurement-section">
           <div className="mb-3 flex items-center justify-between gap-2">
             <div className="flex items-center gap-2">
               <span className="text-base">🛒</span>
@@ -612,53 +765,84 @@ function Dashboard() {
         </section>
       )}
 
-      {/* ── Cảnh báo: Task trễ deadline ─────────────────────────────────────── */}
-      {overdueTasks.length > 0 && (
-        <section>
-          <div className="mb-2 flex items-center gap-2">
-            <AlertTriangle className="size-4 text-red-500" />
-            <h2 className="text-sm font-bold">
-              Cảnh báo — Task trễ deadline
-            </h2>
-            <Badge variant="destructive">{overdueTasks.length}</Badge>
+      {/* ── Cảnh báo dự án ───────────────────────────────────────────────────── */}
+      {projectWarnings.length > 0 && (
+        <section
+          id="project-warning-section"
+          className={getSectionHighlightClass("project-warning-section")}
+        >
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <AlertTriangle className="size-4 text-red-500" />
+              <h2 className="text-sm font-bold">Cảnh báo dự án</h2>
+              <Badge variant="destructive">{projectWarnings.length}</Badge>
+            </div>
+            <Select
+              value={projectWarningFilter}
+              onValueChange={(value) =>
+                setProjectWarningFilter(value as "all" | ProjectWarning["severity"])
+              }
+            >
+              <SelectTrigger className="h-9 w-full sm:w-[200px]">
+                <SelectValue placeholder="Lọc mức cảnh báo" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Tất cả mức cảnh báo</SelectItem>
+                <SelectItem value="critical">Quan trọng</SelectItem>
+                <SelectItem value="warning">Cảnh báo</SelectItem>
+                <SelectItem value="watch">Lưu ý</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
           <div className="overflow-hidden rounded-xl border border-red-100">
             <div className="overflow-x-auto">
               <Table className="min-w-[780px]">
               <TableHeader>
                 <TableRow className="bg-red-50 hover:bg-red-50">
-                  <TableHead className="w-[220px] text-red-700">Task</TableHead>
-                  <TableHead className="text-red-700">Trạng thái hiện tại</TableHead>
                   <TableHead className="text-red-700">Dự án</TableHead>
-                  <TableHead className="text-red-700">Phụ trách</TableHead>
-                  <TableHead className="text-red-700">Ngày bắt đầu</TableHead>
-                  <TableHead className="text-red-700">Deadline</TableHead>
-                  <TableHead className="text-red-700">Mức độ</TableHead>
+                  <TableHead className="w-[220px] text-red-700">Task gần nhất</TableHead>
+                  <TableHead className="text-red-700">Trạng thái</TableHead>
+                  <TableHead className="text-red-700">Mốc gần nhất</TableHead>
+                  <TableHead className="text-red-700">Mức cảnh báo</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {overdueTasks.slice(0, 8).map((task) => (
-                  <TableRow key={task.task_id} className="hover:bg-red-50/50">
-                    <TableCell className="max-w-[220px]">
-                      <p className="truncate font-medium">{task.name}</p>
-                    </TableCell>
-                    <TableCell>
-                      <StatusBadge status={task.status || "in_progress"} />
-                    </TableCell>
+                {filteredProjectWarnings.slice(0, 8).map((project) => (
+                  <TableRow key={project.project_id} className="hover:bg-red-50/50">
                     <TableCell className="text-muted-foreground">
-                      {task.project_name ?? task.project_id}
+                      <Link
+                        to="/projects/$projectId"
+                        params={{ projectId: project.project_id }}
+                        className="font-medium text-primary hover:underline"
+                      >
+                        {project.project_name ?? project.project_id}
+                      </Link>
                     </TableCell>
-                    <TableCell>{task.assignee_name ?? task.assignee_id}</TableCell>
-                    <TableCell>{formatDate(task.start_time)}</TableCell>
-                    <TableCell className="font-medium text-red-600">
-                      {formatDate(task.end_time)}
+                    <TableCell className="max-w-[220px]">
+                      <p className="truncate font-medium">{project.nearest_task_name}</p>
                     </TableCell>
                     <TableCell>
-                      {task.isCritical ? (
-                        <Badge variant="destructive">Ảnh hưởng tiến độ</Badge>
-                      ) : (
-                        <Badge variant="outline">Cục bộ</Badge>
-                      )}
+                      <StatusBadge status={project.project_status || "in_progress"} />
+                    </TableCell>
+                    <TableCell className="font-medium text-red-600">
+                      {formatDate(project.nearest_task_end_time)}
+                    </TableCell>
+                    <TableCell>
+                      {(() => {
+                        const severity = getProjectWarningSeverity(
+                          project.severity,
+                          project.delay_days,
+                          project.days_left,
+                        )
+                        return (
+                          <span
+                            className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium ${severity.badgeClassName}`}
+                          >
+                            <severity.IconComponent className="h-3.5 w-3.5" />
+                            {severity.label}
+                          </span>
+                        )
+                      })()}
                     </TableCell>
                   </TableRow>
                 ))}
@@ -670,7 +854,10 @@ function Dashboard() {
       )}
 
       {/* ── Danh sách dự án ─────────────────────────────────────────────────── */}
-      <section>
+      <section
+        id="project-stats-section"
+        className={getSectionHighlightClass("project-stats-section")}
+      >
         <div className="mb-3 flex items-center gap-2">
           <FolderOpen className="size-4 text-muted-foreground" />
           <h2 className="text-sm font-bold">Dự án</h2>
@@ -678,8 +865,16 @@ function Dashboard() {
             ({mergedProjects.length})
           </span>
         </div>
+        <div className="mb-3">
+          <Input
+            value={projectStatsKeyword}
+            onChange={(eventValue) => setProjectStatsKeyword(eventValue.target.value)}
+            placeholder="Tìm theo tên dự án..."
+            className="h-9 max-w-sm"
+          />
+        </div>
 
-        {mergedProjects.length === 0 ? (
+        {filteredProjects.length === 0 ? (
           <div className="rounded-xl border p-8 text-center">
             <p className="text-sm font-semibold">Chưa có dự án nào.</p>
             <p className="mt-1 text-xs text-muted-foreground">
@@ -692,7 +887,7 @@ function Dashboard() {
               <TabsTrigger value="all">
                 Tất cả
                 <Badge variant="secondary" className="ml-1.5 px-1.5 py-0 text-[10px]">
-                  {mergedProjects.length}
+                  {filteredProjects.length}
                 </Badge>
               </TabsTrigger>
               <TabsTrigger value="active">
@@ -718,7 +913,7 @@ function Dashboard() {
             {(["all", "active", "notStarted", "done"] as const).map((tab) => {
               const rows =
                 tab === "all"
-                  ? mergedProjects
+                  ? filteredProjects
                   : tab === "active"
                     ? projectsByStatus.active
                     : tab === "notStarted"
@@ -821,17 +1016,62 @@ function Dashboard() {
       <div className="grid gap-4 md:grid-cols-2">
 
         {/* Workload */}
-        <section className="rounded-xl border bg-card p-4">
+        <section
+          id="workload-section"
+          className={`rounded-xl border bg-card p-4 ${getSectionHighlightClass("workload-section")}`}
+        >
           <div className="mb-3 flex items-center gap-2">
             <Users className="size-4 text-muted-foreground" />
             <h2 className="text-sm font-bold">Phân bổ nguồn lực</h2>
             <span className="text-xs text-muted-foreground">active tasks</span>
           </div>
-          {workloadSorted.length === 0 ? (
+          <div className="mb-3 space-y-2">
+            <Input
+              value={workloadNameFilter}
+              onChange={(eventValue) => setWorkloadNameFilter(eventValue.target.value)}
+              placeholder="Tìm nhân sự..."
+              className="h-9"
+            />
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+              <Select
+                value={workloadDepartmentFilter}
+                onValueChange={setWorkloadDepartmentFilter}
+              >
+                <SelectTrigger className="h-9">
+                  <SelectValue placeholder="Tất cả phòng ban" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Tất cả phòng ban</SelectItem>
+                  {workloadDepartmentOptions.map((dept) => (
+                    <SelectItem key={dept} value={dept}>
+                      {dept}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select
+                value={workloadLevelFilter}
+                onValueChange={(value) =>
+                  setWorkloadLevelFilter(value as "all" | "high" | "medium" | "low")
+                }
+              >
+                <SelectTrigger className="h-9">
+                  <SelectValue placeholder="Tất cả mức độ" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Tất cả mức độ</SelectItem>
+                  <SelectItem value="high">Cao (≥80%)</SelectItem>
+                  <SelectItem value="medium">Trung bình (40-79%)</SelectItem>
+                  <SelectItem value="low">Thấp (&lt;40%)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          {filteredWorkloads.length === 0 ? (
             <p className="text-xs text-muted-foreground">Không có dữ liệu.</p>
           ) : (
             <div className="space-y-3">
-              {workloadSorted.map((item) => (
+              {filteredWorkloads.map((item) => (
                 <div key={item.user_id} className="space-y-1">
                   <div className="flex items-center justify-between text-xs">
                     <span className="truncate font-medium">
@@ -841,6 +1081,11 @@ function Dashboard() {
                       {item.active_tasks}
                     </span>
                   </div>
+                  {item.department_name ? (
+                    <p className="text-[11px] text-muted-foreground">
+                      {item.department_name}
+                    </p>
+                  ) : null}
                   <ProgressBar
                     value={item.pct}
                     color={item.pct >= 80 ? "bg-orange-400" : "bg-blue-500"}
@@ -852,7 +1097,10 @@ function Dashboard() {
         </section>
 
         {/* Leaderboard */}
-        <section className="rounded-xl border bg-card p-4">
+        <section
+          id="leaderboard-section"
+          className={`rounded-xl border bg-card p-4 ${getSectionHighlightClass("leaderboard-section")}`}
+        >
           <div className="mb-3 flex items-center gap-2">
             <Clock className="size-4 text-muted-foreground" />
             <h2 className="text-sm font-bold">Hiệu suất nhân sự</h2>
@@ -881,9 +1129,13 @@ function Dashboard() {
                     {index + 1}
                   </span>
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-xs font-semibold">
+                    <Link
+                      to="/dashboard/personnel/$userId"
+                      params={{ userId: worker.user_id }}
+                      className="truncate text-xs font-semibold hover:text-primary hover:underline"
+                    >
                       {worker.user_name ?? worker.user_id}
-                    </p>
+                    </Link>
                     <div className="mt-0.5 flex items-center gap-2 text-[10px] text-muted-foreground">
                       <span className="text-green-600 font-medium">
                         {worker.done} done

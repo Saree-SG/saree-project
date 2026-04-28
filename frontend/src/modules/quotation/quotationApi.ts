@@ -9,25 +9,20 @@ import type {
   QuotationAttachmentPublic,
   QuotationByClientRow,
   QuotationByEquipmentRow,
+  QuotationCompanyProfile,
   QuotationCloseRequest,
   QuotationCreate,
   QuotationFinalizeRequest,
-  QuotationLineItemCreate,
-  QuotationLineItemPriceUpdate,
-  QuotationLineItemPublic,
-  QuotationLineItemSalePriceUpdate,
-  QuotationLineItemUpdate,
   QuotationListParams,
   QuotationLostReasonRow,
-  QuotationNegotiateRequest,
   QuotationNegotiationLogCreate,
   QuotationNegotiationLogPublic,
   QuotationPublic,
   QuotationReportSummary,
-  QuotationRequestRevisionRequest,
   QuotationSendToClientRequest,
   QuotationStageTransitionPublic,
   QuotationSubmitDesignRequest,
+  QuotationSubmitNegotiationRequest,
   QuotationSubmitPricingRequest,
   QuotationSubmitSurveyRequest,
   QuotationUpdate,
@@ -68,6 +63,22 @@ export async function listQuotations(
 export async function getMyPendingQuotations(): Promise<QuotationPublic[]> {
   const res = await axios.get<QuotationPublic[]>(
     `${BASE()}/quotations/my-pending`,
+    { headers: authHeaders() },
+  )
+  return res.data
+}
+
+export async function listQuotationCompanies(): Promise<string[]> {
+  const res = await axios.get<string[]>(
+    `${BASE()}/quotations/companies`,
+    { headers: authHeaders() },
+  )
+  return res.data
+}
+
+export async function listQuotationCompanyProfiles(): Promise<QuotationCompanyProfile[]> {
+  const res = await axios.get<QuotationCompanyProfile[]>(
+    `${BASE()}/quotations/company-profiles`,
     { headers: authHeaders() },
   )
   return res.data
@@ -206,24 +217,24 @@ export async function sendToClient(
   return res.data
 }
 
-export async function markNegotiating(
+export async function submitNegotiation(
   id: string,
-  body: QuotationNegotiateRequest,
+  body: QuotationSubmitNegotiationRequest,
 ): Promise<QuotationPublic> {
   const res = await axios.post<QuotationPublic>(
-    `${BASE()}/quotations/${id}/negotiate`,
+    `${BASE()}/quotations/${id}/submit-negotiation`,
     body,
     { headers: authHeaders() },
   )
   return res.data
 }
 
-export async function requestRevision(
+export async function approveNegotiation(
   id: string,
-  body: QuotationRequestRevisionRequest,
+  body: QuotationApproveRequest,
 ): Promise<QuotationPublic> {
   const res = await axios.post<QuotationPublic>(
-    `${BASE()}/quotations/${id}/request-revision`,
+    `${BASE()}/quotations/${id}/approve-negotiation`,
     body,
     { headers: authHeaders() },
   )
@@ -240,80 +251,6 @@ export async function closeQuotation(
     { headers: authHeaders() },
   )
   return res.data
-}
-
-// ---------------------------------------------------------------------------
-// Line items
-// ---------------------------------------------------------------------------
-
-export async function listLineItems(quotationId: string): Promise<QuotationLineItemPublic[]> {
-  const res = await axios.get<QuotationLineItemPublic[]>(
-    `${BASE()}/quotations/${quotationId}/items`,
-    { headers: authHeaders() },
-  )
-  return res.data
-}
-
-export async function addLineItem(
-  quotationId: string,
-  body: QuotationLineItemCreate,
-): Promise<QuotationLineItemPublic> {
-  const res = await axios.post<QuotationLineItemPublic>(
-    `${BASE()}/quotations/${quotationId}/items`,
-    body,
-    { headers: authHeaders() },
-  )
-  return res.data
-}
-
-export async function updateLineItem(
-  quotationId: string,
-  itemId: string,
-  body: QuotationLineItemUpdate,
-): Promise<QuotationLineItemPublic> {
-  const res = await axios.patch<QuotationLineItemPublic>(
-    `${BASE()}/quotations/${quotationId}/items/${itemId}`,
-    body,
-    { headers: authHeaders() },
-  )
-  return res.data
-}
-
-export async function updateLineItemPrice(
-  quotationId: string,
-  itemId: string,
-  body: QuotationLineItemPriceUpdate,
-): Promise<QuotationLineItemPublic> {
-  const res = await axios.patch<QuotationLineItemPublic>(
-    `${BASE()}/quotations/${quotationId}/items/${itemId}/price`,
-    body,
-    { headers: authHeaders() },
-  )
-  return res.data
-}
-
-/** S6: KD set giá bán từng hạng mục (thủ công, không dùng hệ số). */
-export async function updateItemSalePrice(
-  quotationId: string,
-  itemId: string,
-  body: QuotationLineItemSalePriceUpdate,
-): Promise<QuotationLineItemPublic> {
-  const res = await axios.patch<QuotationLineItemPublic>(
-    `${BASE()}/quotations/${quotationId}/items/${itemId}/sale-price`,
-    body,
-    { headers: authHeaders() },
-  )
-  return res.data
-}
-
-export async function deleteLineItem(
-  quotationId: string,
-  itemId: string,
-): Promise<void> {
-  await axios.delete(
-    `${BASE()}/quotations/${quotationId}/items/${itemId}`,
-    { headers: authHeaders() },
-  )
 }
 
 // ---------------------------------------------------------------------------

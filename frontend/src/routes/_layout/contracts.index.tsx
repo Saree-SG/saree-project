@@ -19,7 +19,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { Badge } from "@/components/ui/badge"
 import { clearSession } from "@/modules/auth/tokenStore"
 import { listContracts } from "@/modules/contract/contractApi"
 import {
@@ -28,16 +27,6 @@ import {
   type ContractStatus,
 } from "@/modules/contract/contractTypes"
 import { hasPermission } from "@/utils/accountAccess"
-
-const STATUS_BADGE_VARIANT: Record<ContractStatus, "default" | "secondary" | "outline" | "destructive"> = {
-  draft: "secondary",
-  pending_approval: "secondary",
-  sent: "outline",
-  signed: "default",
-  advance_received: "default",
-  in_production: "default",
-  completed: "default",
-}
 
 const STATUS_COLORS: Record<ContractStatus, string> = {
   draft: "bg-gray-100 text-gray-700",

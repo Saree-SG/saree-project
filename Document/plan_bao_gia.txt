@@ -1,0 +1,158 @@
+  Kế Hoạch Implement Module Báo Giá (Quotation)                                
+                                                                              
+  Database Schema — 6 bảng mới                                                 
+                                                                               
+  Quotation — bảng trung tâm                                                   
+                                                                               
+  id, quote_number (BG-2026-001), project_name                                 
+  client_company_name, client_contact_*, site_survey_date                      
+  equipment_category (IQF / kho lạnh / ...)                                    
+                                                                               
+  status: draft | in_review | active | sent | negotiating | closed_won |       
+  closed_lost                                                                  
+  current_stage: S1 → S9 (xem dưới)                                            
+                                                                               
+  sales_owner_id, technical_owner_id, procurement_owner_id                     
+  price_coefficient, total_cost_price, total_sale_price                        
+  won_project_id (link sang Project khi thắng)                                 
+                                              
+  9 Stages trong quy trình                                                     
+                                                                               
+  S1  Kinh Doanh thu thập thông tin                                            
+    ↓ [KD nộp]                                                                 
+  S2  Ban GĐ duyệt để chuyển KT                                                
+    ↓ [BGĐ approve]                                                            
+  S3  Kỹ Thuật thiết kế + lập bảng chào giá khung                              
+    ↓ [KT nộp]                                
+  S4  Ban GĐ duyệt phương án thiết kế                                          
+    ↓ [BGĐ approve]                                         
+  S5  Vật Tư điền đơn giá từng hạng mục                                        
+    ↓ [VT xác nhận]                                                            
+  S6  Kinh Doanh tính hệ số giá, hoàn thiện                                    
+    ↓ [KD nộp]                                                                 
+  S7  Ban GĐ duyệt báo giá cuối                                                
+    ↓ [BGĐ approve]                                                            
+  S8  Gửi khách hàng + theo dõi thương lượng                                   
+    ↓ [KD đóng]                                             
+  S9  Kết thúc (won → tạo Project / lost → lưu lý do)                          
+                                                            
+  Các bảng còn lại                                                             
+                                                                               
+  QuotationLineItem       — dòng mục bảng chào giá khung                       
+  QuotationStageTransition — audit trail mỗi lần chuyển stage                  
+  QuotationNegotiationLog  — lịch sử trao đổi với khách hàng                   
+  QuotationAttachment      — bản vẽ, tài liệu kỹ thuật      
+  QuotationVersion         — snapshot báo giá (mỗi lần gửi khách)              
+                                              
+  ---                                                                          
+  API Endpoints (~25 endpoints)                                                
+                                                                               
+  POST /quotations/                          # Tạo hồ sơ (KD)                  
+  GET  /quotations/                          # Danh sách + filter đầy đủ       
+  GET  /quotations/{id}                      # Chi tiết     
+  PATCH /quotations/{id}                     # Cập nhật thông tin chung
+                                                                               
+  # Workflow transitions                                                       
+  POST /quotations/{id}/submit-survey        # KD → BGĐ (S1→S2)                
+  POST /quotations/{id}/approve-survey       # BGĐ approve/reject (S2→S3)      
+  POST /quotations/{id}/submit-design        # KT → BGĐ (S3→S4)                
+  POST /quotations/{id}/approve-design       # BGĐ approve/reject (S4→S5)      
+  POST /quotations/{id}/submit-pricing       # VT → KD (S5→S6)                 
+  POST /quotations/{id}/finalize             # KD + hệ số giá (S6→S7)          
+  POST /quotations/{id}/approve-final        # BGĐ approve/reject (S7→S8)      
+  POST /quotations/{id}/send-to-client       # KD gửi khách (S8)               
+  POST /quotations/{id}/close                # Đóng won/lost (S8→S9)           
+                                                                               
+  # Line items                                                                 
+  GET/POST /quotations/{id}/items                                              
+  PATCH    /quotations/{id}/items/{item_id}                                    
+  PATCH    /quotations/{id}/items/{item_id}/price   # Chỉ VT điền giá
+                                                                               
+  # Sub-resources                                                              
+  GET/POST /quotations/{id}/negotiations  
+  GET/POST /quotations/{id}/attachments                                        
+  GET      /quotations/{id}/history                                            
+  GET      /quotations/{id}/versions                                           
+                                                                               
+  # Reports                                                 
+  GET /quotations/reports/summary                                              
+  GET /quotations/reports/by-client
+  GET /quotations/reports/by-equipment                                         
+  GET /quotations/reports/lost-analysis                     
+
+  ---                                                                          
+  Frontend Routes & Components
+                                                                               
+  /quotations              → Danh sách + filter             
+  /quotations/new          → Tạo mới
+  /quotations/$id          → Chi tiết (tabs)                                   
+    ?tab=overview          → Thông tin + stage tracker
+    ?tab=items             → Bảng chào giá khung                               
+    ?tab=negotiations      → Lịch sử thương lượng                              
+    ?tab=attachments       → File đính kèm
+    ?tab=history           → Audit trail                                       
+  /quotations/reports      → Báo cáo thống kê                                  
+                                                                               
+  Component chính:                                                             
+  - StageStepper — thanh tiến trình 9 bước, step hiện tại highlight
+  - QuotationActionsPanel — hiển thị đúng nút hành động theo role + stage, các 
+  role khác chỉ thấy "Đang chờ [phòng X]"                                     
+  - LineItemTable — editable grid, cell giá chỉ enable cho Vật Tư ở S5         
+  - QuotationApprovalDialog — BGĐ approve/reject + bắt buộc ghi chú khi reject 
+                                              
+  ---                                                                          
+  UI/UX theo từng Role                                      
+                                                                               
+  Kinh Doanh                                                                   
+                                                                               
+  - Tab "Việc của tôi": badge đỏ = bị reject cần sửa, cam = đến lượt mình, xám 
+  = đang chờ                                                
+  - Tạo hồ sơ: 3 field bắt buộc (tên dự án, khách hàng, hạng mục) → submit ngay
+  - S6: nhập hệ số giá → tổng giá bán tự tính real-time                        
+  - S8: nút "Ghi nhận phản hồi" + "Đóng hồ sơ"
+                                                                               
+  Kỹ Thuật                                                                     
+                                                                               
+  - Chỉ thấy hồ sơ ở S3, ưu tiên "Chờ thiết kế" đầu danh sách                  
+  - Tab bảng chào giá mở mặc định → thêm/sửa line items (chưa có cột giá)      
+  - Upload bản vẽ cùng tab Attachments                                         
+                                                                               
+  Vật Tư                                  
+                                                                               
+  - Chỉ thấy hồ sơ ở S5 cần làm                                                
+  - Bảng giống KT nhưng chỉ sửa được 3 cột: đơn giá mua, nhà cung cấp, ghi chú 
+  - Tổng giá mua tự tính real-time khi nhập                                    
+                                                                               
+  Ban Giám Đốc                            
+                                                                               
+  - Dashboard: widget "Chờ phê duyệt" nổi bật — phân loại S2/S4/S7             
+  - 2 nút: "Phê duyệt" (xanh) / "Yêu cầu chỉnh sửa" (cam) — reject phải điền lý
+   do                                                                          
+  - Tab Reports: xem toàn bộ thống kê win/loss                                 
+                                              
+  ---                                                                          
+  Thứ tự implement (6 phases)                               
+                                                                               
+  ┌───────┬─────────────────────────────────────────────┬──────────────────┐
+  │ Phase │                  Nội dung                   │      Output      │   
+  ├───────┼─────────────────────────────────────────────┼──────────────────┤   
+  │ 1     │ Backend models + migration + service (state │ API test được    │
+  │       │  machine) + 25 API endpoints                │ trên Swagger     │   
+  ├───────┼─────────────────────────────────────────────┼──────────────────┤
+  │ 2     │ Frontend: types, API calls, trang danh sách │ List + Create    │   
+  │       │  + tạo mới                                  │ hoạt động        │
+  ├───────┼─────────────────────────────────────────────┼──────────────────┤   
+  │ 3     │ Trang chi tiết + StageStepper +             │ Workflow S1→S9   │
+  │       │ ActionsPanel (workflow đầy đủ)              │ chạy được        │   
+  ├───────┼─────────────────────────────────────────────┼──────────────────┤
+  │ 4     │ Bảng chào giá khung (LineItemTable editable │ Bảng giá hoàn    │   
+  │       │  + permission-aware)                        │ chỉnh            │   
+  ├───────┼─────────────────────────────────────────────┼──────────────────┤
+  │ 5     │ Reports & Analytics (charts, tables,        │ Báo cáo đầy đủ   │   
+  │       │ filter)                                     │                  │   
+  ├───────┼─────────────────────────────────────────────┼──────────────────┤
+  │ 6     │ Notification tích hợp, sidebar nav,         │ Hoàn thiện       │   
+  │       │ Dashboard widget, mobile polish             │                  │   
+  └───────┴─────────────────────────────────────────────┴──────────────────┘
+                                                                               
+  ---            

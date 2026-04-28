@@ -7,13 +7,17 @@ import {
   ExternalLink,
   Info,
   Paperclip,
-  Pencil,
   Trash2,
 } from "lucide-react"
 import { Link } from "@tanstack/react-router"
-import { useRef, useState } from "react"
+import { useMemo, useRef, useState } from "react"
 import { toast } from "sonner"
 
+import {
+  StageTransitionTimeline,
+  type ActionConfig,
+  type TransitionAttachment as TLAttachment,
+} from "@/components/Common/StageTransitionTimeline"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -43,7 +47,6 @@ import {
   CONTRACT_STATUS_ORDER,
   type ContractAttachmentPublic,
   type ContractStatus,
-  type ContractWithDetailsPublic,
 } from "@/modules/contract/contractTypes"
 import { hasPermission } from "@/utils/accountAccess"
 import { resolveBackendMediaUrl } from "@/utils/mediaUrl"
@@ -85,15 +88,18 @@ const STATUS_COLORS: Record<ContractStatus, string> = {
   completed: "bg-green-100 text-green-700",
 }
 
-const ACTION_LABELS: Record<string, string> = {
-  create: "Tạo hợp đồng",
-  submit: "Nộp BGĐ duyệt",
-  approve: "BGĐ duyệt - Gửi khách hàng",
-  reject: "BGĐ từ chối",
-  sign: "Xác nhận đã ký",
-  confirm_advance: "Xác nhận tạm ứng",
-  start_production: "Bắt đầu sản xuất",
-  complete: "Hoàn thành hợp đồng",
+/**
+ * Mô tả rõ từng bước trong flow hợp đồng theo góc nhìn của khách hàng.
+ */
+const CONTRACT_ACTION_CONFIG: Record<string, ActionConfig> = {
+  create:           { subject: "Hợp đồng",           status: "Đã tạo mới",                   statusType: "created"  },
+  submit:           { subject: "Hợp đồng",           status: "Đã gửi BGĐ phê duyệt",          statusType: "pending"  },
+  approve:          { subject: "Hợp đồng",           status: "BGĐ đã phê duyệt – Gửi khách", statusType: "approved" },
+  reject:           { subject: "Hợp đồng",           status: "BGĐ yêu cầu chỉnh sửa",         statusType: "rejected" },
+  sign:             { subject: "Hợp đồng",           status: "Khách hàng đã ký kết",           statusType: "approved" },
+  confirm_advance:  { subject: "Thanh toán tạm ứng", status: "Đã xác nhận nhận tiền",          statusType: "approved" },
+  start_production: { subject: "Sản xuất",           status: "Bắt đầu triển khai",             statusType: "sent"     },
+  complete:         { subject: "Hợp đồng",           status: "Hoàn thành",                     statusType: "won"      },
 }
 
 // Map action → phase tag stored on the attachment
@@ -111,53 +117,6 @@ function buildWorkflowNote(title: string, contentHtml: string): string {
   if (title.trim()) blocks.push(`# ${title.trim()}`)
   if (contentHtml.trim()) blocks.push(contentHtml.trim())
   return blocks.join("\n\n").trim()
-}
-
-function parseNote(note: string): { title: string; body: string } {
-  if (note.startsWith("# ")) {
-    const lines = note.split("\n")
-    const title = lines[0].slice(2).trim()
-    const body = lines.slice(1).join("\n").replace(/^\n+/, "")
-    return { title, body }
-  }
-  return { title: "", body: note }
-}
-
-function renderLightMarkdown(note: string): string {
-  const lines = note.split("\n")
-  const html: string[] = []
-  let inList = false
-  for (const raw of lines) {
-    const line = raw.trim()
-    if (!line) {
-      if (inList) { html.push("</ul>"); inList = false }
-      continue
-    }
-    if (line.startsWith("## ")) {
-      if (inList) { html.push("</ul>"); inList = false }
-      html.push(`<h3 class="mt-3 mb-1 text-sm font-semibold">${line.slice(3)}</h3>`)
-      continue
-    }
-    if (line.startsWith("# ")) {
-      if (inList) { html.push("</ul>"); inList = false }
-      html.push(`<h2 class="mb-2 text-base font-semibold">${line.slice(2)}</h2>`)
-      continue
-    }
-    if (line.startsWith("- ")) {
-      if (!inList) { html.push('<ul class="list-disc pl-5 space-y-1">'); inList = true }
-      html.push(`<li>${line.slice(2)}</li>`)
-      continue
-    }
-    if (line.startsWith("<") && line.endsWith(">")) {
-      if (inList) { html.push("</ul>"); inList = false }
-      html.push(line)
-      continue
-    }
-    if (inList) { html.push("</ul>"); inList = false }
-    html.push(`<p class="text-sm leading-6">${line}</p>`)
-  }
-  if (inList) html.push("</ul>")
-  return html.join("")
 }
 
 type ActionDef = { label: string; permission: string; action: string }
@@ -188,6 +147,7 @@ function ContractDetailPage() {
 
   const [actionDialog, setActionDialog] = useState<string | null>(null)
   const [imagePreview, setImagePreview] = useState<{ url: string; name: string } | null>(null)
+  const [selectedHistoryStatus, setSelectedHistoryStatus] = useState<ContractStatus | null>(null)
 
   // sign
   const [signingDate, setSigningDate] = useState(new Date().toISOString().split("T")[0])
@@ -220,6 +180,22 @@ function ContractDetailPage() {
   const completeBodyRef = useRef<HTMLDivElement | null>(null)
 
   const invalidate = () => qc.invalidateQueries({ queryKey: ["contract", contractId] })
+
+  const filteredTransitions = useMemo(() => {
+    if (!contract) {
+      return []
+    }
+    if (!selectedHistoryStatus) {
+      return [...contract.transitions].sort(
+        (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+      )
+    }
+    return [...contract.transitions]
+      .filter(
+        (t) => t.to_status === selectedHistoryStatus || t.from_status === selectedHistoryStatus,
+      )
+      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+  }, [contract, selectedHistoryStatus])
 
   function resetAll() {
     setSendTitle(""); setSendBodyHtml(""); if (sendBodyRef.current) sendBodyRef.current.innerHTML = ""
@@ -338,7 +314,11 @@ function ContractDetailPage() {
       </div>
 
       {/* Status stepper */}
-      <StatusStepper currentStatus={status} />
+      <StatusStepper
+        currentStatus={status}
+        selectedStatus={selectedHistoryStatus}
+        onStepClick={setSelectedHistoryStatus}
+      />
 
       {/* Next steps guide */}
       {status !== "completed" && (
@@ -391,16 +371,56 @@ function ContractDetailPage() {
 
       {/* History timeline */}
       <div className="rounded-lg border p-4 space-y-3">
-        <h2 className="font-medium text-sm text-muted-foreground uppercase tracking-wide">
-          Lịch sử thay đổi
-        </h2>
-        {contract.transitions.length === 0 ? (
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 className="font-medium text-sm text-muted-foreground uppercase tracking-wide">
+            Lịch sử thay đổi
+          </h2>
+          {selectedHistoryStatus ? (
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={() => setSelectedHistoryStatus(null)}
+            >
+              Bỏ lọc
+            </Button>
+          ) : null}
+        </div>
+        {selectedHistoryStatus ? (
+          <div className="rounded-md border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+            Đang lọc theo bước:{" "}
+            <span className="font-semibold text-foreground">
+              {CONTRACT_STATUS_LABELS[selectedHistoryStatus]}
+            </span>
+          </div>
+        ) : null}
+        {filteredTransitions.length === 0 ? (
           <p className="text-sm text-muted-foreground">Chưa có lịch sử</p>
         ) : (
-          <TransitionTimeline
-            transitions={contract.transitions}
-            attachments={contract.attachments}
-            onViewAttachment={openAttachment}
+          <StageTransitionTimeline
+            entries={filteredTransitions.map((t) => ({
+                id: t.id,
+                from_key: t.from_status ?? undefined,
+                to_key: t.to_status ?? undefined,
+                from_label: t.from_status ? (CONTRACT_STATUS_LABELS[t.from_status as ContractStatus] ?? t.from_status) : undefined,
+                to_label: t.to_status ? (CONTRACT_STATUS_LABELS[t.to_status as ContractStatus] ?? t.to_status) : (t.action ?? ""),
+                action: t.action,
+                actor_name: t.actor_name,
+                created_at: t.created_at,
+                note: t.note,
+              }))}
+            attachments={contract.attachments.map((a): TLAttachment => ({
+              id: a.id,
+              stage_key: a.phase ?? "",
+              file_name: a.file_name,
+              file_url: a.file_url,
+              file_type: a.file_type,
+            }))}
+            actionConfig={CONTRACT_ACTION_CONFIG}
+            onViewAttachment={(att) => {
+              const original = contract.attachments.find((a) => a.id === att.id)
+              if (original) openAttachment(original)
+            }}
           />
         )}
       </div>
@@ -637,112 +657,6 @@ function DocumentsSection({
 }
 
 // ---------------------------------------------------------------------------
-// History timeline
-// ---------------------------------------------------------------------------
-
-type Transition = ContractWithDetailsPublic["transitions"][number]
-
-function TransitionTimeline({
-  transitions,
-  attachments,
-  onViewAttachment,
-}: {
-  transitions: Transition[]
-  attachments: ContractAttachmentPublic[]
-  onViewAttachment: (att: ContractAttachmentPublic) => void
-}) {
-  return (
-    <div className="relative">
-      <div className="absolute left-[11px] top-3 bottom-3 w-px bg-border" />
-      <ul className="space-y-4">
-        {transitions.map((t) => {
-          const { title, body } = parseNote(t.note ?? "")
-          const stepAttachments = attachments.filter((a) => a.phase === t.to_status)
-          return (
-            <li key={t.id} className="relative flex gap-3">
-              <div className="relative z-10 mt-1 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 border-primary bg-background">
-                <Pencil className="h-2.5 w-2.5 text-primary" />
-              </div>
-              <div className="flex-1 min-w-0 rounded-lg border bg-card p-3 space-y-2">
-                {/* action + time */}
-                <div className="flex items-start justify-between gap-2 flex-wrap">
-                  <span className="font-semibold text-sm">{ACTION_LABELS[t.action] ?? t.action}</span>
-                  <span className="text-xs text-muted-foreground whitespace-nowrap">
-                    {new Date(t.created_at).toLocaleString("vi-VN")}
-                  </span>
-                </div>
-
-                {/* status badges */}
-                {t.to_status && (
-                  <div className="flex items-center gap-1.5 text-xs flex-wrap">
-                    {t.from_status && (
-                      <>
-                        <span className="px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
-                          {CONTRACT_STATUS_LABELS[t.from_status as ContractStatus] ?? t.from_status}
-                        </span>
-                        <ChevronRight className="w-3 h-3 text-muted-foreground" />
-                      </>
-                    )}
-                    <span className="px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 font-medium border border-blue-100">
-                      {CONTRACT_STATUS_LABELS[t.to_status as ContractStatus] ?? t.to_status}
-                    </span>
-                  </div>
-                )}
-
-                {/* actor */}
-                <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                  <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-muted text-[10px] font-bold uppercase">
-                    {(t.actor_name ?? "?").charAt(0)}
-                  </span>
-                  {t.actor_name ?? "Hệ thống"}
-                </div>
-
-                {/* note */}
-                {(title || body) && (
-                  <div className="rounded-md border bg-muted/30 p-2.5 space-y-1">
-                    {title && <p className="text-sm font-semibold leading-snug">{title}</p>}
-                    {body && (
-                      <div
-                        className="text-sm text-muted-foreground"
-                        dangerouslySetInnerHTML={{ __html: renderLightMarkdown(body) }}
-                      />
-                    )}
-                  </div>
-                )}
-
-                {/* attachments for this step */}
-                {stepAttachments.length > 0 && (
-                  <div className="rounded-md border bg-muted/20 p-2.5 space-y-1">
-                    <p className="text-xs font-medium text-muted-foreground flex items-center gap-1">
-                      <Paperclip className="w-3 h-3" />
-                      Tài liệu đính kèm ({stepAttachments.length})
-                    </p>
-                    <ul className="space-y-1.5 mt-1">
-                      {stepAttachments.map((att) => (
-                        <li key={att.id} className="flex items-center gap-2">
-                          <FileTypeIcon fileName={att.file_name} className="w-4 h-4 shrink-0" />
-                          <button
-                            type="button"
-                            className="text-xs text-blue-600 hover:underline truncate text-left"
-                            onClick={() => onViewAttachment(att)}
-                          >
-                            {att.file_name}
-                          </button>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-              </div>
-            </li>
-          )
-        })}
-      </ul>
-    </div>
-  )
-}
-
-// ---------------------------------------------------------------------------
 // Next Steps Guide — context-aware guidance per workflow status
 // ---------------------------------------------------------------------------
 
@@ -878,19 +792,40 @@ function NextStepsGuide({
 // Sub-components
 // ---------------------------------------------------------------------------
 
-function StatusStepper({ currentStatus }: { currentStatus: ContractStatus }) {
+function StatusStepper({
+  currentStatus,
+  selectedStatus,
+  onStepClick,
+}: {
+  currentStatus: ContractStatus
+  selectedStatus: ContractStatus | null
+  onStepClick: (status: ContractStatus | null) => void
+}) {
   const currentIdx = CONTRACT_STATUS_ORDER.indexOf(currentStatus)
   return (
     <div className="flex items-center gap-1 overflow-x-auto pb-1">
       {CONTRACT_STATUS_ORDER.map((s, i) => {
         const done = i < currentIdx
         const active = i === currentIdx
+        const selected = selectedStatus === s
         return (
           <div key={s} className="flex items-center gap-1 shrink-0">
-            <div className={`text-xs px-2 py-1 rounded-full font-medium ${done ? "bg-green-100 text-green-700" : active ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-400"}`}>
+            <button
+              type="button"
+              onClick={() => onStepClick(selected ? null : s)}
+              className={`text-xs px-2 py-1 rounded-full font-medium transition-colors ${
+                selected
+                  ? "ring-2 ring-primary/40 bg-primary/10 text-primary"
+                  : done
+                    ? "bg-green-100 text-green-700"
+                    : active
+                      ? "bg-blue-600 text-white"
+                      : "bg-gray-100 text-gray-400"
+              }`}
+            >
               {done && <CheckCircle2 className="w-3 h-3 inline mr-0.5" />}
               {CONTRACT_STATUS_LABELS[s]}
-            </div>
+            </button>
             {i < CONTRACT_STATUS_ORDER.length - 1 && (
               <ChevronRight className="w-3 h-3 text-muted-foreground shrink-0" />
             )}

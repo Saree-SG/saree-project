@@ -7,6 +7,7 @@ import type { QuotationStage, QuotationStatus } from "./quotationTypes"
 export interface StageConfig {
   label: string
   shortLabel: string
+  filterLabel?: string
   ownerRole: "sales" | "director" | "technical" | "procurement" | "done"
   // Tailwind color classes
   badgeBg: string
@@ -18,8 +19,9 @@ export interface StageConfig {
 
 export const STAGE_CONFIG: Record<QuotationStage, StageConfig> = {
   S1_SALES_COLLECT: {
-    label: "Thu thập thông tin",
-    shortLabel: "Thu thập",
+    label: "Khảo sát",
+    shortLabel: "Khảo sát",
+    filterLabel: "Tạo hồ sơ / Khảo sát",
     ownerRole: "sales",
     badgeBg: "bg-blue-100",
     badgeText: "text-blue-700",
@@ -28,8 +30,8 @@ export const STAGE_CONFIG: Record<QuotationStage, StageConfig> = {
     stepText: "text-white",
   },
   S2_DIRECTOR_APPROVE_SURVEY: {
-    label: "BGĐ duyệt khảo sát",
-    shortLabel: "BGĐ duyệt",
+    label: "Giám đốc duyệt khảo sát",
+    shortLabel: "Duyệt Khảo sát",
     ownerRole: "director",
     badgeBg: "bg-violet-100",
     badgeText: "text-violet-700",
@@ -38,8 +40,8 @@ export const STAGE_CONFIG: Record<QuotationStage, StageConfig> = {
     stepText: "text-white",
   },
   S3_TECH_DESIGN: {
-    label: "Kỹ thuật thiết kế",
-    shortLabel: "KT thiết kế",
+    label: "Kỹ thuật lên thiết kế",
+    shortLabel: "Thiết kế",
     ownerRole: "technical",
     badgeBg: "bg-cyan-100",
     badgeText: "text-cyan-700",
@@ -48,8 +50,8 @@ export const STAGE_CONFIG: Record<QuotationStage, StageConfig> = {
     stepText: "text-white",
   },
   S4_DIRECTOR_APPROVE_DESIGN: {
-    label: "BGĐ duyệt thiết kế",
-    shortLabel: "BGĐ duyệt KT",
+    label: "Giám đốc duyệt thiết kế",
+    shortLabel: "Duyệt Thiết kế",
     ownerRole: "director",
     badgeBg: "bg-violet-100",
     badgeText: "text-violet-700",
@@ -59,7 +61,7 @@ export const STAGE_CONFIG: Record<QuotationStage, StageConfig> = {
   },
   S5_PROCUREMENT_PRICING: {
     label: "Vật tư định giá",
-    shortLabel: "Vật tư giá",
+    shortLabel: "Định giá vật tư",
     ownerRole: "procurement",
     badgeBg: "bg-orange-100",
     badgeText: "text-orange-700",
@@ -68,8 +70,8 @@ export const STAGE_CONFIG: Record<QuotationStage, StageConfig> = {
     stepText: "text-white",
   },
   S6_SALES_FINALIZE: {
-    label: "KD hoàn thiện",
-    shortLabel: "KD hoàn thiện",
+    label: "Kinh doanh điều chỉnh chào giá",
+    shortLabel: "Hồ sơ chào giá",
     ownerRole: "sales",
     badgeBg: "bg-blue-100",
     badgeText: "text-blue-700",
@@ -78,8 +80,8 @@ export const STAGE_CONFIG: Record<QuotationStage, StageConfig> = {
     stepText: "text-white",
   },
   S7_DIRECTOR_APPROVE_QUOTE: {
-    label: "BGĐ duyệt báo giá",
-    shortLabel: "BGĐ duyệt cuối",
+    label: "Giám đốc duyệt chào giá",
+    shortLabel: "Duyệt chào giá",
     ownerRole: "director",
     badgeBg: "bg-violet-100",
     badgeText: "text-violet-700",
@@ -88,8 +90,8 @@ export const STAGE_CONFIG: Record<QuotationStage, StageConfig> = {
     stepText: "text-white",
   },
   S8_SENT_TO_CLIENT: {
-    label: "Đã gửi khách hàng",
-    shortLabel: "Đã gửi KH",
+    label: "Chờ phản hồi khách hàng",
+    shortLabel: "Chờ KH phản hồi",
     ownerRole: "sales",
     badgeBg: "bg-teal-100",
     badgeText: "text-teal-700",
@@ -97,8 +99,18 @@ export const STAGE_CONFIG: Record<QuotationStage, StageConfig> = {
     stepBg: "bg-teal-600",
     stepText: "text-white",
   },
+  S8B_NEGOTIATION_REVIEW: {
+    label: "Giám đốc duyệt thương lượng",
+    shortLabel: "GĐ duyệt TL",
+    ownerRole: "director",
+    badgeBg: "bg-amber-100",
+    badgeText: "text-amber-700",
+    dotColor: "bg-amber-500",
+    stepBg: "bg-amber-600",
+    stepText: "text-white",
+  },
   S9_CLOSED: {
-    label: "Kết thúc",
+    label: "Đã kết thúc",
     shortLabel: "Kết thúc",
     ownerRole: "done",
     badgeBg: "bg-slate-100",
@@ -118,11 +130,19 @@ export const STAGE_ORDER: QuotationStage[] = [
   "S6_SALES_FINALIZE",
   "S7_DIRECTOR_APPROVE_QUOTE",
   "S8_SENT_TO_CLIENT",
+  "S8B_NEGOTIATION_REVIEW",
   "S9_CLOSED",
 ]
 
 export function getStageIndex(stage: QuotationStage): number {
   return STAGE_ORDER.indexOf(stage)
+}
+
+/**
+ * Return the stage label best suited for filter UI.
+ */
+export function getStageFilterLabel(stage: QuotationStage): string {
+  return STAGE_CONFIG[stage].filterLabel ?? STAGE_CONFIG[stage].label
 }
 
 // ---------------------------------------------------------------------------
@@ -157,7 +177,7 @@ export const STATUS_CONFIG: Record<QuotationStatus, StatusConfig> = {
     badgeText: "text-teal-700",
   },
   negotiating: {
-    label: "Đang thương lượng",
+    label: "Đang trao đổi với khách",
     badgeBg: "bg-cyan-100",
     badgeText: "text-cyan-700",
   },

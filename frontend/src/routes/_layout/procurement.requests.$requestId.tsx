@@ -22,8 +22,6 @@ import {
   listPOsForRequest,
   createPO,
 } from "@/modules/procurement/procurementApi"
-import { getContract } from "@/modules/contract/contractApi"
-import { listLineItems } from "@/modules/quotation/quotationApi"
 import {
   PR_STATUS_LABELS,
   PR_STATUS_ORDER,
@@ -139,17 +137,6 @@ function RequestDetailPage() {
     queryFn: () => listPOsForRequest(requestId),
     enabled: !!requestId,
   })
-  const contractQuery = useQuery({
-    enabled: Boolean(req?.contract_id),
-    queryKey: ["contract", req?.contract_id],
-    queryFn: () => getContract(req!.contract_id!),
-  })
-  const contractItemsQuery = useQuery({
-    enabled: Boolean(contractQuery.data?.quotation_id),
-    queryKey: ["quotation-line-items", contractQuery.data?.quotation_id],
-    queryFn: () => listLineItems(contractQuery.data!.quotation_id),
-  })
-
   const invalidate = () => {
     qc.invalidateQueries({ queryKey: ["procurement-request", requestId] })
     qc.invalidateQueries({ queryKey: ["procurement-requests"] })
@@ -238,40 +225,6 @@ function RequestDetailPage() {
       showErrorToast(detail || "Không thể thêm hạng mục vật tư.")
     },
   })
-  const importFromContractMut = useMutation({
-    mutationFn: async () => {
-      const lineItems = contractItemsQuery.data ?? []
-      const existingKeys = new Set(
-        (req?.items ?? []).map(
-          (item) =>
-            `${item.item_name.trim().toLowerCase()}|${(item.specifications ?? "").trim().toLowerCase()}|${item.unit.trim().toLowerCase()}`,
-        ),
-      )
-      const rows = lineItems.filter((line) => {
-        const key = `${line.description.trim().toLowerCase()}|${(line.specifications ?? "").trim().toLowerCase()}|${line.unit.trim().toLowerCase()}`
-        return !existingKeys.has(key)
-      })
-      for (const line of rows) {
-        await addRequestItem(requestId, {
-          item_name: line.description,
-          specifications: line.specifications ?? undefined,
-          unit: line.unit,
-          quantity: Number(line.quantity || 0),
-        })
-      }
-      return rows.length
-    },
-    onSuccess: (addedCount) => {
-      invalidate()
-      showSuccessToast(`Đã thêm ${addedCount} hạng mục từ hợp đồng`)
-    },
-    onError: (errorValue: unknown) => {
-      const detail =
-        (errorValue as { response?: { data?: { detail?: string } } })?.response?.data?.detail
-      showErrorToast(detail || "Không thể lấy vật tư từ hợp đồng.")
-    },
-  })
-
   if (isLoading) {
     return (
       <div className="flex justify-center py-20">
@@ -439,18 +392,6 @@ function RequestDetailPage() {
               />
             </div>
             <div className="mt-2 flex justify-end">
-              {req.contract_id && (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="mr-2"
-                  disabled={importFromContractMut.isPending || contractItemsQuery.isLoading}
-                  onClick={() => importFromContractMut.mutate()}
-                >
-                  {importFromContractMut.isPending && <Loader2 className="w-4 h-4 animate-spin mr-1" />}
-                  Lấy vật tư từ hợp đồng
-                </Button>
-              )}
               <Button
                 size="sm"
                 disabled={

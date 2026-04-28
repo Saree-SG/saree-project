@@ -4,6 +4,7 @@ import {
   ClipboardList,
   FileSignature,
   FileText,
+  FolderOpen,
   LayoutDashboard,
   MessageCircle,
   Package,
@@ -27,6 +28,7 @@ export function buildLayoutNavItems(
   isSuperuser: boolean,
   showManagement: boolean,
   showCompanyManagement: boolean,
+  canAccessProjects?: boolean,
   canAccessQuotations?: boolean,
   canAccessSuppliers?: boolean,
   canAccessContracts?: boolean,
@@ -47,6 +49,14 @@ export function buildLayoutNavItems(
     path: "/tasks",
     matchPrefix: true,
   })
+  if (canAccessProjects) {
+    items.push({
+      icon: FolderOpen,
+      title: "Dự án",
+      path: "/projects",
+      matchPrefix: true,
+    })
+  }
   if (canAccessQuotations) {
     items.push({
       icon: FileText,
@@ -104,6 +114,7 @@ export function buildMobileBottomNavItems(
   isSuperuser: boolean,
   showManagement: boolean,
   showCompanyManagement: boolean,
+  canAccessProjects?: boolean,
   canAccessQuotations?: boolean,
   canAccessSuppliers?: boolean,
   canAccessContracts?: boolean,
@@ -111,7 +122,7 @@ export function buildMobileBottomNavItems(
   canAccessInventory?: boolean,
 ): LayoutNavItem[] {
   return [
-    ...buildLayoutNavItems(isSuperuser, showManagement, showCompanyManagement, canAccessQuotations, canAccessSuppliers, canAccessContracts, canAccessProcurement, canAccessInventory),
+    ...buildLayoutNavItems(isSuperuser, showManagement, showCompanyManagement, canAccessProjects, canAccessQuotations, canAccessSuppliers, canAccessContracts, canAccessProcurement, canAccessInventory),
     { icon: Settings, title: "Cài đặt", path: "/settings" },
   ]
 }

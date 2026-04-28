@@ -93,7 +93,6 @@ from app.models.schemas import (  # noqa: F401
 from app.models.quotation import (  # noqa: F401
     Quotation,
     QuotationAttachment,
-    QuotationLineItem,
     QuotationNegotiationLog,
     QuotationStageTransition,
     QuotationVersion,

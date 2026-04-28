@@ -273,7 +273,7 @@ function QuotationReportsPage() {
             accent="bg-blue-500"
           />
           <StatCard
-            label="Đã gửi KH"
+            label="Đã gửi khách hàng"
             value={summary.sent}
             icon={TrendingUp}
             accent="bg-teal-500"

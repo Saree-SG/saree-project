@@ -1,0 +1,374 @@
+# Phase II Implementation Plan — Saree ERP Factory Production
+
+## Context
+
+Sau khi module Báo giá (Phase I) hoàn thành, Phase II triển khai quy trình sản xuất tại nhà máy được kích hoạt khi một báo giá "thắng" (closed_won). Phase II bao gồm 4 module mới: **Hợp đồng → Nhà cung cấp → Mua hàng → Kho hàng**.
+
+Project management + Task + Chat đã sẵn có → KHÔNG rebuild lại. Phase II chỉ bổ sung những gì thực sự còn thiếu.
+
+---
+
+## Module Build Order (theo dependency)
+
+```
+Supplier (không phụ thuộc) → Contract (phụ thuộc Quotation/Project sẵn có)
+       ↓                              ↓
+    Procurement (phụ thuộc Supplier + Contract/Project)
+                      ↓
+               Inventory (phụ thuộc Procurement cho StockMovement)
+```
+
+---
+
+## Module 1: Supplier (Nhà cung cấp)
+
+**Model** — `backend/app/models/supplier.py`
+```
+Supplier (table=True):
+  id, company_id (FK→company), supplier_name, contact_name, phone, email,
+  address, specialty, notes, rating (int 1-5, nullable),
+  is_deleted, deleted_at, created_by (FK→user), created_at, updated_at
+Schemas: SupplierCreate, SupplierUpdate, SupplierPublic, SuppliersPublic
+```
+
+**API** — `backend/app/api/routes/suppliers.py`
+```
+GET/POST /suppliers/        → list + create
+GET/PATCH/DELETE /suppliers/{id}
+```
+
+**Permissions**
+```
+SUPPLIER_VIEW, SUPPLIER_CREATE, SUPPLIER_UPDATE, SUPPLIER_DELETE
+```
+- `materials`: VIEW + CREATE + UPDATE
+- `director`, `admin`: all
+- `sales`, `engineer`, `planner`, `workshop_lead`, `site_supply`: VIEW only
+
+**Frontend**
+- `frontend/src/modules/supplier/supplierApi.ts` + `supplierTypes.ts`
+- `frontend/src/routes/_layout/suppliers.index.tsx` — list + search
+- `frontend/src/routes/_layout/suppliers.$supplierId.tsx` — detail/edit
+- Nav: `{ icon: Truck, title: "Nhà Cung Cấp", path: "/suppliers" }` gated by SUPPLIER_VIEW
+
+---
+
+## Module 2: Contract (Hợp đồng)
+
+**Model** — `backend/app/models/contract.py`
+```
+ContractAttachment (table=True):
+  id, contract_id (FK→contract), uploaded_by, file_url, file_name,
+  file_type ("contract_pdf"|"drawing"|"document"), description, uploaded_at
+
+ContractStatusTransition (table=True):
+  id, contract_id, from_status, to_status, actor_id, action, note, created_at
+
+Contract (table=True):
+  id, company_id (FK→company), quotation_id (FK→quotation, UNIQUE),
+  project_id (FK→project, nullable), contract_number (HD-{year}-{seq:03d}),
+  contract_date, signing_date (nullable), total_value, currency="VND",
+  advance_amount (nullable), status="draft",
+  advance_paid_at, advance_paid_by (FK→user), notes,
+  is_deleted, deleted_at, created_by, created_at, updated_at
+  → relationships: attachments, transitions
+
+Status machine:
+  draft → sent → signed → advance_received → in_production → completed
+```
+
+**API** — `backend/app/api/routes/contracts.py`
+```
+GET/POST /contracts/
+GET/PATCH/DELETE /contracts/{id}
+POST /contracts/{id}/send             → draft→sent
+POST /contracts/{id}/sign             → sent→signed (body: signing_date)
+POST /contracts/{id}/confirm-advance  → signed→advance_received (body: advance_amount, advance_paid_at)
+POST /contracts/{id}/start-production → advance_received→in_production
+POST /contracts/{id}/complete         → in_production→completed
+POST /contracts/{id}/attachments      → upload file
+DELETE /contracts/{id}/attachments/{att_id}
+```
+
+**Permissions**
+```
+CONTRACT_VIEW, CONTRACT_VIEW_ALL, CONTRACT_CREATE, CONTRACT_UPDATE, CONTRACT_DELETE,
+CONTRACT_SEND, CONTRACT_SIGN, CONTRACT_CONFIRM_ADVANCE, CONTRACT_START_PRODUCTION, CONTRACT_COMPLETE
+```
+- `sales`: VIEW + CREATE + UPDATE + SEND + SIGN + CONFIRM_ADVANCE
+- `director`: VIEW_ALL + START_PRODUCTION + COMPLETE + DELETE
+- `engineer`, `planner`, `workshop_lead`, `materials`, `site_supply`: VIEW
+- `admin`: all
+
+**Service notes**
+- `create_contract()` validates `quotation.outcome == "won"` trước khi tạo
+- Auto-generate `contract_number` = `HD-{year}-{seq:03d}` (same pattern as `quote_number`)
+- Dispatch notifications khi status thay đổi → sales owner + director
+
+**Frontend**
+- `frontend/src/modules/contract/contractApi.ts` + `contractTypes.ts` + `statusConfig.ts`
+- `frontend/src/routes/_layout/contracts.index.tsx`
+- `frontend/src/routes/_layout/contracts.new.tsx` — form nhận `quotation_id` từ query param
+- `frontend/src/routes/_layout/contracts.$contractId.tsx` — StatusStepper + ActionPanel + Attachments + History
+- `frontend/src/components/Contract/ContractStatusStepper.tsx`
+- `frontend/src/components/Contract/ContractActionsPanel.tsx`
+- Nav: `{ icon: FileSignature, title: "Hợp Đồng", path: "/contracts" }` gated by CONTRACT_VIEW|CONTRACT_VIEW_ALL
+
+---
+
+## Module 3: Procurement / Mua hàng
+
+**Models** — `backend/app/models/procurement.py`
+
+Sub-entities định nghĩa TRƯỚC root entity (follow quotation pattern):
+```
+PurchaseRequestItem (table=True):
+  id, request_id (FK→purchaserequest), item_name, specifications, unit, quantity,
+  tech_note, urgency_note, ordered_quantity, received_quantity=0
+
+SupplierQuote (table=True):
+  id, po_item_id (FK→purchaseorderitem), supplier_id (FK→supplier),
+  unit_price, lead_time_days, notes, is_selected=False, created_at
+
+PurchaseOrderItem (table=True):
+  id, po_id (FK→purchaseorder), request_item_id (FK→purchaserequestitem),
+  item_name, specifications, unit, quantity,
+  selected_supplier_id (FK→supplier, nullable),
+  unit_price (nullable), total_price (nullable),
+  received_quantity=0
+  → relationships: supplier_quotes (cascade delete)
+
+PurchaseOrder (table=True):
+  id, company_id, request_id (FK→purchaserequest),
+  po_number (PO-{year}-{seq:03d}, unique),
+  status="draft",
+  # draft→pending_supplier_selection→approved→ordered→partially_received→received→cancelled
+  created_by, approved_by (nullable), approved_at, ordered_at, received_at,
+  total_amount (nullable), expected_delivery_date, notes, created_at, updated_at
+  → relationships: items (cascade delete)
+
+PurchaseRequest (table=True):
+  id, company_id, project_id (FK→project, nullable), contract_id (FK→contract, nullable),
+  request_number (YC-{year}-{seq:03d}, unique),
+  title, urgency ("normal"|"urgent"|"critical"), notes,
+  status="draft",
+  # draft→pending_tech→pending_director→approved→ordered→received→cancelled
+  requested_by (FK→user), tech_reviewed_by (nullable), tech_reviewed_at,
+  director_approved_by (nullable), director_approved_at,
+  is_deleted, deleted_at, created_at, updated_at
+  → relationships: items (cascade delete), purchase_orders
+```
+
+**API** — `backend/app/api/routes/procurement.py`
+```
+# Purchase Requests
+GET/POST  /procurement/requests/
+GET/PATCH/DELETE /procurement/requests/{id}
+POST /procurement/requests/{id}/submit           → draft→pending_tech
+POST /procurement/requests/{id}/tech-review      → pending_tech→pending_director (approve/reject)
+POST /procurement/requests/{id}/director-approve → pending_director→approved (approve/reject)
+
+# Purchase Orders
+GET  /procurement/requests/{id}/orders
+POST /procurement/requests/{id}/orders           → create PO (after director approved)
+GET  /procurement/orders/                        → all POs in company
+GET  /procurement/orders/{po_id}
+POST /procurement/orders/{po_id}/items/{item_id}/quotes   → add supplier quotes (max 3)
+POST /procurement/orders/{po_id}/select-suppliers         → director selects supplier per item
+POST /procurement/orders/{po_id}/mark-ordered
+POST /procurement/orders/{po_id}/receive                  → triggers StockMovement
+```
+
+**Permissions**
+```
+PROCUREMENT_VIEW, PROCUREMENT_REQUEST_CREATE, PROCUREMENT_TECH_REVIEW,
+PROCUREMENT_DIRECTOR_APPROVE, PROCUREMENT_PO_CREATE, PROCUREMENT_RECEIVE
+```
+- `engineer`, `workshop_lead`, `planner`: VIEW + REQUEST_CREATE (engineer thêm TECH_REVIEW)
+- `materials`: VIEW + PO_CREATE + RECEIVE
+- `site_supply`: VIEW + RECEIVE
+- `director`: VIEW + DIRECTOR_APPROVE
+- `admin`: all
+
+**Service notes**
+- `add_supplier_quotes()` validate tối đa 3 quotes per PO item
+- `select_suppliers()` → set `is_selected=True` cho quote được chọn, cập nhật `unit_price`/`total_price` trên PO item, tính `total_amount` trên PO, chuyển status PO → "approved"
+- `receive_po_items()` → gọi `inventory_service.receive_from_po()` → tạo StockMovement "in"
+
+**Frontend**
+- `frontend/src/modules/procurement/procurementApi.ts` + `procurementTypes.ts` + `statusConfig.ts`
+- `frontend/src/routes/_layout/procurement.index.tsx` — tabs: "Yêu cầu" / "Đơn đặt hàng"
+- `frontend/src/routes/_layout/procurement.requests.$requestId.tsx`
+- `frontend/src/routes/_layout/procurement.orders.$poId.tsx` — bảng so sánh 3 báo giá + radio chọn NCC
+- `frontend/src/components/Procurement/SupplierQuoteTable.tsx`
+- `frontend/src/components/Procurement/PRStatusFlow.tsx`
+- Nav: `{ icon: ShoppingCart, title: "Mua Hàng", path: "/procurement" }` gated by PROCUREMENT_VIEW
+
+---
+
+## Module 4: Inventory / Kho hàng
+
+**Models** — `backend/app/models/inventory.py`
+```
+InventoryItem (table=True):
+  id, company_id, item_name, item_code (nullable), specifications, unit,
+  category ("cơ khí"|"điện"|"lạnh"|"tiêu hao"|...),
+  min_stock_alert=0, current_stock=0,
+  is_deleted, deleted_at, created_by, created_at, updated_at
+
+StockMovement (table=True):
+  id, company_id, item_id (FK→inventoryitem),
+  movement_type ("in"|"out"), quantity, unit_price (nullable),
+  reference_type ("po_receive"|"material_issue"|"manual_adjust"),
+  reference_id (UUID, nullable — polymorphic, no DB FK),
+  notes, movement_date, handled_by (FK→user)
+
+MaterialIssueItem (table=True):
+  id, issue_id (FK→materialissue), inventory_item_id (FK→inventoryitem),
+  quantity_requested, quantity_issued (nullable)
+
+MaterialIssue (table=True):
+  id, company_id, project_id (FK→project, nullable), contract_id (FK→contract, nullable),
+  issue_number (XK-{year}-{seq:03d}), requested_by, approved_by (nullable), issued_by (nullable),
+  status="pending" ("pending"|"approved"|"issued"|"cancelled"),
+  notes, is_deleted, deleted_at, created_at, updated_at
+  → relationships: items (cascade delete)
+```
+
+**API** — `backend/app/api/routes/inventory.py`
+```
+# Inventory items
+GET/POST /inventory/items/
+GET/PATCH/DELETE /inventory/items/{id}
+GET  /inventory/items/{id}/movements   → paginated movement history
+POST /inventory/items/{id}/adjust      → manual stock adjustment (director only)
+
+# Material issue requests
+GET/POST /inventory/issues/
+GET  /inventory/issues/{id}
+POST /inventory/issues/{id}/approve    → pending→approved (approve/reject)
+POST /inventory/issues/{id}/execute    → approved→issued, tạo StockMovement "out"
+DELETE /inventory/issues/{id}          → cancel pending
+
+# Alerts
+GET /inventory/alerts/                 → items với current_stock < min_stock_alert
+```
+
+**Permissions**
+```
+INVENTORY_VIEW, INVENTORY_MANAGE, INVENTORY_ISSUE_REQUEST, INVENTORY_APPROVE
+```
+- `materials`: VIEW + MANAGE + APPROVE
+- `site_supply`, `workshop_lead`: VIEW + ISSUE_REQUEST
+- `planner`, `engineer`: VIEW
+- `director`: VIEW + MANAGE + APPROVE
+- `admin`: all
+
+**Service notes**
+- `receive_from_po()` được gọi bởi `procurement_service` — atomic: cập nhật `current_stock`, tạo StockMovement
+- Sau mỗi stock-out: nếu `current_stock < min_stock_alert` → dispatch notification tới tất cả INVENTORY_MANAGE users
+
+**Frontend**
+- `frontend/src/modules/inventory/inventoryApi.ts` + `inventoryTypes.ts`
+- `frontend/src/routes/_layout/inventory.index.tsx` — tabs: "Tồn kho" / "Phiếu xuất kho" / "Cảnh báo"
+- `frontend/src/routes/_layout/inventory.items.$itemId.tsx` — movement history
+- `frontend/src/routes/_layout/inventory.issues.$issueId.tsx` — approve + execute flow
+- `frontend/src/components/Inventory/StockMovementTable.tsx`
+- `frontend/src/components/Inventory/LowStockAlert.tsx`
+- Nav: `{ icon: Package, title: "Kho Hàng", path: "/inventory" }` gated by INVENTORY_VIEW
+
+---
+
+## Backend Infrastructure Changes
+
+### Alembic Migration
+File mới: `backend/app/alembic/versions/0006_phase2_production_modules.py`
+```python
+revision = '0006_phase2_production_modules'
+down_revision = '5edf2c43c5c3'  # revision hiện tại cuối cùng
+```
+Tạo 13 tables theo thứ tự dependency.
+
+### `backend/app/models/__init__.py`
+Thêm import tất cả model mới (Supplier, Contract + sub-entities, Procurement models, Inventory models) để Alembic auto-discover.
+
+### `backend/app/api/main.py`
+```python
+from app.api.routes import contracts, suppliers, procurement, inventory
+api_router.include_router(suppliers.router, prefix="/suppliers", tags=["suppliers"])
+api_router.include_router(contracts.router, prefix="/contracts", tags=["contracts"])
+api_router.include_router(procurement.router, prefix="/procurement", tags=["procurement"])
+api_router.include_router(inventory.router, prefix="/inventory", tags=["inventory"])
+```
+
+### `backend/app/scripts/seed_defaults.py`
+Thêm tất cả permission codes mới vào `ALL_PERMISSIONS` list và `ROLE_PERMISSION_MAP`.
+
+---
+
+## Frontend Infrastructure Changes
+
+### `frontend/src/config/layoutNav.ts`
+Thêm 4 nav items mới, mỗi cái gated bởi permission tương ứng:
+```typescript
+// Thêm vào buildLayoutNavItems() params:
+canAccessContracts, canAccessSuppliers, canAccessProcurement, canAccessInventory
+
+// Thêm items:
+{ icon: FileSignature, title: "Hợp Đồng",     path: "/contracts",   matchPrefix: true }
+{ icon: Truck,         title: "Nhà Cung Cấp", path: "/suppliers",   matchPrefix: true }
+{ icon: ShoppingCart,  title: "Mua Hàng",      path: "/procurement", matchPrefix: true }
+{ icon: Package,       title: "Kho Hàng",      path: "/inventory",   matchPrefix: true }
+```
+Update tất cả callers của `buildLayoutNavItems()` (AppSidebar, MobileBottomNav).
+
+---
+
+## Critical Files
+
+| File | Action |
+|------|--------|
+| `backend/app/models/quotation.py` | Reference template — follow sub-entity-first pattern |
+| `backend/app/models/__init__.py` | ADD: export tất cả 4 model files mới |
+| `backend/app/api/main.py` | ADD: register 4 routers |
+| `backend/app/scripts/seed_defaults.py` | ADD: permissions + role assignments |
+| `backend/app/alembic/versions/` | CREATE: migration 0006 |
+| `frontend/src/config/layoutNav.ts` | UPDATE: 4 nav items + 4 permission params |
+| `frontend/src/components/Sidebar/AppSidebar.tsx` | UPDATE: pass new permission flags |
+
+---
+
+## Notification Touch Points
+
+| Event | Người nhận |
+|-------|-----------|
+| PR submitted → pending_tech | All PROCUREMENT_TECH_REVIEW users |
+| PR tech approved → pending_director | All directors |
+| PR director approved | requested_by user |
+| PO sẵn sàng chọn NCC | All directors |
+| Director chọn NCC | PO created_by (materials) |
+| PO received → StockMovement | Planner + materials |
+| Material issue approved | requested_by |
+| Material issue executed | requested_by |
+| Contract status change | sales owner + director |
+| Low stock alert | All INVENTORY_MANAGE users |
+
+---
+
+## Verification
+
+**Backend:**
+1. `alembic upgrade head` — tất cả 13 tables mới được tạo, không lỗi
+2. `python -m app.scripts.seed_defaults` — tất cả permissions mới được insert
+3. Test từng route với Swagger UI (`/docs`):
+   - Tạo supplier → sửa → xóa
+   - Tạo contract từ quotation won → chạy qua 5 status transitions
+   - Tạo PR → submit → tech review → director approve → tạo PO → thêm 3 quotes → director chọn → receive → kiểm tra StockMovement được tạo
+   - Kiểm tra current_stock cập nhật đúng sau receive
+   - Tạo material issue → approve → execute → kiểm tra current_stock giảm đúng
+
+**Frontend:**
+1. 4 menu items hiển thị đúng theo quyền
+2. Happy path: quotation won → click "Tạo hợp đồng" → fill form → submit → chạy hết status flow
+3. Procurement: Tổ trưởng tạo YC → Kỹ thuật duyệt → BGĐ duyệt → Vật tư tạo PO + nhập 3 báo giá → BGĐ chọn NCC → Nhận hàng
+4. Kho: tồn kho tăng sau receive, phiếu xuất kho giảm tồn kho, alert hiển thị khi dưới min

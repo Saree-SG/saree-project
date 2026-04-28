@@ -93,9 +93,10 @@ ALL_PERMISSIONS = [
     {"code": "QUOTATION_FILL_PRICE",      "module": "quotation", "action": "update", "scope": "assigned", "description": "Vật Tư điền đơn giá hạng mục (S5→S6)"},
     {"code": "QUOTATION_FINALIZE",        "module": "quotation", "action": "update", "scope": "assigned", "description": "Kinh Doanh nhập hệ số giá, hoàn thiện (S6→S7)"},
     {"code": "QUOTATION_APPROVE_FINAL",   "module": "quotation", "action": "approve","scope": "global",   "description": "BGĐ duyệt báo giá cuối (S7→S8)"},
-    {"code": "QUOTATION_SEND_CLIENT",     "module": "quotation", "action": "update", "scope": "assigned", "description": "Ghi nhận đã gửi báo giá cho khách hàng (S8)"},
-    {"code": "QUOTATION_LOG_NEGOTIATION", "module": "quotation", "action": "create", "scope": "assigned", "description": "Ghi log trao đổi thương lượng với khách hàng"},
-    {"code": "QUOTATION_CLOSE",           "module": "quotation", "action": "update", "scope": "assigned", "description": "Đóng hồ sơ báo giá (won/lost) (S8→S9)"},
+    {"code": "QUOTATION_SEND_CLIENT",         "module": "quotation", "action": "update", "scope": "assigned", "description": "Ghi nhận đã gửi chào giá cho KH, trình thương lượng (S8/S8B)"},
+    {"code": "QUOTATION_APPROVE_NEGOTIATION", "module": "quotation", "action": "approve","scope": "global",   "description": "Giám đốc duyệt/từ chối thương lượng giá (S8B)"},
+    {"code": "QUOTATION_LOG_NEGOTIATION",     "module": "quotation", "action": "create", "scope": "assigned", "description": "Ghi log trao đổi với khách hàng"},
+    {"code": "QUOTATION_CLOSE",               "module": "quotation", "action": "update", "scope": "assigned", "description": "Đóng hồ sơ báo giá (won/lost) (S8→S9)"},
     {"code": "QUOTATION_REPORT",          "module": "quotation", "action": "read",   "scope": "global",   "description": "Xem báo cáo và thống kê báo giá"},
     # Procurement
     {"code": "PROCUREMENT_VIEW",            "module": "procurement", "action": "read",   "scope": "global",   "description": "Xem yêu cầu mua hàng và đơn đặt hàng"},
@@ -180,7 +181,7 @@ _MATERIALS_QUOTATION_PERMS: list[str] = [
 
 _DIRECTOR_QUOTATION_PERMS: list[str] = [
     "QUOTATION_VIEW_ALL", "QUOTATION_APPROVE_SURVEY", "QUOTATION_APPROVE_DESIGN",
-    "QUOTATION_APPROVE_FINAL", "QUOTATION_DELETE", "QUOTATION_REPORT",
+    "QUOTATION_APPROVE_FINAL", "QUOTATION_APPROVE_NEGOTIATION", "QUOTATION_DELETE", "QUOTATION_REPORT",
 ]
 
 # Role → list of permission codes they receive

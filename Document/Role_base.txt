@@ -1,0 +1,66 @@
+Cấp Lãnh đạo
+
+Ban Giám đốc.
+
+Phó Giám đốc / Phó Giám đốc Công trình.
+
+2. Các Phòng Chức năng (Khối Văn phòng & Chuyên môn)
+
+
+Phòng Kinh doanh: Tiếp nhận yêu cầu, làm báo giá, lập hợp đồng và giao tiếp với khách hàng.
+
+
+Phòng Kỹ thuật: Phụ trách thiết kế hệ thống, bản vẽ chi tiết và duyệt quy cách kỹ thuật.
+
+
+Phòng Kế hoạch: Lên lịch trình, phân bổ công việc sản xuất và điều hành hoạt động nhà máy. Trong sơ đồ còn phân ra Kế hoạch Sản xuất và Kế hoạch Công trình.
+
+
+Phòng Vật tư: Chịu trách nhiệm tìm nhà cung cấp, mua hàng và quản lý các kho lưu trữ (Kho 1, Kho 2, Kho 3).
+
+
+Phòng Kế toán: Xử lý thanh toán với nhà cung cấp và các vấn đề tài chính.
+
+
+Phòng Cung ứng vật tư công trình: Nhận yêu cầu và lên kế hoạch vận chuyển vật tư, thiết bị từ nhà máy đến công trình.
+
+
+Phòng Hành chánh: Quản lý các bộ phận hỗ trợ bao gồm Tạp vụ, Bảo vệ và Tài xế.
+
+3. Khối Sản xuất tại Nhà máy
+Gồm 09 tổ chuyên môn đảm nhận việc chế tạo thiết bị tại xưởng:
+
+Tổ Máy 1.
+
+Tổ Máy 2.
+
+Tổ Lạnh.
+
+Tổ Van.
+
+Tổ Tiện Nguội.
+
+Tổ Điện.
+
+Tổ Sơn.
+
+Tổ Panel.
+
+Tổ Hàn.
+
+4. Khối Thi công Lắp đặt tại Công trình (Tổ Công trình)
+Gồm các nhóm thợ độc lập di chuyển đến các tỉnh để lắp ráp thiết bị thành hệ thống hoàn chỉnh. Bao gồm:
+
+Nhóm Điện (03 người).
+
+Nhóm Hàn (04 người).
+
+Nhóm Lắp đặt băng chuyền (02 người).
+
+Nhóm Lạnh (07 người).
+
+Nhóm Bọc cách nhiệt (thuê ngoài).
+
+Nhóm Lắp kho lạnh (thuê ngoài).
+
+Việc phân quyền trên hệ thống (Role-based access control) cho dự án phần mềm này sẽ cần bám sát đúng cấu trúc cây tổ chức trên để đảm bảo luồng giao việc và phê duyệt (Approval Flow) đi đúng tuyến quản lý.

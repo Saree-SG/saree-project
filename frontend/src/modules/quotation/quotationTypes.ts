@@ -20,11 +20,19 @@ export type QuotationStage =
   | "S6_SALES_FINALIZE"
   | "S7_DIRECTOR_APPROVE_QUOTE"
   | "S8_SENT_TO_CLIENT"
+  | "S8B_NEGOTIATION_REVIEW"
   | "S9_CLOSED"
 
 export type QuotationOutcome = "won" | "lost"
 
 export type LostReasonCategory = "price" | "design" | "marketing" | "other"
+
+export type DocumentCategory =
+  | "design_file"
+  | "pricing_file"
+  | "quote_document"
+  | "negotiation"
+  | "other"
 
 // ---------------------------------------------------------------------------
 // Quotation
@@ -37,6 +45,7 @@ export interface QuotationPublic {
   project_name: string
   client_company_name: string
   client_contact_name: string | null
+  client_contact_title?: string | null
   client_contact_phone: string | null
   client_contact_email: string | null
   client_address: string | null
@@ -46,6 +55,8 @@ export interface QuotationPublic {
   current_stage: QuotationStage
   stage_label: string | null
   site_survey_date: string | null    // ISO date
+  survey_start_date?: string | null
+  survey_end_date?: string | null
   created_by: string
   sales_owner_id: string
   sales_owner_name: string | null
@@ -53,9 +64,7 @@ export interface QuotationPublic {
   technical_owner_name: string | null
   procurement_owner_id: string | null
   procurement_owner_name: string | null
-  price_coefficient: number | null
-  total_cost_price: number | null
-  total_sale_price: number | null
+  total_contract_value: number | null
   currency: string
   valid_until: string | null
   sent_to_client_at: string | null
@@ -78,11 +87,25 @@ export interface QuotationCreate {
   client_company_name: string
   equipment_category?: string | null
   client_contact_name?: string | null
+  client_contact_title?: string | null
   client_contact_phone?: string | null
   client_contact_email?: string | null
   client_address?: string | null
   notes?: string | null
+  survey_note?: string | null
   sales_owner_id?: string | null
+}
+
+export interface QuotationCompanyProfile {
+  client_company_name: string
+  client_contact_name?: string | null
+  client_contact_title?: string | null
+  client_contact_phone?: string | null
+  client_contact_email?: string | null
+  client_address?: string | null
+  notes?: string | null
+  survey_note?: string | null
+  equipment_category?: string | null
 }
 
 export interface QuotationUpdate {
@@ -102,63 +125,6 @@ export interface QuotationUpdate {
 }
 
 // ---------------------------------------------------------------------------
-// Line Items
-// ---------------------------------------------------------------------------
-
-export interface QuotationLineItemPublic {
-  id: string
-  quotation_id: string
-  sort_order: number
-  category: string | null
-  item_code: string | null
-  description: string
-  specifications: string | null
-  unit: string
-  quantity: number
-  cost_unit_price: number | null
-  cost_total: number | null
-  supplier_name: string | null
-  supplier_lead_time_days: number | null
-  procurement_note: string | null
-  sale_unit_price: number | null
-  sale_total: number | null
-  created_by_role: string
-  created_at: string
-  updated_at: string
-}
-
-export interface QuotationLineItemCreate {
-  sort_order?: number
-  category?: string | null
-  item_code?: string | null
-  description: string
-  specifications?: string | null
-  unit: string
-  quantity: number
-}
-
-export interface QuotationLineItemUpdate {
-  sort_order?: number
-  category?: string | null
-  item_code?: string | null
-  description?: string
-  specifications?: string | null
-  unit?: string
-  quantity?: number
-}
-
-export interface QuotationLineItemPriceUpdate {
-  cost_unit_price?: number | null
-  supplier_name?: string | null
-  supplier_lead_time_days?: number | null
-  procurement_note?: string | null
-}
-
-export interface QuotationLineItemSalePriceUpdate {
-  sale_unit_price: number
-}
-
-// ---------------------------------------------------------------------------
 // Stage Transition History
 // ---------------------------------------------------------------------------
 
@@ -172,6 +138,7 @@ export interface QuotationStageTransitionPublic {
   actor_id: string
   actor_name: string | null
   action: string
+  action_label: string | null
   note: string | null
   created_at: string
 }
@@ -217,6 +184,7 @@ export interface QuotationAttachmentPublic {
   file_url: string
   file_name: string
   file_type: string
+  document_category: DocumentCategory
   stage_uploaded: string
   description: string | null
   uploaded_at: string
@@ -226,6 +194,7 @@ export interface QuotationAttachmentCreate {
   file_url: string
   file_name: string
   file_type?: string
+  document_category?: DocumentCategory
   description?: string | null
 }
 
@@ -249,7 +218,13 @@ export interface QuotationVersionPublic {
 // ---------------------------------------------------------------------------
 
 export interface QuotationSubmitSurveyRequest {
+  client_contact_name?: string | null
+  client_contact_phone?: string | null
+  client_contact_title?: string | null
+  client_address?: string | null
   site_survey_date?: string | null
+  survey_start_date?: string | null
+  survey_end_date?: string | null
   note?: string | null
 }
 
@@ -263,12 +238,11 @@ export interface QuotationSubmitDesignRequest {
 }
 
 export interface QuotationSubmitPricingRequest {
+  total_contract_value: number
   note?: string | null
 }
 
 export interface QuotationFinalizeRequest {
-  /** Nếu cung cấp: áp hệ số lên toàn bộ item. Nếu null: dùng giá từng item đã set thủ công. */
-  price_coefficient?: number | null
   note?: string | null
 }
 
@@ -278,12 +252,8 @@ export interface QuotationSendToClientRequest {
   note?: string | null
 }
 
-export interface QuotationNegotiateRequest {
-  note?: string | null
-}
-
-export interface QuotationRequestRevisionRequest {
-  note: string  // bắt buộc — lý do khách yêu cầu điều chỉnh
+export interface QuotationSubmitNegotiationRequest {
+  note: string  // bắt buộc — nội dung thương lượng
 }
 
 export interface QuotationCloseRequest {

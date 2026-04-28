@@ -1,10 +1,10 @@
 """
 Quotation domain models:
-  Quotation, QuotationLineItem, QuotationStageTransition,
+  Quotation, QuotationStageTransition,
   QuotationNegotiationLog, QuotationAttachment, QuotationVersion
 
 NOTE: Sub-entity classes are intentionally placed BEFORE Quotation so that
-Quotation.line_items etc. can reference them directly (no forward-ref quotes
+Quotation.attachments etc. can reference them directly (no forward-ref quotes
 needed). Back-references from sub-entities to Quotation use the string
 "Quotation" because Quotation is defined later in the file.
 No `from __future__ import annotations` — SQLModel 0.0.31 + SA 2.0
@@ -28,15 +28,16 @@ def _utcnow() -> datetime:
 # ---------------------------------------------------------------------------
 
 STAGE_LABELS: Dict[str, str] = {
-    "S1_SALES_COLLECT": "Thu thập thông tin",
-    "S2_DIRECTOR_APPROVE_SURVEY": "BGĐ duyệt khảo sát",
-    "S3_TECH_DESIGN": "Kỹ thuật thiết kế",
-    "S4_DIRECTOR_APPROVE_DESIGN": "BGĐ duyệt thiết kế",
-    "S5_PROCUREMENT_PRICING": "Vật tư định giá",
-    "S6_SALES_FINALIZE": "Kinh doanh hoàn thiện",
-    "S7_DIRECTOR_APPROVE_QUOTE": "BGĐ duyệt báo giá",
-    "S8_SENT_TO_CLIENT": "Đã gửi khách hàng",
-    "S9_CLOSED": "Kết thúc",
+    "S1_SALES_COLLECT": "Tiếp nhận & Khảo sát",
+    "S2_DIRECTOR_APPROVE_SURVEY": "Giám đốc duyệt khảo sát",
+    "S3_TECH_DESIGN": "Kỹ thuật lên thiết kế",
+    "S4_DIRECTOR_APPROVE_DESIGN": "Giám đốc duyệt thiết kế",
+    "S5_PROCUREMENT_PRICING": "Vật tư báo đơn giá",
+    "S6_SALES_FINALIZE": "Kinh doanh hoàn thiện chào giá",
+    "S7_DIRECTOR_APPROVE_QUOTE": "Giám đốc duyệt chào giá",
+    "S8_SENT_TO_CLIENT": "Chờ phản hồi khách hàng",
+    "S8B_NEGOTIATION_REVIEW": "Giám đốc duyệt thương lượng",
+    "S9_CLOSED": "Đã kết thúc",
 }
 
 STAGE_ORDER: List[str] = list(STAGE_LABELS.keys())
@@ -68,95 +69,36 @@ STAGE_TRANSITIONS: Dict[str, List[tuple]] = {
         ("S6_SALES_FINALIZE", "QUOTATION_APPROVE_FINAL", "reject"),
     ],
     "S8_SENT_TO_CLIENT": [
+        ("S8B_NEGOTIATION_REVIEW", "QUOTATION_SEND_CLIENT", "negotiate"),
         ("S9_CLOSED", "QUOTATION_CLOSE", "submit"),
+    ],
+    "S8B_NEGOTIATION_REVIEW": [
+        ("S6_SALES_FINALIZE", "QUOTATION_APPROVE_NEGOTIATION", "approve"),
+        ("S8_SENT_TO_CLIENT", "QUOTATION_APPROVE_NEGOTIATION", "reject"),
     ],
     "S9_CLOSED": [],
 }
 
-
-# ---------------------------------------------------------------------------
-# QuotationLineItem — defined BEFORE Quotation so Quotation can reference it
-# ---------------------------------------------------------------------------
-
-class QuotationLineItemBase(SQLModel):
-    sort_order: int = 0
-    category: Optional[str] = Field(default=None, max_length=100)
-    item_code: Optional[str] = Field(default=None, max_length=50)
-    description: str = Field(max_length=1000)
-    specifications: Optional[str] = Field(default=None, sa_type=Text)
-    unit: str = Field(max_length=30)        # cái, m, kg, bộ, ...
-    quantity: float
-
-
-class QuotationLineItem(QuotationLineItemBase, table=True):
-    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
-    quotation_id: uuid.UUID = Field(foreign_key="quotation.id", index=True)
-
-    # Filled by Vật Tư (S5)
-    cost_unit_price: Optional[float] = None
-    cost_total: Optional[float] = None         # quantity × cost_unit_price
-    supplier_name: Optional[str] = Field(default=None, max_length=255)
-    supplier_lead_time_days: Optional[int] = None
-    procurement_note: Optional[str] = Field(default=None, sa_type=Text)
-
-    # Filled by Kinh Doanh after pricing (computed from price_coefficient)
-    sale_unit_price: Optional[float] = None
-    sale_total: Optional[float] = None         # quantity × sale_unit_price
-
-    created_by_role: str = Field(default="technical", max_length=30)
-    # "technical" | "procurement"
-
-    created_at: datetime = Field(
-        default_factory=_utcnow, sa_type=DateTime(timezone=True)  # type: ignore
-    )
-    updated_at: datetime = Field(
-        default_factory=_utcnow, sa_type=DateTime(timezone=True)  # type: ignore
-    )
-
-    # Back-reference — Quotation is defined later, use string forward-ref
-    quotation: Optional["Quotation"] = Relationship(back_populates="line_items")
-
-
-class QuotationLineItemCreate(QuotationLineItemBase):
-    pass
-
-
-class QuotationLineItemUpdate(SQLModel):
-    sort_order: Optional[int] = None
-    category: Optional[str] = None
-    item_code: Optional[str] = None
-    description: Optional[str] = None
-    specifications: Optional[str] = None
-    unit: Optional[str] = None
-    quantity: Optional[float] = None
-
-
-class QuotationLineItemPriceUpdate(SQLModel):
-    """Only Vật Tư can update these fields (S5)."""
-    cost_unit_price: Optional[float] = None
-    supplier_name: Optional[str] = None
-    supplier_lead_time_days: Optional[int] = None
-    procurement_note: Optional[str] = None
-
-
-class QuotationLineItemSalePriceUpdate(SQLModel):
-    """KD update giá bán khi thương lượng (S8 negotiating)."""
-    sale_unit_price: float
-
-
-class QuotationLineItemPublic(QuotationLineItemBase):
-    id: uuid.UUID
-    quotation_id: uuid.UUID
-    cost_unit_price: Optional[float]
-    cost_total: Optional[float]
-    supplier_name: Optional[str]
-    supplier_lead_time_days: Optional[int]
-    procurement_note: Optional[str]
-    sale_unit_price: Optional[float]
-    sale_total: Optional[float]
-    created_by_role: str
-    created_at: datetime
-    updated_at: datetime
+# Human-readable action labels for history display
+ACTION_LABELS: Dict[str, str] = {
+    "create": "Tạo hồ sơ báo giá",
+    "submit_survey": "Kinh doanh đã nộp thông tin khảo sát",
+    "approve_survey": "Giám đốc đã duyệt khảo sát",
+    "reject_survey": "Giám đốc yêu cầu bổ sung khảo sát",
+    "submit_design": "Kỹ thuật đã nộp file thiết kế",
+    "approve_design": "Giám đốc đã duyệt thiết kế",
+    "reject_design": "Giám đốc yêu cầu chỉnh lại thiết kế",
+    "submit_pricing": "Vật tư đã nộp bảng đơn giá",
+    "finalize": "Kinh doanh đã hoàn thiện hợp đồng chào giá",
+    "approve_final": "Giám đốc đã duyệt chào giá",
+    "reject_final": "Giám đốc yêu cầu chỉnh lại chào giá",
+    "send_to_client": "Đã gửi chào giá cho khách hàng",
+    "submit_negotiation": "Kinh doanh trình thương lượng lên Giám đốc",
+    "approve_negotiation": "Giám đốc đồng ý điều chỉnh giá",
+    "reject_negotiation": "Giám đốc chưa đồng ý, tiếp tục trao đổi",
+    "close_won": "Khách hàng đã chấp nhận — Thắng hợp đồng",
+    "close_lost": "Đóng hồ sơ — Không thành công",
+}
 
 
 # ---------------------------------------------------------------------------
@@ -169,8 +111,8 @@ class QuotationStageTransition(SQLModel, table=True):
     from_stage: Optional[str] = Field(default=None, max_length=50)
     to_stage: str = Field(max_length=50)
     actor_id: uuid.UUID = Field(foreign_key="user.id")
-    action: str = Field(max_length=20)
-    # "submit" | "approve" | "reject" | "reopen"
+    action: str = Field(max_length=50)
+    # semantic action code matching ACTION_LABELS keys
     note: Optional[str] = Field(default=None, sa_type=Text)
     created_at: datetime = Field(
         default_factory=_utcnow, sa_type=DateTime(timezone=True)  # type: ignore
@@ -189,6 +131,7 @@ class QuotationStageTransitionPublic(SQLModel):
     actor_id: uuid.UUID
     actor_name: Optional[str] = None
     action: str
+    action_label: Optional[str] = None   # human-readable from ACTION_LABELS
     note: Optional[str]
     created_at: datetime
 
@@ -245,6 +188,8 @@ class QuotationAttachment(SQLModel, table=True):
     file_name: str = Field(max_length=500)
     file_type: str = Field(default="document", max_length=30)
     # "drawing" | "spec_sheet" | "photo" | "document" | "quote_pdf"
+    document_category: str = Field(default="other", max_length=30)
+    # "design_file" | "pricing_file" | "quote_document" | "negotiation" | "other"
     stage_uploaded: str = Field(max_length=50)
     description: Optional[str] = Field(default=None, max_length=500)
     uploaded_at: datetime = Field(
@@ -258,6 +203,7 @@ class QuotationAttachmentCreate(SQLModel):
     file_url: str
     file_name: str
     file_type: str = "document"
+    document_category: str = "other"
     description: Optional[str] = None
 
 
@@ -269,6 +215,7 @@ class QuotationAttachmentPublic(SQLModel):
     file_url: str
     file_name: str
     file_type: str
+    document_category: str
     stage_uploaded: str
     description: Optional[str]
     uploaded_at: datetime
@@ -281,14 +228,14 @@ class QuotationAttachmentPublic(SQLModel):
 class QuotationVersion(SQLModel, table=True):
     """
     Immutable snapshot of the quotation at a point in time.
-    Created automatically when: BGĐ approves final (S7→S8), or KD sends to client.
+    Created automatically when: GĐ approves final (S7→S8), or KD sends to client.
     """
 
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
     quotation_id: uuid.UUID = Field(foreign_key="quotation.id", index=True)
     version_number: int
     snapshot_data: Any = Field(sa_type=JSON)
-    # { line_items: [...], total_cost_price, total_sale_price, price_coefficient }
+    # { total_contract_value, attachments: [{file_name, document_category, file_url}] }
     created_by: uuid.UUID = Field(foreign_key="user.id")
     reason: Optional[str] = Field(default=None, max_length=50)
     # "initial_approval" | "sent_to_client" | "client_revision" | "price_adjustment"
@@ -318,12 +265,13 @@ class QuotationBase(SQLModel):
     project_name: str = Field(max_length=500)
     client_company_name: str = Field(max_length=255)
     client_contact_name: Optional[str] = Field(default=None, max_length=255)
+    client_contact_title: Optional[str] = Field(default=None, max_length=100)
     client_contact_phone: Optional[str] = Field(default=None, max_length=50)
     client_contact_email: Optional[str] = Field(default=None, max_length=255)
     client_address: Optional[str] = Field(default=None, sa_type=Text)
     equipment_category: Optional[str] = Field(default=None, max_length=100)
-    # e.g. "IQF", "kho lạnh", "băng chuyền", "hệ thống lạnh"
     notes: Optional[str] = Field(default=None, sa_type=Text)
+    survey_note: Optional[str] = Field(default=None, sa_type=Text)
 
 
 class Quotation(QuotationBase, table=True):
@@ -346,6 +294,8 @@ class Quotation(QuotationBase, table=True):
 
     # Survey
     site_survey_date: Optional[date] = None
+    survey_start_date: Optional[date] = None
+    survey_end_date: Optional[date] = None
 
     # Owners
     created_by: uuid.UUID = Field(foreign_key="user.id")
@@ -353,10 +303,8 @@ class Quotation(QuotationBase, table=True):
     technical_owner_id: Optional[uuid.UUID] = Field(default=None, foreign_key="user.id")
     procurement_owner_id: Optional[uuid.UUID] = Field(default=None, foreign_key="user.id")
 
-    # Pricing
-    price_coefficient: Optional[float] = None
-    total_cost_price: Optional[float] = None
-    total_sale_price: Optional[float] = None
+    # Pricing — filled by Vật Tư at S5
+    total_contract_value: Optional[float] = None
     currency: str = Field(default="VND", max_length=10)
 
     # Client interaction
@@ -382,9 +330,6 @@ class Quotation(QuotationBase, table=True):
     )
 
     # Relationships — all sub-entity classes are defined above, no forward refs needed
-    line_items: List[QuotationLineItem] = Relationship(
-        back_populates="quotation", cascade_delete=True
-    )
     transitions: List[QuotationStageTransition] = Relationship(
         back_populates="quotation", cascade_delete=True
     )
@@ -408,12 +353,16 @@ class QuotationUpdate(SQLModel):
     project_name: Optional[str] = None
     client_company_name: Optional[str] = None
     client_contact_name: Optional[str] = None
+    client_contact_title: Optional[str] = None
     client_contact_phone: Optional[str] = None
     client_contact_email: Optional[str] = None
     client_address: Optional[str] = None
     equipment_category: Optional[str] = None
     notes: Optional[str] = None
+    survey_note: Optional[str] = None
     site_survey_date: Optional[date] = None
+    survey_start_date: Optional[date] = None
+    survey_end_date: Optional[date] = None
     valid_until: Optional[date] = None
     client_response_deadline: Optional[date] = None
     technical_owner_id: Optional[uuid.UUID] = None
@@ -428,6 +377,8 @@ class QuotationPublic(QuotationBase):
     current_stage: str
     stage_label: Optional[str] = None
     site_survey_date: Optional[date]
+    survey_start_date: Optional[date]
+    survey_end_date: Optional[date]
     created_by: uuid.UUID
     sales_owner_id: uuid.UUID
     sales_owner_name: Optional[str] = None
@@ -435,9 +386,7 @@ class QuotationPublic(QuotationBase):
     technical_owner_name: Optional[str] = None
     procurement_owner_id: Optional[uuid.UUID]
     procurement_owner_name: Optional[str] = None
-    price_coefficient: Optional[float]
-    total_cost_price: Optional[float]
-    total_sale_price: Optional[float]
+    total_contract_value: Optional[float]
     currency: str
     valid_until: Optional[date]
     sent_to_client_at: Optional[datetime]
@@ -448,6 +397,20 @@ class QuotationPublic(QuotationBase):
     won_project_id: Optional[uuid.UUID]
     created_at: datetime
     updated_at: datetime
+
+
+class QuotationCompanyProfilePublic(SQLModel):
+    """Latest remembered client-company info for quotation creation."""
+
+    client_company_name: str
+    client_contact_name: Optional[str] = None
+    client_contact_title: Optional[str] = None
+    client_contact_phone: Optional[str] = None
+    client_contact_email: Optional[str] = None
+    client_address: Optional[str] = None
+    notes: Optional[str] = None
+    survey_note: Optional[str] = None
+    equipment_category: Optional[str] = None
 
 
 class QuotationsPublic(SQLModel):
@@ -461,7 +424,13 @@ class QuotationsPublic(SQLModel):
 
 class QuotationSubmitSurveyRequest(SQLModel):
     """S1 → S2: KD nộp báo cáo khảo sát."""
+    client_contact_name: Optional[str] = None
+    client_contact_phone: Optional[str] = None
+    client_contact_title: Optional[str] = None
+    client_address: Optional[str] = None
     site_survey_date: Optional[date] = None
+    survey_start_date: Optional[date] = None
+    survey_end_date: Optional[date] = None
     note: Optional[str] = None
 
 
@@ -477,18 +446,13 @@ class QuotationSubmitDesignRequest(SQLModel):
 
 
 class QuotationSubmitPricingRequest(SQLModel):
-    """S5 → S6: VT xác nhận đã điền đủ giá."""
+    """S5 → S6: VT upload file báo giá đã điền giá, nhập tổng giá trị hợp đồng."""
+    total_contract_value: float
     note: Optional[str] = None
 
 
 class QuotationFinalizeRequest(SQLModel):
-    """S6 → S7: KD hoàn thiện bảng giá bán, nộp BGĐ duyệt.
-
-    Có 2 cách định giá:
-    - price_coefficient: áp hệ số lên toàn bộ hạng mục (ghi đè sale_unit_price của từng item).
-    - Để trống: giữ nguyên sale_unit_price đã set từng item; tất cả items phải có giá.
-    """
-    price_coefficient: Optional[float] = None  # None = dùng giá từng item
+    """S6 → S7: KD hoàn thiện hợp đồng chào giá (upload file + điều khoản), nộp GĐ duyệt."""
     note: Optional[str] = None
 
 
@@ -499,14 +463,9 @@ class QuotationSendToClientRequest(SQLModel):
     note: Optional[str] = None
 
 
-class QuotationNegotiateRequest(SQLModel):
-    """S8: KD bắt đầu/tiếp tục thương lượng với khách hàng."""
-    note: Optional[str] = None
-
-
-class QuotationRequestRevisionRequest(SQLModel):
-    """S8 → S6: Khách yêu cầu điều chỉnh giá → quay lại Kinh Doanh hoàn thiện."""
-    note: str  # bắt buộc ghi rõ lý do khách yêu cầu
+class QuotationSubmitNegotiationRequest(SQLModel):
+    """S8 → S8B: KD ghi nhận thương lượng và trình GĐ duyệt."""
+    note: str  # bắt buộc ghi rõ nội dung thương lượng
 
 
 class QuotationCloseRequest(SQLModel):
@@ -532,7 +491,7 @@ class QuotationReportSummary(SQLModel):
     closed_won: int
     closed_lost: int
     win_rate: Optional[float]       # closed_won / (closed_won + closed_lost) × 100
-    total_won_value: Optional[float]
+    total_won_value: Optional[float]   # sum of total_contract_value for closed_won
     period_from: Optional[date]
     period_to: Optional[date]
 

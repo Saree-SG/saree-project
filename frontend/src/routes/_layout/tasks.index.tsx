@@ -308,7 +308,7 @@ function PendingQuotationCard({ q }: { q: QuotationPublic }) {
     <Link
       to="/quotations/$quotationId"
       params={{ quotationId: q.id }}
-      search={{ tab: "overview" }}
+      search={{ tab: "history" }}
       className="block rounded-xl border bg-white p-4 shadow-sm transition-shadow hover:shadow-md"
     >
       <div className="flex items-start justify-between gap-2">

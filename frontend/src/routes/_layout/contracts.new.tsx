@@ -120,7 +120,7 @@ function NewContractPage() {
               setForm((prev) => ({
                 ...prev,
                 quotation_id: quotationId,
-                total_value: selectedQuotation?.total_sale_price ?? prev.total_value,
+                total_value: selectedQuotation?.total_contract_value ?? prev.total_value,
               }))
             }}
             className="h-9 w-full rounded-md border bg-background px-3 text-sm"

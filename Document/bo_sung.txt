@@ -1,0 +1,102 @@
+ Phân tích Giai đoạn II — Trạng thái hiện tại
+
+  1. Phần "Chuyển toàn bộ thông tin cho các phòng" — UI có chưa?
+
+  Có rồi, nhưng chỉ dạng hướng dẫn (checklist text), chưa phải action thực sự.
+
+  Khi hợp đồng ở trạng thái advance_received, UI hiện một panel "Đã nhận tạm
+  ứng — chuẩn bị triển khai sản xuất" tại contracts.$contractId.tsx:719 với các
+   bước:
+  - Phòng Kỹ thuật: Hiệu chỉnh bản vẽ, phát hành cho các tổ
+  - Phòng Kế hoạch: Lên lịch, phân bổ nhân sự
+  - Phòng Vật tư: Đặt hàng vật tư
+  - Tạo task chi tiết trong dự án liên kết
+  - Bấm "Chuyển sang sản xuất" (action CONTRACT_START_PRODUCTION)
+
+  Điều còn thiếu: Không có nút "Gửi thông báo/chuyển việc chính thức cho từng
+  phòng" — hiện tại chỉ là hướng dẫn text, người dùng tự vào tạo task thủ công.
+   Không có cơ chế notify tự động đến Trưởng phòng Kỹ thuật / Kế hoạch / Vật tư
+   khi hợp đồng được chuyển sang advance_received.
+
+  ---
+  2. Permissions Báo giá — Đầy đủ theo quy trình
+
+  ┌───────────────────────────┬────────────┬────────────────────┐
+  │      Permission code      │  Ai dùng   │       Stage        │
+  ├───────────────────────────┼────────────┼────────────────────┤
+  │ QUOTATION_SUBMIT_SURVEY   │ Kinh Doanh │ S1→S2              │
+  ├───────────────────────────┼────────────┼────────────────────┤
+  │ QUOTATION_APPROVE_SURVEY  │ BGĐ        │ S2 (duyệt/từ chối) │
+  ├───────────────────────────┼────────────┼────────────────────┤
+  │ QUOTATION_DESIGN          │ Kỹ Thuật   │ S3→S4              │
+  ├───────────────────────────┼────────────┼────────────────────┤
+  │ QUOTATION_APPROVE_DESIGN  │ BGĐ        │ S4                 │
+  ├───────────────────────────┼────────────┼────────────────────┤
+  │ QUOTATION_FILL_PRICE      │ Vật Tư     │ S5→S6              │
+  ├───────────────────────────┼────────────┼────────────────────┤
+  │ QUOTATION_FINALIZE        │ Kinh Doanh │ S6→S7              │
+  ├───────────────────────────┼────────────┼────────────────────┤
+  │ QUOTATION_APPROVE_FINAL   │ BGĐ        │ S7→S8              │
+  ├───────────────────────────┼────────────┼────────────────────┤
+  │ QUOTATION_SEND_CLIENT     │ Kinh Doanh │ S8                 │
+  ├───────────────────────────┼────────────┼────────────────────┤
+  │ QUOTATION_LOG_NEGOTIATION │ Kinh Doanh │ S8 thương lượng    │
+  ├───────────────────────────┼────────────┼────────────────────┤
+  │ QUOTATION_CLOSE           │ Kinh Doanh │ S8→S9 (won/lost)   │
+  ├───────────────────────────┼────────────┼────────────────────┤
+  │ QUOTATION_REPORT          │ Manager+   │ Báo cáo            │
+  └───────────────────────────┴────────────┴────────────────────┘
+
+  Đủ hết theo quy trình trong Quy_trình.txt.
+
+  ---
+  3. Permissions Hợp đồng
+
+  ┌───────────────────────────┬────────────────────────────┐
+  │      Permission code      │         Hành động          │
+  ├───────────────────────────┼────────────────────────────┤
+  │ CONTRACT_CREATE           │ Tạo từ báo giá thắng       │
+  ├───────────────────────────┼────────────────────────────┤
+  │ CONTRACT_SEND             │ Gửi khách ký               │
+  ├───────────────────────────┼────────────────────────────┤
+  │ CONTRACT_SIGN             │ Xác nhận đã ký             │
+  ├───────────────────────────┼────────────────────────────┤
+  │ CONTRACT_CONFIRM_ADVANCE  │ Xác nhận tạm ứng đợt 1     │
+  ├───────────────────────────┼────────────────────────────┤
+  │ CONTRACT_START_PRODUCTION │ Chuyển sang sản xuất (BGĐ) │
+  ├───────────────────────────┼────────────────────────────┤
+  │ CONTRACT_COMPLETE         │ Hoàn thành hợp đồng        │
+  └───────────────────────────┴────────────────────────────┘
+
+  ---
+  4. Permissions Tasks
+
+  ┌────────────────────┬──────────┬───────────────────────────────┐
+  │  Permission code   │  Scope   │             Mô tả             │
+  ├────────────────────┼──────────┼───────────────────────────────┤
+  │ TASK_CREATE        │ project  │ Tạo task mới                  │
+  ├────────────────────┼──────────┼───────────────────────────────┤
+  │ TASK_VIEW          │ assigned │ Xem task được giao            │
+  ├────────────────────┼──────────┼───────────────────────────────┤
+  │ TASK_VIEW_ALL      │ project  │ Xem tất cả task trong dự án   │
+  ├────────────────────┼──────────┼───────────────────────────────┤
+  │ TASK_UPDATE        │ project  │ Cập nhật thông tin task       │
+  ├────────────────────┼──────────┼───────────────────────────────┤
+  │ TASK_UPDATE_STATUS │ own      │ Cập nhật trạng thái (tổ viên) │
+  ├────────────────────┼──────────┼───────────────────────────────┤
+  │ TASK_DELETE        │ project  │ Xóa task                      │
+  ├────────────────────┼──────────┼───────────────────────────────┤
+  │ TASK_REASSIGN      │ project  │ Giao lại task                 │
+  └────────────────────┴──────────┴───────────────────────────────┘
+
+  ---
+  5. Điểm còn thiếu cần bổ sung
+
+  1. Notification tự động khi chuyển giai đoạn — khi BGĐ bấm "Chuyển sang sản
+  xuất", hệ thống nên tự notify Trưởng phòng Kỹ thuật, Kế hoạch, Vật tư thay vì
+   chỉ hiện text hướng dẫn.
+  2. Permission cho Giai đoạn II chi tiết hơn — hiện TASK_CREATE/UPDATE dùng
+  chung, chưa có phân quyền riêng theo phòng ban (ví dụ: Kế hoạch có thêm quyền
+   điều phối task giữa các tổ mà Tổ trưởng không có).
+  3. Procurement permissions — cần kiểm tra thêm PROCUREMENT_* permissions cho
+  quy trình Vật tư đặt hàng trong Giai đoạn II.

@@ -342,10 +342,10 @@ async def overdue_report(
     project_id: uuid.UUID | None = Query(default=None),
     department_id: uuid.UUID | None = Query(default=None),
 ) -> dict:
-    """Detailed overdue report: local (warning) vs critical (blocking)."""
+    """Project warning report derived from task deadlines."""
     project_ids = await _project_ids_scope(session, current_user, project_id, department_id)
     if not project_ids:
-        return {"overdue_critical": [], "overdue_local": []}
+        return {"critical": [], "warning": [], "watch": []}
 
     now = _utcnow()
     projects_result = await session.execute(
@@ -354,54 +354,176 @@ async def overdue_report(
             Project.is_deleted == False,  # noqa: E712
         )
     )
-    project_name_by_id = {str(p.id): p.name for p in projects_result.scalars().all()}
+    projects = projects_result.scalars().all()
+    project_by_id = {str(p.id): p for p in projects}
 
-    overdue_result = await session.execute(
+    tasks_result = await session.execute(
         select(Task).where(
             Task.project_id.in_(project_ids),  # type: ignore[arg-type]
-            Task.end_time < now,
             Task.status.notin_(["done", "review"]),  # type: ignore[attr-defined]
             Task.is_deleted == False,  # noqa: E712
         )
     )
-    overdue_tasks = overdue_result.scalars().all()
+    tasks = tasks_result.scalars().all()
 
-    assignee_ids = [t.assignee_id for t in overdue_tasks]
-    if assignee_ids:
-        users_result = await session.execute(
-            select(User).where(User.id.in_(assignee_ids))  # type: ignore[arg-type]
-        )
-        assignee_name_by_id = {
-            str(u.id): (u.full_name or u.email or str(u.id))
-            for u in users_result.scalars().all()
-        }
-    else:
-        assignee_name_by_id = {}
+    buckets: dict[str, list[Task]] = {}
+    for task in tasks:
+        buckets.setdefault(str(task.project_id), []).append(task)
 
-    local: list[dict] = []
+    watch: list[dict] = []
+    warning: list[dict] = []
     critical: list[dict] = []
 
-    for t in overdue_tasks:
-        parent = await session.get(Task, t.parent_id) if t.parent_id else None
-        cs = compute_task_status(t, parent)
+    for project_id_key, project_tasks in buckets.items():
+        overdue_tasks = [
+            task for task in project_tasks
+            if _naive_utc(task.end_time) is not None and _naive_utc(task.end_time) < now
+        ]
+        due_soon_level2 = []
+        due_soon_level3 = []
+
+        for task in project_tasks:
+            end_time = _naive_utc(task.end_time)
+            if end_time is None or end_time < now:
+                continue
+            days_left = (end_time - now).total_seconds() / 86400
+            if days_left <= 3:
+                due_soon_level2.append(task)
+            elif days_left <= 7:
+                due_soon_level3.append(task)
+
+        severity = None
+        focus_tasks: list[Task] = []
+        if overdue_tasks:
+            severity = "critical"
+            focus_tasks = sorted(overdue_tasks, key=lambda task: _naive_utc(task.end_time) or now)
+        elif due_soon_level2:
+            severity = "warning"
+            focus_tasks = sorted(due_soon_level2, key=lambda task: _naive_utc(task.end_time) or now)
+        elif due_soon_level3:
+            severity = "watch"
+            focus_tasks = sorted(due_soon_level3, key=lambda task: _naive_utc(task.end_time) or now)
+        else:
+            continue
+
+        project = project_by_id.get(project_id_key)
+        nearest_task = focus_tasks[0]
+        nearest_end = _naive_utc(nearest_task.end_time) or now
         item = {
-            "task_id": str(t.id),
+            "project_id": project_id_key,
+            "project_name": project.name if project else project_id_key,
+            "project_status": project.status if project else None,
+            "severity": severity,
+            "overdue_tasks": len(overdue_tasks),
+            "warning_tasks": len(due_soon_level2),
+            "watch_tasks": len(due_soon_level3),
+            "nearest_task_name": nearest_task.name,
+            "nearest_task_end_time": nearest_task.end_time.isoformat(),
+            "delay_days": max(1, (now.date() - nearest_end.date()).days) if severity == "critical" else 0,
+            "days_left": max(0, (nearest_end.date() - now.date()).days) if severity != "critical" else 0,
+        }
+
+        if severity == "critical":
+            critical.append(item)
+        elif severity == "warning":
+            warning.append(item)
+        else:
+            watch.append(item)
+
+    return {
+        "critical": critical,
+        "warning": warning,
+        "watch": watch,
+    }
+
+
+@router.get("/users/{user_id}/tasks")
+async def user_tasks(
+    user_id: uuid.UUID,
+    session: AsyncSessionDep,
+    current_user: CurrentUser,
+) -> list[dict]:
+    """Tasks assigned to a specific user, for Gantt timeline view on personnel page."""
+    project_ids = await _project_ids_scope(session, current_user)
+    if not project_ids:
+        return []
+
+    tasks_result = await session.execute(
+        select(Task).where(
+            Task.assignee_id == user_id,
+            Task.project_id.in_(project_ids),  # type: ignore[arg-type]
+            Task.is_deleted == False,  # noqa: E712
+        ).order_by(Task.start_time)
+    )
+    tasks = tasks_result.scalars().all()
+
+    project_ids_of_tasks = list({t.project_id for t in tasks})
+    project_names: dict[str, str] = {}
+    if project_ids_of_tasks:
+        proj_result = await session.execute(
+            select(Project.id, Project.name).where(Project.id.in_(project_ids_of_tasks))  # type: ignore[arg-type]
+        )
+        project_names = {str(r.id): r.name for r in proj_result.all()}
+
+    return [
+        {
+            "id": str(t.id),
             "name": t.name,
             "status": t.status,
-            "assignee_id": str(t.assignee_id),
-            "assignee_name": assignee_name_by_id.get(str(t.assignee_id), str(t.assignee_id)),
-            "start_time": t.start_time.isoformat(),
-            "end_time": t.end_time.isoformat(),
-            "project_id": str(t.project_id),
-            "project_name": project_name_by_id.get(str(t.project_id), str(t.project_id)),
-            "is_on_critical_path": t.is_on_critical_path,
+            "start_time": t.start_time.isoformat() if t.start_time else None,
+            "end_time": t.end_time.isoformat() if t.end_time else None,
+            "project_name": project_names.get(str(t.project_id)),
         }
-        if cs == "overdue_critical":
-            critical.append(item)
-        else:
-            local.append(item)
+        for t in tasks
+    ]
 
-    return {"overdue_critical": critical, "overdue_local": local}
+
+@router.get("/users/{user_id}/weekly-stats")
+async def user_weekly_stats(
+    user_id: uuid.UUID,
+    session: AsyncSessionDep,
+    current_user: CurrentUser,
+) -> list[dict]:
+    """Weekly completion/overdue counts for a specific user (last 12 weeks)."""
+    from datetime import timedelta
+
+    project_ids = await _project_ids_scope(session, current_user)
+    if not project_ids:
+        return []
+
+    tasks_result = await session.execute(
+        select(Task).where(
+            Task.assignee_id == user_id,
+            Task.project_id.in_(project_ids),  # type: ignore[arg-type]
+            Task.is_deleted == False,  # noqa: E712
+        )
+    )
+    tasks = tasks_result.scalars().all()
+
+    now = _utcnow()
+    weeks: dict[str, dict[str, int]] = {}
+    for i in range(11, -1, -1):
+        week_start = now - timedelta(weeks=i + 1)
+        week_end = now - timedelta(weeks=i)
+        label = week_start.strftime("%d/%m")
+        weeks[label] = {"done": 0, "overdue": 0, "_start": week_start.timestamp(), "_end": week_end.timestamp()}
+
+    for t in tasks:
+        end_time = _naive_utc(t.end_time)
+        if end_time is None:
+            continue
+        for label, bucket in weeks.items():
+            if bucket["_start"] <= end_time.timestamp() < bucket["_end"]:
+                if t.status == "done":
+                    bucket["done"] += 1
+                elif end_time < now and t.status not in ("done", "review"):
+                    bucket["overdue"] += 1
+                break
+
+    return [
+        {"period": label, "done": bucket["done"], "overdue": bucket["overdue"]}
+        for label, bucket in weeks.items()
+    ]
 
 
 @router.get("/tasks/calendar")

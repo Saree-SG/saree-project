@@ -8,7 +8,7 @@ Notification dispatch, AuditLog writing, and Project creation on win.
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 
 from fastapi import HTTPException
 from loguru import logger
@@ -17,26 +17,20 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.notification import Notification
 from app.models.project import Project
 from app.models.quotation import (
+    ACTION_LABELS,
     STAGE_LABELS,
     STAGE_TRANSITIONS,
     Quotation,
     QuotationAttachment,
     QuotationAttachmentCreate,
     QuotationAttachmentPublic,
+    QuotationCompanyProfilePublic,
     QuotationByClientRow,
     QuotationByEquipmentRow,
     QuotationCloseRequest,
     QuotationCreate,
     QuotationFinalizeRequest,
-    QuotationLineItem,
-    QuotationLineItemCreate,
-    QuotationLineItemPriceUpdate,
-    QuotationLineItemPublic,
-    QuotationLineItemSalePriceUpdate,
-    QuotationLineItemUpdate,
     QuotationLostReasonRow,
-    QuotationNegotiateRequest,
-    QuotationRequestRevisionRequest,
     QuotationNegotiationLog,
     QuotationNegotiationLogCreate,
     QuotationNegotiationLogPublic,
@@ -45,6 +39,7 @@ from app.models.quotation import (
     QuotationSendToClientRequest,
     QuotationStageTransitionPublic,
     QuotationSubmitDesignRequest,
+    QuotationSubmitNegotiationRequest,
     QuotationSubmitPricingRequest,
     QuotationSubmitSurveyRequest,
     QuotationUpdate,
@@ -70,11 +65,11 @@ def _stage_to_status(stage: str, action: str = "submit") -> str:
     """Derive the overall status from stage + action."""
     if stage == "S9_CLOSED":
         return "closed_won"  # caller overrides for lost
-    if stage in ("S8_SENT_TO_CLIENT",):
+    if stage == "S8_SENT_TO_CLIENT":
         return "sent"
-    if stage in ("S7_DIRECTOR_APPROVE_QUOTE",):
-        return "in_review"
-    if stage in ("S2_DIRECTOR_APPROVE_SURVEY", "S4_DIRECTOR_APPROVE_DESIGN"):
+    if stage == "S8B_NEGOTIATION_REVIEW":
+        return "negotiating"
+    if stage in ("S7_DIRECTOR_APPROVE_QUOTE", "S2_DIRECTOR_APPROVE_SURVEY", "S4_DIRECTOR_APPROVE_DESIGN"):
         return "in_review"
     return "active"
 
@@ -166,27 +161,6 @@ class QuotationService:
                 detail=f"Bạn không có quyền '{permission_code}'.",
             )
 
-    def _recalculate_totals(self, quotation: Quotation, items: list[QuotationLineItem]) -> None:
-        """Recompute cost_total per item and quotation totals."""
-        cost_sum = 0.0
-        for item in items:
-            if item.cost_unit_price is not None:
-                item.cost_total = round(item.quantity * item.cost_unit_price, 2)
-                cost_sum += item.cost_total
-                if quotation.price_coefficient is not None:
-                    item.sale_unit_price = round(
-                        item.cost_unit_price * quotation.price_coefficient, 2
-                    )
-                    item.sale_total = round(
-                        item.quantity * item.sale_unit_price, 2
-                    )
-
-        quotation.total_cost_price = round(cost_sum, 2) if cost_sum else None
-        if quotation.price_coefficient and quotation.total_cost_price is not None:
-            quotation.total_sale_price = round(
-                quotation.total_cost_price * quotation.price_coefficient, 2
-            )
-
     async def _snapshot(
         self,
         quotation: Quotation,
@@ -194,27 +168,22 @@ class QuotationService:
         reason: str,
     ) -> None:
         """Create an immutable version snapshot."""
-        items = await self._repo.get_line_items(quotation.id)
+        attachments = await self._repo.get_attachments(quotation.id)
         ver_num = await self._repo.next_version_number(quotation.id)
         await self._repo.add_version({
             "quotation_id": quotation.id,
             "version_number": ver_num,
             "snapshot_data": {
-                "line_items": [
+                "total_contract_value": quotation.total_contract_value,
+                "attachments": [
                     {
-                        "description": i.description,
-                        "unit": i.unit,
-                        "quantity": i.quantity,
-                        "cost_unit_price": i.cost_unit_price,
-                        "cost_total": i.cost_total,
-                        "sale_unit_price": i.sale_unit_price,
-                        "sale_total": i.sale_total,
+                        "file_name": a.file_name,
+                        "document_category": a.document_category,
+                        "file_url": a.file_url,
+                        "stage_uploaded": a.stage_uploaded,
                     }
-                    for i in items
+                    for a in attachments
                 ],
-                "total_cost_price": quotation.total_cost_price,
-                "total_sale_price": quotation.total_sale_price,
-                "price_coefficient": quotation.price_coefficient,
             },
             "created_by": actor_id,
             "reason": reason,
@@ -238,11 +207,13 @@ class QuotationService:
             project_name=body.project_name,
             client_company_name=body.client_company_name,
             client_contact_name=body.client_contact_name,
+            client_contact_title=body.client_contact_title,
             client_contact_phone=body.client_contact_phone,
             client_contact_email=body.client_contact_email,
             client_address=body.client_address,
             equipment_category=body.equipment_category,
             notes=body.notes,
+            survey_note=body.survey_note,
             status="draft",
             current_stage="S1_SALES_COLLECT",
             created_by=current_user.id,
@@ -257,7 +228,7 @@ class QuotationService:
             "from_stage": None,
             "to_stage": "S1_SALES_COLLECT",
             "actor_id": current_user.id,
-            "action": "submit",
+            "action": "create",
             "note": "Tạo hồ sơ báo giá mới",
         })
         await self._audit.write(
@@ -276,6 +247,29 @@ class QuotationService:
     ) -> QuotationPublic:
         q = await self._repo.get_or_404(quotation_id)
         return await _enrich_quotation(q, self._user_repo)
+
+    async def list_client_companies(self, current_user: User) -> list[str]:
+        return await self._repo.list_distinct_companies(current_user.company_id)
+
+    async def list_client_company_profiles(
+        self, current_user: User
+    ) -> list[QuotationCompanyProfilePublic]:
+        """Return latest remembered form values for each client company."""
+        rows = await self._repo.list_company_profiles(current_user.company_id)
+        return [
+            QuotationCompanyProfilePublic(
+                client_company_name=row.client_company_name,
+                client_contact_name=row.client_contact_name,
+                client_contact_title=row.client_contact_title,
+                client_contact_phone=row.client_contact_phone,
+                client_contact_email=row.client_contact_email,
+                client_address=row.client_address,
+                notes=row.notes,
+                survey_note=row.survey_note,
+                equipment_category=row.equipment_category,
+            )
+            for row in rows
+        ]
 
     async def list_quotations(
         self,
@@ -364,8 +358,15 @@ class QuotationService:
         q = await self._repo.get_or_404(quotation_id)
         await self._require_stage(q, "S1_SALES_COLLECT")
 
+        q.client_contact_name = body.client_contact_name
+        q.client_contact_phone = body.client_contact_phone
+        q.client_contact_title = body.client_contact_title
+        q.client_address = body.client_address
+
         if body.site_survey_date:
             q.site_survey_date = body.site_survey_date
+        q.survey_start_date = body.survey_start_date
+        q.survey_end_date = body.survey_end_date
 
         old_stage = q.current_stage
         q.current_stage = "S2_DIRECTOR_APPROVE_SURVEY"
@@ -378,7 +379,7 @@ class QuotationService:
             "from_stage": old_stage,
             "to_stage": q.current_stage,
             "actor_id": current_user.id,
-            "action": "submit",
+            "action": "submit_survey",
             "note": body.note,
         })
         await self._audit.write(
@@ -389,12 +390,10 @@ class QuotationService:
             old_value={"stage": old_stage},
             new_value={"stage": q.current_stage},
         )
-        # Notify directors — we notify the sales owner's manager; for simplicity
-        # we emit a company-wide notification type that the frontend filters.
         await self._notify(
             user_id=q.created_by,
             notif_type="quotation_stage_changed",
-            title=f"[{q.quote_number}] Chờ BGĐ duyệt khảo sát",
+            title=f"[{q.quote_number}] Chờ Giám đốc duyệt khảo sát",
             body=f"Hồ sơ '{q.project_name}' đã được chuyển cho Ban Giám Đốc phê duyệt.",
             entity_id=q.id,
         )
@@ -414,18 +413,18 @@ class QuotationService:
         if body.action == "approve":
             q.current_stage = "S3_TECH_DESIGN"
             q.status = "active"
-            action_label = "approve"
+            action_label = "approve_survey"
             notify_user = q.technical_owner_id or q.sales_owner_id
             notify_title = f"[{q.quote_number}] Phòng Kỹ Thuật cần thiết kế"
-            notify_body = f"BGĐ đã duyệt khảo sát. Hồ sơ '{q.project_name}' chờ thiết kế."
+            notify_body = f"Giám đốc đã duyệt khảo sát. Hồ sơ '{q.project_name}' chờ thiết kế."
         else:
             if not body.note:
                 raise HTTPException(422, "Phải điền lý do khi từ chối phê duyệt.")
             q.current_stage = "S1_SALES_COLLECT"
             q.status = "active"
-            action_label = "reject"
+            action_label = "reject_survey"
             notify_user = q.sales_owner_id
-            notify_title = f"[{q.quote_number}] BGĐ yêu cầu chỉnh sửa"
+            notify_title = f"[{q.quote_number}] Giám đốc yêu cầu bổ sung khảo sát"
             notify_body = f"Hồ sơ '{q.project_name}' cần bổ sung thông tin khảo sát. Lý do: {body.note}"
 
         q.updated_at = _utcnow()
@@ -465,10 +464,11 @@ class QuotationService:
         q = await self._repo.get_or_404(quotation_id)
         await self._require_stage(q, "S3_TECH_DESIGN")
 
-        items = await self._repo.get_line_items(q.id)
-        if not items:
+        attachments = await self._repo.get_attachments(q.id)
+        s3_files = [a for a in attachments if a.stage_uploaded == "S3_TECH_DESIGN"]
+        if not s3_files:
             raise HTTPException(
-                422, "Phải có ít nhất 1 hạng mục trong bảng chào giá trước khi nộp thiết kế."
+                422, "Phải upload ít nhất 1 file thiết kế trước khi nộp."
             )
 
         old_stage = q.current_stage
@@ -482,7 +482,7 @@ class QuotationService:
             "from_stage": old_stage,
             "to_stage": q.current_stage,
             "actor_id": current_user.id,
-            "action": "submit",
+            "action": "submit_design",
             "note": body.note,
         })
         await self._audit.write(
@@ -516,19 +516,19 @@ class QuotationService:
         if body.action == "approve":
             q.current_stage = "S5_PROCUREMENT_PRICING"
             q.status = "active"
-            action_label = "approve"
+            action_label = "approve_design"
             notify_user = q.procurement_owner_id or q.sales_owner_id
-            notify_title = f"[{q.quote_number}] Phòng Vật Tư cần điền đơn giá"
-            notify_body = f"BGĐ đã duyệt phương án thiết kế. Hồ sơ '{q.project_name}' chờ định giá."
+            notify_title = f"[{q.quote_number}] Phòng Vật Tư cần báo đơn giá"
+            notify_body = f"Giám đốc đã duyệt thiết kế. Hồ sơ '{q.project_name}' chờ báo đơn giá."
         else:
             if not body.note:
                 raise HTTPException(422, "Phải điền lý do khi từ chối phê duyệt.")
             q.current_stage = "S3_TECH_DESIGN"
             q.status = "active"
-            action_label = "reject"
+            action_label = "reject_design"
             notify_user = q.technical_owner_id or q.sales_owner_id
-            notify_title = f"[{q.quote_number}] BGĐ yêu cầu điều chỉnh thiết kế"
-            notify_body = f"Hồ sơ '{q.project_name}' cần điều chỉnh thiết kế. Lý do: {body.note}"
+            notify_title = f"[{q.quote_number}] Giám đốc yêu cầu chỉnh lại thiết kế"
+            notify_body = f"Hồ sơ '{q.project_name}' cần chỉnh lại thiết kế. Lý do: {body.note}"
 
         q.updated_at = _utcnow()
         await self._repo.save(q)
@@ -565,18 +565,12 @@ class QuotationService:
         q = await self._repo.get_or_404(quotation_id)
         await self._require_stage(q, "S5_PROCUREMENT_PRICING")
 
-        items = list(await self._repo.get_line_items(q.id))
-        unpriced = [i for i in items if i.cost_unit_price is None]
-        if unpriced:
-            raise HTTPException(
-                422,
-                f"Còn {len(unpriced)} hạng mục chưa có đơn giá. Vui lòng điền đầy đủ trước khi nộp.",
-            )
+        attachments = await self._repo.get_attachments(q.id)
+        s5_files = [a for a in attachments if a.stage_uploaded == "S5_PROCUREMENT_PRICING"]
+        if not s5_files:
+            raise HTTPException(422, "Phải upload file báo giá đã điền trước khi nộp.")
 
-        self._recalculate_totals(q, items)
-        for item in items:
-            self._session.add(item)
-
+        q.total_contract_value = body.total_contract_value
         old_stage = q.current_stage
         q.current_stage = "S6_SALES_FINALIZE"
         q.status = "active"
@@ -588,7 +582,7 @@ class QuotationService:
             "from_stage": old_stage,
             "to_stage": q.current_stage,
             "actor_id": current_user.id,
-            "action": "submit",
+            "action": "submit_pricing",
             "note": body.note,
         })
         await self._audit.write(
@@ -596,42 +590,16 @@ class QuotationService:
             action="quotation.pricing_submitted",
             entity_type="quotation",
             entity_id=q.id,
-            new_value={"total_cost_price": q.total_cost_price},
+            new_value={"total_contract_value": q.total_contract_value},
         )
         await self._notify(
             user_id=q.sales_owner_id,
             notif_type="quotation_stage_changed",
-            title=f"[{q.quote_number}] Cần hoàn thiện bảng báo giá",
-            body=f"Vật Tư đã điền đủ đơn giá cho '{q.project_name}'. Tổng giá mua: {q.total_cost_price:,.0f} {q.currency}.",
+            title=f"[{q.quote_number}] Cần hoàn thiện hợp đồng chào giá",
+            body=f"Vật Tư đã nộp bảng đơn giá cho '{q.project_name}'. Tổng giá trị: {q.total_contract_value:,.0f} {q.currency}.",
             entity_id=q.id,
         )
         return await _enrich_quotation(q, self._user_repo)
-
-    async def update_item_sale_price(
-        self,
-        quotation_id: uuid.UUID,
-        item_id: uuid.UUID,
-        body: QuotationLineItemSalePriceUpdate,
-        current_user: User,
-    ) -> QuotationLineItemPublic:
-        """S6: KD set giá bán cho từng hạng mục (thay thế hoặc bổ sung cho price_coefficient)."""
-        q = await self._repo.get_or_404(quotation_id)
-        await self._require_stage(q, "S6_SALES_FINALIZE")
-
-        item = await self._repo.get_line_item_or_404(quotation_id, item_id)
-        item.sale_unit_price = body.sale_unit_price
-        item.sale_total = round(item.quantity * body.sale_unit_price, 2)
-        item.updated_at = _utcnow()
-        item = await self._repo.save_line_item(item)
-
-        # Cập nhật total_sale_price ngay để KD thấy tổng
-        all_items = await self._repo.get_line_items(quotation_id)
-        new_total = sum(i.sale_total for i in all_items if i.sale_total is not None)
-        q.total_sale_price = round(new_total, 2)
-        q.updated_at = _utcnow()
-        await self._repo.save(q)
-
-        return QuotationLineItemPublic.model_validate(item, from_attributes=True)
 
     async def finalize(
         self,
@@ -639,46 +607,14 @@ class QuotationService:
         body: QuotationFinalizeRequest,
         current_user: User,
     ) -> QuotationPublic:
-        """S6 → S7: KD hoàn thiện giá bán, nộp BGĐ duyệt cuối.
-
-        Hai chế độ:
-        - price_coefficient được cung cấp: áp hệ số lên toàn bộ item (ghi đè giá đã set thủ công).
-        - price_coefficient = None: giữ nguyên sale_unit_price từng item; validate tất cả items có giá.
-        """
+        """S6 → S7: KD upload file hợp đồng chào giá, nộp GĐ duyệt."""
         q = await self._repo.get_or_404(quotation_id)
         await self._require_stage(q, "S6_SALES_FINALIZE")
 
-        items = list(await self._repo.get_line_items(q.id))
-
-        if body.price_coefficient is not None:
-            if body.price_coefficient <= 0:
-                raise HTTPException(422, "Hệ số giá phải lớn hơn 0.")
-            q.price_coefficient = body.price_coefficient
-            self._recalculate_totals(q, items)
-        else:
-            # Validate tất cả items có sale_unit_price
-            missing = [i.description for i in items if i.sale_unit_price is None]
-            if missing:
-                raise HTTPException(
-                    422,
-                    f"Các hạng mục chưa có giá bán: {', '.join(missing[:5])}. "
-                    "Hãy nhập giá từng hạng mục hoặc cung cấp hệ số giá toàn cục.",
-                )
-            # Tính lại cost_total và tổng sale
-            cost_sum = 0.0
-            sale_sum = 0.0
-            for item in items:
-                if item.cost_unit_price is not None:
-                    item.cost_total = round(item.quantity * item.cost_unit_price, 2)
-                    cost_sum += item.cost_total
-                if item.sale_unit_price is not None:
-                    item.sale_total = round(item.quantity * item.sale_unit_price, 2)
-                    sale_sum += item.sale_total
-            q.total_cost_price = round(cost_sum, 2) if cost_sum else None
-            q.total_sale_price = round(sale_sum, 2)
-
-        for item in items:
-            self._session.add(item)
+        attachments = await self._repo.get_attachments(q.id)
+        s6_files = [a for a in attachments if a.stage_uploaded == "S6_SALES_FINALIZE"]
+        if not s6_files:
+            raise HTTPException(422, "Phải upload ít nhất 1 file hợp đồng chào giá trước khi nộp.")
 
         old_stage = q.current_stage
         q.current_stage = "S7_DIRECTOR_APPROVE_QUOTE"
@@ -691,7 +627,7 @@ class QuotationService:
             "from_stage": old_stage,
             "to_stage": q.current_stage,
             "actor_id": current_user.id,
-            "action": "submit",
+            "action": "finalize",
             "note": body.note,
         })
         await self._audit.write(
@@ -699,16 +635,13 @@ class QuotationService:
             action="quotation.finalized",
             entity_type="quotation",
             entity_id=q.id,
-            new_value={
-                "price_coefficient": q.price_coefficient,
-                "total_sale_price": q.total_sale_price,
-            },
+            new_value={"total_contract_value": q.total_contract_value},
         )
         await self._notify(
             user_id=q.sales_owner_id,
             notif_type="quotation_stage_changed",
-            title=f"[{q.quote_number}] Chờ BGĐ duyệt báo giá",
-            body=f"Báo giá '{q.project_name}' hoàn thiện. Tổng giá bán: {q.total_sale_price:,.0f} {q.currency}. Chờ phê duyệt.",
+            title=f"[{q.quote_number}] Chờ Giám đốc duyệt chào giá",
+            body=f"Kinh doanh đã hoàn thiện hợp đồng chào giá '{q.project_name}'. Chờ phê duyệt.",
             entity_id=q.id,
         )
         return await _enrich_quotation(q, self._user_repo)
@@ -727,19 +660,18 @@ class QuotationService:
         if body.action == "approve":
             q.current_stage = "S8_SENT_TO_CLIENT"
             q.status = "active"
-            action_label = "approve"
-            notify_title = f"[{q.quote_number}] Báo giá đã được duyệt — sẵn sàng gửi khách hàng"
-            notify_body = f"BGĐ đã phê duyệt báo giá '{q.project_name}'. Có thể gửi cho khách hàng."
-            # Snapshot
+            action_label = "approve_final"
+            notify_title = f"[{q.quote_number}] Chào giá đã được duyệt — sẵn sàng gửi khách hàng"
+            notify_body = f"Giám đốc đã phê duyệt chào giá '{q.project_name}'. Có thể gửi cho khách hàng."
             await self._snapshot(q, current_user.id, "initial_approval")
         else:
             if not body.note:
                 raise HTTPException(422, "Phải điền lý do khi từ chối phê duyệt.")
             q.current_stage = "S6_SALES_FINALIZE"
             q.status = "active"
-            action_label = "reject"
-            notify_title = f"[{q.quote_number}] BGĐ yêu cầu điều chỉnh báo giá"
-            notify_body = f"Hồ sơ '{q.project_name}' cần điều chỉnh lại báo giá. Lý do: {body.note}"
+            action_label = "reject_final"
+            notify_title = f"[{q.quote_number}] Giám đốc yêu cầu chỉnh lại chào giá"
+            notify_body = f"Hồ sơ '{q.project_name}' cần chỉnh lại chào giá. Lý do: {body.note}"
 
         q.updated_at = _utcnow()
         await self._repo.save(q)
@@ -785,15 +717,26 @@ class QuotationService:
         q.updated_at = _utcnow()
         await self._repo.save(q)
 
+        parts: list[str] = []
+        if q.valid_until:
+            parts.append(f"- Hiệu lực báo giá đến: {q.valid_until.strftime('%d/%m/%Y')}")
+        if q.client_response_deadline:
+            parts.append(
+                f"- Hạn phản hồi khách hàng: {q.client_response_deadline.strftime('%d/%m/%Y')}"
+            )
+        if body.note:
+            parts.append("")
+            parts.append(body.note)
+        composed_note = "\n".join(parts).strip() if parts else "Đã ghi nhận gửi báo giá cho khách hàng"
+
         await self._repo.add_transition({
             "quotation_id": q.id,
             "from_stage": "S8_SENT_TO_CLIENT",
             "to_stage": "S8_SENT_TO_CLIENT",
             "actor_id": current_user.id,
-            "action": "submit",
-            "note": body.note or "Đã gửi báo giá cho khách hàng",
+            "action": "send_to_client",
+            "note": composed_note,
         })
-        # Snapshot when sent
         await self._snapshot(q, current_user.id, "sent_to_client")
         await self._audit.write(
             actor_id=current_user.id,
@@ -803,78 +746,93 @@ class QuotationService:
         )
         return await _enrich_quotation(q, self._user_repo)
 
-    async def mark_negotiating(
+    async def submit_negotiation(
         self,
         quotation_id: uuid.UUID,
-        body: QuotationNegotiateRequest,
+        body: QuotationSubmitNegotiationRequest,
         current_user: User,
     ) -> QuotationPublic:
-        """S8: Chuyển trạng thái sang 'negotiating' để thương lượng giá."""
+        """S8 → S8B: KD ghi nhận thương lượng của khách và trình GĐ duyệt."""
         q = await self._repo.get_or_404(quotation_id)
         await self._require_stage(q, "S8_SENT_TO_CLIENT")
-        if q.status not in ("sent", "negotiating"):
-            raise HTTPException(422, "Chỉ có thể thương lượng khi báo giá đã gửi khách hàng.")
 
+        old_stage = q.current_stage
+        q.current_stage = "S8B_NEGOTIATION_REVIEW"
         q.status = "negotiating"
         q.updated_at = _utcnow()
         await self._repo.save(q)
 
         await self._repo.add_transition({
             "quotation_id": q.id,
-            "from_stage": "S8_SENT_TO_CLIENT",
-            "to_stage": "S8_SENT_TO_CLIENT",
+            "from_stage": old_stage,
+            "to_stage": q.current_stage,
             "actor_id": current_user.id,
-            "action": "negotiate",
-            "note": body.note or "Bắt đầu thương lượng giá với khách hàng",
-        })
-        await self._audit.write(
-            actor_id=current_user.id,
-            action="quotation.negotiating",
-            entity_type="quotation",
-            entity_id=q.id,
-        )
-        return await _enrich_quotation(q, self._user_repo)
-
-    async def request_revision(
-        self,
-        quotation_id: uuid.UUID,
-        body: QuotationRequestRevisionRequest,
-        current_user: User,
-    ) -> QuotationPublic:
-        """S8 → S6: Khách yêu cầu điều chỉnh giá → quay lại KD hoàn thiện."""
-        q = await self._repo.get_or_404(quotation_id)
-        await self._require_stage(q, "S8_SENT_TO_CLIENT")
-        if q.status not in ("sent", "negotiating"):
-            raise HTTPException(422, "Chỉ có thể yêu cầu điều chỉnh khi báo giá đã gửi khách hàng.")
-
-        # Snapshot trước khi điều chỉnh
-        await self._snapshot(q, current_user.id, "client_revision")
-
-        q.current_stage = "S6_SALES_FINALIZE"
-        q.status = "active"
-        q.updated_at = _utcnow()
-        await self._repo.save(q)
-
-        await self._repo.add_transition({
-            "quotation_id": q.id,
-            "from_stage": "S8_SENT_TO_CLIENT",
-            "to_stage": "S6_SALES_FINALIZE",
-            "actor_id": current_user.id,
-            "action": "revise",
+            "action": "submit_negotiation",
             "note": body.note,
         })
         await self._audit.write(
             actor_id=current_user.id,
-            action="quotation.revision_requested",
+            action="quotation.negotiation_submitted",
             entity_type="quotation",
             entity_id=q.id,
-            new_value={"reason": body.note},
         )
         await self._notify(
             user_id=q.sales_owner_id,
             notif_type="quotation_stage_changed",
-            title=f"[{q.quote_number}] Khách yêu cầu điều chỉnh giá",
-            body=f"Báo giá '{q.project_name}' cần điều chỉnh lại giá bán. Lý do: {body.note}",
+            title=f"[{q.quote_number}] Chờ Giám đốc duyệt thương lượng",
+            body=f"Kinh doanh trình thương lượng cho '{q.project_name}'. Nội dung: {body.note}",
+            entity_id=q.id,
+        )
+        return await _enrich_quotation(q, self._user_repo)
+
+    async def approve_negotiation(
+        self,
+        quotation_id: uuid.UUID,
+        body,  # QuotationApproveRequest
+        current_user: User,
+    ) -> QuotationPublic:
+        """S8B: GĐ duyệt thương lượng → S6 (KD cập nhật bảng giá) | reject → S8 (tiếp tục chờ)."""
+        q = await self._repo.get_or_404(quotation_id)
+        await self._require_stage(q, "S8B_NEGOTIATION_REVIEW")
+
+        old_stage = q.current_stage
+        if body.action == "approve":
+            await self._snapshot(q, current_user.id, "negotiation_approved")
+            q.current_stage = "S6_SALES_FINALIZE"
+            q.status = "active"
+            action_label = "approve_negotiation"
+            notify_title = f"[{q.quote_number}] Giám đốc đồng ý điều chỉnh giá"
+            notify_body = f"Hồ sơ '{q.project_name}' quay lại hoàn thiện bảng giá mới."
+        else:
+            if not body.note:
+                raise HTTPException(422, "Phải điền lý do khi không đồng ý.")
+            q.current_stage = "S8_SENT_TO_CLIENT"
+            q.status = "sent"
+            action_label = "reject_negotiation"
+            notify_title = f"[{q.quote_number}] Giám đốc chưa đồng ý điều chỉnh giá"
+            notify_body = f"Hồ sơ '{q.project_name}' tiếp tục chờ phản hồi khách. Lý do: {body.note}"
+
+        q.updated_at = _utcnow()
+        await self._repo.save(q)
+        await self._repo.add_transition({
+            "quotation_id": q.id,
+            "from_stage": old_stage,
+            "to_stage": q.current_stage,
+            "actor_id": current_user.id,
+            "action": action_label,
+            "note": body.note,
+        })
+        await self._audit.write(
+            actor_id=current_user.id,
+            action=f"quotation.negotiation_{body.action}d",
+            entity_type="quotation",
+            entity_id=q.id,
+        )
+        await self._notify(
+            user_id=q.sales_owner_id,
+            notif_type="quotation_stage_changed",
+            title=notify_title,
+            body=notify_body,
             entity_id=q.id,
         )
         return await _enrich_quotation(q, self._user_repo)
@@ -888,6 +846,9 @@ class QuotationService:
         """S8 → S9: Đóng hồ sơ (won hoặc lost)."""
         q = await self._repo.get_or_404(quotation_id)
         await self._require_stage(q, "S8_SENT_TO_CLIENT")
+
+        if q.sent_to_client_at is None and q.status not in ("sent", "negotiating"):
+            raise HTTPException(422, "Phải ghi nhận đã gửi khách hàng trước khi đóng hồ sơ.")
 
         if body.outcome == "lost" and not body.lost_reason_category:
             raise HTTPException(
@@ -908,12 +869,33 @@ class QuotationService:
             q.won_project_id = project.id
 
         await self._repo.save(q)
+
+        if body.outcome == "won":
+            from app.models.contract import ContractCreate
+            from app.services.contract_service import ContractService
+
+            total_value = float(q.total_contract_value or 0.0)
+            contract_body = ContractCreate(
+                quotation_id=q.id,
+                project_id=q.won_project_id,
+                contract_date=date.today(),
+                total_value=total_value,
+                currency=q.currency,
+                notes=f"Tạo tự động từ báo giá {q.quote_number}",
+            )
+            try:
+                await ContractService(self._session).create_contract(contract_body, current_user)
+            except HTTPException as exc:
+                if getattr(exc, "status_code", None) != 409:
+                    raise
+
+        close_action = "close_won" if body.outcome == "won" else "close_lost"
         await self._repo.add_transition({
             "quotation_id": q.id,
             "from_stage": "S8_SENT_TO_CLIENT",
             "to_stage": "S9_CLOSED",
             "actor_id": current_user.id,
-            "action": "submit",
+            "action": close_action,
             "note": body.note or f"Kết quả: {body.outcome}",
         })
         await self._audit.write(
@@ -1004,87 +986,6 @@ class QuotationService:
         return project
 
     # ------------------------------------------------------------------
-    # Line Items
-    # ------------------------------------------------------------------
-
-    async def list_line_items(
-        self, quotation_id: uuid.UUID
-    ) -> list[QuotationLineItemPublic]:
-        await self._repo.get_or_404(quotation_id)
-        items = await self._repo.get_line_items(quotation_id)
-        return [QuotationLineItemPublic.model_validate(i, from_attributes=True) for i in items]
-
-    async def add_line_item(
-        self,
-        quotation_id: uuid.UUID,
-        body: QuotationLineItemCreate,
-        current_user: User,
-    ) -> QuotationLineItemPublic:
-        q = await self._repo.get_or_404(quotation_id)
-        if q.current_stage not in ("S3_TECH_DESIGN", "S5_PROCUREMENT_PRICING", "S6_SALES_FINALIZE"):
-            raise HTTPException(
-                422, "Chỉ có thể thêm hạng mục ở giai đoạn Kỹ Thuật, Vật Tư, hoặc Kinh Doanh hoàn thiện."
-            )
-
-        item = await self._repo.add_line_item({
-            **body.model_dump(),
-            "quotation_id": quotation_id,
-            "created_by_role": "technical",
-        })
-        return QuotationLineItemPublic.model_validate(item, from_attributes=True)
-
-    async def update_line_item(
-        self,
-        quotation_id: uuid.UUID,
-        item_id: uuid.UUID,
-        body: QuotationLineItemUpdate,
-        current_user: User,
-    ) -> QuotationLineItemPublic:
-        q = await self._repo.get_or_404(quotation_id)
-        item = await self._repo.get_line_item_or_404(quotation_id, item_id)
-
-        for field, val in body.model_dump(exclude_unset=True).items():
-            setattr(item, field, val)
-        item.updated_at = _utcnow()
-
-        item = await self._repo.save_line_item(item)
-        return QuotationLineItemPublic.model_validate(item, from_attributes=True)
-
-    async def update_line_item_price(
-        self,
-        quotation_id: uuid.UUID,
-        item_id: uuid.UUID,
-        body: QuotationLineItemPriceUpdate,
-        current_user: User,
-    ) -> QuotationLineItemPublic:
-        """Vật Tư điền đơn giá (only allowed at S5)."""
-        q = await self._repo.get_or_404(quotation_id)
-        await self._require_stage(q, "S5_PROCUREMENT_PRICING")
-
-        item = await self._repo.get_line_item_or_404(quotation_id, item_id)
-        for field, val in body.model_dump(exclude_unset=True).items():
-            setattr(item, field, val)
-
-        if item.cost_unit_price is not None:
-            item.cost_total = round(item.quantity * item.cost_unit_price, 2)
-
-        item.updated_at = _utcnow()
-        item = await self._repo.save_line_item(item)
-        return QuotationLineItemPublic.model_validate(item, from_attributes=True)
-
-    async def delete_line_item(
-        self,
-        quotation_id: uuid.UUID,
-        item_id: uuid.UUID,
-        current_user: User,
-    ) -> None:
-        q = await self._repo.get_or_404(quotation_id)
-        if q.current_stage not in ("S3_TECH_DESIGN", "S5_PROCUREMENT_PRICING", "S6_SALES_FINALIZE"):
-            raise HTTPException(422, "Không thể xóa hạng mục ở giai đoạn này.")
-        item = await self._repo.get_line_item_or_404(quotation_id, item_id)
-        await self._repo.delete_line_item(item)
-
-    # ------------------------------------------------------------------
     # Stage history
     # ------------------------------------------------------------------
 
@@ -1100,6 +1001,7 @@ class QuotationService:
             row.actor_name = actor.full_name if actor else None
             row.from_stage_label = STAGE_LABELS.get(t.from_stage) if t.from_stage else None
             row.to_stage_label = STAGE_LABELS.get(t.to_stage)
+            row.action_label = ACTION_LABELS.get(t.action)
             result.append(row)
         return result
 

@@ -21,17 +21,11 @@ from app.models.quotation import (
     QuotationAttachmentPublic,
     QuotationByClientRow,
     QuotationByEquipmentRow,
+    QuotationCompanyProfilePublic,
     QuotationCloseRequest,
     QuotationCreate,
     QuotationFinalizeRequest,
-    QuotationLineItemCreate,
-    QuotationLineItemPriceUpdate,
-    QuotationLineItemPublic,
-    QuotationLineItemSalePriceUpdate,
-    QuotationLineItemUpdate,
     QuotationLostReasonRow,
-    QuotationNegotiateRequest,
-    QuotationRequestRevisionRequest,
     QuotationNegotiationLogCreate,
     QuotationNegotiationLogPublic,
     QuotationPublic,
@@ -39,6 +33,7 @@ from app.models.quotation import (
     QuotationSendToClientRequest,
     QuotationStageTransitionPublic,
     QuotationSubmitDesignRequest,
+    QuotationSubmitNegotiationRequest,
     QuotationSubmitPricingRequest,
     QuotationSubmitSurveyRequest,
     QuotationUpdate,
@@ -77,6 +72,24 @@ async def create_quotation(
 ) -> QuotationPublic:
     """Phòng Kinh Doanh tạo hồ sơ báo giá mới."""
     return await _svc(session).create_quotation(body, current_user)
+
+
+@router.get("/companies", response_model=list[str])
+async def list_companies(
+    session: AsyncSessionDep,
+    current_user: User = Depends(require_any_permission("QUOTATION_VIEW", "QUOTATION_VIEW_ALL")),
+) -> list[str]:
+    """Danh sách tên công ty khách hàng đã từng tạo báo giá (distinct, sorted)."""
+    return await _svc(session).list_client_companies(current_user)
+
+
+@router.get("/company-profiles", response_model=list[QuotationCompanyProfilePublic])
+async def list_company_profiles(
+    session: AsyncSessionDep,
+    current_user: User = Depends(require_any_permission("QUOTATION_VIEW", "QUOTATION_VIEW_ALL")),
+) -> list[QuotationCompanyProfilePublic]:
+    """Danh sách profile công ty khách hàng theo lần cập nhật cuối cùng."""
+    return await _svc(session).list_client_company_profiles(current_user)
 
 
 @router.get("/", response_model=QuotationsPublic)
@@ -242,26 +255,26 @@ async def send_to_client(
     return await _svc(session).send_to_client(quotation_id, body, current_user)
 
 
-@router.post("/{quotation_id}/negotiate", response_model=QuotationPublic)
-async def mark_negotiating(
+@router.post("/{quotation_id}/submit-negotiation", response_model=QuotationPublic)
+async def submit_negotiation(
     quotation_id: uuid.UUID,
-    body: QuotationNegotiateRequest,
+    body: QuotationSubmitNegotiationRequest,
     session: AsyncSessionDep,
     current_user: User = Depends(require_permission("QUOTATION_SEND_CLIENT")),
 ) -> QuotationPublic:
-    """S8: Ghi nhận đang thương lượng giá với khách hàng."""
-    return await _svc(session).mark_negotiating(quotation_id, body, current_user)
+    """S8 → S8B: KD ghi nhận thương lượng và trình GĐ duyệt."""
+    return await _svc(session).submit_negotiation(quotation_id, body, current_user)
 
 
-@router.post("/{quotation_id}/request-revision", response_model=QuotationPublic)
-async def request_revision(
+@router.post("/{quotation_id}/approve-negotiation", response_model=QuotationPublic)
+async def approve_negotiation(
     quotation_id: uuid.UUID,
-    body: QuotationRequestRevisionRequest,
+    body: QuotationApproveRequest,
     session: AsyncSessionDep,
-    current_user: User = Depends(require_permission("QUOTATION_SEND_CLIENT")),
+    current_user: User = Depends(require_permission("QUOTATION_APPROVE_NEGOTIATION")),
 ) -> QuotationPublic:
-    """S8 → S6: Khách yêu cầu điều chỉnh giá → quay lại KD hoàn thiện rồi đợi BGĐ duyệt lại."""
-    return await _svc(session).request_revision(quotation_id, body, current_user)
+    """S8B: GĐ duyệt hoặc không đồng ý thương lượng."""
+    return await _svc(session).approve_negotiation(quotation_id, body, current_user)
 
 
 @router.post("/{quotation_id}/close", response_model=QuotationPublic)
@@ -273,99 +286,6 @@ async def close_quotation(
 ) -> QuotationPublic:
     """S8 → S9: Đóng hồ sơ (won → tạo Project / lost → lưu lý do)."""
     return await _svc(session).close_quotation(quotation_id, body, current_user)
-
-
-# ---------------------------------------------------------------------------
-# Line Items
-# ---------------------------------------------------------------------------
-
-@router.get(
-    "/{quotation_id}/items",
-    response_model=list[QuotationLineItemPublic],
-)
-async def list_line_items(
-    quotation_id: uuid.UUID,
-    session: AsyncSessionDep,
-    current_user: User = Depends(require_any_permission("QUOTATION_VIEW", "QUOTATION_VIEW_ALL")),
-) -> list[QuotationLineItemPublic]:
-    """Lấy toàn bộ hạng mục trong bảng chào giá."""
-    return await _svc(session).list_line_items(quotation_id)
-
-
-@router.post(
-    "/{quotation_id}/items",
-    response_model=QuotationLineItemPublic,
-    status_code=status.HTTP_201_CREATED,
-)
-async def add_line_item(
-    quotation_id: uuid.UUID,
-    body: QuotationLineItemCreate,
-    session: AsyncSessionDep,
-    current_user: User = Depends(require_permission("QUOTATION_DESIGN")),
-) -> QuotationLineItemPublic:
-    """Kỹ Thuật thêm hạng mục vào bảng chào giá."""
-    return await _svc(session).add_line_item(quotation_id, body, current_user)
-
-
-@router.patch(
-    "/{quotation_id}/items/{item_id}",
-    response_model=QuotationLineItemPublic,
-)
-async def update_line_item(
-    quotation_id: uuid.UUID,
-    item_id: uuid.UUID,
-    body: QuotationLineItemUpdate,
-    session: AsyncSessionDep,
-    current_user: User = Depends(require_permission("QUOTATION_DESIGN")),
-) -> QuotationLineItemPublic:
-    """Cập nhật thông tin kỹ thuật của một hạng mục."""
-    return await _svc(session).update_line_item(quotation_id, item_id, body, current_user)
-
-
-@router.patch(
-    "/{quotation_id}/items/{item_id}/price",
-    response_model=QuotationLineItemPublic,
-)
-async def update_line_item_price(
-    quotation_id: uuid.UUID,
-    item_id: uuid.UUID,
-    body: QuotationLineItemPriceUpdate,
-    session: AsyncSessionDep,
-    current_user: User = Depends(require_permission("QUOTATION_FILL_PRICE")),
-) -> QuotationLineItemPublic:
-    """Vật Tư điền đơn giá cho một hạng mục (chỉ ở giai đoạn S5)."""
-    return await _svc(session).update_line_item_price(
-        quotation_id, item_id, body, current_user
-    )
-
-
-@router.patch(
-    "/{quotation_id}/items/{item_id}/sale-price",
-    response_model=QuotationLineItemPublic,
-)
-async def update_item_sale_price(
-    quotation_id: uuid.UUID,
-    item_id: uuid.UUID,
-    body: QuotationLineItemSalePriceUpdate,
-    session: AsyncSessionDep,
-    current_user: User = Depends(require_permission("QUOTATION_FINALIZE")),
-) -> QuotationLineItemPublic:
-    """S6: KD set giá bán cho từng hạng mục (thay thế hoặc bổ sung hệ số toàn cục)."""
-    return await _svc(session).update_item_sale_price(quotation_id, item_id, body, current_user)
-
-
-@router.delete(
-    "/{quotation_id}/items/{item_id}",
-    status_code=status.HTTP_204_NO_CONTENT,
-)
-async def delete_line_item(
-    quotation_id: uuid.UUID,
-    item_id: uuid.UUID,
-    session: AsyncSessionDep,
-    current_user: User = Depends(require_permission("QUOTATION_DESIGN")),
-) -> None:
-    """Xóa một hạng mục khỏi bảng chào giá."""
-    await _svc(session).delete_line_item(quotation_id, item_id, current_user)
 
 
 # ---------------------------------------------------------------------------

@@ -177,7 +177,6 @@ function ProjectTaskDashboardPage() {
   const [taskEndDateDraft, setTaskEndDateDraft] = useState("")
   const [taskDependencyDraft, setTaskDependencyDraft] = useState("none")
   const [showOverdueOnly, setShowOverdueOnly] = useState(false)
-  const [taskView, setTaskView] = useState<"list" | "gantt">("list")
 
   const projectQuery = useQuery({
     queryKey: ["project-dashboard", "project", projectId],
@@ -716,6 +715,13 @@ function ProjectTaskDashboardPage() {
       </section>
 
       <section className="space-y-3">
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="text-sm font-bold">Gantt công việc</h2>
+        </div>
+        <ProjectGantt projectId={projectId} />
+      </section>
+
+      <section className="space-y-3">
         <h2 className="text-sm font-bold">Nhân sự dự án</h2>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
           {teamCards.map((member) => (
@@ -750,42 +756,7 @@ function ProjectTaskDashboardPage() {
       <section className="space-y-3">
         <div className="flex items-center justify-between gap-3">
           <h2 className="text-sm font-bold">Danh sách công việc</h2>
-          {/* View switcher */}
-          <div className="flex rounded-lg border bg-white p-0.5 text-xs font-semibold shadow-sm">
-            <button
-              type="button"
-              onClick={() => setTaskView("list")}
-              className={[
-                "rounded-md px-3 py-1.5 transition-colors",
-                taskView === "list"
-                  ? "bg-primary text-white"
-                  : "text-muted-foreground hover:text-foreground",
-              ].join(" ")}
-            >
-              Danh sách
-            </button>
-            <button
-              type="button"
-              onClick={() => setTaskView("gantt")}
-              className={[
-                "rounded-md px-3 py-1.5 transition-colors",
-                taskView === "gantt"
-                  ? "bg-primary text-white"
-                  : "text-muted-foreground hover:text-foreground",
-              ].join(" ")}
-            >
-              Gantt
-            </button>
-          </div>
         </div>
-
-        {/* Gantt view */}
-        {taskView === "gantt" && (
-          <ProjectGantt projectId={projectId} />
-        )}
-
-        {/* List view */}
-        {taskView === "list" && (
         <div className="space-y-3">
           {detailedTasks.map((task) => (
             <Link
@@ -865,7 +836,6 @@ function ProjectTaskDashboardPage() {
             </Link>
           ))}
         </div>
-        )}
       </section>
 
       <PermissionGuard permission="TASK_CREATE">

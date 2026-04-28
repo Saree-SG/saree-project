@@ -97,18 +97,23 @@ type WorkloadRow = {
 }
 
 type OverduePayload = {
-  overdue_critical: {
-    task_id: string; name: string; status: string
-    start_time: string; end_time: string
-    project_id: string; project_name?: string
-    assignee_id?: string; assignee_name?: string
-  }[]
-  overdue_local: {
-    task_id: string; name: string; status: string
-    start_time: string; end_time: string
-    project_id: string; project_name?: string
-    assignee_id?: string; assignee_name?: string
-  }[]
+  critical?: ProjectWarning[]
+  warning?: ProjectWarning[]
+  watch?: ProjectWarning[]
+}
+
+type ProjectWarning = {
+  project_id: string
+  project_name?: string
+  project_status?: string | null
+  severity: "critical" | "warning" | "watch"
+  overdue_tasks: number
+  warning_tasks: number
+  watch_tasks: number
+  nearest_task_name: string
+  nearest_task_end_time: string
+  delay_days: number
+  days_left: number
 }
 
 // ---------------------------------------------------------------------------
@@ -234,8 +239,9 @@ function DashboardReportsPage() {
     const od = overdueQuery.data
     if (!od) return []
     return [
-      ...od.overdue_critical.map((t) => ({ ...t, isCritical: true })),
-      ...od.overdue_local.map((t) => ({ ...t, isCritical: false })),
+      ...(od.critical ?? []).map((item) => ({ ...item, severityLabel: "Đỏ" })),
+      ...(od.warning ?? []).map((item) => ({ ...item, severityLabel: "Cam" })),
+      ...(od.watch ?? []).map((item) => ({ ...item, severityLabel: "Vàng" })),
     ]
   }, [overdueQuery.data])
 
@@ -259,6 +265,7 @@ function DashboardReportsPage() {
       .slice(0, 10)
       .map((p) => ({
         name: p.code ?? p.name.slice(0, 12),
+        fullName: p.name,
         "Hoàn thành": p.done_tasks,
         "Còn lại": p.total_tasks - p.done_tasks,
         "Trễ": p.overdue_tasks,
@@ -371,22 +378,32 @@ function DashboardReportsPage() {
           ) : !projectCompletionChart.length ? (
             <p className="text-sm text-muted-foreground">Chưa có dữ liệu.</p>
           ) : (
-            <ResponsiveContainer width="100%" height={260}>
-              <BarChart data={projectCompletionChart} margin={{ top: 4, right: 8, bottom: 32, left: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                <XAxis dataKey="name" tick={{ fontSize: 10 }} angle={-25} textAnchor="end" interval={0} />
-                <YAxis tick={{ fontSize: 11 }} allowDecimals={false} />
+            <ResponsiveContainer width="100%" height={320}>
+              <BarChart
+                data={projectCompletionChart}
+                layout="vertical"
+                margin={{ top: 4, right: 24, bottom: 4, left: 12 }}
+              >
+                <CartesianGrid strokeDasharray="3 3" horizontal={false} />
+                <XAxis type="number" tick={{ fontSize: 11 }} allowDecimals={false} />
+                <YAxis
+                  type="category"
+                  dataKey="name"
+                  tick={{ fontSize: 11 }}
+                  width={96}
+                />
                 <Tooltip
                   formatter={(v, name) => [v, name]}
                   labelFormatter={(label, payload) => {
+                    const fullName = (payload?.[0]?.payload as { fullName?: string })?.fullName
                     const pct = (payload?.[0]?.payload as { pct?: number })?.pct
-                    return `${label}${pct != null ? ` (${pct}%)` : ""}`
+                    return `${fullName ?? label}${pct != null ? ` (${pct}%)` : ""}`
                   }}
                 />
                 <Legend wrapperStyle={{ fontSize: 12 }} />
                 <Bar dataKey="Hoàn thành" stackId="a" fill="#22c55e" />
-                <Bar dataKey="Còn lại" stackId="a" fill="#e2e8f0" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="Trễ" fill="#f87171" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="Còn lại" stackId="a" fill="#e2e8f0" />
+                <Bar dataKey="Trễ" fill="#f87171" radius={[0, 4, 4, 0]} />
               </BarChart>
             </ResponsiveContainer>
           )}
@@ -637,19 +654,23 @@ function DashboardReportsPage() {
               </TableHeader>
               <TableBody>
                 {allOverdue.map((t) => (
-                  <TableRow key={t.task_id} className="hover:bg-red-50/40">
-                    <TableCell className="font-medium">{t.name}</TableCell>
+                  <TableRow key={`${t.project_id}-${t.severity}`} className="hover:bg-red-50/40">
+                    <TableCell className="font-medium">{t.nearest_task_name}</TableCell>
                     <TableCell className="text-muted-foreground text-sm">{t.project_name ?? t.project_id}</TableCell>
-                    <TableCell className="text-sm">{t.assignee_name ?? "—"}</TableCell>
-                    <TableCell className="font-medium text-red-600">{fmtDate(t.end_time)}</TableCell>
+                    <TableCell className="text-sm">—</TableCell>
+                    <TableCell className="font-medium text-red-600">{fmtDate(t.nearest_task_end_time)}</TableCell>
                     <TableCell>
-                      {t.isCritical ? (
+                      {t.severity === "critical" ? (
                         <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700">
-                          Ảnh hưởng tiến độ
+                          Đỏ · Trễ {t.delay_days} ngày
+                        </span>
+                      ) : t.severity === "warning" ? (
+                        <span className="rounded-full bg-orange-100 px-2 py-0.5 text-xs font-medium text-orange-700">
+                          Cam · Còn {t.days_left} ngày
                         </span>
                       ) : (
-                        <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
-                          Cục bộ
+                        <span className="rounded-full bg-yellow-100 px-2 py-0.5 text-xs font-medium text-yellow-700">
+                          Vàng · Còn {t.days_left} ngày
                         </span>
                       )}
                     </TableCell>

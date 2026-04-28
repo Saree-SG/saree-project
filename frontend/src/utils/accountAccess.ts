@@ -89,6 +89,16 @@ export function canCreateProject(permissions: Set<string> | string[] | undefined
 }
 
 /**
+ * Project module access gate.
+ */
+export function canAccessProject(permissions: Set<string> | string[] | undefined) {
+  return (
+    hasPermission(permissions, "PROJECT_VIEW") ||
+    hasPermission(permissions, "PROJECT_VIEW_ALL")
+  )
+}
+
+/**
  * Quotation module access gate — any of the two view permissions suffices.
  */
 export function canAccessQuotation(permissions: Set<string> | string[] | undefined) {

@@ -15,15 +15,12 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import {
   getOrder,
-  getRequest,
   addSupplierQuotes,
   updateSupplierQuote,
   selectSuppliers,
   markOrdered,
   receiveOrder,
 } from "@/modules/procurement/procurementApi"
-import { getContract } from "@/modules/contract/contractApi"
-import { listLineItems } from "@/modules/quotation/quotationApi"
 import {
   PO_STATUS_LABELS,
   PO_STATUS_ORDER,
@@ -533,22 +530,6 @@ function PODetailPage() {
     queryKey: ["procurement-order", poId],
     queryFn: () => getOrder(poId),
   })
-  const requestQuery = useQuery({
-    queryKey: ["procurement-request", po?.request_id],
-    queryFn: () => getRequest(po!.request_id),
-    enabled: Boolean(po?.request_id),
-  })
-  const contractQuery = useQuery({
-    queryKey: ["contract", requestQuery.data?.contract_id],
-    queryFn: () => getContract(requestQuery.data!.contract_id!),
-    enabled: Boolean(requestQuery.data?.contract_id),
-  })
-  const contractItemsQuery = useQuery({
-    queryKey: ["quotation-line-items", contractQuery.data?.quotation_id],
-    queryFn: () => listLineItems(contractQuery.data!.quotation_id),
-    enabled: Boolean(contractQuery.data?.quotation_id),
-  })
-
   const invalidate = () => {
     qc.invalidateQueries({ queryKey: ["procurement-order", poId] })
     qc.invalidateQueries({ queryKey: ["procurement-orders"] })
@@ -574,16 +555,6 @@ function PODetailPage() {
   const canSelectSupplier = !permissionsReady || hasPermission(permissions, "PROCUREMENT_DIRECTOR_APPROVE")
   const canMarkOrdered = !permissionsReady || hasPermission(permissions, "PROCUREMENT_PO_CREATE")
   const canReceive = !permissionsReady || hasPermission(permissions, "PROCUREMENT_RECEIVE")
-
-  const quotationLineItems = contractItemsQuery.data ?? []
-  const contractPriceByKey = new Map<string, number>()
-  for (const row of quotationLineItems) {
-    if (row.sale_unit_price == null) {
-      continue
-    }
-    const key = `${row.description.trim().toLowerCase()}|${(row.specifications ?? "").trim().toLowerCase()}|${row.unit.trim().toLowerCase()}`
-    contractPriceByKey.set(key, row.sale_unit_price)
-  }
 
   return (
     <div className="p-6 space-y-6 max-w-5xl mx-auto">
@@ -682,9 +653,7 @@ function PODetailPage() {
                     <AddQuotesDialog
                       poId={poId}
                       item={item}
-                      lockedUnitPrice={contractPriceByKey.get(
-                        `${item.item_name.trim().toLowerCase()}|${(item.specifications ?? "").trim().toLowerCase()}|${item.unit.trim().toLowerCase()}`
-                      )}
+                      lockedUnitPrice={undefined}
                       onSuccess={invalidate}
                     />
                   )}
@@ -734,9 +703,7 @@ function PODetailPage() {
                               poId={poId}
                               itemId={item.id}
                               quote={q}
-                              lockedUnitPrice={contractPriceByKey.get(
-                                `${item.item_name.trim().toLowerCase()}|${(item.specifications ?? "").trim().toLowerCase()}|${item.unit.trim().toLowerCase()}`
-                              )}
+                              lockedUnitPrice={undefined}
                               onSuccess={invalidate}
                             />
                           </td>

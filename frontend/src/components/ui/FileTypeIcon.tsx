@@ -24,6 +24,9 @@ export function FileTypeIcon({ fileName, className = "w-5 h-5 shrink-0" }: FileT
   if (ext === "xls" || ext === "xlsx" || ext === "csv") {
     return <FileSpreadsheet className={`${className} text-green-600`} />
   }
+  if (ext === "ppt" || ext === "pptx") {
+    return <FileText className={`${className} text-orange-500`} />
+  }
   if (["png", "jpg", "jpeg", "gif", "webp", "bmp", "svg"].includes(ext)) {
     return <FileImage className={`${className} text-purple-500`} />
   }

@@ -14,8 +14,9 @@ export type QuotationActionId =
   | "approve_final"
   | "reject_final"
   | "send_to_client"
-  | "negotiate"
-  | "request_revision"
+  | "submit_negotiation"
+  | "approve_negotiation"
+  | "reject_negotiation"
   | "close_won"
   | "close_lost"
 
@@ -60,24 +61,23 @@ function getAvailableActions(
   if (stage === "S8_SENT_TO_CLIENT") {
     const actions: QuotationActionId[] = []
     if (canDo(permissions, "QUOTATION_SEND_CLIENT")) {
-      const isReadyToSend =
-        quotation.status === "active" || quotation.status === "sent"
-      const isNegotiationOpen =
-        quotation.status === "sent" || quotation.status === "negotiating"
-      // S8 mới vào hoặc sau vòng revise có thể ghi nhận gửi khách.
-      if (isReadyToSend) {
+      if (quotation.status === "active" || quotation.status === "sent") {
         actions.push("send_to_client")
       }
-      // Khi đã gửi hoặc đang thương lượng: cho phép lặp thương lượng nhiều lần.
-      if (isNegotiationOpen) {
-        actions.push("negotiate")
-        actions.push("request_revision")
+      if (quotation.status === "sent" || quotation.status === "negotiating") {
+        actions.push("submit_negotiation")
       }
     }
     if (canDo(permissions, "QUOTATION_CLOSE")) {
-      actions.push("close_won", "close_lost")
+      // Must "send to client" before closing won/lost.
+      if (quotation.status === "sent" || quotation.status === "negotiating") {
+        actions.push("close_won", "close_lost")
+      }
     }
     return actions
+  }
+  if (stage === "S8B_NEGOTIATION_REVIEW" && canDo(permissions, "QUOTATION_APPROVE_NEGOTIATION")) {
+    return ["approve_negotiation", "reject_negotiation"]
   }
   return []
 }
@@ -94,8 +94,9 @@ function actionLabel(actionId: QuotationActionId): string {
   if (actionId === "approve_final") return "Duyệt báo giá"
   if (actionId === "reject_final") return "Yêu cầu chỉnh lại"
   if (actionId === "send_to_client") return "Ghi nhận đã gửi khách"
-  if (actionId === "negotiate") return "Đang thương lượng"
-  if (actionId === "request_revision") return "Yêu cầu điều chỉnh giá"
+  if (actionId === "submit_negotiation") return "Trình thương lượng lên Giám đốc"
+  if (actionId === "approve_negotiation") return "Đồng ý điều chỉnh"
+  if (actionId === "reject_negotiation") return "Tiếp tục trao đổi thêm"
   if (actionId === "close_won") return "Thắng hợp đồng"
   return "Đóng hồ sơ (thua)"
 }
@@ -105,20 +106,21 @@ function isDestructiveAction(actionId: QuotationActionId): boolean {
     actionId === "reject_survey" ||
     actionId === "reject_design" ||
     actionId === "reject_final" ||
-    actionId === "request_revision" ||
+    actionId === "reject_negotiation" ||
     actionId === "close_lost"
   )
 }
 
 function actionHint(stage: QuotationPublic["current_stage"]): string {
-  if (stage === "S1_SALES_COLLECT") return "Điền đầy đủ thông tin khảo sát, đính kèm tài liệu nếu có, rồi nộp cho Ban Giám đốc duyệt."
-  if (stage === "S2_DIRECTOR_APPROVE_SURVEY") return "Xem lại nội dung khảo sát bên dưới. Duyệt để chuyển sang Kỹ thuật, hoặc yêu cầu bổ sung nếu thông tin chưa đủ."
-  if (stage === "S3_TECH_DESIGN") return "Thêm hạng mục thiết bị (tab Hạng mục), đính kèm bản vẽ nếu có, rồi nộp cho Ban Giám đốc duyệt."
-  if (stage === "S4_DIRECTOR_APPROVE_DESIGN") return "Xem lại thiết kế và hạng mục. Duyệt để chuyển sang Vật tư định giá, hoặc yêu cầu điều chỉnh."
-  if (stage === "S5_PROCUREMENT_PRICING") return "Điền giá mua và thông tin nhà cung cấp vào từng hạng mục (tab Hạng mục), rồi xác nhận định giá."
-  if (stage === "S6_SALES_FINALIZE") return "Tab Hạng mục: nhấn 'Set giá bán' để nhập từng hạng mục. Hoặc nhập hệ số giá toàn cục khi bấm Hoàn thiện. Nếu dùng hệ số, hệ thống sẽ tính đè lên giá đã set thủ công."
+  if (stage === "S1_SALES_COLLECT") return "Điền đầy đủ thông tin khảo sát, đính kèm tài liệu nếu có, rồi nộp cho Giám đốc duyệt."
+  if (stage === "S2_DIRECTOR_APPROVE_SURVEY") return "Xem lại nội dung khảo sát. Duyệt để chuyển sang Kỹ thuật, hoặc yêu cầu bổ sung nếu thông tin chưa đủ."
+  if (stage === "S3_TECH_DESIGN") return "Upload file thiết kế (tab Tài liệu), sau đó nộp cho Giám đốc duyệt."
+  if (stage === "S4_DIRECTOR_APPROVE_DESIGN") return "Xem lại file thiết kế. Duyệt để chuyển sang bước báo đơn giá, hoặc yêu cầu điều chỉnh."
+  if (stage === "S5_PROCUREMENT_PRICING") return "Upload file Excel đã điền giá (tab Tài liệu), nhập tổng giá trị hợp đồng, rồi xác nhận."
+  if (stage === "S6_SALES_FINALIZE") return "Upload file hợp đồng chào giá (tab Tài liệu), rồi hoàn thiện để Giám đốc duyệt."
   if (stage === "S7_DIRECTOR_APPROVE_QUOTE") return "Xem xét báo giá tổng thể. Duyệt để gửi khách hàng, hoặc yêu cầu điều chỉnh."
-  if (stage === "S8_SENT_TO_CLIENT") return "Ghi nhận đã gửi khách → đánh dấu thương lượng khi khách phản hồi → nếu khách yêu cầu điều chỉnh giá thì dùng 'Yêu cầu điều chỉnh giá' để quay lại S6 → BGĐ duyệt lại → gửi lại."
+  if (stage === "S8_SENT_TO_CLIENT") return "Ghi nhận đã gửi khách hàng → khi khách trao đổi thương lượng thì trình lên Giám đốc để duyệt."
+  if (stage === "S8B_NEGOTIATION_REVIEW") return "Xem xét nội dung thương lượng. Đồng ý để Kinh doanh cập nhật bảng giá, hoặc từ chối để tiếp tục trao đổi thêm."
   return ""
 }
 

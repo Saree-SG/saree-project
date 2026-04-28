@@ -14,7 +14,6 @@ from app.core.database.repository import BaseRepository
 from app.models.quotation import (
     Quotation,
     QuotationAttachment,
-    QuotationLineItem,
     QuotationNegotiationLog,
     QuotationStageTransition,
     QuotationVersion,
@@ -46,6 +45,40 @@ class QuotationRepository(BaseRepository[Quotation]):
     # ------------------------------------------------------------------
     # Fetch
     # ------------------------------------------------------------------
+
+    async def list_distinct_companies(self, company_id: uuid.UUID) -> list[str]:
+        stmt = (
+            select(Quotation.client_company_name)
+            .where(Quotation.company_id == company_id, Quotation.is_deleted == False)  # noqa: E712
+            .distinct()
+            .order_by(Quotation.client_company_name)
+        )
+        result = await self._execute(stmt)
+        return [row for row in result.scalars().all() if row]
+
+    async def list_company_profiles(self, company_id: uuid.UUID) -> list[Quotation]:
+        """Return latest quotation per client company for autofill defaults."""
+        stmt = (
+            select(Quotation)
+            .where(
+                Quotation.company_id == company_id,
+                Quotation.is_deleted == False,  # noqa: E712
+            )
+            .order_by(
+                Quotation.client_company_name.asc(),
+                Quotation.updated_at.desc(),  # type: ignore[attr-defined]
+                Quotation.created_at.desc(),  # type: ignore[attr-defined]
+            )
+        )
+        result = await self._execute(stmt)
+        rows = result.scalars().all()
+
+        latest_by_company: dict[str, Quotation] = {}
+        for row in rows:
+            if row.client_company_name and row.client_company_name not in latest_by_company:
+                latest_by_company[row.client_company_name] = row
+
+        return list(latest_by_company.values())
 
     async def get_or_404(self, quotation_id: uuid.UUID) -> Quotation:
         """Load quotation or raise 404."""
@@ -143,40 +176,6 @@ class QuotationRepository(BaseRepository[Quotation]):
     # ------------------------------------------------------------------
     # Line items
     # ------------------------------------------------------------------
-
-    async def get_line_items(
-        self, quotation_id: uuid.UUID
-    ) -> Sequence[QuotationLineItem]:
-        result = await self._execute(
-            select(QuotationLineItem)
-            .where(QuotationLineItem.quotation_id == quotation_id)
-            .order_by(QuotationLineItem.sort_order, QuotationLineItem.created_at)
-        )
-        return result.scalars().all()
-
-    async def get_line_item_or_404(
-        self, quotation_id: uuid.UUID, item_id: uuid.UUID
-    ) -> QuotationLineItem:
-        item = await self._session.get(QuotationLineItem, item_id)
-        if not item or item.quotation_id != quotation_id:
-            raise HTTPException(status_code=404, detail="Line item not found")
-        return item
-
-    async def add_line_item(self, data: dict) -> QuotationLineItem:
-        item = QuotationLineItem(**data)
-        self._session.add(item)
-        await self._session.flush()
-        await self._session.refresh(item)
-        return item
-
-    async def save_line_item(self, item: QuotationLineItem) -> QuotationLineItem:
-        self._session.add(item)
-        await self._session.flush()
-        await self._session.refresh(item)
-        return item
-
-    async def delete_line_item(self, item: QuotationLineItem) -> None:
-        await self._session.delete(item)
 
     # ------------------------------------------------------------------
     # Stage transitions
@@ -330,8 +329,8 @@ class QuotationRepository(BaseRepository[Quotation]):
         negotiating = sum(1 for r in rows if r.status == "negotiating")
         in_progress = total - closed_won - closed_lost
         total_won_value = sum(
-            r.total_sale_price for r in rows
-            if r.outcome == "won" and r.total_sale_price is not None
+            r.total_contract_value for r in rows
+            if r.outcome == "won" and r.total_contract_value is not None
         ) or None
         closed_total = closed_won + closed_lost
         win_rate = (closed_won / closed_total) if closed_total > 0 else None
@@ -379,8 +378,8 @@ class QuotationRepository(BaseRepository[Quotation]):
             in_prog = len(qs) - won - lost
             closed = won + lost
             won_value = sum(
-                q.total_sale_price for q in qs
-                if q.outcome == "won" and q.total_sale_price is not None
+                q.total_contract_value for q in qs
+                if q.outcome == "won" and q.total_contract_value is not None
             ) or None
             out.append({
                 "client_company_name": client,

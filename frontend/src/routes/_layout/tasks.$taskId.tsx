@@ -1,6 +1,14 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { createFileRoute, Link } from "@tanstack/react-router"
 import { useEffect, useMemo, useRef, useState } from "react"
+import { toIsoFromLocalDateTime, toLocalDateTimeInputValue } from "@/utils/dateTime"
+import {
+  auditActionIcon,
+  auditActionLabel,
+  formatAuditChange,
+  type AuditLogWithActor,
+} from "@/utils/auditLog"
+import { useTaskWebSocket } from "@/hooks/useTaskWebSocket"
 
 import {
   ProjectsService,
@@ -29,7 +37,6 @@ import {
 import useAuth from "@/hooks/useAuth"
 import useCustomToast from "@/hooks/useCustomToast"
 import { useMyPermissions } from "@/hooks/useMyPermissions"
-import { getAccessToken } from "@/modules/auth/tokenStore"
 import { addDependency, fetchProjectGantt, removeDependency } from "@/modules/gantt/ganttApi"
 import {
   addTaskExtraAssignee,
@@ -45,7 +52,6 @@ import {
 } from "@/modules/tasks/taskApi"
 import { listItems } from "@/modules/inventory/inventoryApi"
 import { uploadTaskProgressPhoto } from "@/modules/tasks/taskProgressApi"
-import { buildTaskWsUrl } from "@/modules/tasks/taskWs"
 import { handleError } from "@/utils"
 import { resolveBackendMediaUrl } from "@/utils/mediaUrl"
 
@@ -64,237 +70,12 @@ function parseProgressPercent(raw: string): number | null {
   return n
 }
 
-/**
- * Convert datetime-local input value to ISO string.
- */
-function toIsoFromLocalDateTime(raw: string): string | null {
-  if (!raw.trim()) {
-    return null
-  }
-  const normalized = raw.trim()
-  const withSeconds =
-    normalized.length === 16 ? `${normalized}:00` : normalized
-  const parsed = new Date(withSeconds)
-  if (Number.isNaN(parsed.getTime())) {
-    return null
-  }
-  return withSeconds
-}
-
-/**
- * Convert ISO datetime string to datetime-local input format.
- */
-function toLocalDateTimeInputValue(raw: string | undefined): string {
-  if (!raw) {
-    return ""
-  }
-  const parsed = new Date(raw)
-  if (Number.isNaN(parsed.getTime())) {
-    return ""
-  }
-  const pad = (value: number) => String(value).padStart(2, "0")
-  const yyyy = parsed.getFullYear()
-  const mm = pad(parsed.getMonth() + 1)
-  const dd = pad(parsed.getDate())
-  const hh = pad(parsed.getHours())
-  const min = pad(parsed.getMinutes())
-  return `${yyyy}-${mm}-${dd}T${hh}:${min}`
-}
-
-type AuditLogPublicWithActorName = AuditLogPublic & {
-  actor_name?: string | null
-}
-
-/**
- * Returns an emoji icon for the given audit action.
- */
-function auditActionIcon(action: string, newValue?: unknown): string {
-  switch (action) {
-    case "task.created":
-      return "➕"
-    case "task.updated":
-      return "✏️"
-    case "task.status_changed":
-      return "🔄"
-    case "task.deleted":
-      return "🗑️"
-    case "task.proof_uploaded":
-      return "📷"
-    case "task.proof_reviewed": {
-      if (newValue === "approved") return "✅"
-      if (newValue === "rejected") return "❌"
-      return "📷"
-    }
-    case "task.delay_request_approved":
-      return "⏳"
-    case "task.delay_request_reviewed": {
-      if (isPlainObject(newValue)) {
-        const ap = newValue.approval_status
-        if (ap === "APPROVED") return "✅"
-        if (ap === "REJECTED") return "❌"
-      }
-      return "⏳"
-    }
-    case "task.deadline_cascaded_to_parent":
-      return "↔️"
-    default:
-      return "📝"
-  }
-}
-
-/**
- * Returns a Vietnamese action label for the given audit action.
- */
-function auditActionLabel(action: string, newValue?: unknown): string {
-  switch (action) {
-    case "task.created":
-      return "đã tạo công việc"
-    case "task.updated":
-      return "đã cập nhật thông tin"
-    case "task.status_changed":
-      return "đã đổi trạng thái"
-    case "task.deleted":
-      return "đã xoá công việc"
-    case "task.proof_uploaded":
-      return "đã nộp bằng chứng"
-    case "task.proof_reviewed":
-      if (newValue === "approved") return "bằng chứng đã được duyệt"
-      if (newValue === "rejected") return "bằng chứng bị từ chối"
-      return "đã xem xét bằng chứng"
-    case "task.delay_request_approved":
-      return "đã phê duyệt gia hạn"
-    case "task.delay_request_reviewed":
-      if (isPlainObject(newValue)) {
-        const ap = newValue.approval_status
-        if (ap === "APPROVED") return "đã duyệt gia hạn"
-        if (ap === "REJECTED") return "đã từ chối gia hạn"
-      }
-      return "đã xem xét yêu cầu gia hạn"
-    case "task.deadline_cascaded_to_parent":
-      return "đã cập nhật deadline lên công việc cha"
-    default:
-      return action
-  }
-}
-
-/**
- * Returns true if the value is a plain object (not null/array).
- */
-function isPlainObject(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value)
-}
-
-/**
- * Formats an audit old/new value into a short, readable string.
- */
-function formatAuditValue(value: unknown): string | null {
-  if (value === null || value === undefined) {
-    return null
-  }
-
-  if (typeof value === "string") {
-    switch (value) {
-      case "todo":
-        return "Chờ xử lý"
-      case "in_progress":
-        return "Đang làm"
-      case "done":
-        return "Hoàn thành"
-      case "approved":
-        return "Đã duyệt"
-      case "rejected":
-        return "Bị từ chối"
-      case "pending":
-      case "PENDING":
-        return "Chờ duyệt"
-      case "APPROVED":
-        return "Đã duyệt"
-      case "REJECTED":
-        return "Bị từ chối"
-      default:
-        return value
-    }
-  }
-
-  if (typeof value === "number" || typeof value === "boolean") {
-    return String(value)
-  }
-
-  if (isPlainObject(value)) {
-    const status = value.status
-    if (typeof status === "string") {
-      return formatAuditValue(status)
-    }
-
-    const approvalStatus = value.approval_status
-    if (typeof approvalStatus === "string") {
-      return formatAuditValue(approvalStatus)
-    }
-
-    const endTime = value.end_time
-    if (typeof endTime === "string") {
-      const dt = new Date(endTime)
-      if (Number.isNaN(dt.getTime())) {
-        return endTime
-      }
-      return dt.toLocaleString("vi-VN")
-    }
-  }
-
-  try {
-    return JSON.stringify(value)
-  } catch {
-    return String(value)
-  }
-}
-
-/**
- * Returns a formatted `old -> new` description for an audit entry.
- */
-function formatAuditChange(entry: AuditLogPublicWithActorName): string | null {
-  if (entry.old_value === null || entry.old_value === undefined) {
-    return null
-  }
-  if (entry.new_value === null || entry.new_value === undefined) {
-    return null
-  }
-
-  if (
-    entry.action === "task.updated" &&
-    isPlainObject(entry.old_value) &&
-    isPlainObject(entry.new_value)
-  ) {
-    const oldObj = entry.old_value
-    const newObj = entry.new_value
-
-    const changedKeys = Object.keys(newObj).filter(
-      (key) => JSON.stringify(oldObj[key]) !== JSON.stringify(newObj[key]),
-    )
-
-    if (changedKeys.length === 0) {
-      return null
-    }
-
-    const preview = changedKeys.slice(0, 3).join(", ")
-    const more = changedKeys.length > 3 ? "..." : ""
-    return `Các trường thay đổi: ${preview}${more}`
-  }
-
-  const oldStr = formatAuditValue(entry.old_value)
-  const newStr = formatAuditValue(entry.new_value)
-  if (!oldStr || !newStr) {
-    return null
-  }
-  return `${oldStr} → ${newStr}`
-}
+// Date helpers, audit formatters, and isPlainObject are imported from shared utils above.
 
 function TaskDetailPage() {
   const { taskId } = Route.useParams()
   const queryClient = useQueryClient()
   const { showErrorToast, showSuccessToast } = useCustomToast()
-  const showSuccessToastRef = useRef(showSuccessToast)
-  const showErrorToastRef = useRef(showErrorToast)
-
   const [commentDraft, setCommentDraft] = useState("")
   const [proofNote, setProofNote] = useState("")
   const [proofUrl, setProofUrl] = useState("")
@@ -311,8 +92,6 @@ function TaskDetailPage() {
   const [progressReportPhotoFailed, setProgressReportPhotoFailed] = useState<
     Record<string, boolean>
   >({})
-
-  const [wsConnected, setWsConnected] = useState(false)
 
   // Delay request state
   const [delayDialogOpen, setDelayDialogOpen] = useState(false)
@@ -344,11 +123,6 @@ function TaskDetailPage() {
   const [observerUserId, setObserverUserId] = useState("")
   const [reassignDialogOpen, setReassignDialogOpen] = useState(false)
   const [reassignUserId, setReassignUserId] = useState("")
-
-  useEffect(() => {
-    showSuccessToastRef.current = showSuccessToast
-    showErrorToastRef.current = showErrorToast
-  }, [showErrorToast, showSuccessToast])
 
   useEffect(() => {
     setProgressReportPhotoFailed({})
@@ -948,6 +722,13 @@ function TaskDetailPage() {
     )
   const canManageExtraAssignees = canEditTask
   const isAssignee = task?.assignee_id === currentUser?.id
+
+  const wsConnected = useTaskWebSocket(taskId, {
+    queryClient,
+    currentUserId: currentUser?.id,
+    showSuccessToast,
+    showErrorToast,
+  })
   const canCreatePurchaseRequestFromTask =
     task?.module_tag === "procurement" || task?.module_tag === "supply"
   const extraAssignees = useMemo<TaskExtraAssigneePublic[]>(
@@ -1074,174 +855,6 @@ function TaskDetailPage() {
     subtaskRows.reduce((acc, s) => acc + ((s.progress_weight ?? 0) * (s.reported_progress_total ?? 0)) / 100, 0)
   )
   const totalProgress = task?.reported_progress_total ?? 0
-
-  useEffect(() => {
-    const token = getAccessToken()
-    if (!token || !taskId) return
-
-    let ws: WebSocket | null = null
-    try {
-      ws = new WebSocket(buildTaskWsUrl(taskId))
-    } catch {
-      return
-    }
-    ws.onopen = () => setWsConnected(true)
-    ws.onclose = () => setWsConnected(false)
-    ws.onerror = () => setWsConnected(false)
-    ws.onmessage = (eventValue) => {
-      try {
-        const msg = JSON.parse(eventValue.data as string) as {
-          event?: string
-          data?: Record<string, string | undefined>
-        }
-        const d = msg.data ?? {}
-        const actorId = d.actor_id
-        const isOwnEvent = Boolean(actorId && actorId === currentUser?.id)
-        switch (msg.event) {
-          case "task.delay_requested":
-            void queryClient.invalidateQueries({
-              queryKey: ["task-detail", "comments", taskId],
-            })
-            if (!isOwnEvent) {
-              showSuccessToastRef.current(
-                `${d.author_name ?? "Người thực hiện"} vừa xin gia hạn deadline`,
-              )
-            }
-            break
-          case "task.delay_approved":
-            void queryClient.invalidateQueries({
-              queryKey: ["task-detail", "task", taskId],
-            })
-            void queryClient.invalidateQueries({
-              queryKey: ["task-detail", "audit", taskId],
-            })
-            void queryClient.invalidateQueries({
-              queryKey: ["task-detail", "comments", taskId],
-            })
-            if (!isOwnEvent) {
-              showSuccessToastRef.current(
-                `Deadline đã được duyệt → ${d.new_end_time ?? ""}`,
-              )
-            }
-            break
-          case "task.delay_rejected":
-            void queryClient.invalidateQueries({
-              queryKey: ["task-detail", "comments", taskId],
-            })
-            void queryClient.invalidateQueries({
-              queryKey: ["task-detail", "audit", taskId],
-            })
-            if (!isOwnEvent) {
-              showErrorToastRef.current("Yêu cầu gia hạn bị từ chối")
-            }
-            break
-          case "task.proof_uploaded":
-            void queryClient.invalidateQueries({
-              queryKey: ["task-detail", "proofs", taskId],
-            })
-            void queryClient.invalidateQueries({
-              queryKey: ["task-detail", "audit", taskId],
-            })
-            if (!isOwnEvent) {
-              showSuccessToastRef.current(
-                `${d.uploader_name ?? "Người thực hiện"} vừa nộp bằng chứng`,
-              )
-            }
-            break
-          case "task.proof_approved":
-            void queryClient.invalidateQueries({
-              queryKey: ["task-detail", "proofs", taskId],
-            })
-            void queryClient.invalidateQueries({
-              queryKey: ["task-detail", "audit", taskId],
-            })
-            if (!isOwnEvent) {
-              showSuccessToastRef.current("Bằng chứng đã được duyệt")
-            }
-            break
-          case "task.proof_rejected":
-            void queryClient.invalidateQueries({
-              queryKey: ["task-detail", "proofs", taskId],
-            })
-            void queryClient.invalidateQueries({
-              queryKey: ["task-detail", "audit", taskId],
-            })
-            if (!isOwnEvent) {
-              showErrorToastRef.current(`Bằng chứng bị từ chối: ${d.note ?? ""}`)
-            }
-            break
-          case "task.status_changed":
-            void queryClient.invalidateQueries({
-              queryKey: ["task-detail", "task", taskId],
-            })
-            void queryClient.invalidateQueries({
-              queryKey: ["task-detail", "audit", taskId],
-            })
-            if (!isOwnEvent) {
-              showSuccessToastRef.current(`Trạng thái → ${d.new_status ?? ""}`)
-            }
-            break
-          case "task.updated":
-            void queryClient.invalidateQueries({
-              queryKey: ["task-detail", "task", taskId],
-            })
-            void queryClient.invalidateQueries({
-              queryKey: ["task-detail", "project-tasks"],
-            })
-            void queryClient.invalidateQueries({
-              queryKey: ["task-detail", "audit", taskId],
-            })
-            if (!isOwnEvent) {
-              showSuccessToastRef.current(
-                d.message ??
-                  `${d.actor_name ?? "Nhân viên"} đã cập nhật thông tin công việc "${d.task_name ?? ""}".`,
-              )
-            }
-            break
-          case "task.progress_reported":
-            void queryClient.invalidateQueries({
-              queryKey: ["task-detail", "progress-reports", taskId],
-            })
-            void queryClient.invalidateQueries({
-              queryKey: ["task-detail", "task", taskId],
-            })
-            void queryClient.invalidateQueries({
-              queryKey: ["task-detail", "audit", taskId],
-            })
-            if (!isOwnEvent) {
-              showSuccessToastRef.current(
-                d.message ??
-                  `${d.actor_name ?? "Nhân viên"} đã cập nhật "báo cáo tiến độ" cho công việc "${d.task_name ?? ""}".`,
-              )
-            }
-            break
-          case "task.discussion_added":
-            void queryClient.invalidateQueries({
-              queryKey: ["task-detail", "comments", taskId],
-            })
-            void queryClient.invalidateQueries({
-              queryKey: ["task-detail", "audit", taskId],
-            })
-            if (!isOwnEvent) {
-              showSuccessToastRef.current(
-                d.message ??
-                  `${d.actor_name ?? "Nhân viên"} đã cập nhật "thảo luận" cho công việc "${d.task_name ?? ""}".`,
-              )
-            }
-            break
-          default:
-            break
-        }
-      } catch {
-        // ignore malformed frames
-      }
-    }
-
-    return () => {
-      setWsConnected(false)
-      ws?.close()
-    }
-  }, [taskId, queryClient, currentUser?.id])
 
   return (
     <div className="mx-auto w-full max-w-3xl space-y-6 px-2 pb-24 pt-3 sm:px-4">
@@ -2401,7 +2014,7 @@ function TaskDetailPage() {
                       new Date(a.created_at).getTime(),
                   )
                   .map((entry) => {
-                    const typedEntry = entry as AuditLogPublicWithActorName
+                    const typedEntry = entry as AuditLogWithActor
                     const actor = typedEntry.actor_name ?? typedEntry.actor_id
                     const time = new Date(typedEntry.created_at).toLocaleString(
                       "vi-VN",

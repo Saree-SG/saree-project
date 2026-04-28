@@ -4,22 +4,22 @@ import {
   AlignLeft,
   ArrowLeft,
   Bold,
-  ChevronRight,
   Heading2,
   Italic,
   List,
   ListOrdered,
   Loader2,
+  Eye,
+  EyeOff,
   Paperclip,
-  Pencil,
   Strikethrough,
   Underline,
 } from "lucide-react"
 import { useEffect, useMemo, useRef, useState } from "react"
 
-import { LineItemTable } from "@/components/Quotation/LineItemTable"
+import { StageTransitionTimeline, type ActionConfig, type TransitionAttachment, type TransitionEntry } from "@/components/Common/StageTransitionTimeline"
 import { QuotationActionsPanel, type QuotationActionId } from "@/components/Quotation/QuotationActionsPanel"
-import { StageStepper } from "@/components/Quotation/StageStepper"
+import { QUOTATION_CREATE_STEP, StageStepper } from "@/components/Quotation/StageStepper"
 import { Button } from "@/components/ui/button"
 import { FileTypeIcon } from "@/components/ui/FileTypeIcon"
 import {
@@ -33,49 +33,268 @@ import {
 import { Input } from "@/components/ui/input"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import useCustomToast from "@/hooks/useCustomToast"
-import { useMyPermissions } from "@/hooks/useMyPermissions"
 import { clearSession } from "@/modules/auth/tokenStore"
+import { listContracts } from "@/modules/contract/contractApi"
 import {
   addNegotiationLog,
   approveDesign,
   approveFinal,
+  approveNegotiation,
   approveSurvey,
   closeQuotation,
   finalizeQuotation,
   getQuotation,
   listAttachments,
   listHistory,
-  listLineItems,
   listNegotiations,
-  markNegotiating,
-  requestRevision,
   sendToClient,
   submitDesign,
+  submitNegotiation,
   submitPricing,
   submitSurvey,
   uploadQuotationAttachmentFile,
 } from "@/modules/quotation/quotationApi"
 import {
   CONTACT_METHOD_LABELS,
+  getStageFilterLabel,
   LOST_REASON_LABELS,
   STAGE_CONFIG,
   STATUS_CONFIG,
 } from "@/modules/quotation/stageConfig"
-import type { QuotationStage } from "@/modules/quotation/quotationTypes"
+import type { QuotationAttachmentPublic, QuotationStage, QuotationStageTransitionPublic } from "@/modules/quotation/quotationTypes"
 import { hasPermission } from "@/utils/accountAccess"
 import { resolveBackendMediaUrl } from "@/utils/mediaUrl"
 import { listCompanyRoles, type CompanyRole } from "@/modules/rbac/rbacApi"
 
-type QuotationTab = "overview" | "items" | "negotiations" | "attachments" | "history"
+type QuotationTab = "overview" | "negotiations" | "attachments" | "history"
+type QuotationHistoryStepFilter = QuotationStage | typeof QUOTATION_CREATE_STEP
 
 interface WorkflowPayload {
+  clientContactName?: string
+  clientContactPhone?: string
+  clientContactTitle?: string
+  clientAddress?: string
+  surveyStartDate?: string
+  surveyEndDate?: string
   note?: string
-  priceCoefficient?: number
+  totalContractValue?: number
   validUntil?: string
   clientResponseDeadline?: string
   lostReasonCategory?: "price" | "design" | "marketing" | "other"
   lostReasonDetail?: string
   extraRoleIds?: string[]
+}
+
+/**
+ * Normalize history action from API (including legacy/generic values)
+ * into timeline action keys used by QUOTATION_ACTION_CONFIG.
+ */
+function normalizeHistoryAction(input: {
+  action: string
+  from_stage: string | null
+  to_stage: string
+}): string {
+  const action = input.action
+  if (QUOTATION_ACTION_CONFIG[action]) {
+    return action
+  }
+  const aliasMap: Record<string, string> = {
+    "quotation.design_submitted": "submit_design",
+    "quotation.pricing_submitted": "submit_pricing",
+    "quotation.finalized": "finalize",
+    "quotation.sent_to_client": "send_to_client",
+    "quotation.negotiation_submitted": "submit_negotiation",
+  }
+  if (aliasMap[action]) {
+    return aliasMap[action]
+  }
+  if (action === "approve") {
+    if (input.from_stage === "S2_DIRECTOR_APPROVE_SURVEY") return "approve_survey"
+    if (input.from_stage === "S4_DIRECTOR_APPROVE_DESIGN") return "approve_design"
+    if (input.from_stage === "S7_DIRECTOR_APPROVE_QUOTE") return "approve_final"
+    if (input.from_stage === "S8B_NEGOTIATION_REVIEW") return "approve_negotiation"
+  }
+  if (action === "reject") {
+    if (input.from_stage === "S2_DIRECTOR_APPROVE_SURVEY") return "reject_survey"
+    if (input.from_stage === "S4_DIRECTOR_APPROVE_DESIGN") return "reject_design"
+    if (input.from_stage === "S7_DIRECTOR_APPROVE_QUOTE") return "reject_final"
+    if (input.from_stage === "S8B_NEGOTIATION_REVIEW") return "reject_negotiation"
+  }
+  return action
+}
+
+/**
+ * Resolve review-request grouping for quotation history.
+ */
+function resolveQuotationHistoryGroup(input: {
+  action: string
+  from_stage: string | null
+  to_stage: string
+  negotiationRound?: number
+}): { groupKey: string; groupSubject?: string } {
+  const action = normalizeHistoryAction(input)
+  if (action === "submit_survey" || action === "approve_survey" || action === "reject_survey") {
+    return { groupKey: "review_survey", groupSubject: "Khảo sát trình Giám đốc duyệt" }
+  }
+  if (action === "submit_design" || action === "approve_design" || action === "reject_design") {
+    return { groupKey: "review_design", groupSubject: "Thiết kế kỹ thuật trình Giám đốc duyệt" }
+  }
+  if (action === "finalize" || action === "approve_final" || action === "reject_final") {
+    const round = input.negotiationRound ?? 0
+    if (round > 0) {
+      return {
+        groupKey: `review_final_quote_round_${round + 1}`,
+        groupSubject: `Chào giá điều chỉnh lần ${round} trình Giám đốc duyệt`,
+      }
+    }
+    return { groupKey: "review_final_quote", groupSubject: "Chào giá hoàn thiện trình Giám đốc duyệt" }
+  }
+  if (action === "submit_negotiation" || action === "approve_negotiation" || action === "reject_negotiation") {
+    return { groupKey: "review_negotiation", groupSubject: "Thương lượng giá trình Giám đốc duyệt" }
+  }
+  if (action === "submit_pricing") {
+    return { groupKey: "pricing", groupSubject: "Vật tư báo đơn giá" }
+  }
+  if (action === "send_to_client") {
+    return { groupKey: "send_to_client", groupSubject: "Gửi báo giá cho khách hàng" }
+  }
+  if (action === "close_won" || action === "close_lost") {
+    return { groupKey: "closing", groupSubject: "Kết quả báo giá" }
+  }
+  return {
+    groupKey: action,
+    groupSubject: QUOTATION_ACTION_CONFIG[action]?.subject,
+  }
+}
+
+function resolveQuotationAttachmentGroupKey(stageUploaded: string): string {
+  if (stageUploaded === "S1_SALES_COLLECT" || stageUploaded === "S2_DIRECTOR_APPROVE_SURVEY") {
+    return "review_survey"
+  }
+  if (stageUploaded === "S3_TECH_DESIGN" || stageUploaded === "S4_DIRECTOR_APPROVE_DESIGN") {
+    return "review_design"
+  }
+  if (stageUploaded === "S5_PROCUREMENT_PRICING") {
+    return "pricing"
+  }
+  if (stageUploaded === "S6_SALES_FINALIZE" || stageUploaded === "S7_DIRECTOR_APPROVE_QUOTE") {
+    return "review_final_quote"
+  }
+  if (stageUploaded === "S8B_NEGOTIATION_REVIEW") {
+    return "review_negotiation"
+  }
+  if (stageUploaded === "S8_SENT_TO_CLIENT") {
+    return "send_to_client"
+  }
+  return stageUploaded
+}
+
+function resolveAttachmentLibraryGroup(stageUploaded: string): {
+  key: "survey" | "design" | "pricing" | "final_quote" | "other"
+  label: string
+} {
+  if (stageUploaded === "S1_SALES_COLLECT" || stageUploaded === "S2_DIRECTOR_APPROVE_SURVEY") {
+    return { key: "survey", label: "File khảo sát" }
+  }
+  if (stageUploaded === "S3_TECH_DESIGN" || stageUploaded === "S4_DIRECTOR_APPROVE_DESIGN") {
+    return { key: "design", label: "File thiết kế" }
+  }
+  if (stageUploaded === "S5_PROCUREMENT_PRICING") {
+    return { key: "pricing", label: "File định giá" }
+  }
+  if (stageUploaded === "S6_SALES_FINALIZE" || stageUploaded === "S7_DIRECTOR_APPROVE_QUOTE") {
+    return { key: "final_quote", label: "File hồ sơ chào giá" }
+  }
+  return { key: "other", label: "File khác" }
+}
+
+function buildQuotationTimelineEntries(
+  entries: QuotationStageTransitionPublic[],
+): TransitionEntry[] {
+  const chronological = [...entries].sort(
+    (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
+  )
+  let negotiationRound = 0
+
+  return chronological.map((entry) => {
+    const group = resolveQuotationHistoryGroup({
+      action: entry.action,
+      from_stage: entry.from_stage,
+      to_stage: entry.to_stage,
+      negotiationRound,
+    })
+    const normalizedAction = normalizeHistoryAction({
+      action: entry.action,
+      from_stage: entry.from_stage,
+      to_stage: entry.to_stage,
+    })
+
+    if (
+      normalizedAction === "approve_negotiation" ||
+      normalizedAction === "reject_negotiation"
+    ) {
+      negotiationRound += 1
+    }
+
+    const sameStage = Boolean(entry.from_stage) && entry.from_stage === entry.to_stage
+    return {
+      ...group,
+      id: entry.id,
+      from_key: sameStage ? undefined : entry.from_stage,
+      to_key: entry.to_stage,
+      from_label: sameStage ? undefined : (entry.from_stage_label ?? entry.from_stage ?? undefined),
+      to_label: entry.to_stage_label ?? entry.to_stage,
+      attachmentKey: group.groupKey,
+      action: normalizedAction,
+      actor_name: entry.actor_name,
+      created_at: entry.created_at,
+      note: entry.note,
+    }
+  }).reverse()
+}
+
+function buildQuotationTimelineAttachments(
+  attachments: QuotationAttachmentPublic[],
+  entries: QuotationStageTransitionPublic[],
+): TransitionAttachment[] {
+  const negotiationDecisionTimes = [...entries]
+    .filter((entry) => {
+      const action = normalizeHistoryAction({
+        action: entry.action,
+        from_stage: entry.from_stage,
+        to_stage: entry.to_stage,
+      })
+      return action === "approve_negotiation" || action === "reject_negotiation"
+    })
+    .map((entry) => new Date(entry.created_at).getTime())
+    .sort((a, b) => a - b)
+
+  return attachments.map((attachment): TransitionAttachment => {
+    if (
+      attachment.stage_uploaded === "S6_SALES_FINALIZE" ||
+      attachment.stage_uploaded === "S7_DIRECTOR_APPROVE_QUOTE"
+    ) {
+      const uploadedAt = new Date(attachment.uploaded_at).getTime()
+      const round = negotiationDecisionTimes.filter((time) => time < uploadedAt).length
+      return {
+        id: attachment.id,
+        stage_key: round > 0 ? `review_final_quote_round_${round + 1}` : "review_final_quote",
+        file_name: attachment.file_name,
+        file_url: attachment.file_url,
+        file_type: attachment.file_type,
+        uploaded_at: attachment.uploaded_at,
+      }
+    }
+
+    return {
+      id: attachment.id,
+      stage_key: resolveQuotationAttachmentGroupKey(attachment.stage_uploaded),
+      file_name: attachment.file_name,
+      file_url: attachment.file_url,
+      file_type: attachment.file_type,
+      uploaded_at: attachment.uploaded_at,
+    }
+  })
 }
 
 /**
@@ -214,29 +433,29 @@ function buildWorkflowNote(
 }
 
 /**
- * Resolve workflow action label for history entries.
+ * Describes what happened at each step of the quotation workflow.
+ * subject = tên tài liệu/đối tượng, status = kết quả rõ ràng cho khách đọc.
  */
-function getWorkflowActionLabel(action: string): string {
-  if (action === "submit") {
-    return "Nộp"
-  }
-  if (action === "approve") {
-    return "Duyệt"
-  }
-  if (action === "reject") {
-    return "Yêu cầu nộp lại"
-  }
-  if (action === "reopen") {
-    return "Mở lại"
-  }
-  if (action === "negotiate") {
-    return "Thương lượng"
-  }
-  if (action === "revise") {
-    return "Yêu cầu điều chỉnh giá"
-  }
-  return action
+const QUOTATION_ACTION_CONFIG: Record<string, ActionConfig> = {
+  create:              { subject: "Hồ sơ báo giá",         status: "Đã tạo",                statusType: "created",  groupKey: "created" },
+  submit_survey:       { subject: "Thông tin khảo sát",    status: "Đã nộp – chờ phê duyệt", statusType: "pending",  groupKey: "survey" },
+  approve_survey:      { subject: "Thông tin khảo sát",    status: "Đã được phê duyệt",      statusType: "approved", groupKey: "survey" },
+  reject_survey:       { subject: "Thông tin khảo sát",    status: "Cần bổ sung thêm",        statusType: "rejected", groupKey: "survey" },
+  submit_design:       { subject: "Hồ sơ thiết kế",        status: "Đã nộp – chờ phê duyệt", statusType: "pending",  groupKey: "design" },
+  approve_design:      { subject: "Hồ sơ thiết kế",        status: "Đã được phê duyệt",      statusType: "approved", groupKey: "design" },
+  reject_design:       { subject: "Hồ sơ thiết kế",        status: "Cần chỉnh sửa",           statusType: "rejected", groupKey: "design" },
+  submit_pricing:      { subject: "Bảng định giá nội bộ",  status: "Đã nộp – chờ hoàn thiện hồ sơ chào giá", statusType: "pending",  groupKey: "pricing" },
+  finalize:            { subject: "Hồ sơ chào giá",        status: "Nộp hồ sơ chào giá",           statusType: "pending",  groupKey: "final_quote" },
+  approve_final:       { subject: "Hồ sơ chào giá",        status: "Đã được phê duyệt",      statusType: "approved", groupKey: "final_quote" },
+  reject_final:        { subject: "Hồ sơ chào giá",        status: "Cần điều chỉnh lại",      statusType: "rejected", groupKey: "final_quote" },
+  send_to_client:      { subject: "Gửi báo giá",            status: "Đã ghi nhận gửi khách",  statusType: "sent",     groupKey: "client_send" },
+  submit_negotiation:  { subject: "Đề xuất điều chỉnh giá", status: "Đang chờ BGĐ phê duyệt", statusType: "pending",  groupKey: "negotiation" },
+  approve_negotiation: { subject: "Đề xuất điều chỉnh giá", status: "Được chấp thuận",         statusType: "approved", groupKey: "negotiation" },
+  reject_negotiation:  { subject: "Đề xuất điều chỉnh giá", status: "Chưa đồng ý",             statusType: "rejected", groupKey: "negotiation" },
+  close_won:           { subject: "Kết quả đàm phán",      status: "Thắng hợp đồng 🎉",       statusType: "won",      groupKey: "closing" },
+  close_lost:          { subject: "Kết quả đàm phán",      status: "Không thành công",        statusType: "lost",     groupKey: "closing" },
 }
+
 
 /**
  * Resolve card title for the latest reject request by current stage.
@@ -259,14 +478,13 @@ export const Route = createFileRoute("/_layout/quotations/$quotationId")({
     const tabRaw = search.tab
     const allowedTabs: QuotationTab[] = [
       "overview",
-      "items",
       "negotiations",
       "attachments",
       "history",
     ]
     const tab = typeof tabRaw === "string" && allowedTabs.includes(tabRaw as QuotationTab)
       ? (tabRaw as QuotationTab)
-      : "overview"
+      : "history"
     return { tab }
   },
   beforeLoad: async () => {
@@ -289,6 +507,7 @@ export const Route = createFileRoute("/_layout/quotations/$quotationId")({
     if (!allowed) {
       throw redirect({ to: "/quotations" })
     }
+    return { permissions }
   },
   component: QuotationDetailPage,
   head: () => ({ meta: [{ title: "Chi tiết hồ sơ báo giá" }] }),
@@ -310,25 +529,37 @@ function Field({ label, value }: { label: string; value: string | null | undefin
 function QuotationDetailPage() {
   const { quotationId } = Route.useParams()
   const search = Route.useSearch()
+  const { permissions } = Route.useRouteContext()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const { showErrorToast, showSuccessToast } = useCustomToast()
-  const permissionsQuery = useMyPermissions()
-  const permissions = permissionsQuery.data ?? []
 
   const [dialogOpen, setDialogOpen] = useState(false)
   const [selectedAction, setSelectedAction] = useState<QuotationActionId | null>(null)
   const [noteTitle, setNoteTitle] = useState("")
   const [noteBodyHtml, setNoteBodyHtml] = useState("")
   const [uploadingAttachment, setUploadingAttachment] = useState(false)
-  const [priceCoefficient, setPriceCoefficient] = useState("")
+  const [dialogUploadedAttachments, setDialogUploadedAttachments] = useState<{
+    id: string
+    file_url: string
+    file_name: string
+    file_type: string
+  }[]>([])
+  const [totalContractValueInput, setTotalContractValueInput] = useState("")
   const [validUntil, setValidUntil] = useState("")
   const [clientResponseDeadline, setClientResponseDeadline] = useState("")
+  const [surveyContactName, setSurveyContactName] = useState("")
+  const [surveyContactPhone, setSurveyContactPhone] = useState("")
+  const [surveyContactTitle, setSurveyContactTitle] = useState("")
+  const [surveyLocation, setSurveyLocation] = useState("")
+  const [surveyStartDate, setSurveyStartDate] = useState("")
+  const [surveyEndDate, setSurveyEndDate] = useState("")
   const [lostReasonCategory, setLostReasonCategory] = useState<"price" | "design" | "marketing" | "other">("price")
   const [lostReasonDetail, setLostReasonDetail] = useState("")
   const [extraRoleIds, setExtraRoleIds] = useState<string[]>([])
   const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null)
   const [imagePreviewName, setImagePreviewName] = useState("")
+  const [priceVisible, setPriceVisible] = useState(false)
   // Add negotiation log state (Negotiations tab, S8)
   const [addLogOpen, setAddLogOpen] = useState(false)
   const [logDate, setLogDate] = useState(() => new Date().toISOString().slice(0, 10))
@@ -342,17 +573,11 @@ function QuotationDetailPage() {
   const attachTabFileRef = useRef<HTMLInputElement | null>(null)
   const historyTabRef = useRef<HTMLDivElement | null>(null)
   const [selectedHistoryStage, setSelectedHistoryStage] =
-    useState<QuotationStage | null>(null)
+    useState<QuotationHistoryStepFilter | null>(null)
 
   const quotationQuery = useQuery({
     queryKey: ["quotation", quotationId],
     queryFn: () => getQuotation(quotationId),
-  })
-
-  const itemsQuery = useQuery({
-    queryKey: ["quotation", quotationId, "items"],
-    queryFn: () => listLineItems(quotationId),
-    enabled: search.tab === "items" || !!quotationQuery.data,
   })
 
   const negotiationsQuery = useQuery({
@@ -384,6 +609,13 @@ function QuotationDetailPage() {
       const { actionId, payload } = args
       if (actionId === "submit_survey") {
         return submitSurvey(quotationId, {
+          client_contact_name: payload.clientContactName || undefined,
+          client_contact_phone: payload.clientContactPhone || undefined,
+          client_contact_title: payload.clientContactTitle || undefined,
+          client_address: payload.clientAddress || undefined,
+          site_survey_date: payload.surveyStartDate || undefined,
+          survey_start_date: payload.surveyStartDate || undefined,
+          survey_end_date: payload.surveyEndDate || undefined,
           note: payload.note || undefined,
         })
       }
@@ -418,12 +650,12 @@ function QuotationDetailPage() {
       }
       if (actionId === "submit_pricing") {
         return submitPricing(quotationId, {
+          total_contract_value: payload.totalContractValue!,
           note: payload.note || undefined,
         })
       }
       if (actionId === "finalize") {
         return finalizeQuotation(quotationId, {
-          price_coefficient: payload.priceCoefficient ?? undefined,
           note: payload.note || undefined,
         })
       }
@@ -446,12 +678,15 @@ function QuotationDetailPage() {
           client_response_deadline: payload.clientResponseDeadline || undefined,
         })
       }
-      if (actionId === "negotiate") {
-        return markNegotiating(quotationId, { note: payload.note || undefined })
+      if (actionId === "submit_negotiation") {
+        if (!payload.note) throw new Error("Bạn phải nhập nội dung thương lượng.")
+        return submitNegotiation(quotationId, { note: payload.note })
       }
-      if (actionId === "request_revision") {
-        if (!payload.note) throw new Error("Bạn phải nhập lý do khách yêu cầu điều chỉnh.")
-        return requestRevision(quotationId, { note: payload.note })
+      if (actionId === "approve_negotiation") {
+        return approveNegotiation(quotationId, { action: "approve", note: payload.note || undefined })
+      }
+      if (actionId === "reject_negotiation") {
+        return approveNegotiation(quotationId, { action: "reject", note: payload.note || undefined })
       }
       if (actionId === "close_won") {
         return closeQuotation(quotationId, {
@@ -467,13 +702,27 @@ function QuotationDetailPage() {
         note: payload.note || undefined,
       })
     },
-    onSuccess: async () => {
+    onSuccess: async (_result, variables) => {
       setDialogOpen(false)
       showSuccessToast("Cập nhật workflow thành công.")
       await queryClient.invalidateQueries({ queryKey: ["quotation", quotationId] })
       await queryClient.invalidateQueries({ queryKey: ["quotations"] })
       await queryClient.invalidateQueries({ queryKey: ["quotation", quotationId, "history"] })
-      await queryClient.invalidateQueries({ queryKey: ["quotation", quotationId, "items"] })
+      if (variables.actionId === "close_won") {
+        const contracts = await listContracts({ limit: 200 })
+        const matchedContract = [...contracts.data]
+          .filter((item) => item.quotation_id === quotationId)
+          .sort(
+            (a, b) =>
+              new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+          )[0]
+        if (matchedContract) {
+          navigate({
+            to: "/contracts/$contractId",
+            params: { contractId: matchedContract.id },
+          })
+        }
+      }
     },
     onError: (error) => {
       showErrorToast(getErrorDetail(error))
@@ -501,8 +750,9 @@ function QuotationDetailPage() {
     onError: (error) => showErrorToast(getErrorDetail(error)),
   })
 
-  const requiresRejectNote = selectedAction === "reject_survey" || selectedAction === "reject_design" || selectedAction === "reject_final" || selectedAction === "request_revision"
-  const showsPriceCoefficient = selectedAction === "finalize"
+  const requiresRejectNote = selectedAction === "reject_survey" || selectedAction === "reject_design" || selectedAction === "reject_final"
+  const requiresNote = selectedAction === "submit_negotiation"
+  const showsTotalContractValue = selectedAction === "submit_pricing"
   const requiresLostReason = selectedAction === "close_lost"
   const requiresClientDates = selectedAction === "send_to_client"
 
@@ -518,8 +768,9 @@ function QuotationDetailPage() {
     if (selectedAction === "approve_final") return "Duyệt báo giá cuối"
     if (selectedAction === "reject_final") return "Yêu cầu sửa báo giá"
     if (selectedAction === "send_to_client") return "Ghi nhận gửi khách hàng"
-    if (selectedAction === "negotiate") return "Đánh dấu đang thương lượng"
-    if (selectedAction === "request_revision") return "Yêu cầu điều chỉnh giá"
+    if (selectedAction === "submit_negotiation") return "Trình thương lượng lên Giám đốc"
+    if (selectedAction === "approve_negotiation") return "Đồng ý điều chỉnh giá"
+    if (selectedAction === "reject_negotiation") return "Tiếp tục trao đổi thêm"
     if (selectedAction === "close_won") return "Đóng hồ sơ thắng"
     if (selectedAction === "close_lost") return "Đóng hồ sơ thua"
     return "Xác nhận hành động"
@@ -529,10 +780,11 @@ function QuotationDetailPage() {
     if (!historyQuery.data?.length) {
       return null
     }
+    const submitActions = new Set(["submit_survey", "submit_design", "submit_pricing", "finalize", "send_to_client", "submit_negotiation"])
     const candidates = historyQuery.data.filter(
       (entry) =>
         entry.to_stage === quotationQuery.data?.current_stage &&
-        entry.action === "submit" &&
+        submitActions.has(entry.action) &&
         Boolean(entry.note?.trim()),
     )
     if (!candidates.length) {
@@ -552,20 +804,32 @@ function QuotationDetailPage() {
     if (!currentStage) {
       return null
     }
+    const rejectActions = new Set(["reject_survey", "reject_design", "reject_final", "reject_negotiation"])
     const candidates = historyQuery.data.filter(
       (entry) =>
         entry.to_stage === currentStage &&
-        entry.action === "reject" &&
+        rejectActions.has(entry.action) &&
         Boolean(entry.note?.trim()),
     )
     if (!candidates.length) {
       return null
     }
-    return candidates.sort(
+    const latestReject = candidates.sort(
       (a, b) =>
         new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
     )[0]
-  }, [historyQuery.data, quotationQuery.data?.current_stage])
+    if (!latestReject) {
+      return null
+    }
+    if (
+      latestSubmittedForCurrentStage &&
+      new Date(latestSubmittedForCurrentStage.created_at).getTime() >
+        new Date(latestReject.created_at).getTime()
+    ) {
+      return null
+    }
+    return latestReject
+  }, [historyQuery.data, latestSubmittedForCurrentStage, quotationQuery.data?.current_stage])
 
   const historyEntriesNewestFirst = useMemo(() => {
     if (!historyQuery.data?.length) {
@@ -581,12 +845,76 @@ function QuotationDetailPage() {
     if (!selectedHistoryStage) {
       return historyEntriesNewestFirst
     }
+    if (selectedHistoryStage === QUOTATION_CREATE_STEP) {
+      return historyEntriesNewestFirst.filter(
+        (entry) =>
+          normalizeHistoryAction({
+            action: entry.action,
+            from_stage: entry.from_stage,
+            to_stage: entry.to_stage,
+          }) === "create",
+      )
+    }
     return historyEntriesNewestFirst.filter(
       (entry) =>
         entry.to_stage === selectedHistoryStage ||
         entry.from_stage === selectedHistoryStage,
     )
   }, [historyEntriesNewestFirst, selectedHistoryStage])
+
+  const timelineEntries = useMemo(
+    () => buildQuotationTimelineEntries(filteredHistoryEntries),
+    [filteredHistoryEntries],
+  )
+
+  const timelineAttachments = useMemo(
+    () => buildQuotationTimelineAttachments(attachmentsQuery.data ?? [], historyQuery.data ?? []),
+    [attachmentsQuery.data, historyQuery.data],
+  )
+  const groupedLibraryAttachments = useMemo(() => {
+    const grouped = new Map<
+      string,
+      {
+        label: string
+        items: Array<
+          QuotationAttachmentPublic & {
+            versionLabel: string
+            isApprovedVersion: boolean
+          }
+        >
+      }
+    >()
+
+    const sortedAttachments = [...(attachmentsQuery.data ?? [])].sort(
+      (a, b) => new Date(a.uploaded_at).getTime() - new Date(b.uploaded_at).getTime(),
+    )
+
+    for (const attachment of sortedAttachments) {
+      const group = resolveAttachmentLibraryGroup(attachment.stage_uploaded)
+      const existingGroup = grouped.get(group.key) ?? { label: group.label, items: [] }
+      const versionNumber = existingGroup.items.length + 1
+
+      existingGroup.items.push({
+        ...attachment,
+        versionLabel: `${group.label} lần ${versionNumber}`,
+        isApprovedVersion: false,
+      })
+      grouped.set(group.key, existingGroup)
+    }
+
+    return ["survey", "design", "pricing", "final_quote", "other"]
+      .map((key) => grouped.get(key))
+      .filter((group): group is NonNullable<typeof group> => Boolean(group))
+      .map((group) => ({
+        ...group,
+        items: [...group.items]
+          .sort((a, b) => new Date(b.uploaded_at).getTime() - new Date(a.uploaded_at).getTime())
+          .map((item, index) => ({
+            ...item,
+            isApprovedVersion: index === 0,
+          })),
+      }))
+  }, [attachmentsQuery.data])
 
   const attachmentsForCurrentStage = useMemo(() => {
     if (!attachmentsQuery.data?.length) {
@@ -618,23 +946,6 @@ function QuotationDetailPage() {
       )
   }, [attachmentsQuery.data, quotationQuery.data?.current_stage])
 
-  // Auto-switch to "items" tab for tech (S3) and procurement (S5) when no explicit tab was chosen
-  useEffect(() => {
-    if (!quotationQuery.data) return
-    const stage = quotationQuery.data.current_stage
-    const shouldDefaultItems =
-      (stage === "S3_TECH_DESIGN" && permissions.includes("QUOTATION_DESIGN")) ||
-      (stage === "S5_PROCUREMENT_PRICING" && permissions.includes("QUOTATION_FILL_PRICE"))
-    if (shouldDefaultItems && search.tab === "overview") {
-      navigate({
-        to: "/quotations/$quotationId",
-        params: { quotationId },
-        search: { tab: "items" },
-        replace: true,
-      })
-    }
-  }, [quotationQuery.data, permissions, search.tab, navigate, quotationId])
-
   // Reset the contentEditable editor DOM whenever the dialog opens/closes
   useEffect(() => {
     if (noteBodyRef.current) {
@@ -645,21 +956,36 @@ function QuotationDetailPage() {
   function resetWorkflowForm() {
     setNoteTitle("")
     setNoteBodyHtml("")
-    setPriceCoefficient("")
+    setTotalContractValueInput("")
     setValidUntil("")
     setClientResponseDeadline("")
+    setSurveyContactName("")
+    setSurveyContactPhone("")
+    setSurveyContactTitle("")
+    setSurveyLocation("")
+    setSurveyStartDate("")
+    setSurveyEndDate("")
     setLostReasonCategory("price")
     setLostReasonDetail("")
     setExtraRoleIds([])
+    setDialogUploadedAttachments([])
   }
 
   function handleOpenAction(actionId: QuotationActionId) {
     setSelectedAction(actionId)
     resetWorkflowForm()
+    if (actionId === "submit_survey") {
+      setSurveyContactName(quotation.client_contact_name || "A")
+      setSurveyContactPhone(quotation.client_contact_phone || "09999999")
+      setSurveyContactTitle(quotation.client_contact_title || "Giám đốc")
+      setSurveyLocation(quotation.client_address || "Xưởng A")
+      setSurveyStartDate(quotation.survey_start_date || "2026-04-25")
+      setSurveyEndDate(quotation.survey_end_date || "2026-04-26")
+    }
     setDialogOpen(true)
   }
 
-  function handleStageStepClick(stage: QuotationStage) {
+  function handleStageStepClick(stage: QuotationHistoryStepFilter) {
     setSelectedHistoryStage(stage)
     navigate({
       to: "/quotations/$quotationId",
@@ -678,22 +1004,19 @@ function QuotationDetailPage() {
     }
     const mergedNote = buildWorkflowNote(noteTitle, noteBodyHtml)
 
-    if (requiresRejectNote && !mergedNote) {
-      showErrorToast("Bạn phải nhập lý do khi từ chối.")
+    if ((requiresRejectNote || requiresNote) && !mergedNote) {
+      showErrorToast("Bạn phải nhập nội dung ghi chú.")
       return
     }
-    if (showsPriceCoefficient && priceCoefficient.trim()) {
-      const parsed = Number.parseFloat(priceCoefficient)
+    if (showsTotalContractValue) {
+      const parsed = Number.parseFloat(totalContractValueInput.replace(/[,.]/g, ""))
       if (Number.isNaN(parsed) || parsed <= 0) {
-        showErrorToast("Hệ số giá phải lớn hơn 0.")
+        showErrorToast("Vui lòng nhập tổng giá trị hợp đồng hợp lệ (> 0).")
         return
       }
       workflowMutation.mutate({
         actionId: selectedAction,
-        payload: {
-          priceCoefficient: parsed,
-          note: mergedNote || undefined,
-        },
+        payload: { totalContractValue: parsed, note: buildWorkflowNote(noteTitle, noteBodyHtml) || undefined },
       })
       return
     }
@@ -705,6 +1028,12 @@ function QuotationDetailPage() {
     workflowMutation.mutate({
       actionId: selectedAction,
       payload: {
+        clientContactName: surveyContactName,
+        clientContactPhone: surveyContactPhone,
+        clientContactTitle: surveyContactTitle,
+        clientAddress: surveyLocation,
+        surveyStartDate,
+        surveyEndDate,
         note: mergedNote || undefined,
         validUntil: validUntil || undefined,
         clientResponseDeadline: clientResponseDeadline || undefined,
@@ -739,7 +1068,16 @@ function QuotationDetailPage() {
     setUploadingAttachment(true)
     try {
       for (const file of files) {
-        await uploadQuotationAttachmentFile(quotationId, file, noteTitle || undefined)
+        const uploaded = await uploadQuotationAttachmentFile(quotationId, file, noteTitle || undefined)
+        setDialogUploadedAttachments((prev) => [
+          ...prev,
+          {
+            id: uploaded.id,
+            file_url: uploaded.file_url,
+            file_name: uploaded.file_name,
+            file_type: uploaded.file_type,
+          },
+        ])
       }
       showSuccessToast(`Đã upload ${files.length} file.`)
       await queryClient.invalidateQueries({
@@ -912,8 +1250,7 @@ function QuotationDetailPage() {
       >
         <TabsList className="w-full justify-start overflow-x-auto">
           <TabsTrigger value="overview">Tổng quan</TabsTrigger>
-          <TabsTrigger value="items">Hạng mục</TabsTrigger>
-          <TabsTrigger value="negotiations">Thương lượng</TabsTrigger>
+          <TabsTrigger value="negotiations">Trao đổi với khách</TabsTrigger>
           <TabsTrigger value="attachments">Tài liệu</TabsTrigger>
           <TabsTrigger value="history">Lịch sử</TabsTrigger>
         </TabsList>
@@ -969,13 +1306,23 @@ function QuotationDetailPage() {
 
           {/* Tài chính */}
           <div className="rounded-lg border bg-card p-4 space-y-3">
-            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Tài chính</p>
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Tài chính</p>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-7 gap-1 px-2"
+                onClick={() => setPriceVisible((prev) => !prev)}
+              >
+                {priceVisible ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                {priceVisible ? "Ẩn giá" : "Hiện giá"}
+              </Button>
+            </div>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <Field label="Tổng giá mua" value={formatVnd(quotation.total_cost_price)} />
-              <Field label="Tổng giá bán" value={formatVnd(quotation.total_sale_price)} />
               <Field
-                label="Hệ số giá"
-                value={quotation.price_coefficient != null ? String(quotation.price_coefficient) : null}
+                label="Tổng giá trị hợp đồng"
+                value={priceVisible ? formatVnd(quotation.total_contract_value) : "••••••"}
               />
               <Field label="Đồng tiền" value={quotation.currency} />
             </div>
@@ -999,17 +1346,6 @@ function QuotationDetailPage() {
               <p className="text-sm whitespace-pre-wrap text-muted-foreground">{quotation.notes}</p>
             </div>
           ) : null}
-        </TabsContent>
-
-        <TabsContent value="items" className="space-y-3">
-          <LineItemTable
-            quotationId={quotationId}
-            stage={quotation.current_stage}
-            permissions={permissions}
-            items={itemsQuery.data ?? []}
-            loading={itemsQuery.isLoading}
-            error={itemsQuery.isError}
-          />
         </TabsContent>
 
         <TabsContent value="negotiations" className="space-y-3">
@@ -1139,28 +1475,60 @@ function QuotationDetailPage() {
               <p className="p-4 text-sm text-muted-foreground">Đang tải...</p>
             ) : attachmentsQuery.isError ? (
               <p className="p-4 text-sm text-destructive">Không thể tải file đính kèm.</p>
-            ) : !attachmentsQuery.data?.length ? (
+            ) : !groupedLibraryAttachments.length ? (
               <p className="p-4 text-sm text-muted-foreground">Chưa có file đính kèm nào.</p>
             ) : (
-              <ul className="divide-y">
-                {attachmentsQuery.data.map((item) => (
-                  <li key={item.id} className="flex items-center gap-3 px-4 py-3">
-                    <FileTypeIcon fileName={item.file_name} />
-                    <button
-                      type="button"
-                      className="flex-1 min-w-0 text-left"
-                      onClick={() => handleViewAttachment(item.file_url, item.file_name, item.file_type)}
-                    >
-                      <p className="text-sm font-medium truncate text-blue-600 hover:underline">{item.file_name}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {STAGE_CONFIG[item.stage_uploaded as QuotationStage]?.label ?? item.stage_uploaded}
-                        {" · "}{item.uploaded_by_name ?? "—"}
-                        {" · "}{new Date(item.uploaded_at).toLocaleDateString("vi-VN")}
-                      </p>
-                    </button>
-                  </li>
+              <div className="divide-y">
+                {groupedLibraryAttachments.map((group) => (
+                  <div key={group.label} className="p-4">
+                    <div className="mb-3 flex items-center justify-between gap-2">
+                      <p className="text-sm font-semibold">{group.label}</p>
+                      <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
+                        {group.items.length} file
+                      </span>
+                    </div>
+                    <ul className="space-y-2">
+                      {group.items.map((item) => (
+                        <li
+                          key={item.id}
+                          className="flex items-center gap-3 rounded-lg border px-3 py-3"
+                        >
+                          <FileTypeIcon fileName={item.file_name} />
+                          <button
+                            type="button"
+                            className="min-w-0 flex-1 text-left"
+                            onClick={() =>
+                              handleViewAttachment(item.file_url, item.file_name, item.file_type)
+                            }
+                          >
+                            <div className="flex flex-wrap items-center gap-2">
+                              <p className="truncate text-sm font-medium text-blue-600 hover:underline">
+                                {item.versionLabel}
+                              </p>
+                              {item.isApprovedVersion ? (
+                                <span className="rounded-full bg-green-100 px-2 py-0.5 text-[10px] font-semibold text-green-700">
+                                  Được duyệt
+                                </span>
+                              ) : null}
+                            </div>
+                            <p className="truncate text-xs text-muted-foreground">
+                              {item.file_name}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              {STAGE_CONFIG[item.stage_uploaded as QuotationStage]?.label ??
+                                item.stage_uploaded}
+                              {" · "}
+                              {item.uploaded_by_name ?? "—"}
+                              {" · "}
+                              {new Date(item.uploaded_at).toLocaleDateString("vi-VN")}
+                            </p>
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
                 ))}
-              </ul>
+              </div>
             )}
           </div>
         </TabsContent>
@@ -1175,7 +1543,9 @@ function QuotationDetailPage() {
               <p className="text-xs text-muted-foreground">
                 Đang lọc theo bước:{" "}
                 <span className="font-semibold text-foreground">
-                  {STAGE_CONFIG[selectedHistoryStage].label}
+                  {selectedHistoryStage === QUOTATION_CREATE_STEP
+                    ? "Tạo hồ sơ"
+                    : getStageFilterLabel(selectedHistoryStage)}
                 </span>
               </p>
               <Button type="button" size="sm" variant="outline" onClick={() => setSelectedHistoryStage(null)}>
@@ -1187,105 +1557,13 @@ function QuotationDetailPage() {
             <p className="text-sm text-muted-foreground">Đang tải lịch sử chuyển bước...</p>
           ) : historyQuery.isError ? (
             <p className="text-sm text-destructive">Không thể tải lịch sử chuyển bước.</p>
-          ) : !filteredHistoryEntries.length ? (
-            <p className="text-sm text-muted-foreground">Chưa có lịch sử chuyển bước.</p>
           ) : (
-            <div className="relative">
-              <div className="absolute left-[11px] top-3 bottom-3 w-px bg-border" />
-              <ul className="space-y-4">
-                {filteredHistoryEntries.map((entry) => {
-                  const stageAttachments = (attachmentsQuery.data ?? []).filter(
-                    (a) => a.stage_uploaded === entry.to_stage,
-                  )
-                  const noteLines = entry.note ? entry.note.split("\n") : []
-                  const noteTitle = noteLines[0]?.startsWith("# ") ? noteLines[0].slice(2).trim() : ""
-                  const noteBody = noteTitle
-                    ? noteLines.slice(1).join("\n").replace(/^\n+/, "")
-                    : (entry.note ?? "")
-                  return (
-                    <li key={entry.id} className="relative flex gap-3">
-                      <div className="relative z-10 mt-1 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 border-primary bg-background">
-                        <Pencil className="h-2.5 w-2.5 text-primary" />
-                      </div>
-                      <div className="flex-1 min-w-0 rounded-lg border bg-card p-3 space-y-2">
-                        {/* action + time */}
-                        <div className="flex items-start justify-between gap-2 flex-wrap">
-                          <span className="font-semibold text-sm">
-                            <span className="rounded-full border px-2 py-0.5 text-xs font-medium text-muted-foreground mr-2">
-                              {getWorkflowActionLabel(entry.action)}
-                            </span>
-                            {entry.to_stage_label ?? entry.to_stage}
-                          </span>
-                          <span className="text-xs text-muted-foreground whitespace-nowrap">
-                            {new Date(entry.created_at).toLocaleString("vi-VN")}
-                          </span>
-                        </div>
-
-                        {/* stage badges */}
-                        <div className="flex items-center gap-1.5 text-xs flex-wrap">
-                          {entry.from_stage_label && (
-                            <>
-                              <span className="px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
-                                {entry.from_stage_label}
-                              </span>
-                              <ChevronRight className="w-3 h-3 text-muted-foreground" />
-                            </>
-                          )}
-                          <span className="px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 font-medium border border-blue-100">
-                            {entry.to_stage_label ?? entry.to_stage}
-                          </span>
-                        </div>
-
-                        {/* actor */}
-                        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                          <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-muted text-[10px] font-bold uppercase">
-                            {(entry.actor_name ?? "?").charAt(0)}
-                          </span>
-                          {entry.actor_name ?? "—"}
-                        </div>
-
-                        {/* note */}
-                        {entry.note ? (
-                          <div className="rounded-md border bg-muted/30 p-2.5 space-y-1">
-                            {noteTitle && <p className="text-sm font-semibold leading-snug">{noteTitle}</p>}
-                            {noteBody && (
-                              <div
-                                className="text-sm text-muted-foreground"
-                                dangerouslySetInnerHTML={{ __html: renderLightMarkdown(noteBody) }}
-                              />
-                            )}
-                          </div>
-                        ) : null}
-
-                        {/* attachments for this stage */}
-                        {stageAttachments.length > 0 && (
-                          <div className="rounded-md border bg-muted/20 p-2.5 space-y-1">
-                            <p className="text-xs font-medium text-muted-foreground flex items-center gap-1">
-                              <Paperclip className="w-3 h-3" />
-                              Tài liệu đính kèm ({stageAttachments.length})
-                            </p>
-                            <ul className="space-y-1.5 mt-1">
-                              {stageAttachments.map((att) => (
-                                <li key={att.id} className="flex items-center gap-2">
-                                  <FileTypeIcon fileName={att.file_name} className="w-4 h-4 shrink-0" />
-                                  <button
-                                    type="button"
-                                    className="text-xs text-blue-600 hover:underline truncate text-left"
-                                    onClick={() => handleViewAttachment(att.file_url, att.file_name, att.file_type)}
-                                  >
-                                    {att.file_name}
-                                  </button>
-                                </li>
-                              ))}
-                            </ul>
-                          </div>
-                        )}
-                      </div>
-                    </li>
-                  )
-                })}
-              </ul>
-            </div>
+            <StageTransitionTimeline
+              entries={timelineEntries}
+              attachments={timelineAttachments}
+              actionConfig={QUOTATION_ACTION_CONFIG}
+              onViewAttachment={(att) => handleViewAttachment(att.file_url, att.file_name, att.file_type ?? null)}
+            />
           )}
         </TabsContent>
       </Tabs>
@@ -1309,22 +1587,69 @@ function QuotationDetailPage() {
           </DialogHeader>
 
           <div className="min-w-0 flex-1 space-y-3 overflow-y-auto pr-1">
-            {showsPriceCoefficient ? (
+            {selectedAction === "submit_survey" ? (
+              <div className="grid gap-3 rounded-md border p-3">
+                <div className="space-y-1">
+                  <p className="text-xs font-medium text-muted-foreground">Tên khách hàng</p>
+                  <Input
+                    value={surveyContactName}
+                    onChange={(eventValue) => setSurveyContactName(eventValue.target.value)}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <p className="text-xs font-medium text-muted-foreground">SDT</p>
+                  <Input
+                    value={surveyContactPhone}
+                    onChange={(eventValue) => setSurveyContactPhone(eventValue.target.value)}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <p className="text-xs font-medium text-muted-foreground">Chức vụ</p>
+                  <Input
+                    value={surveyContactTitle}
+                    onChange={(eventValue) => setSurveyContactTitle(eventValue.target.value)}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <p className="text-xs font-medium text-muted-foreground">Vị trí khảo sát</p>
+                  <Input
+                    value={surveyLocation}
+                    onChange={(eventValue) => setSurveyLocation(eventValue.target.value)}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <p className="text-xs font-medium text-muted-foreground">Thời gian bắt đầu khảo sát</p>
+                  <Input
+                    type="date"
+                    value={surveyStartDate}
+                    onChange={(eventValue) => setSurveyStartDate(eventValue.target.value)}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <p className="text-xs font-medium text-muted-foreground">Thời gian kết thúc khảo sát</p>
+                  <Input
+                    type="date"
+                    value={surveyEndDate}
+                    onChange={(eventValue) => setSurveyEndDate(eventValue.target.value)}
+                  />
+                </div>
+              </div>
+            ) : null}
+
+            {showsTotalContractValue ? (
               <div className="space-y-1">
                 <p className="text-xs font-medium text-muted-foreground">
-                  Hệ số giá <span className="text-muted-foreground/60">(tuỳ chọn — để trống nếu đã nhập giá bán từng hạng mục)</span>
+                  Tổng giá trị hợp đồng (VND) <span className="text-destructive">*</span>
                 </p>
                 <Input
                   inputMode="decimal"
-                  placeholder="Ví dụ: 1.15 — áp lên toàn bộ hạng mục"
-                  value={priceCoefficient}
-                  onChange={(eventValue) => setPriceCoefficient(eventValue.target.value)}
+                  placeholder="Ví dụ: 250000000"
+                  value={totalContractValueInput}
+                  onChange={(e) => setTotalContractValueInput(e.target.value)}
                 />
-                {!priceCoefficient.trim() && (
-                  <p className="text-xs text-amber-600">
-                    Không nhập hệ số: hệ thống sẽ dùng giá bán đã set trực tiếp ở từng hạng mục. Tất cả hạng mục phải có giá bán.
-                  </p>
-                )}
+                <p className="text-xs text-muted-foreground">
+                  Nhập tổng giá trị từ file Excel báo giá đã điền.
+                </p>
               </div>
             ) : null}
 
@@ -1425,7 +1750,7 @@ function QuotationDetailPage() {
             {/* Note body — contentEditable, NO dangerouslySetInnerHTML to avoid cursor-flip */}
             <div className="space-y-2 rounded-md border p-3">
               <p className="text-xs font-medium text-muted-foreground">
-                Nội dung cho bước này {requiresRejectNote ? "(bắt buộc)" : "(tuỳ chọn)"}
+                Nội dung cho bước này {(requiresRejectNote || requiresNote) ? "(bắt buộc)" : "(tuỳ chọn)"}
               </p>
               <Input
                 placeholder="Tiêu đề"
@@ -1514,6 +1839,26 @@ function QuotationDetailPage() {
             </div>
             {uploadingAttachment ? (
               <p className="text-xs text-muted-foreground">Đang upload file vào hệ thống...</p>
+            ) : null}
+            {dialogUploadedAttachments.length ? (
+              <div className="rounded-md border bg-muted/10 p-3">
+                <p className="text-xs font-medium text-muted-foreground">
+                  File vừa upload ({dialogUploadedAttachments.length})
+                </p>
+                <div className="mt-2 space-y-1">
+                  {dialogUploadedAttachments.map((att) => (
+                    <button
+                      key={att.id}
+                      type="button"
+                      className="block max-w-full truncate text-left text-xs text-primary underline"
+                      title={att.file_name}
+                      onClick={() => handleViewAttachment(att.file_url, att.file_name, att.file_type)}
+                    >
+                      {att.file_name}
+                    </button>
+                  ))}
+                </div>
+              </div>
             ) : null}
           </div>
 
