@@ -2,9 +2,15 @@ import type { LucideIcon } from "lucide-react"
 import {
   Building2,
   ClipboardList,
+  FileSignature,
+  FileText,
+  FolderOpen,
   LayoutDashboard,
   MessageCircle,
+  Package,
   Settings,
+  ShoppingCart,
+  Truck,
   Users,
 } from "lucide-react"
 
@@ -22,6 +28,12 @@ export function buildLayoutNavItems(
   isSuperuser: boolean,
   showManagement: boolean,
   showCompanyManagement: boolean,
+  canAccessProjects?: boolean,
+  canAccessQuotations?: boolean,
+  canAccessSuppliers?: boolean,
+  canAccessContracts?: boolean,
+  canAccessProcurement?: boolean,
+  canAccessInventory?: boolean,
 ): LayoutNavItem[] {
   const items: LayoutNavItem[] = []
   if (showManagement) {
@@ -37,6 +49,54 @@ export function buildLayoutNavItems(
     path: "/tasks",
     matchPrefix: true,
   })
+  if (canAccessProjects) {
+    items.push({
+      icon: FolderOpen,
+      title: "Dự án",
+      path: "/projects",
+      matchPrefix: true,
+    })
+  }
+  if (canAccessQuotations) {
+    items.push({
+      icon: FileText,
+      title: "Báo Giá",
+      path: "/quotations",
+      matchPrefix: true,
+    })
+  }
+  if (canAccessContracts) {
+    items.push({
+      icon: FileSignature,
+      title: "Hợp Đồng",
+      path: "/contracts",
+      matchPrefix: true,
+    })
+  }
+  if (canAccessSuppliers) {
+    items.push({
+      icon: Truck,
+      title: "Nhà Cung Cấp",
+      path: "/suppliers",
+      matchPrefix: true,
+    })
+  }
+  if (canAccessProcurement) {
+    items.push({
+      icon: ShoppingCart,
+      title: "Mua Hàng",
+      path: "/procurement",
+      matchPrefix: true,
+    })
+  }
+  if (canAccessInventory) {
+    items.push({
+      icon: Package,
+      title: "Kho Hàng",
+      path: "/inventory",
+      matchPrefix: true,
+    })
+  }
   items.push({ icon: MessageCircle, title: "Chat", path: "/chat" })
   if (showCompanyManagement) {
     items.push({ icon: Building2, title: "Quản lý công ty", path: "/company" })
@@ -54,9 +114,15 @@ export function buildMobileBottomNavItems(
   isSuperuser: boolean,
   showManagement: boolean,
   showCompanyManagement: boolean,
+  canAccessProjects?: boolean,
+  canAccessQuotations?: boolean,
+  canAccessSuppliers?: boolean,
+  canAccessContracts?: boolean,
+  canAccessProcurement?: boolean,
+  canAccessInventory?: boolean,
 ): LayoutNavItem[] {
   return [
-    ...buildLayoutNavItems(isSuperuser, showManagement, showCompanyManagement),
+    ...buildLayoutNavItems(isSuperuser, showManagement, showCompanyManagement, canAccessProjects, canAccessQuotations, canAccessSuppliers, canAccessContracts, canAccessProcurement, canAccessInventory),
     { icon: Settings, title: "Cài đặt", path: "/settings" },
   ]
 }

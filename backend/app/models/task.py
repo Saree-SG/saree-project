@@ -7,7 +7,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any, Literal
 
-from sqlalchemy import JSON, DateTime, Text
+from sqlalchemy import JSON, DateTime, Text, UniqueConstraint
 from sqlmodel import Field, Relationship, SQLModel
 
 
@@ -58,6 +58,13 @@ class Task(TaskBase, table=True):
     # Progress allocation: % of parent task this subtask covers (None = use 100)
     progress_weight: int | None = Field(default=None)
 
+    # Module categorization and linked business entity
+    # module_tag: engineering | planning | procurement | production | supply | installation
+    module_tag: str | None = Field(default=None, max_length=50)
+    # linked_entity_type: purchase_request | material_issue
+    linked_entity_type: str | None = Field(default=None, max_length=50)
+    linked_entity_id: uuid.UUID | None = Field(default=None)
+
     # Soft delete
     is_deleted: bool = False
     deleted_at: datetime | None = None
@@ -80,6 +87,10 @@ class Task(TaskBase, table=True):
         sa_relationship_kwargs={"foreign_keys": "[Task.assignor_id]"},
     )
     observers: list["TaskObserver"] = Relationship(back_populates="task", cascade_delete=True)
+    linked_entities: list["TaskLinkedEntity"] = Relationship(
+        back_populates="task",
+        sa_relationship_kwargs={"cascade": "all, delete-orphan"},
+    )
     comments: list["TaskComment"] = Relationship(back_populates="task", cascade_delete=True)
     proofs: list["TaskProof"] = Relationship(back_populates="task", cascade_delete=True)
     progress_reports: list["TaskProgressReport"] = Relationship(
@@ -99,6 +110,36 @@ class Task(TaskBase, table=True):
 
 
 # ---------------------------------------------------------------------------
+# TaskAssignee — additional assignees beyond the primary assignee_id
+# ---------------------------------------------------------------------------
+class TaskAssignee(SQLModel, table=True):
+    """Extra assignees for a task (many-to-many).
+
+    The primary assignee stays in Task.assignee_id for backward compat.
+    This table stores additional co-workers assigned to the same task.
+    """
+    __table_args__ = (UniqueConstraint("task_id", "user_id", name="uq_task_assignee"),)
+
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    task_id: uuid.UUID = Field(foreign_key="task.id", index=True)
+    user_id: uuid.UUID = Field(foreign_key="user.id", index=True)
+    assigned_by: uuid.UUID = Field(foreign_key="user.id")
+    assigned_at: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc),
+        sa_type=DateTime(timezone=True),  # type: ignore
+    )
+
+
+class TaskAssigneePublic(SQLModel):
+    id: uuid.UUID
+    task_id: uuid.UUID
+    user_id: uuid.UUID
+    user_name: str | None = None
+    assigned_by: uuid.UUID
+    assigned_at: datetime
+
+
+# ---------------------------------------------------------------------------
 # Request / Response schemas for Task
 # ---------------------------------------------------------------------------
 class TaskCreate(TaskBase):
@@ -107,6 +148,9 @@ class TaskCreate(TaskBase):
     assignee_id: uuid.UUID
     priority: str = "medium"
     progress_weight: int | None = None   # % of parent task this subtask covers
+    module_tag: str | None = None
+    linked_entity_type: str | None = None
+    linked_entity_id: uuid.UUID | None = None
 
 
 class TaskUpdate(SQLModel):
@@ -116,11 +160,21 @@ class TaskUpdate(SQLModel):
     start_time: datetime | None = None
     end_time: datetime | None = None
     assignee_id: uuid.UUID | None = None
+    module_tag: str | None = None
+    linked_entity_type: str | None = None
+    linked_entity_id: uuid.UUID | None = None
 
 
 class TaskStatusUpdate(SQLModel):
     status: str   # todo | in_progress | review | done
     note: str | None = None  # Required when status → done (proof description)
+
+
+class BlockerInfo(SQLModel):
+    """Minimal info about a task that is blocking this one."""
+    id: uuid.UUID
+    name: str
+    status: str
 
 
 class TaskPublic(TaskBase):
@@ -140,11 +194,49 @@ class TaskPublic(TaskBase):
     updated_at: datetime
     reported_progress_total: int = 0
     progress_weight: int | None = None   # % of parent this subtask covers
+    module_tag: str | None = None
+    linked_entity_type: str | None = None
+    linked_entity_id: uuid.UUID | None = None
+    linked_entities: list["TaskLinkedEntityPublic"] = []
+    blocked_by: list[BlockerInfo] = []   # unfinished FS predecessors
+    extra_assignees: list["TaskAssigneePublic"] = []  # co-workers beyond primary assignee
+    observers: list["TaskObserverPublic"] = []  # watch-only users
 
 
 class TasksPublic(SQLModel):
     data: list[TaskPublic]
     count: int
+
+
+class TaskLinkedEntity(SQLModel, table=True):
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    task_id: uuid.UUID = Field(foreign_key="task.id", index=True)
+    entity_type: str = Field(max_length=50)  # purchase_request | material_issue
+    entity_id: uuid.UUID = Field(index=True)
+    created_by: uuid.UUID = Field(foreign_key="user.id")
+    created_at: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc),
+        sa_type=DateTime(timezone=True),  # type: ignore
+    )
+
+    task: Task = Relationship(back_populates="linked_entities")
+
+
+class TaskLinkedEntityPublic(SQLModel):
+    id: uuid.UUID
+    task_id: uuid.UUID
+    entity_type: str
+    entity_id: uuid.UUID
+    created_by: uuid.UUID
+    created_at: datetime
+
+
+class TaskAssigneeAdd(SQLModel):
+    user_id: uuid.UUID
+
+
+class TaskAssigneeRemove(SQLModel):
+    user_id: uuid.UUID
 
 
 class DependencyPublic(SQLModel):
@@ -208,6 +300,21 @@ class TaskObserver(SQLModel, table=True):
     )
 
     task: Task = Relationship(back_populates="observers")
+
+
+class TaskObserverPublic(SQLModel):
+    task_id: uuid.UUID
+    user_id: uuid.UUID
+    user_name: str | None = None
+    added_at: datetime
+
+
+class TaskObserverAdd(SQLModel):
+    user_id: uuid.UUID
+
+
+class TaskReassignRequest(SQLModel):
+    new_assignee_id: uuid.UUID
 
 
 # ---------------------------------------------------------------------------

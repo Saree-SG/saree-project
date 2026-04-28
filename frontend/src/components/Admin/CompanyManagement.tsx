@@ -1,8 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Pencil } from "lucide-react"
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useState } from "react"
 
 import { type CompanyPublic, RolesService } from "@/client"
+import DepartmentManagement from "@/components/Admin/DepartmentManagement"
+import { RolePermissionEditor } from "@/components/Admin/RolePermissionEditor"
+import UserDepartmentAssign from "@/components/Admin/UserDepartmentAssign"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -36,7 +39,6 @@ import {
   listCompanyMembers,
   listPermissionsCatalog,
   type CompanyMember,
-  type PermissionCatalogItem,
   removeCompanyMemberRole,
   readRolePermissions,
   updateCompanyMemberRole,
@@ -91,42 +93,6 @@ const CompanyManagement = () => {
     enabled: Boolean(editingCompany?.id),
   })
 
-  const groupedPermissions = useMemo(() => {
-    const groups = new Map<string, PermissionCatalogItem[]>()
-    for (const item of permissionsCatalog ?? []) {
-      const key = item.module || "other"
-      const rows = groups.get(key) ?? []
-      rows.push(item)
-      groups.set(key, rows)
-    }
-    return Array.from(groups.entries()).map(([module, rows]) => ({
-      module,
-      rows: rows.slice().sort((a, b) => a.code.localeCompare(b.code)),
-    }))
-  }, [permissionsCatalog])
-
-  function toggleNewRolePermissionCode(code: string, checked: boolean) {
-    setNewRolePermissionCodes((currentValue) => {
-      const nextValue = new Set(currentValue)
-      if (checked) {
-        nextValue.add(code)
-      } else {
-        nextValue.delete(code)
-      }
-      return nextValue
-    })
-  }
-  function toggleEditRolePermissionCode(code: string, checked: boolean) {
-    setEditRolePermissionCodes((currentValue) => {
-      const nextValue = new Set(currentValue)
-      if (checked) {
-        nextValue.add(code)
-      } else {
-        nextValue.delete(code)
-      }
-      return nextValue
-    })
-  }
 
   const rolePermissionsQuery = useQuery({
     queryKey: ["roles", "role-permissions", editingRole?.id ?? ""],
@@ -360,48 +326,13 @@ const CompanyManagement = () => {
                   onChange={(event) => setRoleDescription(event.target.value)}
                 />
                 <div className="md:col-span-2">
-                  <p className="text-xs font-medium mb-2">Permission matrix</p>
-                  <div className="max-h-64 space-y-3 overflow-auto rounded-md border p-3">
-                    {groupedPermissions.map((group) => (
-                      <div key={group.module} className="space-y-2">
-                        <p className="text-xs font-semibold uppercase text-muted-foreground">
-                          {group.module}
-                        </p>
-                        <div className="grid gap-2 md:grid-cols-2">
-                          {group.rows.map((permission) => {
-                            const checked = newRolePermissionCodes.has(
-                              permission.code,
-                            )
-                            return (
-                              <label
-                                key={permission.id}
-                                className="flex items-start gap-2 rounded border p-2 text-xs"
-                              >
-                                <input
-                                  type="checkbox"
-                                  checked={checked}
-                                  onChange={(event) =>
-                                    toggleNewRolePermissionCode(
-                                      permission.code,
-                                      event.target.checked,
-                                    )
-                                  }
-                                />
-                                <span>
-                                  <span className="block font-semibold">
-                                    {permission.code}
-                                  </span>
-                                  <span className="text-muted-foreground">
-                                    {permission.description}
-                                  </span>
-                                </span>
-                              </label>
-                            )
-                          })}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+                  <p className="text-xs font-medium mb-2">Phân quyền cho role</p>
+                  <RolePermissionEditor
+                    catalog={permissionsCatalog ?? []}
+                    selected={newRolePermissionCodes}
+                    onChange={setNewRolePermissionCodes}
+                    maxHeightClass="max-h-72"
+                  />
                 </div>
                 <div className="md:col-span-2 flex justify-end">
                   <LoadingButton
@@ -479,6 +410,10 @@ const CompanyManagement = () => {
                 </div>
               </div>
 
+              {editingCompany ? (
+                <DepartmentManagement companyId={editingCompany.id} />
+              ) : null}
+
               <div>
                 <p className="text-sm font-medium mb-2">Nhân viên trong công ty</p>
                 <div className="max-h-64 overflow-auto rounded-md border">
@@ -490,6 +425,7 @@ const CompanyManagement = () => {
                         <TableHead>Role</TableHead>
                         <TableHead>Level</TableHead>
                         <TableHead>Primary</TableHead>
+                        <TableHead>Phòng ban</TableHead>
                         <TableHead className="text-right">Actions</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -504,6 +440,14 @@ const CompanyManagement = () => {
                           <TableCell>L{member.role_level}</TableCell>
                           <TableCell>
                             {member.is_primary ? "Yes" : "No"}
+                          </TableCell>
+                          <TableCell>
+                            {editingCompany ? (
+                              <UserDepartmentAssign
+                                companyId={editingCompany.id}
+                                userId={member.user_id}
+                              />
+                            ) : null}
                           </TableCell>
                           <TableCell className="text-right">
                             <div className="flex items-center justify-end gap-2">
@@ -610,54 +554,29 @@ const CompanyManagement = () => {
       </Dialog>
 
       <Dialog open={Boolean(editingRole)} onOpenChange={() => setEditingRole(null)}>
-        <DialogContent className="max-w-3xl">
+        <DialogContent className="flex max-h-[90dvh] max-w-3xl flex-col overflow-hidden">
           <DialogHeader>
-            <DialogTitle>Edit role permissions</DialogTitle>
+            <DialogTitle>Phân quyền cho role</DialogTitle>
             <DialogDescription>
               {editingRole
-                ? `Configure permissions for ${editingRole.displayName}`
-                : "Select permissions for role"}
+                ? `Cấu hình quyền cho role "${editingRole.displayName}". Hover vào biểu tượng (i) để xem chi tiết từng quyền.`
+                : "Chọn quyền cho role"}
             </DialogDescription>
           </DialogHeader>
-          <div className="max-h-[60vh] space-y-3 overflow-auto rounded-md border p-3">
-            {groupedPermissions.map((group) => (
-              <div key={group.module} className="space-y-2">
-                <p className="text-xs font-semibold uppercase text-muted-foreground">
-                  {group.module}
-                </p>
-                <div className="grid gap-2 md:grid-cols-2">
-                  {group.rows.map((permission) => {
-                    const checked = editRolePermissionCodes.has(permission.code)
-                    return (
-                      <label
-                        key={permission.id}
-                        className="flex items-start gap-2 rounded border p-2 text-xs"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={checked}
-                          onChange={(event) =>
-                            toggleEditRolePermissionCode(
-                              permission.code,
-                              event.target.checked,
-                            )
-                          }
-                        />
-                        <span>
-                          <span className="block font-semibold">
-                            {permission.code}
-                          </span>
-                          <span className="text-muted-foreground">
-                            {permission.description}
-                          </span>
-                        </span>
-                      </label>
-                    )
-                  })}
-                </div>
-              </div>
-            ))}
-          </div>
+          {rolePermissionsQuery.isLoading ? (
+            <div className="flex items-center justify-center py-8 text-sm text-muted-foreground">
+              Đang tải danh sách quyền...
+            </div>
+          ) : (
+            <div className="flex-1 overflow-y-auto">
+              <RolePermissionEditor
+                catalog={permissionsCatalog ?? []}
+                selected={editRolePermissionCodes}
+                onChange={setEditRolePermissionCodes}
+                maxHeightClass="max-h-[55vh]"
+              />
+            </div>
+          )}
           <DialogFooter>
             <Button
               type="button"

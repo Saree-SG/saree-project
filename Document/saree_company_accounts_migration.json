@@ -1,0 +1,1178 @@
+{
+  "exported_at": "2026-04-24T06:54:12.802983Z",
+  "company": {
+    "name": "Công ty TNHH Điện Lạnh Sài Gòn - Saree",
+    "slug": "saree-company",
+    "is_active": true
+  },
+  "departments": [
+    {
+      "name": "Ban Giám Đốc",
+      "dept_type": "office_block",
+      "is_active": true,
+      "parent_name": null
+    },
+    {
+      "name": "Nhóm Bọc cách nhiệt",
+      "dept_type": "project_block",
+      "is_active": true,
+      "parent_name": null
+    },
+    {
+      "name": "Nhóm Hàn Công trình",
+      "dept_type": "project_block",
+      "is_active": true,
+      "parent_name": null
+    },
+    {
+      "name": "Nhóm Lạnh Công trình",
+      "dept_type": "project_block",
+      "is_active": true,
+      "parent_name": null
+    },
+    {
+      "name": "Nhóm Lắp kho lạnh",
+      "dept_type": "project_block",
+      "is_active": true,
+      "parent_name": null
+    },
+    {
+      "name": "Nhóm Lắp đặt băng chuyền",
+      "dept_type": "project_block",
+      "is_active": true,
+      "parent_name": null
+    },
+    {
+      "name": "Nhóm Điện Công trình",
+      "dept_type": "project_block",
+      "is_active": true,
+      "parent_name": null
+    },
+    {
+      "name": "Phòng Cung ứng vật tư công trình",
+      "dept_type": "office_block",
+      "is_active": true,
+      "parent_name": null
+    },
+    {
+      "name": "Phòng Hành chánh",
+      "dept_type": "office_block",
+      "is_active": true,
+      "parent_name": null
+    },
+    {
+      "name": "Phòng Kinh Doanh",
+      "dept_type": "office_block",
+      "is_active": true,
+      "parent_name": null
+    },
+    {
+      "name": "Phòng Kế hoạch",
+      "dept_type": "office_block",
+      "is_active": true,
+      "parent_name": null
+    },
+    {
+      "name": "Phòng Kế toán",
+      "dept_type": "office_block",
+      "is_active": true,
+      "parent_name": null
+    },
+    {
+      "name": "Phòng Kỹ thuật",
+      "dept_type": "office_block",
+      "is_active": true,
+      "parent_name": null
+    },
+    {
+      "name": "Phòng Vật tư",
+      "dept_type": "office_block",
+      "is_active": true,
+      "parent_name": null
+    },
+    {
+      "name": "Tổ Hàn",
+      "dept_type": "project_block",
+      "is_active": true,
+      "parent_name": null
+    },
+    {
+      "name": "Tổ Lạnh",
+      "dept_type": "project_block",
+      "is_active": true,
+      "parent_name": null
+    },
+    {
+      "name": "Tổ Máy 1",
+      "dept_type": "project_block",
+      "is_active": true,
+      "parent_name": null
+    },
+    {
+      "name": "Tổ Máy 2",
+      "dept_type": "project_block",
+      "is_active": true,
+      "parent_name": null
+    },
+    {
+      "name": "Tổ Panel",
+      "dept_type": "project_block",
+      "is_active": true,
+      "parent_name": null
+    },
+    {
+      "name": "Tổ Sơn",
+      "dept_type": "project_block",
+      "is_active": true,
+      "parent_name": null
+    },
+    {
+      "name": "Tổ Tiện Nguội",
+      "dept_type": "project_block",
+      "is_active": true,
+      "parent_name": null
+    },
+    {
+      "name": "Tổ Van",
+      "dept_type": "project_block",
+      "is_active": true,
+      "parent_name": null
+    },
+    {
+      "name": "Tổ Điện",
+      "dept_type": "project_block",
+      "is_active": true,
+      "parent_name": null
+    }
+  ],
+  "roles": [
+    {
+      "name": "giam_doc",
+      "display_name": "Ban Giám Đốc",
+      "level": 1,
+      "is_system": false,
+      "description": null,
+      "policy_doc": {
+        "task": {
+          "create": true,
+          "update": true,
+          "delete": true,
+          "approve": true
+        },
+        "project": {
+          "view_all": true,
+          "manage_members": true
+        },
+        "report": {
+          "view_team": true,
+          "view_all": false
+        }
+      },
+      "permission_codes": [
+        "AUDIT_VIEW",
+        "COMMENT_ADD",
+        "COMMENT_DELETE_ANY",
+        "COMMENT_DELETE_OWN",
+        "COMPANY_CREATE",
+        "CONTRACT_APPROVE",
+        "CONTRACT_COMPLETE",
+        "CONTRACT_CONFIRM_ADVANCE",
+        "CONTRACT_CREATE",
+        "CONTRACT_DELETE",
+        "CONTRACT_SIGN",
+        "CONTRACT_START_PRODUCTION",
+        "CONTRACT_UPDATE",
+        "CONTRACT_VIEW",
+        "CONTRACT_VIEW_ALL",
+        "INVENTORY_APPROVE",
+        "INVENTORY_ISSUE_REQUEST",
+        "INVENTORY_MANAGE",
+        "INVENTORY_VIEW",
+        "PROCUREMENT_DIRECTOR_APPROVE",
+        "PROCUREMENT_PO_CREATE",
+        "PROCUREMENT_RECEIVE",
+        "PROCUREMENT_REQUEST_CREATE",
+        "PROCUREMENT_TECH_REVIEW",
+        "PROCUREMENT_VIEW",
+        "PROJECT_CREATE",
+        "PROJECT_DELETE",
+        "PROJECT_MANAGE_MEMBERS",
+        "PROJECT_UPDATE",
+        "PROJECT_VIEW",
+        "PROJECT_VIEW_ALL",
+        "PROOF_APPROVE",
+        "PROOF_UPLOAD",
+        "QUOTATION_APPROVE_DESIGN",
+        "QUOTATION_APPROVE_FINAL",
+        "QUOTATION_APPROVE_NEGOTIATION",
+        "QUOTATION_APPROVE_SURVEY",
+        "QUOTATION_CLOSE",
+        "QUOTATION_CREATE",
+        "QUOTATION_DELETE",
+        "QUOTATION_DESIGN",
+        "QUOTATION_FILL_PRICE",
+        "QUOTATION_FINALIZE",
+        "QUOTATION_LOG_NEGOTIATION",
+        "QUOTATION_REPORT",
+        "QUOTATION_SEND_CLIENT",
+        "QUOTATION_SUBMIT_SURVEY",
+        "QUOTATION_UPDATE",
+        "QUOTATION_VIEW",
+        "QUOTATION_VIEW_ALL",
+        "REPORT_VIEW_ALL",
+        "REPORT_VIEW_OWN",
+        "REPORT_VIEW_TEAM",
+        "SUPPLIER_CREATE",
+        "SUPPLIER_DELETE",
+        "SUPPLIER_UPDATE",
+        "SUPPLIER_VIEW",
+        "TASK_CREATE",
+        "TASK_DELETE",
+        "TASK_REASSIGN",
+        "TASK_UPDATE",
+        "TASK_UPDATE_STATUS",
+        "TASK_VIEW",
+        "TASK_VIEW_ALL",
+        "USER_MANAGE",
+        "USER_VIEW"
+      ]
+    },
+    {
+      "name": "pho_giam_doc",
+      "display_name": "Phó Giám Đốc",
+      "level": 1,
+      "is_system": false,
+      "description": "Auto-generated for Công ty TNHH Điện Lạnh Sài Gòn  - Saree",
+      "policy_doc": null,
+      "permission_codes": [
+        "CONTRACT_COMPLETE",
+        "CONTRACT_START_PRODUCTION",
+        "CONTRACT_VIEW_ALL",
+        "INVENTORY_APPROVE",
+        "INVENTORY_VIEW",
+        "PROCUREMENT_DIRECTOR_APPROVE",
+        "PROCUREMENT_VIEW",
+        "PROJECT_CREATE",
+        "PROJECT_MANAGE_MEMBERS",
+        "PROJECT_UPDATE",
+        "PROJECT_VIEW",
+        "PROJECT_VIEW_ALL",
+        "QUOTATION_APPROVE_DESIGN",
+        "QUOTATION_APPROVE_FINAL",
+        "QUOTATION_APPROVE_NEGOTIATION",
+        "QUOTATION_APPROVE_SURVEY",
+        "QUOTATION_REPORT",
+        "QUOTATION_VIEW_ALL",
+        "REPORT_VIEW_ALL",
+        "TASK_CREATE",
+        "TASK_REASSIGN",
+        "TASK_UPDATE",
+        "TASK_VIEW",
+        "TASK_VIEW_ALL",
+        "USER_VIEW"
+      ]
+    },
+    {
+      "name": "pho_giam_doc_cong_trinh",
+      "display_name": "Phó Giám Đốc Công trình",
+      "level": 1,
+      "is_system": false,
+      "description": "Auto-generated for Công ty TNHH Điện Lạnh Sài Gòn  - Saree",
+      "policy_doc": null,
+      "permission_codes": [
+        "CONTRACT_START_PRODUCTION",
+        "CONTRACT_VIEW_ALL",
+        "INVENTORY_APPROVE",
+        "INVENTORY_VIEW",
+        "PROCUREMENT_DIRECTOR_APPROVE",
+        "PROCUREMENT_VIEW",
+        "PROJECT_MANAGE_MEMBERS",
+        "PROJECT_UPDATE",
+        "PROJECT_VIEW",
+        "PROJECT_VIEW_ALL",
+        "REPORT_VIEW_ALL",
+        "REPORT_VIEW_TEAM",
+        "TASK_CREATE",
+        "TASK_REASSIGN",
+        "TASK_UPDATE",
+        "TASK_VIEW",
+        "TASK_VIEW_ALL"
+      ]
+    },
+    {
+      "name": "truong_cung_ung_cong_trinh",
+      "display_name": "Trưởng Phòng Cung ứng vật tư công trình",
+      "level": 2,
+      "is_system": false,
+      "description": "Auto-generated for Công ty TNHH Điện Lạnh Sài Gòn  - Saree",
+      "policy_doc": null,
+      "permission_codes": [
+        "COMMENT_ADD",
+        "CONTRACT_VIEW",
+        "INVENTORY_APPROVE",
+        "INVENTORY_ISSUE_REQUEST",
+        "INVENTORY_VIEW",
+        "PROCUREMENT_RECEIVE",
+        "PROCUREMENT_VIEW",
+        "PROJECT_VIEW",
+        "PROOF_APPROVE",
+        "PROOF_UPLOAD",
+        "REPORT_VIEW_OWN",
+        "REPORT_VIEW_TEAM",
+        "TASK_CREATE",
+        "TASK_REASSIGN",
+        "TASK_UPDATE",
+        "TASK_VIEW",
+        "TASK_VIEW_ALL"
+      ]
+    },
+    {
+      "name": "truong_hanh_chanh",
+      "display_name": "Trưởng Phòng Hành chánh",
+      "level": 2,
+      "is_system": false,
+      "description": "Auto-generated for Công ty TNHH Điện Lạnh Sài Gòn  - Saree",
+      "policy_doc": null,
+      "permission_codes": [
+        "PROJECT_VIEW",
+        "REPORT_VIEW_OWN",
+        "REPORT_VIEW_TEAM",
+        "TASK_REASSIGN",
+        "TASK_UPDATE",
+        "TASK_VIEW",
+        "TASK_VIEW_ALL",
+        "USER_VIEW"
+      ]
+    },
+    {
+      "name": "truong_kinh_doanh",
+      "display_name": "Trưởng Phòng Kinh Doanh",
+      "level": 2,
+      "is_system": false,
+      "description": null,
+      "policy_doc": {
+        "permissions": [
+          "QUOTATION_SUBMIT_SURVEY",
+          "QUOTATION_FINALIZE",
+          "QUOTATION_SEND_CLIENT",
+          "PROJECT_VIEW",
+          "PROJECT_UPDATE",
+          "COMMENT_ADD",
+          "COMMENT_DELETE_ANY",
+          "PROOF_APPROVE",
+          "COMMENT_DELETE_OWN",
+          "PROOF_UPLOAD",
+          "TASK_CREATE",
+          "TASK_DELETE",
+          "TASK_REASSIGN",
+          "TASK_UPDATE_STATUS",
+          "TASK_UPDATE",
+          "TASK_VIEW",
+          "TASK_VIEW_ALL",
+          "REPORT_VIEW_OWN",
+          "REPORT_VIEW_TEAM"
+        ]
+      },
+      "permission_codes": [
+        "COMMENT_ADD",
+        "COMMENT_DELETE_OWN",
+        "CONTRACT_CONFIRM_ADVANCE",
+        "CONTRACT_CREATE",
+        "CONTRACT_SIGN",
+        "CONTRACT_SUBMIT",
+        "CONTRACT_UPDATE",
+        "CONTRACT_VIEW",
+        "PROJECT_UPDATE",
+        "PROJECT_VIEW",
+        "PROOF_APPROVE",
+        "PROOF_UPLOAD",
+        "QUOTATION_CLOSE",
+        "QUOTATION_CREATE",
+        "QUOTATION_FINALIZE",
+        "QUOTATION_LOG_NEGOTIATION",
+        "QUOTATION_REPORT",
+        "QUOTATION_SEND_CLIENT",
+        "QUOTATION_SUBMIT_SURVEY",
+        "QUOTATION_UPDATE",
+        "QUOTATION_VIEW",
+        "QUOTATION_VIEW_ALL",
+        "REPORT_VIEW_OWN",
+        "REPORT_VIEW_TEAM",
+        "TASK_CREATE",
+        "TASK_REASSIGN",
+        "TASK_UPDATE",
+        "TASK_VIEW",
+        "TASK_VIEW_ALL"
+      ]
+    },
+    {
+      "name": "truong_ke_hoach",
+      "display_name": "Trưởng Phòng Kế hoạch",
+      "level": 2,
+      "is_system": false,
+      "description": "Auto-generated for Công ty TNHH Điện Lạnh Sài Gòn  - Saree",
+      "policy_doc": null,
+      "permission_codes": [
+        "COMMENT_ADD",
+        "CONTRACT_VIEW",
+        "INVENTORY_ISSUE_REQUEST",
+        "INVENTORY_VIEW",
+        "PROCUREMENT_REQUEST_CREATE",
+        "PROCUREMENT_VIEW",
+        "PROJECT_UPDATE",
+        "PROJECT_VIEW",
+        "PROOF_APPROVE",
+        "PROOF_UPLOAD",
+        "REPORT_VIEW_OWN",
+        "REPORT_VIEW_TEAM",
+        "TASK_CREATE",
+        "TASK_REASSIGN",
+        "TASK_UPDATE",
+        "TASK_VIEW",
+        "TASK_VIEW_ALL"
+      ]
+    },
+    {
+      "name": "truong_ke_toan",
+      "display_name": "Trưởng Phòng Kế toán",
+      "level": 2,
+      "is_system": false,
+      "description": "Auto-generated for Công ty TNHH Điện Lạnh Sài Gòn  - Saree",
+      "policy_doc": null,
+      "permission_codes": [
+        "CONTRACT_VIEW",
+        "CONTRACT_VIEW_ALL",
+        "INVENTORY_VIEW",
+        "PROCUREMENT_VIEW",
+        "PROJECT_VIEW",
+        "REPORT_VIEW_OWN",
+        "REPORT_VIEW_TEAM",
+        "USER_VIEW"
+      ]
+    },
+    {
+      "name": "ky_thuat_truong",
+      "display_name": "Trưởng Phòng Kỹ thuật",
+      "level": 2,
+      "is_system": false,
+      "description": null,
+      "policy_doc": {
+        "permissions": [
+          "REPORT_VIEW_OWN",
+          "REPORT_VIEW_TEAM",
+          "COMMENT_ADD",
+          "COMMENT_DELETE_ANY",
+          "COMMENT_DELETE_OWN",
+          "PROOF_APPROVE",
+          "TASK_CREATE",
+          "PROOF_UPLOAD",
+          "TASK_DELETE",
+          "TASK_REASSIGN",
+          "TASK_UPDATE_STATUS",
+          "TASK_UPDATE",
+          "TASK_VIEW",
+          "TASK_VIEW_ALL"
+        ]
+      },
+      "permission_codes": [
+        "COMMENT_ADD",
+        "COMMENT_DELETE_OWN",
+        "CONTRACT_VIEW",
+        "PROCUREMENT_REQUEST_CREATE",
+        "PROCUREMENT_TECH_REVIEW",
+        "PROCUREMENT_VIEW",
+        "PROJECT_UPDATE",
+        "PROJECT_VIEW",
+        "PROOF_APPROVE",
+        "PROOF_UPLOAD",
+        "QUOTATION_DESIGN",
+        "QUOTATION_VIEW",
+        "REPORT_VIEW_OWN",
+        "REPORT_VIEW_TEAM",
+        "TASK_CREATE",
+        "TASK_REASSIGN",
+        "TASK_UPDATE",
+        "TASK_VIEW",
+        "TASK_VIEW_ALL"
+      ]
+    },
+    {
+      "name": "truong_vat_tu",
+      "display_name": "Trưởng Phòng Vật tư",
+      "level": 2,
+      "is_system": false,
+      "description": "Auto-generated for Công ty TNHH Điện Lạnh Sài Gòn  - Saree",
+      "policy_doc": null,
+      "permission_codes": [
+        "COMMENT_ADD",
+        "CONTRACT_VIEW",
+        "INVENTORY_APPROVE",
+        "INVENTORY_MANAGE",
+        "INVENTORY_VIEW",
+        "PROCUREMENT_PO_CREATE",
+        "PROCUREMENT_RECEIVE",
+        "PROCUREMENT_VIEW",
+        "PROJECT_VIEW",
+        "PROOF_APPROVE",
+        "PROOF_UPLOAD",
+        "QUOTATION_FILL_PRICE",
+        "QUOTATION_VIEW",
+        "REPORT_VIEW_OWN",
+        "REPORT_VIEW_TEAM",
+        "SUPPLIER_CREATE",
+        "SUPPLIER_DELETE",
+        "SUPPLIER_UPDATE",
+        "SUPPLIER_VIEW",
+        "TASK_CREATE",
+        "TASK_REASSIGN",
+        "TASK_UPDATE",
+        "TASK_VIEW",
+        "TASK_VIEW_ALL"
+      ]
+    },
+    {
+      "name": "truong_nhom_cong_trinh",
+      "display_name": "Trưởng nhóm Công trình",
+      "level": 2,
+      "is_system": false,
+      "description": "Auto-generated for Công ty TNHH Điện Lạnh Sài Gòn  - Saree",
+      "policy_doc": null,
+      "permission_codes": [
+        "COMMENT_ADD",
+        "CONTRACT_VIEW",
+        "INVENTORY_ISSUE_REQUEST",
+        "INVENTORY_VIEW",
+        "PROJECT_VIEW",
+        "PROOF_APPROVE",
+        "PROOF_UPLOAD",
+        "REPORT_VIEW_OWN",
+        "REPORT_VIEW_TEAM",
+        "TASK_CREATE",
+        "TASK_REASSIGN",
+        "TASK_UPDATE",
+        "TASK_VIEW",
+        "TASK_VIEW_ALL"
+      ]
+    },
+    {
+      "name": "truong_to_san_xuat",
+      "display_name": "Tổ trưởng Sản xuất",
+      "level": 2,
+      "is_system": false,
+      "description": "Auto-generated for Công ty TNHH Điện Lạnh Sài Gòn  - Saree",
+      "policy_doc": null,
+      "permission_codes": [
+        "COMMENT_ADD",
+        "INVENTORY_ISSUE_REQUEST",
+        "INVENTORY_VIEW",
+        "PROJECT_VIEW",
+        "PROOF_APPROVE",
+        "PROOF_UPLOAD",
+        "REPORT_VIEW_OWN",
+        "REPORT_VIEW_TEAM",
+        "TASK_CREATE",
+        "TASK_REASSIGN",
+        "TASK_UPDATE",
+        "TASK_VIEW",
+        "TASK_VIEW_ALL"
+      ]
+    },
+    {
+      "name": "nhan_vien_cung_ung_cong_trinh",
+      "display_name": "Nhân viên Cung ứng vật tư công trình",
+      "level": 3,
+      "is_system": false,
+      "description": "Auto-generated for Công ty TNHH Điện Lạnh Sài Gòn  - Saree",
+      "policy_doc": null,
+      "permission_codes": [
+        "COMMENT_ADD",
+        "CONTRACT_VIEW",
+        "INVENTORY_ISSUE_REQUEST",
+        "INVENTORY_VIEW",
+        "PROCUREMENT_RECEIVE",
+        "PROCUREMENT_VIEW",
+        "PROOF_UPLOAD",
+        "REPORT_VIEW_OWN",
+        "TASK_UPDATE_STATUS",
+        "TASK_VIEW"
+      ]
+    },
+    {
+      "name": "nhan_vien_hanh_chanh",
+      "display_name": "Nhân viên Hành chánh",
+      "level": 3,
+      "is_system": false,
+      "description": "Auto-generated for Công ty TNHH Điện Lạnh Sài Gòn  - Saree",
+      "policy_doc": null,
+      "permission_codes": [
+        "COMMENT_ADD",
+        "REPORT_VIEW_OWN",
+        "TASK_UPDATE_STATUS",
+        "TASK_VIEW"
+      ]
+    },
+    {
+      "name": "nhan_vien_kinh_doanh",
+      "display_name": "Nhân viên Kinh Doanh",
+      "level": 3,
+      "is_system": false,
+      "description": "Auto-generated for Công ty TNHH Điện Lạnh Sài Gòn  - Saree",
+      "policy_doc": null,
+      "permission_codes": [
+        "COMMENT_ADD",
+        "CONTRACT_CONFIRM_ADVANCE",
+        "CONTRACT_CREATE",
+        "CONTRACT_SIGN",
+        "CONTRACT_SUBMIT",
+        "CONTRACT_UPDATE",
+        "CONTRACT_VIEW",
+        "PROOF_UPLOAD",
+        "QUOTATION_CLOSE",
+        "QUOTATION_CREATE",
+        "QUOTATION_FINALIZE",
+        "QUOTATION_LOG_NEGOTIATION",
+        "QUOTATION_SEND_CLIENT",
+        "QUOTATION_SUBMIT_SURVEY",
+        "QUOTATION_UPDATE",
+        "QUOTATION_VIEW",
+        "REPORT_VIEW_OWN",
+        "TASK_UPDATE_STATUS",
+        "TASK_VIEW"
+      ]
+    },
+    {
+      "name": "nhan_vien_ke_hoach",
+      "display_name": "Nhân viên Kế hoạch",
+      "level": 3,
+      "is_system": false,
+      "description": "Auto-generated for Công ty TNHH Điện Lạnh Sài Gòn  - Saree",
+      "policy_doc": null,
+      "permission_codes": [
+        "COMMENT_ADD",
+        "CONTRACT_VIEW",
+        "INVENTORY_ISSUE_REQUEST",
+        "INVENTORY_VIEW",
+        "PROCUREMENT_REQUEST_CREATE",
+        "PROCUREMENT_VIEW",
+        "PROOF_UPLOAD",
+        "REPORT_VIEW_OWN",
+        "TASK_UPDATE_STATUS",
+        "TASK_VIEW"
+      ]
+    },
+    {
+      "name": "nhan_vien_ke_toan",
+      "display_name": "Nhân viên Kế toán",
+      "level": 3,
+      "is_system": false,
+      "description": "Auto-generated for Công ty TNHH Điện Lạnh Sài Gòn  - Saree",
+      "policy_doc": null,
+      "permission_codes": [
+        "CONTRACT_VIEW",
+        "INVENTORY_VIEW",
+        "PROCUREMENT_VIEW",
+        "REPORT_VIEW_OWN"
+      ]
+    },
+    {
+      "name": "nhan_vien_ky_thuat",
+      "display_name": "Nhân viên Kỹ thuật",
+      "level": 3,
+      "is_system": false,
+      "description": "Auto-generated for Công ty TNHH Điện Lạnh Sài Gòn  - Saree",
+      "policy_doc": null,
+      "permission_codes": [
+        "COMMENT_ADD",
+        "CONTRACT_VIEW",
+        "PROCUREMENT_REQUEST_CREATE",
+        "PROCUREMENT_VIEW",
+        "PROOF_UPLOAD",
+        "QUOTATION_DESIGN",
+        "QUOTATION_VIEW",
+        "REPORT_VIEW_OWN",
+        "TASK_UPDATE_STATUS",
+        "TASK_VIEW"
+      ]
+    },
+    {
+      "name": "nhan_vien_vat_tu",
+      "display_name": "Nhân viên Vật tư",
+      "level": 3,
+      "is_system": false,
+      "description": "Auto-generated for Công ty TNHH Điện Lạnh Sài Gòn  - Saree",
+      "policy_doc": null,
+      "permission_codes": [
+        "COMMENT_ADD",
+        "CONTRACT_VIEW",
+        "INVENTORY_MANAGE",
+        "INVENTORY_VIEW",
+        "PROCUREMENT_PO_CREATE",
+        "PROCUREMENT_RECEIVE",
+        "PROCUREMENT_VIEW",
+        "PROOF_UPLOAD",
+        "QUOTATION_FILL_PRICE",
+        "QUOTATION_VIEW",
+        "REPORT_VIEW_OWN",
+        "SUPPLIER_CREATE",
+        "SUPPLIER_UPDATE",
+        "SUPPLIER_VIEW",
+        "TASK_UPDATE_STATUS",
+        "TASK_VIEW"
+      ]
+    },
+    {
+      "name": "tho_lap_dat_cong_trinh",
+      "display_name": "Thợ Lắp đặt Công trình",
+      "level": 3,
+      "is_system": false,
+      "description": "Auto-generated for Công ty TNHH Điện Lạnh Sài Gòn  - Saree",
+      "policy_doc": null,
+      "permission_codes": [
+        "COMMENT_ADD",
+        "CONTRACT_VIEW",
+        "INVENTORY_VIEW",
+        "PROJECT_VIEW",
+        "PROOF_UPLOAD",
+        "REPORT_VIEW_OWN",
+        "TASK_UPDATE_STATUS",
+        "TASK_VIEW"
+      ]
+    },
+    {
+      "name": "to_vien_san_xuat",
+      "display_name": "Tổ viên Sản xuất",
+      "level": 3,
+      "is_system": false,
+      "description": "Auto-generated for Công ty TNHH Điện Lạnh Sài Gòn  - Saree",
+      "policy_doc": null,
+      "permission_codes": [
+        "COMMENT_ADD",
+        "INVENTORY_VIEW",
+        "PROJECT_VIEW",
+        "PROOF_UPLOAD",
+        "REPORT_VIEW_OWN",
+        "TASK_UPDATE_STATUS",
+        "TASK_VIEW"
+      ]
+    },
+    {
+      "name": "thợ_máy",
+      "display_name": "Thợ Máy",
+      "level": 5,
+      "is_system": false,
+      "description": null,
+      "policy_doc": {
+        "task": {
+          "create": true,
+          "update": true,
+          "delete": false,
+          "approve": false
+        },
+        "project": {
+          "view_all": false,
+          "manage_members": false
+        },
+        "report": {
+          "view_team": true,
+          "view_all": false
+        }
+      },
+      "permission_codes": [
+        "COMMENT_ADD",
+        "PROOF_UPLOAD",
+        "TASK_CREATE",
+        "TASK_REASSIGN",
+        "TASK_UPDATE",
+        "TASK_UPDATE_STATUS",
+        "TASK_VIEW",
+        "TASK_VIEW_ALL"
+      ]
+    }
+  ],
+  "users": [
+    {
+      "email": "saree_nhan_vien_cungung_1@gmail.com",
+      "full_name": "Nhân viên Cung ứng vật tư công trình",
+      "is_active": true,
+      "is_superuser": false,
+      "hashed_password": "$argon2id$v=19$m=65536,t=3,p=4$qIbheAuItwsgRK4r05wmhA$rdLddvwCBj8GMFqKrF8LHCJaLl12tDa2GUydMyYYsf0",
+      "job_title": "Nhân viên Cung ứng vật tư công trình",
+      "availability_status": "free",
+      "department_name": "Phòng Cung ứng vật tư công trình",
+      "company_roles": [
+        {
+          "role_name": "nhan_vien_cung_ung_cong_trinh",
+          "is_primary": true
+        }
+      ]
+    },
+    {
+      "email": "saree_nhan_vien_hanhchanh_1@gmail.com",
+      "full_name": "Nhân viên Hành chánh",
+      "is_active": true,
+      "is_superuser": false,
+      "hashed_password": "$argon2id$v=19$m=65536,t=3,p=4$qIbheAuItwsgRK4r05wmhA$rdLddvwCBj8GMFqKrF8LHCJaLl12tDa2GUydMyYYsf0",
+      "job_title": "Nhân viên Hành chánh",
+      "availability_status": "free",
+      "department_name": "Phòng Hành chánh",
+      "company_roles": [
+        {
+          "role_name": "nhan_vien_hanh_chanh",
+          "is_primary": true
+        }
+      ]
+    },
+    {
+      "email": "saree_nhan_vien_kehoach_1@gmail.com",
+      "full_name": "Nhân viên Kế hoạch",
+      "is_active": true,
+      "is_superuser": false,
+      "hashed_password": "$argon2id$v=19$m=65536,t=3,p=4$qIbheAuItwsgRK4r05wmhA$rdLddvwCBj8GMFqKrF8LHCJaLl12tDa2GUydMyYYsf0",
+      "job_title": "Nhân viên Kế hoạch",
+      "availability_status": "free",
+      "department_name": "Phòng Kế hoạch",
+      "company_roles": [
+        {
+          "role_name": "nhan_vien_ke_hoach",
+          "is_primary": true
+        }
+      ]
+    },
+    {
+      "email": "saree_nhan_vien_ketoan_1@gmail.com",
+      "full_name": "Nhân viên Kế toán",
+      "is_active": true,
+      "is_superuser": false,
+      "hashed_password": "$argon2id$v=19$m=65536,t=3,p=4$qIbheAuItwsgRK4r05wmhA$rdLddvwCBj8GMFqKrF8LHCJaLl12tDa2GUydMyYYsf0",
+      "job_title": "Nhân viên Kế toán",
+      "availability_status": "free",
+      "department_name": "Phòng Kế toán",
+      "company_roles": [
+        {
+          "role_name": "nhan_vien_ke_toan",
+          "is_primary": true
+        }
+      ]
+    },
+    {
+      "email": "saree_nhan_vien_kinhdoanh_1@gmail.com",
+      "full_name": "Nhân viên Kinh Doanh",
+      "is_active": true,
+      "is_superuser": false,
+      "hashed_password": "$argon2id$v=19$m=65536,t=3,p=4$qIbheAuItwsgRK4r05wmhA$rdLddvwCBj8GMFqKrF8LHCJaLl12tDa2GUydMyYYsf0",
+      "job_title": "Nhân viên Kinh Doanh",
+      "availability_status": "free",
+      "department_name": "Phòng Kinh Doanh",
+      "company_roles": [
+        {
+          "role_name": "nhan_vien_kinh_doanh",
+          "is_primary": true
+        }
+      ]
+    },
+    {
+      "email": "saree_nhan_vien_kythuat_1@gmail.com",
+      "full_name": "Nhân viên Kỹ thuật",
+      "is_active": true,
+      "is_superuser": false,
+      "hashed_password": "$argon2id$v=19$m=65536,t=3,p=4$qIbheAuItwsgRK4r05wmhA$rdLddvwCBj8GMFqKrF8LHCJaLl12tDa2GUydMyYYsf0",
+      "job_title": "Nhân viên Kỹ thuật",
+      "availability_status": "free",
+      "department_name": "Phòng Kỹ thuật",
+      "company_roles": [
+        {
+          "role_name": "nhan_vien_ky_thuat",
+          "is_primary": true
+        }
+      ]
+    },
+    {
+      "email": "saree_nhan_vien_vattu_1@gmail.com",
+      "full_name": "Nhân viên Vật tư",
+      "is_active": true,
+      "is_superuser": false,
+      "hashed_password": "$argon2id$v=19$m=65536,t=3,p=4$qIbheAuItwsgRK4r05wmhA$rdLddvwCBj8GMFqKrF8LHCJaLl12tDa2GUydMyYYsf0",
+      "job_title": "Nhân viên Vật tư",
+      "availability_status": "free",
+      "department_name": "Phòng Vật tư",
+      "company_roles": [
+        {
+          "role_name": "nhan_vien_vat_tu",
+          "is_primary": true
+        }
+      ]
+    },
+    {
+      "email": "saree_pho_giam_doc_1@gmail.com",
+      "full_name": "Phó Giám Đốc",
+      "is_active": true,
+      "is_superuser": false,
+      "hashed_password": "$argon2id$v=19$m=65536,t=3,p=4$qIbheAuItwsgRK4r05wmhA$rdLddvwCBj8GMFqKrF8LHCJaLl12tDa2GUydMyYYsf0",
+      "job_title": "Phó Giám Đốc",
+      "availability_status": "free",
+      "department_name": "Ban Giám Đốc",
+      "company_roles": [
+        {
+          "role_name": "pho_giam_doc",
+          "is_primary": true
+        }
+      ]
+    },
+    {
+      "email": "saree_pho_giam_doc_cong_trinh_1@gmail.com",
+      "full_name": "Phó Giám Đốc Công trình",
+      "is_active": true,
+      "is_superuser": false,
+      "hashed_password": "$argon2id$v=19$m=65536,t=3,p=4$qIbheAuItwsgRK4r05wmhA$rdLddvwCBj8GMFqKrF8LHCJaLl12tDa2GUydMyYYsf0",
+      "job_title": "Phó Giám Đốc Công trình",
+      "availability_status": "free",
+      "department_name": "Ban Giám Đốc",
+      "company_roles": [
+        {
+          "role_name": "pho_giam_doc_cong_trinh",
+          "is_primary": true
+        }
+      ]
+    },
+    {
+      "email": "saree_tho_lapdat_1@gmail.com",
+      "full_name": "Thợ Lắp đặt Công trình",
+      "is_active": true,
+      "is_superuser": false,
+      "hashed_password": "$argon2id$v=19$m=65536,t=3,p=4$qIbheAuItwsgRK4r05wmhA$rdLddvwCBj8GMFqKrF8LHCJaLl12tDa2GUydMyYYsf0",
+      "job_title": "Thợ Lắp đặt Công trình",
+      "availability_status": "free",
+      "department_name": "Nhóm Điện Công trình",
+      "company_roles": [
+        {
+          "role_name": "tho_lap_dat_cong_trinh",
+          "is_primary": true
+        }
+      ]
+    },
+    {
+      "email": "saree_thomay_1@gmail.com",
+      "full_name": "Thợ Máy 1",
+      "is_active": true,
+      "is_superuser": false,
+      "hashed_password": "$argon2id$v=19$m=65536,t=3,p=4$qIbheAuItwsgRK4r05wmhA$rdLddvwCBj8GMFqKrF8LHCJaLl12tDa2GUydMyYYsf0",
+      "job_title": null,
+      "availability_status": "free",
+      "department_name": "Tổ Máy 1",
+      "company_roles": [
+        {
+          "role_name": "thợ_máy",
+          "is_primary": true
+        }
+      ]
+    },
+    {
+      "email": "saree_to_vien_sanxuat_1@gmail.com",
+      "full_name": "Tổ viên Sản xuất",
+      "is_active": true,
+      "is_superuser": false,
+      "hashed_password": "$argon2id$v=19$m=65536,t=3,p=4$qIbheAuItwsgRK4r05wmhA$rdLddvwCBj8GMFqKrF8LHCJaLl12tDa2GUydMyYYsf0",
+      "job_title": "Tổ viên Sản xuất",
+      "availability_status": "free",
+      "department_name": "Tổ Máy 1",
+      "company_roles": [
+        {
+          "role_name": "to_vien_san_xuat",
+          "is_primary": true
+        }
+      ]
+    },
+    {
+      "email": "saree_truong_cungung_1@gmail.com",
+      "full_name": "Trưởng Phòng Cung ứng vật tư công trình",
+      "is_active": true,
+      "is_superuser": false,
+      "hashed_password": "$argon2id$v=19$m=65536,t=3,p=4$qIbheAuItwsgRK4r05wmhA$rdLddvwCBj8GMFqKrF8LHCJaLl12tDa2GUydMyYYsf0",
+      "job_title": "Trưởng Phòng Cung ứng vật tư công trình",
+      "availability_status": "free",
+      "department_name": "Phòng Cung ứng vật tư công trình",
+      "company_roles": [
+        {
+          "role_name": "truong_cung_ung_cong_trinh",
+          "is_primary": true
+        }
+      ]
+    },
+    {
+      "email": "saree_truong_hanhchanh_1@gmail.com",
+      "full_name": "Trưởng Phòng Hành chánh",
+      "is_active": true,
+      "is_superuser": false,
+      "hashed_password": "$argon2id$v=19$m=65536,t=3,p=4$qIbheAuItwsgRK4r05wmhA$rdLddvwCBj8GMFqKrF8LHCJaLl12tDa2GUydMyYYsf0",
+      "job_title": "Trưởng Phòng Hành chánh",
+      "availability_status": "free",
+      "department_name": "Phòng Hành chánh",
+      "company_roles": [
+        {
+          "role_name": "truong_hanh_chanh",
+          "is_primary": true
+        }
+      ]
+    },
+    {
+      "email": "saree_truong_kehoach_1@gmail.com",
+      "full_name": "Trưởng Phòng Kế hoạch",
+      "is_active": true,
+      "is_superuser": false,
+      "hashed_password": "$argon2id$v=19$m=65536,t=3,p=4$qIbheAuItwsgRK4r05wmhA$rdLddvwCBj8GMFqKrF8LHCJaLl12tDa2GUydMyYYsf0",
+      "job_title": "Trưởng Phòng Kế hoạch",
+      "availability_status": "free",
+      "department_name": "Phòng Kế hoạch",
+      "company_roles": [
+        {
+          "role_name": "truong_ke_hoach",
+          "is_primary": true
+        }
+      ]
+    },
+    {
+      "email": "saree_truong_ketoan_1@gmail.com",
+      "full_name": "Trưởng Phòng Kế toán",
+      "is_active": true,
+      "is_superuser": false,
+      "hashed_password": "$argon2id$v=19$m=65536,t=3,p=4$qIbheAuItwsgRK4r05wmhA$rdLddvwCBj8GMFqKrF8LHCJaLl12tDa2GUydMyYYsf0",
+      "job_title": "Trưởng Phòng Kế toán",
+      "availability_status": "free",
+      "department_name": "Phòng Kế toán",
+      "company_roles": [
+        {
+          "role_name": "truong_ke_toan",
+          "is_primary": true
+        }
+      ]
+    },
+    {
+      "email": "saree_truong_kinh_doanh_1@gmail.com",
+      "full_name": "Trưởng Kinh Doanh 1",
+      "is_active": true,
+      "is_superuser": false,
+      "hashed_password": "$argon2id$v=19$m=65536,t=3,p=4$qIbheAuItwsgRK4r05wmhA$rdLddvwCBj8GMFqKrF8LHCJaLl12tDa2GUydMyYYsf0",
+      "job_title": null,
+      "availability_status": "free",
+      "department_name": "Phòng Kinh Doanh",
+      "company_roles": [
+        {
+          "role_name": "truong_kinh_doanh",
+          "is_primary": true
+        }
+      ]
+    },
+    {
+      "email": "saree_truong_kinhdoanh_1@gmail.com",
+      "full_name": "Trưởng Phòng Kinh Doanh",
+      "is_active": true,
+      "is_superuser": false,
+      "hashed_password": "$argon2id$v=19$m=65536,t=3,p=4$qIbheAuItwsgRK4r05wmhA$rdLddvwCBj8GMFqKrF8LHCJaLl12tDa2GUydMyYYsf0",
+      "job_title": "Trưởng Phòng Kinh Doanh",
+      "availability_status": "free",
+      "department_name": "Phòng Kinh Doanh",
+      "company_roles": [
+        {
+          "role_name": "truong_kinh_doanh",
+          "is_primary": true
+        }
+      ]
+    },
+    {
+      "email": "saree_truong_kythuat_1@gmail.com",
+      "full_name": "Trưởng Kỹ Thuật 1",
+      "is_active": true,
+      "is_superuser": false,
+      "hashed_password": "$argon2id$v=19$m=65536,t=3,p=4$qIbheAuItwsgRK4r05wmhA$rdLddvwCBj8GMFqKrF8LHCJaLl12tDa2GUydMyYYsf0",
+      "job_title": "Trưởng Phòng Kỹ thuật",
+      "availability_status": "free",
+      "department_name": "Phòng Kỹ thuật",
+      "company_roles": [
+        {
+          "role_name": "ky_thuat_truong",
+          "is_primary": true
+        }
+      ]
+    },
+    {
+      "email": "saree_truong_nhom_congtrinh_1@gmail.com",
+      "full_name": "Trưởng nhóm Công trình",
+      "is_active": true,
+      "is_superuser": false,
+      "hashed_password": "$argon2id$v=19$m=65536,t=3,p=4$qIbheAuItwsgRK4r05wmhA$rdLddvwCBj8GMFqKrF8LHCJaLl12tDa2GUydMyYYsf0",
+      "job_title": "Trưởng nhóm Công trình",
+      "availability_status": "free",
+      "department_name": "Nhóm Điện Công trình",
+      "company_roles": [
+        {
+          "role_name": "truong_nhom_cong_trinh",
+          "is_primary": true
+        }
+      ]
+    },
+    {
+      "email": "saree_truong_to_sanxuat_1@gmail.com",
+      "full_name": "Tổ trưởng Sản xuất",
+      "is_active": true,
+      "is_superuser": false,
+      "hashed_password": "$argon2id$v=19$m=65536,t=3,p=4$qIbheAuItwsgRK4r05wmhA$rdLddvwCBj8GMFqKrF8LHCJaLl12tDa2GUydMyYYsf0",
+      "job_title": "Tổ trưởng Sản xuất",
+      "availability_status": "free",
+      "department_name": "Tổ Máy 1",
+      "company_roles": [
+        {
+          "role_name": "truong_to_san_xuat",
+          "is_primary": true
+        }
+      ]
+    },
+    {
+      "email": "saree_truong_vattu_1@gmail.com",
+      "full_name": "Trưởng Phòng Vật tư",
+      "is_active": true,
+      "is_superuser": false,
+      "hashed_password": "$argon2id$v=19$m=65536,t=3,p=4$qIbheAuItwsgRK4r05wmhA$rdLddvwCBj8GMFqKrF8LHCJaLl12tDa2GUydMyYYsf0",
+      "job_title": "Trưởng Phòng Vật tư",
+      "availability_status": "free",
+      "department_name": "Phòng Vật tư",
+      "company_roles": [
+        {
+          "role_name": "truong_vat_tu",
+          "is_primary": true
+        }
+      ]
+    },
+    {
+      "email": "saree_tuananh@gmail.com",
+      "full_name": "Giám đốc Saree",
+      "is_active": true,
+      "is_superuser": false,
+      "hashed_password": "$argon2id$v=19$m=65536,t=3,p=4$qIbheAuItwsgRK4r05wmhA$rdLddvwCBj8GMFqKrF8LHCJaLl12tDa2GUydMyYYsf0",
+      "job_title": "Ban Giám Đốc",
+      "availability_status": "free",
+      "department_name": "Ban Giám Đốc",
+      "company_roles": [
+        {
+          "role_name": "giam_doc",
+          "is_primary": true
+        }
+      ]
+    },
+    {
+      "email": "saree_vuhuynh@gmail.com",
+      "full_name": "Giám đốc Saree",
+      "is_active": true,
+      "is_superuser": false,
+      "hashed_password": "$argon2id$v=19$m=65536,t=3,p=4$qIbheAuItwsgRK4r05wmhA$rdLddvwCBj8GMFqKrF8LHCJaLl12tDa2GUydMyYYsf0",
+      "job_title": "Ban Giám Đốc",
+      "availability_status": "free",
+      "department_name": "Ban Giám Đốc",
+      "company_roles": [
+        {
+          "role_name": "giam_doc",
+          "is_primary": true
+        }
+      ]
+    }
+  ]
+}

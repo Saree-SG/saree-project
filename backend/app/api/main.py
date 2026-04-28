@@ -3,12 +3,17 @@ from fastapi import APIRouter
 from app.api.routes import (
     chat,
     chat_ws,
+    contracts,
     dashboard,
+    inventory,
     login,
     notifications,
     private,
+    procurement,
     projects,
+    quotations,
     roles,
+    suppliers,
     task_ws,
     tasks,
     users,
@@ -32,6 +37,11 @@ api_router.include_router(projects.router)
 api_router.include_router(tasks.router)
 api_router.include_router(dashboard.router)
 api_router.include_router(notifications.router)
+api_router.include_router(quotations.router)
+api_router.include_router(contracts.router)
+api_router.include_router(suppliers.router)
+api_router.include_router(procurement.router)
+api_router.include_router(inventory.router)
 
 if settings.ENVIRONMENT == "local":
     api_router.include_router(private.router)

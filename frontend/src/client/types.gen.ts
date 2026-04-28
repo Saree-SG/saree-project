@@ -441,6 +441,12 @@ export type TaskProofPublic = {
     uploaded_at: string;
 };
 
+export type BlockerInfo = {
+    id: string;
+    name: string;
+    status: string;
+};
+
 export type TaskPublic = {
     name: string;
     description?: (string | null);
@@ -463,6 +469,10 @@ export type TaskPublic = {
     updated_at: string;
     reported_progress_total?: number;
     progress_weight?: (number | null);
+    module_tag?: (string | null);
+    linked_entity_type?: (string | null);
+    linked_entity_id?: (string | null);
+    blocked_by?: Array<BlockerInfo>;
 };
 
 export type TasksPublic = {

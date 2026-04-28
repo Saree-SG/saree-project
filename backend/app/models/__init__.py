@@ -89,10 +89,54 @@ from app.models.schemas import (  # noqa: F401
     TokenPayload,
 )
 
+# Quotation
+from app.models.quotation import (  # noqa: F401
+    Quotation,
+    QuotationAttachment,
+    QuotationNegotiationLog,
+    QuotationStageTransition,
+    QuotationVersion,
+)
+
+# Procurement
+from app.models.procurement import (  # noqa: F401
+    PurchaseRequest,
+    PurchaseRequestItem,
+    PurchaseOrder,
+    PurchaseOrderItem,
+    SupplierQuote,
+)
+
+# Contract
+from app.models.contract import (  # noqa: F401
+    Contract,
+    ContractAttachment,
+    ContractStatusTransition,
+)
+
+# Supplier
+from app.models.supplier import (  # noqa: F401
+    Supplier,
+    SupplierCreate,
+    SupplierPublic,
+    SuppliersPublic,
+    SupplierUpdate,
+)
+
+# Inventory
+from app.models.inventory import (  # noqa: F401
+    InventoryItem,
+    MaterialIssueAttachment,
+    MaterialIssue,
+    MaterialIssueItem,
+    StockMovement,
+)
+
 # Task
 from app.models.task import (  # noqa: F401
     AuditLog,
     Task,
+    TaskAssignee,
     TaskComment,
     TaskCommentApprovalUpdate,
     TaskCommentCreate,
@@ -106,6 +150,7 @@ from app.models.task import (  # noqa: F401
     TaskProof,
     TaskProofCreate,
     TaskPublic,
+    TaskLinkedEntity,
     TasksPublic,
     TaskUpdate,
 )

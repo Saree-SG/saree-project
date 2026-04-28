@@ -1,11 +1,9 @@
 import { useQuery } from "@tanstack/react-query"
+import { useMemo } from "react"
 
 import { readMyPermissions } from "@/modules/rbac/rbacApi"
 import { isLoggedIn } from "./useAuth"
 
-/**
- * Cache current user's effective RBAC permission codes.
- */
 export function useMyPermissions() {
   return useQuery({
     queryKey: ["roles", "my-permissions"],
@@ -15,11 +13,11 @@ export function useMyPermissions() {
   })
 }
 
-/**
- * Return whether current user has a permission code.
- */
 export function useCan(permissionCode: string): boolean {
   const permissionsQuery = useMyPermissions()
-  const permissions = new Set(permissionsQuery.data ?? [])
+  const permissions = useMemo(
+    () => new Set(permissionsQuery.data ?? []),
+    [permissionsQuery.data],
+  )
   return permissions.has(permissionCode)
 }

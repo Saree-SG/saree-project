@@ -85,6 +85,18 @@ class DepartmentCreate(SQLModel):
     dept_type: str | None = None
 
 
+class DepartmentUpdate(SQLModel):
+    name: str | None = Field(default=None, max_length=255)
+    dept_type: str | None = None
+    is_active: bool | None = None
+    parent_id: uuid.UUID | None = None
+
+
+class UserDepartmentAssign(SQLModel):
+    user_id: uuid.UUID
+    department_id: uuid.UUID | None = None
+
+
 # ---------------------------------------------------------------------------
 # Role
 # ---------------------------------------------------------------------------

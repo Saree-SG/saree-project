@@ -76,7 +76,7 @@ function WarningCard({
               {cfg.label}
             </span>
             <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-500">
-              Tầng {warning.layer} · {LAYER_LABEL[warning.layer]}
+              Mức độ {warning.layer} · {LAYER_LABEL[warning.layer]}
             </span>
             {warning.estimated_delay_days != null && (
               <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-700">

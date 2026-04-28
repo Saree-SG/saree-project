@@ -1,5 +1,7 @@
 # FastAPI Project - Deployment
 
+Overview of which Compose file is used where: **[DOCKER_COMPOSE.md](./DOCKER_COMPOSE.md)** (local vs production vs Traefik). On the server you can run `./scripts/docker.sh prod …` instead of typing `-f compose.prod.yml`.
+
 You can deploy the project using Docker Compose to a remote server.
 
 This project expects you to have a Traefik proxy handling communication to the outside world and HTTPS certificates.

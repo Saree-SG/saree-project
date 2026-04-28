@@ -3,6 +3,15 @@ import { createFileRoute, Link } from "@tanstack/react-router"
 import { useMemo } from "react"
 
 import { type TaskPublic, TasksService } from "@/client"
+import { listContracts } from "@/modules/contract/contractApi"
+import { CONTRACT_STATUS_LABELS, type ContractPublic } from "@/modules/contract/contractTypes"
+import { listAllOrders, listRequests } from "@/modules/procurement/procurementApi"
+import { PO_STATUS_LABELS, type PurchaseOrder, PR_STATUS_LABELS, type PurchaseRequest } from "@/modules/procurement/procurementTypes"
+import { getMyPendingQuotations } from "@/modules/quotation/quotationApi"
+import { STAGE_CONFIG } from "@/modules/quotation/stageConfig"
+import type { QuotationPublic } from "@/modules/quotation/quotationTypes"
+import { useMyPermissions } from "@/hooks/useMyPermissions"
+import { hasPermission } from "@/utils/accountAccess"
 
 export const Route = createFileRoute("/_layout/tasks/")({
   component: MyTasksPage,
@@ -38,8 +47,10 @@ type MyDashboardPayload = {
 function statusLabel(status: string): string {
   switch (status) {
     case "todo": return "Chờ làm"
+    case "active": return "Đang làm"
     case "in_progress": return "Đang làm"
     case "review": return "Chờ duyệt"
+    case "completed": return "Hoàn thành"
     case "done": return "Hoàn thành"
     case "overdue_local": return "Quá hạn"
     case "overdue_critical": return "Quá hạn nghiêm trọng"
@@ -51,6 +62,8 @@ function statusLabel(status: string): string {
 function statusBadgeClass(status: string): string {
   switch (status) {
     case "done": return "bg-green-100 text-green-700"
+    case "completed": return "bg-green-100 text-green-700"
+    case "active":
     case "in_progress": return "bg-blue-100 text-blue-700"
     case "review": return "bg-purple-100 text-purple-700"
     case "overdue_critical": return "bg-red-100 text-red-700"
@@ -58,6 +71,32 @@ function statusBadgeClass(status: string): string {
     case "due_soon": return "bg-amber-100 text-amber-700"
     default: return "bg-slate-100 text-slate-600"
   }
+}
+
+function taskBusinessLabel(task: TaskPublic): string {
+  const moduleTag = task.module_tag?.trim()
+  if (moduleTag) {
+    if (moduleTag === "engineering") return "Kỹ thuật"
+    if (moduleTag === "planning") return "Kế hoạch"
+    if (moduleTag === "production") return "Sản xuất"
+    if (moduleTag === "sales") return "Kinh doanh"
+    if (moduleTag === "director") return "Ban giám đốc"
+    if (moduleTag === "procurement") return "Mua hàng"
+    if (moduleTag === "inventory") return "Kho vật tư"
+    if (moduleTag === "quotation") return "Báo giá"
+    if (moduleTag === "contract") return "Hợp đồng"
+    return moduleTag
+  }
+  if (task.linked_entity_type === "purchase_request") return "Đề nghị mua hàng"
+  if (task.linked_entity_type === "material_issue") return "Xuất vật tư"
+  return "Công việc chung"
+}
+
+function initials(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean)
+  if (parts.length === 0) return "?"
+  if (parts.length === 1) return parts[0].slice(0, 1).toUpperCase()
+  return `${parts[0].slice(0, 1)}${parts[parts.length - 1].slice(0, 1)}`.toUpperCase()
 }
 
 function deadlineText(endTime: string, effectiveStatus: string): { text: string; cls: string } {
@@ -99,6 +138,13 @@ function TaskCard({ row }: { row: MyTaskItem }) {
   const progress = task.reported_progress_total ?? 0
   const isSubtask = Boolean(task.parent_id)
   const dl = deadlineText(task.end_time, effectiveStatus)
+  const businessLabel = taskBusinessLabel(task)
+  const collaborators = [
+    task.assignee_name?.trim() || task.assignee_id,
+    ...((task as TaskPublic & { extra_assignees?: Array<{ user_name?: string | null; user_id: string }> }).extra_assignees ?? []).map(
+      (item) => item.user_name?.trim() || item.user_id,
+    ),
+  ]
 
   return (
     <Link
@@ -115,6 +161,27 @@ function TaskCard({ row }: { row: MyTaskItem }) {
             </span>
           )}
           <p className="text-sm font-bold leading-snug text-slate-900">{task.name}</p>
+          <div className="mt-1 flex flex-wrap items-center gap-2">
+            <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-700">
+              {businessLabel}
+            </span>
+            <div className="flex items-center gap-1">
+              <div className="flex -space-x-2">
+                {collaborators.slice(0, 3).map((name) => (
+                  <span
+                    key={`${task.id}-${name}`}
+                    title={name}
+                    className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-white bg-primary text-[9px] font-bold text-white"
+                  >
+                    {initials(name)}
+                  </span>
+                ))}
+              </div>
+              <span className="text-[10px] font-semibold text-primary">
+                {collaborators.length} người
+              </span>
+            </div>
+          </div>
           <p className="mt-0.5 text-[11px] text-muted-foreground">
             {row.company_name} · {row.project_name}
           </p>
@@ -232,15 +299,185 @@ function BandSection({ band, items }: { band: BandConfig; items: MyTaskItem[] })
 }
 
 // ---------------------------------------------------------------------------
+// Pending quotation card
+// ---------------------------------------------------------------------------
+
+function PendingQuotationCard({ q }: { q: QuotationPublic }) {
+  const stageCfg = STAGE_CONFIG[q.current_stage]
+  return (
+    <Link
+      to="/quotations/$quotationId"
+      params={{ quotationId: q.id }}
+      search={{ tab: "history" }}
+      className="block rounded-xl border bg-white p-4 shadow-sm transition-shadow hover:shadow-md"
+    >
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-bold leading-snug text-slate-900">{q.project_name}</p>
+          <p className="mt-0.5 text-[11px] text-muted-foreground">{q.client_company_name}</p>
+        </div>
+        <span className={[
+          "shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold",
+          stageCfg.badgeBg,
+          stageCfg.badgeText,
+        ].join(" ")}>
+          {stageCfg.shortLabel}
+        </span>
+      </div>
+      <div className="mt-2 flex items-center justify-between text-[11px] text-muted-foreground">
+        <span>#{q.quote_number}</span>
+        {q.sales_owner_name && <span>KD: {q.sales_owner_name}</span>}
+      </div>
+    </Link>
+  )
+}
+
+function PendingProcurementCard({ req }: { req: PurchaseRequest }) {
+  return (
+    <Link
+      to="/procurement/requests/$requestId"
+      params={{ requestId: req.id }}
+      className="block rounded-xl border bg-white p-4 shadow-sm transition-shadow hover:shadow-md"
+    >
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-bold leading-snug text-slate-900">{req.title}</p>
+          <p className="mt-0.5 text-[11px] text-muted-foreground">{req.request_number}</p>
+        </div>
+        <span className="shrink-0 rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-bold text-blue-700">
+          {PR_STATUS_LABELS[req.status]}
+        </span>
+      </div>
+    </Link>
+  )
+}
+
+function PendingContractCard({ contract }: { contract: ContractPublic }) {
+  return (
+    <Link
+      to="/contracts/$contractId"
+      params={{ contractId: contract.id }}
+      className="block rounded-xl border bg-white p-4 shadow-sm transition-shadow hover:shadow-md"
+    >
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-bold leading-snug text-slate-900">{contract.contract_number}</p>
+          <p className="mt-0.5 text-[11px] text-muted-foreground">
+            Giá trị: {new Intl.NumberFormat("vi-VN").format(contract.total_value)} {contract.currency}
+          </p>
+        </div>
+        <span className="shrink-0 rounded-full bg-indigo-100 px-2 py-0.5 text-[10px] font-bold text-indigo-700">
+          {CONTRACT_STATUS_LABELS[contract.status]}
+        </span>
+      </div>
+    </Link>
+  )
+}
+
+function PendingPOCard({ po }: { po: PurchaseOrder }) {
+  return (
+    <Link
+      to="/procurement/orders/$poId"
+      params={{ poId: po.id }}
+      className="block rounded-xl border bg-white p-4 shadow-sm transition-shadow hover:shadow-md"
+    >
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-bold leading-snug text-slate-900">{po.po_number}</p>
+          <p className="mt-0.5 text-[11px] text-muted-foreground">
+            {po.items.length} hạng mục{po.total_amount != null ? ` · ${new Intl.NumberFormat("vi-VN").format(po.total_amount)} VND` : ""}
+          </p>
+        </div>
+        <span className="shrink-0 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-700">
+          {PO_STATUS_LABELS[po.status]}
+        </span>
+      </div>
+    </Link>
+  )
+}
+
+// ---------------------------------------------------------------------------
 // Page
 // ---------------------------------------------------------------------------
 
 function MyTasksPage() {
+  const permissionsQuery = useMyPermissions()
+  const permissions = permissionsQuery.data ?? []
+  const canTechReview = hasPermission(permissions, "PROCUREMENT_TECH_REVIEW")
+  const canDirectorApprove = hasPermission(permissions, "PROCUREMENT_DIRECTOR_APPROVE")
+  const canPoManage = hasPermission(permissions, "PROCUREMENT_PO_CREATE")
+  const canReceive = hasPermission(permissions, "PROCUREMENT_RECEIVE")
+  const canContractApprove = hasPermission(permissions, "CONTRACT_APPROVE")
+
   const dashboardQuery = useQuery({
     queryKey: ["my-tasks-dashboard"],
     queryFn: async () =>
       (await TasksService.myDashboard()) as MyDashboardPayload,
   })
+
+  const pendingQuotationsQuery = useQuery({
+    queryKey: ["my-pending-quotations"],
+    queryFn: getMyPendingQuotations,
+  })
+  const pendingTechRequestsQuery = useQuery({
+    queryKey: ["my-pending-procurement", "pending_tech"],
+    queryFn: () => listRequests({ status: "pending_tech", limit: 100 }),
+    enabled: canTechReview,
+  })
+  const pendingDirectorRequestsQuery = useQuery({
+    queryKey: ["my-pending-procurement", "pending_director"],
+    queryFn: () => listRequests({ status: "pending_director", limit: 100 }),
+    enabled: canDirectorApprove,
+  })
+  const pendingContractsQuery = useQuery({
+    queryKey: ["my-pending-contracts", "pending_approval"],
+    queryFn: () => listContracts({ status: "pending_approval", limit: 100 }),
+    enabled: canContractApprove,
+  })
+  const pendingPoSupplierSelectionQuery = useQuery({
+    queryKey: ["my-pending-po", "pending_supplier_selection"],
+    queryFn: () => listAllOrders({ status: "pending_supplier_selection", limit: 100 }),
+    enabled: canDirectorApprove,
+  })
+  const pendingPoOrderedConfirmQuery = useQuery({
+    queryKey: ["my-pending-po", "approved"],
+    queryFn: () => listAllOrders({ status: "approved", limit: 100 }),
+    enabled: canPoManage,
+  })
+  const pendingPoReceiveOrderedQuery = useQuery({
+    queryKey: ["my-pending-po", "ordered"],
+    queryFn: () => listAllOrders({ status: "ordered", limit: 100 }),
+    enabled: canReceive,
+  })
+  const pendingPoReceivePartialQuery = useQuery({
+    queryKey: ["my-pending-po", "partially_received"],
+    queryFn: () => listAllOrders({ status: "partially_received", limit: 100 }),
+    enabled: canReceive,
+  })
+
+  const pendingQuotations = pendingQuotationsQuery.data ?? []
+  const pendingProcurements = useMemo(() => {
+    const merged = [
+      ...(pendingTechRequestsQuery.data?.data ?? []),
+      ...(pendingDirectorRequestsQuery.data?.data ?? []),
+    ]
+    return Array.from(new Map(merged.map((item) => [item.id, item])).values())
+  }, [pendingDirectorRequestsQuery.data?.data, pendingTechRequestsQuery.data?.data])
+  const pendingContracts = pendingContractsQuery.data?.data ?? []
+  const pendingPOs = useMemo(() => {
+    const merged = [
+      ...(pendingPoSupplierSelectionQuery.data?.data ?? []),
+      ...(pendingPoOrderedConfirmQuery.data?.data ?? []),
+      ...(pendingPoReceiveOrderedQuery.data?.data ?? []),
+      ...(pendingPoReceivePartialQuery.data?.data ?? []),
+    ]
+    return Array.from(new Map(merged.map((item) => [item.id, item])).values())
+  }, [
+    pendingPoOrderedConfirmQuery.data?.data,
+    pendingPoReceiveOrderedQuery.data?.data,
+    pendingPoReceivePartialQuery.data?.data,
+    pendingPoSupplierSelectionQuery.data?.data,
+  ])
 
   const data = dashboardQuery.data
 
@@ -275,6 +512,76 @@ function MyTasksPage() {
           </p>
         </div>
       </div>
+
+      {/* Pending quotations */}
+      {pendingQuotations.length > 0 && (
+        <section className="rounded-xl border border-amber-200 overflow-hidden">
+          <div className="flex items-center justify-between px-4 py-2.5 border-b bg-amber-50 border-amber-200">
+            <h2 className="text-sm font-bold text-amber-700">
+              📋 Báo giá cần xử lý
+            </h2>
+            <span className="text-xs font-semibold text-amber-700 opacity-70">
+              {pendingQuotations.length} hồ sơ
+            </span>
+          </div>
+          <div className="space-y-2 bg-white p-3">
+            {pendingQuotations.map((q) => (
+              <PendingQuotationCard key={q.id} q={q} />
+            ))}
+          </div>
+        </section>
+      )}
+      {pendingProcurements.length > 0 && (
+        <section className="rounded-xl border border-blue-200 overflow-hidden">
+          <div className="flex items-center justify-between px-4 py-2.5 border-b bg-blue-50 border-blue-200">
+            <h2 className="text-sm font-bold text-blue-700">
+              🧾 Yêu cầu mua hàng cần duyệt
+            </h2>
+            <span className="text-xs font-semibold text-blue-700 opacity-70">
+              {pendingProcurements.length} yêu cầu
+            </span>
+          </div>
+          <div className="space-y-2 bg-white p-3">
+            {pendingProcurements.map((req) => (
+              <PendingProcurementCard key={req.id} req={req} />
+            ))}
+          </div>
+        </section>
+      )}
+      {pendingContracts.length > 0 && (
+        <section className="rounded-xl border border-indigo-200 overflow-hidden">
+          <div className="flex items-center justify-between px-4 py-2.5 border-b bg-indigo-50 border-indigo-200">
+            <h2 className="text-sm font-bold text-indigo-700">
+              📑 Hợp đồng chờ phê duyệt
+            </h2>
+            <span className="text-xs font-semibold text-indigo-700 opacity-70">
+              {pendingContracts.length} hợp đồng
+            </span>
+          </div>
+          <div className="space-y-2 bg-white p-3">
+            {pendingContracts.map((contract) => (
+              <PendingContractCard key={contract.id} contract={contract} />
+            ))}
+          </div>
+        </section>
+      )}
+      {pendingPOs.length > 0 && (
+        <section className="rounded-xl border border-emerald-200 overflow-hidden">
+          <div className="flex items-center justify-between px-4 py-2.5 border-b bg-emerald-50 border-emerald-200">
+            <h2 className="text-sm font-bold text-emerald-700">
+              📦 Đơn đặt hàng (PO) cần xử lý
+            </h2>
+            <span className="text-xs font-semibold text-emerald-700 opacity-70">
+              {pendingPOs.length} đơn
+            </span>
+          </div>
+          <div className="space-y-2 bg-white p-3">
+            {pendingPOs.map((po) => (
+              <PendingPOCard key={po.id} po={po} />
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* Loading */}
       {dashboardQuery.isLoading && (
