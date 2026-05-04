@@ -10,7 +10,7 @@ from __future__ import annotations
 import logging
 import os
 import subprocess
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 
 from sqlmodel import Session, func, select
 
@@ -35,6 +35,7 @@ def backup_database(self) -> dict:
     filename = f"{BACKUP_DIR}/saree_erp_{timestamp}.dump"
 
     try:
+        env = {**os.environ, "PGPASSWORD": settings.POSTGRES_PASSWORD}
         result = subprocess.run(
             [
                 "pg_dump",
@@ -42,11 +43,15 @@ def backup_database(self) -> dict:
                 "--no-owner",
                 "--no-acl",
                 f"--file={filename}",
-                str(settings.SQLALCHEMY_DATABASE_URI).replace("postgresql+psycopg://", "postgresql://"),
+                f"--host={settings.POSTGRES_SERVER}",
+                f"--port={settings.POSTGRES_PORT}",
+                f"--username={settings.POSTGRES_USER}",
+                f"--dbname={settings.POSTGRES_DB}",
             ],
             capture_output=True,
             text=True,
             timeout=300,
+            env=env,
         )
         if result.returncode != 0:
             raise RuntimeError(f"pg_dump failed: {result.stderr}")
@@ -66,15 +71,16 @@ def send_daily_summary(self) -> dict:
       - tasks overdue
       - tasks due today
     """
-    today = date.today()
     now = datetime.now(timezone.utc)
+    today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    today_end = today_start + timedelta(days=1)
 
     try:
         with Session(sync_engine) as session:
             completed_today = session.exec(
                 select(func.count(Task.id)).where(
                     Task.status == "done",
-                    Task.actual_end_time >= datetime(today.year, today.month, today.day, tzinfo=timezone.utc),
+                    Task.actual_end_time >= today_start,
                     Task.is_deleted == False,  # noqa: E712
                 )
             ).one()
@@ -91,13 +97,13 @@ def send_daily_summary(self) -> dict:
                 select(func.count(Task.id)).where(
                     Task.is_deleted == False,  # noqa: E712
                     Task.status.notin_(["done"]),  # type: ignore[attr-defined]
-                    Task.end_time >= datetime(today.year, today.month, today.day, tzinfo=timezone.utc),
-                    Task.end_time < datetime(today.year, today.month, today.day + 1, tzinfo=timezone.utc),
+                    Task.end_time >= today_start,
+                    Task.end_time < today_end,
                 )
             ).one()
 
         summary = {
-            "date": today.isoformat(),
+            "date": today_start.date().isoformat(),
             "completed_today": completed_today,
             "overdue": overdue,
             "due_today": due_today,

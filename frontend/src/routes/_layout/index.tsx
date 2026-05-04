@@ -54,7 +54,7 @@ import useAuth from "@/hooks/useAuth"
 import { clearSession } from "@/modules/auth/tokenStore"
 import { getMyPendingQuotations } from "@/modules/quotation/quotationApi"
 import { STAGE_CONFIG } from "@/modules/quotation/stageConfig"
-import { getMyPendingProcurementActions } from "@/modules/procurement/procurementApi"
+
 import { useMyPermissions } from "@/hooks/useMyPermissions"
 import { listCompanyMembers, readMyPermissions } from "@/modules/rbac/rbacApi"
 import { canAccessDashboard } from "@/utils/accountAccess"
@@ -384,12 +384,6 @@ function Dashboard() {
 
   const myPermissionsQuery = useMyPermissions()
   const myPermissions = myPermissionsQuery.data ?? []
-  const pendingProcurementQuery = useQuery({
-    queryKey: ["dashboard", "pending-procurement", myPermissions],
-    queryFn: () => getMyPendingProcurementActions(myPermissions),
-    enabled: myPermissionsQuery.isSuccess,
-    refetchInterval: 60_000,
-  })
 
   const createProjectMutation = useMutation({
     mutationFn: async (payload: ProjectCreate) => {
@@ -715,55 +709,6 @@ function Dashboard() {
         </section>
       )}
 
-      {/* ── Widget Mua hàng cần xử lý ──────────────────────────────────────── */}
-      {(pendingProcurementQuery.data?.length ?? 0) > 0 && (
-        <section id="procurement-section">
-          <div className="mb-3 flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2">
-              <span className="text-base">🛒</span>
-              <h2 className="text-sm font-bold">Mua hàng cần xử lý</h2>
-              <span className="flex size-5 items-center justify-center rounded-full bg-orange-500 text-[10px] font-bold text-white">
-                {pendingProcurementQuery.data!.length}
-              </span>
-            </div>
-            <a
-              href="/procurement"
-              className="text-xs text-muted-foreground hover:text-foreground underline"
-            >
-              Xem tất cả
-            </a>
-          </div>
-          <div className="space-y-2">
-            {pendingProcurementQuery.data!.slice(0, 6).map((action) => (
-              <a
-                key={`${action.actionType}-${action.id}`}
-                href={action.url}
-                className="flex items-center justify-between gap-3 rounded-xl border bg-card p-3 hover:bg-muted/40 transition-colors"
-              >
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium">{action.label}</p>
-                  <p className="truncate text-xs text-muted-foreground">{action.subtitle}</p>
-                </div>
-                <span className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${
-                  action.actionType === "tech_review" ? "bg-blue-100 text-blue-700" :
-                  action.actionType === "director_approve" ? "bg-orange-100 text-orange-700" :
-                  action.actionType === "select_supplier" ? "bg-yellow-100 text-yellow-700" :
-                  action.actionType === "add_quotes" ? "bg-purple-100 text-purple-700" :
-                  action.actionType === "mark_ordered" ? "bg-green-100 text-green-700" :
-                  "bg-teal-100 text-teal-700"
-                }`}>
-                  {action.actionType === "tech_review" ? "KT duyệt" :
-                   action.actionType === "director_approve" ? "BGĐ duyệt" :
-                   action.actionType === "select_supplier" ? "Chọn NCC" :
-                   action.actionType === "add_quotes" ? "Báo giá" :
-                   action.actionType === "mark_ordered" ? "Đặt hàng" :
-                   "Nhận hàng"}
-                </span>
-              </a>
-            ))}
-          </div>
-        </section>
-      )}
 
       {/* ── Cảnh báo dự án ───────────────────────────────────────────────────── */}
       {projectWarnings.length > 0 && (

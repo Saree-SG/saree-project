@@ -509,3 +509,10 @@ class TaskRepository(BaseRepository[Task]):
         )
         result = await self._execute(stmt)
         return result.scalars().all()
+
+    async def list_by_ids(self, ids: list[uuid.UUID]) -> list[Task]:
+        """Batch-fetch tasks by a list of PKs."""
+        if not ids:
+            return []
+        result = await self._execute(select(Task).where(Task.id.in_(ids)))  # type: ignore[arg-type]
+        return list(result.scalars().all())

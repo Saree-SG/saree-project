@@ -45,12 +45,11 @@ import {
   reassignTask,
   removeTaskExtraAssignee,
   removeTaskObserver,
-  type LinkedEntityCreateBody,
+  type MaterialRequestLinkBody,
   type TaskExtraAssigneePublic,
   type TaskObserverPublic,
   type TaskWithPeople,
 } from "@/modules/tasks/taskApi"
-import { listItems } from "@/modules/inventory/inventoryApi"
 import { uploadTaskProgressPhoto } from "@/modules/tasks/taskProgressApi"
 import { handleError } from "@/utils"
 import { resolveBackendMediaUrl } from "@/utils/mediaUrl"
@@ -231,26 +230,21 @@ function TaskDetailPage() {
     onError: handleError.bind(showErrorToast),
   })
 
-  const [showMaterialDialog, setShowMaterialDialog] = useState(false)
   const [createEntityDialogOpen, setCreateEntityDialogOpen] = useState(false)
-  const [materialRows, setMaterialRows] = useState<
-    Array<{ inventory_item_id: string; quantity_requested: number }>
-  >([])
-  const [materialSearch, setMaterialSearch] = useState("")
-
-  const { data: inventoryItemsData } = useQuery({
-    queryKey: ["inventory-items-picker", materialSearch],
-    queryFn: () => listItems({ search: materialSearch || undefined, limit: 100 }),
-    enabled: showMaterialDialog,
-  })
+  const [mrItemName, setMrItemName] = useState("")
+  const [mrQuantity, setMrQuantity] = useState("1")
+  const [mrUnit, setMrUnit] = useState("cái")
+  const [mrReason, setMrReason] = useState("")
 
   const createLinkedEntityMutation = useMutation({
-    mutationFn: (body: LinkedEntityCreateBody) => createLinkedEntity(taskId, body),
+    mutationFn: (body: MaterialRequestLinkBody) => createLinkedEntity(taskId, body),
     onSuccess: async () => {
-      showSuccessToast("Đã tạo và liên kết nghiệp vụ thành công")
+      showSuccessToast("Đã tạo yêu cầu vật tư thành công")
       setCreateEntityDialogOpen(false)
-      setShowMaterialDialog(false)
-      setMaterialRows([])
+      setMrItemName("")
+      setMrQuantity("1")
+      setMrUnit("cái")
+      setMrReason("")
       await queryClient.invalidateQueries({ queryKey: ["task-detail", "task", taskId] })
     },
     onError: handleError.bind(showErrorToast),
@@ -722,6 +716,10 @@ function TaskDetailPage() {
     )
   const canManageExtraAssignees = canEditTask
   const isAssignee = task?.assignee_id === currentUser?.id
+  const canEditDependency =
+    task?.status !== "done" &&
+    (task?.assignor_id === currentUser?.id ||
+      (myPermissionsQuery.data ?? []).includes("TASK_UPDATE"))
 
   const wsConnected = useTaskWebSocket(taskId, {
     queryClient,
@@ -729,8 +727,6 @@ function TaskDetailPage() {
     showSuccessToast,
     showErrorToast,
   })
-  const canCreatePurchaseRequestFromTask =
-    task?.module_tag === "procurement" || task?.module_tag === "supply"
   const extraAssignees = useMemo<TaskExtraAssigneePublic[]>(
     () => task?.extra_assignees ?? [],
     [task?.extra_assignees],
@@ -759,13 +755,20 @@ function TaskDetailPage() {
     () => task?.observers ?? [],
     [task?.observers],
   )
-  const dependencyCandidates = useMemo(
-    () =>
-      (projectGanttQuery.data?.tasks ?? [])
-        .filter((row) => row.id !== taskId && row.status !== "done")
-        .map((row) => ({ id: row.id, label: `${row.name} (${row.status})` })),
-    [projectGanttQuery.data?.tasks, taskId],
-  )
+  const dependencyCandidates = useMemo(() => {
+    const statusLabel: Record<string, string> = {
+      todo: "Chờ làm",
+      in_progress: "Đang làm",
+      done: "Hoàn thành",
+      blocked: "Đang bị chặn",
+    }
+    return (projectGanttQuery.data?.tasks ?? [])
+      .filter((row) => row.id !== taskId)
+      .map((row) => ({
+        id: row.id,
+        label: `${row.name} [${statusLabel[row.status] ?? row.status}]`,
+      }))
+  }, [projectGanttQuery.data?.tasks, taskId])
   const dependencyRows = useMemo(() => {
     const deps = projectGanttQuery.data?.dependencies ?? []
     const tasks = projectGanttQuery.data?.tasks ?? []
@@ -934,41 +937,18 @@ function TaskDetailPage() {
             </div>
           )}
 
-          {/* Linked entities (multi) */}
+          {/* Linked material requests */}
           {linkedEntities.length > 0 && (
             <div className="space-y-2">
               {linkedEntities.map((entity) => (
-                <div key={entity.id} className="flex items-center justify-between rounded-lg border border-blue-200 bg-blue-50 px-4 py-2.5">
-                  <div className="flex items-center gap-2 text-sm text-blue-800">
-                    <span className="text-base">
-                      {entity.entity_type === "purchase_request" ? "📋" : "📦"}
-                    </span>
-                    <span className="font-medium">
-                      {entity.entity_type === "purchase_request"
-                        ? "Phiếu yêu cầu mua hàng"
-                        : "Phiếu xuất kho"}
-                    </span>
-                    <span className="rounded bg-blue-200 px-1.5 py-0.5 text-[10px] font-mono text-blue-700">
+                <div key={entity.id} className="flex items-center justify-between rounded-lg border border-orange-200 bg-orange-50 px-4 py-2.5">
+                  <div className="flex items-center gap-2 text-sm text-orange-800">
+                    <span className="text-base">📋</span>
+                    <span className="font-medium">Yêu cầu vật tư</span>
+                    <span className="rounded bg-orange-200 px-1.5 py-0.5 text-[10px] font-mono text-orange-700">
                       {entity.entity_id.slice(0, 8)}…
                     </span>
                   </div>
-                  {entity.entity_type === "purchase_request" ? (
-                    <Link
-                      to="/procurement/requests/$requestId"
-                      params={{ requestId: entity.entity_id }}
-                      className="rounded px-2.5 py-1 text-xs font-semibold text-blue-700 hover:bg-blue-100"
-                    >
-                      Mở →
-                    </Link>
-                  ) : (
-                    <Link
-                      to="/inventory/issues/$issueId"
-                      params={{ issueId: entity.entity_id }}
-                      className="rounded px-2.5 py-1 text-xs font-semibold text-blue-700 hover:bg-blue-100"
-                    >
-                      Mở →
-                    </Link>
-                  )}
                 </div>
               ))}
             </div>
@@ -982,8 +962,8 @@ function TaskDetailPage() {
             >
               {createLinkedEntityMutation.isPending ? "Đang tạo…" : (
                 <>
-                  <span>🧩</span>
-                  Tạo nghiệp vụ từ task này
+                  <span>📋</span>
+                  Tạo yêu cầu vật tư
                 </>
               )}
             </button>
@@ -994,49 +974,70 @@ function TaskDetailPage() {
       <Dialog open={createEntityDialogOpen} onOpenChange={setCreateEntityDialogOpen}>
         <DialogContent className="max-w-md" showCloseButton>
           <DialogHeader>
-            <DialogTitle>Chọn loại phiếu cần tạo</DialogTitle>
+            <DialogTitle>Tạo yêu cầu vật tư</DialogTitle>
           </DialogHeader>
           <div className="space-y-3">
-            {canCreatePurchaseRequestFromTask && (
-              <button
-                type="button"
-                className="w-full rounded-lg border border-orange-200 bg-orange-50 px-4 py-3 text-left hover:bg-orange-100"
-                disabled={createLinkedEntityMutation.isPending}
-                onClick={() =>
-                  createLinkedEntityMutation.mutate({
-                    entity_type: "purchase_request",
-                    items: [],
-                  })
-                }
-              >
-                <p className="text-sm font-semibold text-orange-800">📋 Phiếu yêu cầu mua hàng</p>
-                <p className="mt-1 text-xs text-orange-700">
-                  Dùng cho nhu cầu mua vật tư cần phòng vật tư và giám đốc duyệt.
-                </p>
-              </button>
-            )}
-            <button
-              type="button"
-              className="w-full rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-left hover:bg-blue-100"
-              disabled={createLinkedEntityMutation.isPending}
-              onClick={() => {
-                setCreateEntityDialogOpen(false)
-                setShowMaterialDialog(true)
-              }}
-            >
-              <p className="text-sm font-semibold text-blue-800">📦 Phiếu xuất kho</p>
-              <p className="mt-1 text-xs text-blue-700">
-                Chọn vật tư và số lượng xuất cho công việc này.
-              </p>
-            </button>
+            <div>
+              <label className="mb-1 block text-sm font-medium">Tên vật tư <span className="text-red-500">*</span></label>
+              <input
+                type="text"
+                className="w-full rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"
+                placeholder="Ví dụ: Sơn tường, Ống thép..."
+                value={mrItemName}
+                onChange={(e) => setMrItemName(e.target.value)}
+              />
+            </div>
+            <div className="flex gap-3">
+              <div className="flex-1">
+                <label className="mb-1 block text-sm font-medium">Số lượng</label>
+                <input
+                  type="number"
+                  min={0.001}
+                  step={0.001}
+                  className="w-full rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"
+                  value={mrQuantity}
+                  onChange={(e) => setMrQuantity(e.target.value)}
+                />
+              </div>
+              <div className="w-28">
+                <label className="mb-1 block text-sm font-medium">Đơn vị</label>
+                <input
+                  type="text"
+                  className="w-full rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"
+                  placeholder="cái, m, kg..."
+                  value={mrUnit}
+                  onChange={(e) => setMrUnit(e.target.value)}
+                />
+              </div>
+            </div>
+            <div>
+              <label className="mb-1 block text-sm font-medium">Lý do / Ghi chú</label>
+              <textarea
+                className="w-full rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"
+                rows={3}
+                placeholder="Mô tả lý do cần vật tư..."
+                value={mrReason}
+                onChange={(e) => setMrReason(e.target.value)}
+              />
+            </div>
           </div>
           <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setCreateEntityDialogOpen(false)}>
+              Huỷ
+            </Button>
             <Button
               type="button"
-              variant="outline"
-              onClick={() => setCreateEntityDialogOpen(false)}
+              disabled={!mrItemName.trim() || createLinkedEntityMutation.isPending}
+              onClick={() =>
+                createLinkedEntityMutation.mutate({
+                  item_name: mrItemName.trim(),
+                  quantity: parseFloat(mrQuantity) || 1,
+                  unit: mrUnit.trim() || "cái",
+                  reason: mrReason.trim() || "Yêu cầu từ công việc",
+                })
+              }
             >
-              Huỷ
+              {createLinkedEntityMutation.isPending ? "Đang tạo…" : "Tạo yêu cầu"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1179,64 +1180,6 @@ function TaskDetailPage() {
           </div>
         )}
 
-        {canEditTask && (
-          <div className="mb-3 rounded-lg border bg-slate-50 px-4 py-3">
-            <p className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-600">
-              Task phụ thuộc phía trước
-            </p>
-            <div className="flex flex-wrap items-center gap-2">
-              <select
-                title="Chọn task phụ thuộc"
-                aria-label="Chọn task phụ thuộc"
-                className="h-9 min-w-[220px] rounded-md border px-2 text-sm"
-                value={dependencyDraft}
-                onChange={(eventValue) => setDependencyDraft(eventValue.target.value)}
-              >
-                <option value="none">Chọn task cần hoàn thành trước</option>
-                {dependencyCandidates.map((item) => (
-                  <option key={item.id} value={item.id}>
-                    {item.label}
-                  </option>
-                ))}
-              </select>
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                disabled={
-                  dependencyDraft === "none" || addDependencyMutation.isPending
-                }
-                onClick={() => addDependencyMutation.mutate(dependencyDraft)}
-              >
-                Thêm phụ thuộc
-              </Button>
-            </div>
-            {dependencyRows.length > 0 ? (
-              <div className="mt-3 space-y-1.5">
-                {dependencyRows.map((row) => (
-                  <div
-                    key={row.depId}
-                    className="flex items-center justify-between rounded border bg-white px-2 py-1.5 text-sm"
-                  >
-                    <span className="text-slate-700">{row.blockingName}</span>
-                    <button
-                      type="button"
-                      className="text-xs font-semibold text-red-600 hover:underline"
-                      onClick={() => removeDependencyMutation.mutate(row)}
-                      disabled={removeDependencyMutation.isPending}
-                    >
-                      Xóa
-                    </button>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="mt-2 text-xs text-muted-foreground">
-                Chưa có task phụ thuộc nào.
-              </p>
-            )}
-          </div>
-        )}
 
         <div className="grid grid-cols-3 gap-2">
           <button
@@ -2146,6 +2089,62 @@ function TaskDetailPage() {
                 />
               </div>
             </div>
+            {canEditDependency && (
+              <div>
+                <label className="mb-1 block text-xs font-semibold text-muted-foreground">
+                  Task phụ thuộc phía trước
+                </label>
+                <div className="flex flex-wrap items-center gap-2">
+                  <select
+                    title="Chọn task phụ thuộc"
+                    aria-label="Chọn task phụ thuộc"
+                    className="h-9 min-w-[200px] flex-1 rounded-md border px-2 text-sm"
+                    value={dependencyDraft}
+                    onChange={(e) => setDependencyDraft(e.target.value)}
+                  >
+                    <option value="none">Chọn task cần hoàn thành trước</option>
+                    {dependencyCandidates.map((item) => (
+                      <option key={item.id} value={item.id}>
+                        {item.label}
+                      </option>
+                    ))}
+                  </select>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    disabled={dependencyDraft === "none" || addDependencyMutation.isPending}
+                    onClick={() => addDependencyMutation.mutate(dependencyDraft)}
+                  >
+                    Thêm
+                  </Button>
+                </div>
+                {dependencyRows.length > 0 ? (
+                  <div className="mt-2 space-y-1">
+                    {dependencyRows.map((row) => (
+                      <div
+                        key={row.depId}
+                        className="flex items-center justify-between rounded border bg-white px-2 py-1.5 text-sm"
+                      >
+                        <span className="text-slate-700">{row.blockingName}</span>
+                        <button
+                          type="button"
+                          className="text-xs font-semibold text-red-600 hover:underline"
+                          onClick={() => removeDependencyMutation.mutate(row)}
+                          disabled={removeDependencyMutation.isPending}
+                        >
+                          Xóa
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="mt-1.5 text-xs text-muted-foreground">
+                    Chưa có task phụ thuộc nào.
+                  </p>
+                )}
+              </div>
+            )}
           </div>
           <DialogFooter>
             <Button
@@ -2675,160 +2674,6 @@ function TaskDetailPage() {
         </DialogContent>
       </Dialog>
 
-      {/* ── Material Issue Dialog ── */}
-      <Dialog open={showMaterialDialog} onOpenChange={setShowMaterialDialog}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>Tạo phiếu xuất kho</DialogTitle>
-          </DialogHeader>
-
-          <div className="space-y-4">
-            <p className="text-sm text-muted-foreground">
-              Chọn vật tư cần xuất cho công việc này. Có thể để trống và thêm vật tư sau trong trang phiếu xuất kho.
-            </p>
-
-            {/* Search */}
-            <input
-              type="text"
-              placeholder="Tìm vật tư theo tên..."
-              className="w-full rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              value={materialSearch}
-              onChange={(e) => setMaterialSearch(e.target.value)}
-            />
-
-            {/* Item list */}
-            <div className="max-h-48 overflow-y-auto rounded-md border divide-y text-sm">
-              {inventoryItemsData?.data.length === 0 && (
-                <p className="p-4 text-center text-muted-foreground">Không tìm thấy vật tư</p>
-              )}
-              {inventoryItemsData?.data.map((item) => {
-                const inList = materialRows.find((r) => r.inventory_item_id === item.id)
-                return (
-                  <div key={item.id} className="flex items-center justify-between px-3 py-2 hover:bg-muted/30">
-                    <div>
-                      <span className="font-medium">{item.item_name}</span>
-                      {item.item_code && (
-                        <span className="ml-2 text-xs text-muted-foreground font-mono">{item.item_code}</span>
-                      )}
-                      <span className={[
-                        "ml-2 text-xs",
-                        item.current_stock <= item.min_stock_alert ? "text-red-600 font-semibold" : "text-muted-foreground",
-                      ].join(" ")}>
-                        Tồn: {item.current_stock} {item.unit}
-                        {item.current_stock <= item.min_stock_alert && " ⚠️"}
-                      </span>
-                    </div>
-                    {inList ? (
-                      <button
-                        type="button"
-                        className="text-xs text-red-500 hover:underline"
-                        onClick={() =>
-                          setMaterialRows((rows) =>
-                            rows.filter((r) => r.inventory_item_id !== item.id)
-                          )
-                        }
-                      >
-                        Xoá
-                      </button>
-                    ) : (
-                      <button
-                        type="button"
-                        className="rounded bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700 hover:bg-blue-100"
-                        onClick={() =>
-                          setMaterialRows((rows) => [
-                            ...rows,
-                            { inventory_item_id: item.id, quantity_requested: 1 },
-                          ])
-                        }
-                      >
-                        + Thêm
-                      </button>
-                    )}
-                  </div>
-                )
-              })}
-            </div>
-
-            {/* Selected rows */}
-            {materialRows.length > 0 && (
-              <div className="space-y-2">
-                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  Vật tư đã chọn ({materialRows.length})
-                </p>
-                {materialRows.map((row) => {
-                  const meta = inventoryItemsData?.data.find((i) => i.id === row.inventory_item_id)
-                  return (
-                    <div key={row.inventory_item_id} className="flex items-center gap-3 rounded-md border px-3 py-2">
-                      <span className="flex-1 text-sm font-medium truncate">
-                        {meta?.item_name ?? row.inventory_item_id.slice(0, 8)}
-                      </span>
-                      <span className="text-xs text-muted-foreground">{meta?.unit}</span>
-                      <input
-                        type="number"
-                        min={0.001}
-                        step={0.001}
-                        title="Số lượng yêu cầu"
-                        placeholder="0"
-                        className="w-20 rounded border px-2 py-1 text-sm text-right focus:outline-none focus:ring-1 focus:ring-blue-500"
-                        value={row.quantity_requested}
-                        onChange={(e) => {
-                          const val = parseFloat(e.target.value)
-                          if (!isNaN(val) && val > 0) {
-                            setMaterialRows((rows) =>
-                              rows.map((r) =>
-                                r.inventory_item_id === row.inventory_item_id
-                                  ? { ...r, quantity_requested: val }
-                                  : r
-                              )
-                            )
-                          }
-                        }}
-                      />
-                      {meta && row.quantity_requested > meta.current_stock && (
-                        <span className="text-xs text-red-600 font-medium">⚠ Vượt tồn kho</span>
-                      )}
-                      <button
-                        type="button"
-                        className="text-xs text-red-400 hover:text-red-600"
-                        onClick={() =>
-                          setMaterialRows((rows) =>
-                            rows.filter((r) => r.inventory_item_id !== row.inventory_item_id)
-                          )
-                        }
-                      >
-                        ✕
-                      </button>
-                    </div>
-                  )
-                })}
-              </div>
-            )}
-          </div>
-
-          <DialogFooter>
-            <button
-              type="button"
-              className="rounded-md border px-4 py-2 text-sm hover:bg-muted"
-              onClick={() => setShowMaterialDialog(false)}
-            >
-              Huỷ
-            </button>
-            <button
-              type="button"
-              disabled={createLinkedEntityMutation.isPending}
-              onClick={() =>
-                createLinkedEntityMutation.mutate({
-                  entity_type: "material_issue",
-                  items: materialRows,
-                })
-              }
-              className="rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60"
-            >
-              {createLinkedEntityMutation.isPending ? "Đang tạo…" : "Tạo phiếu xuất kho"}
-            </button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   )
 }

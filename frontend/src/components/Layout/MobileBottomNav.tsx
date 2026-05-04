@@ -16,10 +16,9 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import {
   canAccessContract,
   canAccessDashboard,
-  canAccessInventory,
-  canAccessProcurement,
+  canAccessMaterialRequest,
+  canAccessProject,
   canAccessQuotation,
-  canAccessSupplier,
   isCompanyDirector,
   isManagementUser,
 } from "@/utils/accountAccess"
@@ -50,27 +49,23 @@ export function MobileBottomNav() {
   const showQuotations =
     Boolean(currentUser?.is_superuser) || canAccessQuotation(permissions)
 
-  const showSuppliers =
-    Boolean(currentUser?.is_superuser) || canAccessSupplier(permissions)
+  const showProjects =
+    Boolean(currentUser?.is_superuser) || canAccessProject(permissions)
 
   const showContracts =
     Boolean(currentUser?.is_superuser) || canAccessContract(permissions)
 
-  const showProcurement =
-    Boolean(currentUser?.is_superuser) || canAccessProcurement(permissions)
-
-  const showInventory =
-    Boolean(currentUser?.is_superuser) || canAccessInventory(permissions)
+  const showMaterialRequests =
+    Boolean(currentUser?.is_superuser) || canAccessMaterialRequest(permissions)
 
   const items = buildMobileBottomNavItems(
     Boolean(currentUser?.is_superuser),
     showManagement,
     showCompanyManagement,
+    showProjects,
     showQuotations,
-    showSuppliers,
     showContracts,
-    showProcurement,
-    showInventory,
+    showMaterialRequests,
   )
   const visibleItems = items.length
     ? items

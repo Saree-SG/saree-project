@@ -119,6 +119,9 @@ async def run_task_ws_receive_loop(
         while True:
             data = await websocket.receive_text()
             if data.strip() == "ping":
-                await websocket.send_text("pong")
-    except WebSocketDisconnect:
+                try:
+                    await websocket.send_text("pong")
+                except Exception:
+                    return
+    except (WebSocketDisconnect, Exception):
         return

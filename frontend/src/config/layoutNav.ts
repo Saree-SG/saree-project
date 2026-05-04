@@ -7,10 +7,8 @@ import {
   FolderOpen,
   LayoutDashboard,
   MessageCircle,
-  Package,
+  PackagePlus,
   Settings,
-  ShoppingCart,
-  Truck,
   Users,
 } from "lucide-react"
 
@@ -30,10 +28,8 @@ export function buildLayoutNavItems(
   showCompanyManagement: boolean,
   canAccessProjects?: boolean,
   canAccessQuotations?: boolean,
-  canAccessSuppliers?: boolean,
   canAccessContracts?: boolean,
-  canAccessProcurement?: boolean,
-  canAccessInventory?: boolean,
+  canAccessMaterialRequests?: boolean,
 ): LayoutNavItem[] {
   const items: LayoutNavItem[] = []
   if (showManagement) {
@@ -73,27 +69,11 @@ export function buildLayoutNavItems(
       matchPrefix: true,
     })
   }
-  if (canAccessSuppliers) {
+  if (canAccessMaterialRequests) {
     items.push({
-      icon: Truck,
-      title: "Nhà Cung Cấp",
-      path: "/suppliers",
-      matchPrefix: true,
-    })
-  }
-  if (canAccessProcurement) {
-    items.push({
-      icon: ShoppingCart,
-      title: "Mua Hàng",
-      path: "/procurement",
-      matchPrefix: true,
-    })
-  }
-  if (canAccessInventory) {
-    items.push({
-      icon: Package,
-      title: "Kho Hàng",
-      path: "/inventory",
+      icon: PackagePlus,
+      title: "Yêu Cầu Vật Tư",
+      path: "/material-requests",
       matchPrefix: true,
     })
   }
@@ -116,13 +96,11 @@ export function buildMobileBottomNavItems(
   showCompanyManagement: boolean,
   canAccessProjects?: boolean,
   canAccessQuotations?: boolean,
-  canAccessSuppliers?: boolean,
   canAccessContracts?: boolean,
-  canAccessProcurement?: boolean,
-  canAccessInventory?: boolean,
+  canAccessMaterialRequests?: boolean,
 ): LayoutNavItem[] {
   return [
-    ...buildLayoutNavItems(isSuperuser, showManagement, showCompanyManagement, canAccessProjects, canAccessQuotations, canAccessSuppliers, canAccessContracts, canAccessProcurement, canAccessInventory),
+    ...buildLayoutNavItems(isSuperuser, showManagement, showCompanyManagement, canAccessProjects, canAccessQuotations, canAccessContracts, canAccessMaterialRequests),
     { icon: Settings, title: "Cài đặt", path: "/settings" },
   ]
 }

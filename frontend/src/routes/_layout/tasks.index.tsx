@@ -5,8 +5,6 @@ import { useMemo } from "react"
 import { type TaskPublic, TasksService } from "@/client"
 import { listContracts } from "@/modules/contract/contractApi"
 import { CONTRACT_STATUS_LABELS, type ContractPublic } from "@/modules/contract/contractTypes"
-import { listAllOrders, listRequests } from "@/modules/procurement/procurementApi"
-import { PO_STATUS_LABELS, type PurchaseOrder, PR_STATUS_LABELS, type PurchaseRequest } from "@/modules/procurement/procurementTypes"
 import { getMyPendingQuotations } from "@/modules/quotation/quotationApi"
 import { STAGE_CONFIG } from "@/modules/quotation/stageConfig"
 import type { QuotationPublic } from "@/modules/quotation/quotationTypes"
@@ -32,12 +30,25 @@ type MyTaskItem = {
   company_name: string
 }
 
+type MaterialRequestItem = {
+  id: string
+  item_name: string
+  quantity: number
+  unit: string
+  reason: string
+  status: string
+  created_at: string
+}
+
 type MyDashboardPayload = {
   overdue_critical?: MyTaskItem[]
   overdue_local?: MyTaskItem[]
   due_soon?: MyTaskItem[]
   today?: MyTaskItem[]
   ongoing?: MyTaskItem[]
+  pending_material_reviews?: MaterialRequestItem[]
+  pending_material_approvals?: MaterialRequestItem[]
+  my_material_requests?: MaterialRequestItem[]
 }
 
 // ---------------------------------------------------------------------------
@@ -81,14 +92,11 @@ function taskBusinessLabel(task: TaskPublic): string {
     if (moduleTag === "production") return "Sản xuất"
     if (moduleTag === "sales") return "Kinh doanh"
     if (moduleTag === "director") return "Ban giám đốc"
-    if (moduleTag === "procurement") return "Mua hàng"
-    if (moduleTag === "inventory") return "Kho vật tư"
     if (moduleTag === "quotation") return "Báo giá"
     if (moduleTag === "contract") return "Hợp đồng"
     return moduleTag
   }
-  if (task.linked_entity_type === "purchase_request") return "Đề nghị mua hàng"
-  if (task.linked_entity_type === "material_issue") return "Xuất vật tư"
+  if (task.linked_entity_type) return "Yêu cầu vật tư"
   return "Công việc chung"
 }
 
@@ -332,27 +340,36 @@ function PendingQuotationCard({ q }: { q: QuotationPublic }) {
   )
 }
 
-function PendingProcurementCard({ req }: { req: PurchaseRequest }) {
+const MR_STATUS_LABELS: Record<string, string> = {
+  pending_materials: "Chờ vật tư duyệt",
+  pending_director: "Chờ GĐ duyệt",
+  approved: "Đã duyệt",
+  rejected: "Từ chối",
+}
+
+function PendingMaterialRequestCard({ req }: { req: MaterialRequestItem }) {
   return (
     <Link
-      to="/procurement/requests/$requestId"
+      to="/material-requests/$requestId"
       params={{ requestId: req.id }}
       className="block rounded-xl border bg-white p-4 shadow-sm transition-shadow hover:shadow-md"
     >
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0 flex-1">
-          <p className="text-sm font-bold leading-snug text-slate-900">{req.title}</p>
-          <p className="mt-0.5 text-[11px] text-muted-foreground">{req.request_number}</p>
+          <p className="text-sm font-bold leading-snug text-slate-900">{req.item_name}</p>
+          <p className="mt-0.5 text-[11px] text-muted-foreground">
+            {req.quantity} {req.unit} · {req.reason}
+          </p>
         </div>
-        <span className="shrink-0 rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-bold text-blue-700">
-          {PR_STATUS_LABELS[req.status]}
+        <span className="shrink-0 rounded-full bg-orange-100 px-2 py-0.5 text-[10px] font-bold text-orange-700">
+          {MR_STATUS_LABELS[req.status] ?? req.status}
         </span>
       </div>
     </Link>
   )
 }
 
-function PendingContractCard({ contract }: { contract: ContractPublic }) {
+function PendingContractCard({ contract }: { contract: ContractPublic }) { // eslint-disable-line @typescript-eslint/no-unused-vars
   return (
     <Link
       to="/contracts/$contractId"
@@ -374,27 +391,6 @@ function PendingContractCard({ contract }: { contract: ContractPublic }) {
   )
 }
 
-function PendingPOCard({ po }: { po: PurchaseOrder }) {
-  return (
-    <Link
-      to="/procurement/orders/$poId"
-      params={{ poId: po.id }}
-      className="block rounded-xl border bg-white p-4 shadow-sm transition-shadow hover:shadow-md"
-    >
-      <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0 flex-1">
-          <p className="text-sm font-bold leading-snug text-slate-900">{po.po_number}</p>
-          <p className="mt-0.5 text-[11px] text-muted-foreground">
-            {po.items.length} hạng mục{po.total_amount != null ? ` · ${new Intl.NumberFormat("vi-VN").format(po.total_amount)} VND` : ""}
-          </p>
-        </div>
-        <span className="shrink-0 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-700">
-          {PO_STATUS_LABELS[po.status]}
-        </span>
-      </div>
-    </Link>
-  )
-}
 
 // ---------------------------------------------------------------------------
 // Page
@@ -403,10 +399,6 @@ function PendingPOCard({ po }: { po: PurchaseOrder }) {
 function MyTasksPage() {
   const permissionsQuery = useMyPermissions()
   const permissions = permissionsQuery.data ?? []
-  const canTechReview = hasPermission(permissions, "PROCUREMENT_TECH_REVIEW")
-  const canDirectorApprove = hasPermission(permissions, "PROCUREMENT_DIRECTOR_APPROVE")
-  const canPoManage = hasPermission(permissions, "PROCUREMENT_PO_CREATE")
-  const canReceive = hasPermission(permissions, "PROCUREMENT_RECEIVE")
   const canContractApprove = hasPermission(permissions, "CONTRACT_APPROVE")
 
   const dashboardQuery = useQuery({
@@ -419,65 +411,16 @@ function MyTasksPage() {
     queryKey: ["my-pending-quotations"],
     queryFn: getMyPendingQuotations,
   })
-  const pendingTechRequestsQuery = useQuery({
-    queryKey: ["my-pending-procurement", "pending_tech"],
-    queryFn: () => listRequests({ status: "pending_tech", limit: 100 }),
-    enabled: canTechReview,
-  })
-  const pendingDirectorRequestsQuery = useQuery({
-    queryKey: ["my-pending-procurement", "pending_director"],
-    queryFn: () => listRequests({ status: "pending_director", limit: 100 }),
-    enabled: canDirectorApprove,
-  })
   const pendingContractsQuery = useQuery({
     queryKey: ["my-pending-contracts", "pending_approval"],
     queryFn: () => listContracts({ status: "pending_approval", limit: 100 }),
     enabled: canContractApprove,
   })
-  const pendingPoSupplierSelectionQuery = useQuery({
-    queryKey: ["my-pending-po", "pending_supplier_selection"],
-    queryFn: () => listAllOrders({ status: "pending_supplier_selection", limit: 100 }),
-    enabled: canDirectorApprove,
-  })
-  const pendingPoOrderedConfirmQuery = useQuery({
-    queryKey: ["my-pending-po", "approved"],
-    queryFn: () => listAllOrders({ status: "approved", limit: 100 }),
-    enabled: canPoManage,
-  })
-  const pendingPoReceiveOrderedQuery = useQuery({
-    queryKey: ["my-pending-po", "ordered"],
-    queryFn: () => listAllOrders({ status: "ordered", limit: 100 }),
-    enabled: canReceive,
-  })
-  const pendingPoReceivePartialQuery = useQuery({
-    queryKey: ["my-pending-po", "partially_received"],
-    queryFn: () => listAllOrders({ status: "partially_received", limit: 100 }),
-    enabled: canReceive,
-  })
 
   const pendingQuotations = pendingQuotationsQuery.data ?? []
-  const pendingProcurements = useMemo(() => {
-    const merged = [
-      ...(pendingTechRequestsQuery.data?.data ?? []),
-      ...(pendingDirectorRequestsQuery.data?.data ?? []),
-    ]
-    return Array.from(new Map(merged.map((item) => [item.id, item])).values())
-  }, [pendingDirectorRequestsQuery.data?.data, pendingTechRequestsQuery.data?.data])
   const pendingContracts = pendingContractsQuery.data?.data ?? []
-  const pendingPOs = useMemo(() => {
-    const merged = [
-      ...(pendingPoSupplierSelectionQuery.data?.data ?? []),
-      ...(pendingPoOrderedConfirmQuery.data?.data ?? []),
-      ...(pendingPoReceiveOrderedQuery.data?.data ?? []),
-      ...(pendingPoReceivePartialQuery.data?.data ?? []),
-    ]
-    return Array.from(new Map(merged.map((item) => [item.id, item])).values())
-  }, [
-    pendingPoOrderedConfirmQuery.data?.data,
-    pendingPoReceiveOrderedQuery.data?.data,
-    pendingPoReceivePartialQuery.data?.data,
-    pendingPoSupplierSelectionQuery.data?.data,
-  ])
+  const pendingMaterialReviews = dashboardQuery.data?.pending_material_reviews ?? []
+  const pendingMaterialApprovals = dashboardQuery.data?.pending_material_approvals ?? []
 
   const data = dashboardQuery.data
 
@@ -531,19 +474,36 @@ function MyTasksPage() {
           </div>
         </section>
       )}
-      {pendingProcurements.length > 0 && (
-        <section className="rounded-xl border border-blue-200 overflow-hidden">
-          <div className="flex items-center justify-between px-4 py-2.5 border-b bg-blue-50 border-blue-200">
-            <h2 className="text-sm font-bold text-blue-700">
-              🧾 Yêu cầu mua hàng cần duyệt
+      {pendingMaterialReviews.length > 0 && (
+        <section className="rounded-xl border border-orange-200 overflow-hidden">
+          <div className="flex items-center justify-between px-4 py-2.5 border-b bg-orange-50 border-orange-200">
+            <h2 className="text-sm font-bold text-orange-700">
+              📋 Yêu cầu vật tư chờ bạn duyệt
             </h2>
-            <span className="text-xs font-semibold text-blue-700 opacity-70">
-              {pendingProcurements.length} yêu cầu
+            <span className="text-xs font-semibold text-orange-700 opacity-70">
+              {pendingMaterialReviews.length} yêu cầu
             </span>
           </div>
           <div className="space-y-2 bg-white p-3">
-            {pendingProcurements.map((req) => (
-              <PendingProcurementCard key={req.id} req={req} />
+            {pendingMaterialReviews.map((req) => (
+              <PendingMaterialRequestCard key={req.id} req={req} />
+            ))}
+          </div>
+        </section>
+      )}
+      {pendingMaterialApprovals.length > 0 && (
+        <section className="rounded-xl border border-red-200 overflow-hidden">
+          <div className="flex items-center justify-between px-4 py-2.5 border-b bg-red-50 border-red-200">
+            <h2 className="text-sm font-bold text-red-700">
+              ✅ Yêu cầu vật tư chờ phê duyệt
+            </h2>
+            <span className="text-xs font-semibold text-red-700 opacity-70">
+              {pendingMaterialApprovals.length} yêu cầu
+            </span>
+          </div>
+          <div className="space-y-2 bg-white p-3">
+            {pendingMaterialApprovals.map((req) => (
+              <PendingMaterialRequestCard key={req.id} req={req} />
             ))}
           </div>
         </section>
@@ -565,24 +525,6 @@ function MyTasksPage() {
           </div>
         </section>
       )}
-      {pendingPOs.length > 0 && (
-        <section className="rounded-xl border border-emerald-200 overflow-hidden">
-          <div className="flex items-center justify-between px-4 py-2.5 border-b bg-emerald-50 border-emerald-200">
-            <h2 className="text-sm font-bold text-emerald-700">
-              📦 Đơn đặt hàng (PO) cần xử lý
-            </h2>
-            <span className="text-xs font-semibold text-emerald-700 opacity-70">
-              {pendingPOs.length} đơn
-            </span>
-          </div>
-          <div className="space-y-2 bg-white p-3">
-            {pendingPOs.map((po) => (
-              <PendingPOCard key={po.id} po={po} />
-            ))}
-          </div>
-        </section>
-      )}
-
       {/* Loading */}
       {dashboardQuery.isLoading && (
         <div className="space-y-3">

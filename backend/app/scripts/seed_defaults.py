@@ -98,13 +98,11 @@ ALL_PERMISSIONS = [
     {"code": "QUOTATION_LOG_NEGOTIATION",     "module": "quotation", "action": "create", "scope": "assigned", "description": "Ghi log trao đổi với khách hàng"},
     {"code": "QUOTATION_CLOSE",               "module": "quotation", "action": "update", "scope": "assigned", "description": "Đóng hồ sơ báo giá (won/lost) (S8→S9)"},
     {"code": "QUOTATION_REPORT",          "module": "quotation", "action": "read",   "scope": "global",   "description": "Xem báo cáo và thống kê báo giá"},
-    # Procurement
-    {"code": "PROCUREMENT_VIEW",            "module": "procurement", "action": "read",   "scope": "global",   "description": "Xem yêu cầu mua hàng và đơn đặt hàng"},
-    {"code": "PROCUREMENT_REQUEST_CREATE",  "module": "procurement", "action": "create", "scope": "global",   "description": "Tạo và nộp yêu cầu mua hàng"},
-    {"code": "PROCUREMENT_TECH_REVIEW",     "module": "procurement", "action": "approve","scope": "global",   "description": "Kỹ thuật duyệt yêu cầu mua hàng"},
-    {"code": "PROCUREMENT_DIRECTOR_APPROVE","module": "procurement", "action": "approve","scope": "global",   "description": "BGĐ phê duyệt yêu cầu và chọn nhà cung cấp"},
-    {"code": "PROCUREMENT_PO_CREATE",       "module": "procurement", "action": "create", "scope": "global",   "description": "Phòng vật tư tạo đơn mua hàng, nhập báo giá"},
-    {"code": "PROCUREMENT_RECEIVE",         "module": "procurement", "action": "update", "scope": "global",   "description": "Xác nhận nhận hàng"},
+    # Material Request
+    {"code": "MATERIAL_REQUEST_VIEW",    "module": "material_request", "action": "read",   "scope": "global", "description": "Xem yêu cầu vật tư"},
+    {"code": "MATERIAL_REQUEST_CREATE",  "module": "material_request", "action": "create", "scope": "global", "description": "Tạo yêu cầu vật tư"},
+    {"code": "MATERIAL_REQUEST_REVIEW",  "module": "material_request", "action": "approve","scope": "global", "description": "Phòng vật tư duyệt yêu cầu (bước 1)"},
+    {"code": "MATERIAL_REQUEST_APPROVE", "module": "material_request", "action": "approve","scope": "global", "description": "Giám đốc phê duyệt yêu cầu vật tư (bước 2)"},
     # Contract
     {"code": "CONTRACT_VIEW",             "module": "contract", "action": "read",   "scope": "assigned", "description": "Xem hợp đồng được phân công"},
     {"code": "CONTRACT_VIEW_ALL",         "module": "contract", "action": "read",   "scope": "global",   "description": "Xem tất cả hợp đồng"},
@@ -117,16 +115,6 @@ ALL_PERMISSIONS = [
     {"code": "CONTRACT_CONFIRM_ADVANCE",  "module": "contract", "action": "update", "scope": "assigned", "description": "Xác nhận nhận tạm ứng (signed→advance_received)"},
     {"code": "CONTRACT_START_PRODUCTION", "module": "contract", "action": "approve","scope": "global",   "description": "Chuyển hợp đồng sang sản xuất (advance_received→in_production)"},
     {"code": "CONTRACT_COMPLETE",         "module": "contract", "action": "approve","scope": "global",   "description": "Hoàn thành và đóng hợp đồng (in_production→completed)"},
-    # Supplier
-    {"code": "SUPPLIER_VIEW",   "module": "supplier", "action": "read",   "scope": "global", "description": "Xem danh sách nhà cung cấp"},
-    {"code": "SUPPLIER_CREATE", "module": "supplier", "action": "create", "scope": "global", "description": "Thêm nhà cung cấp mới"},
-    {"code": "SUPPLIER_UPDATE", "module": "supplier", "action": "update", "scope": "global", "description": "Cập nhật thông tin nhà cung cấp"},
-    {"code": "SUPPLIER_DELETE", "module": "supplier", "action": "delete", "scope": "global", "description": "Xóa nhà cung cấp (soft delete)"},
-    # Inventory
-    {"code": "INVENTORY_VIEW",          "module": "inventory", "action": "read",   "scope": "global", "description": "Xem tồn kho và lịch sử xuất nhập"},
-    {"code": "INVENTORY_MANAGE",        "module": "inventory", "action": "update", "scope": "global", "description": "Quản lý kho: tạo/sửa mặt hàng, điều chỉnh tồn kho"},
-    {"code": "INVENTORY_ISSUE_REQUEST", "module": "inventory", "action": "create", "scope": "global", "description": "Tạo phiếu xuất kho"},
-    {"code": "INVENTORY_APPROVE",       "module": "inventory", "action": "approve","scope": "global", "description": "Duyệt phiếu xuất kho"},
 ]
 # fmt: on
 
@@ -141,16 +129,10 @@ _DEPT_HEAD_LIKE_PERMS: list[str] = [
     "USER_VIEW",
     # Quotation — base read
     "QUOTATION_VIEW", "QUOTATION_REPORT",
-    # Supplier — view only
-    "SUPPLIER_VIEW",
     # Contract — view only
     "CONTRACT_VIEW",
-    # Procurement — view only
-    "PROCUREMENT_VIEW",
-    # Inventory — view only
-    "INVENTORY_VIEW",
-    # Inventory approval for trưởng phòng (áp dụng cho trưởng vật tư)
-    "INVENTORY_APPROVE",
+    # Material Request — view + create
+    "MATERIAL_REQUEST_VIEW", "MATERIAL_REQUEST_CREATE",
 ]
 
 _WORKER_LIKE_PERMS: list[str] = [
@@ -197,10 +179,8 @@ ROLE_PERMISSION_MAP: dict[str, list[str]] = {
         "REPORT_VIEW_OWN", "REPORT_VIEW_TEAM", "REPORT_VIEW_ALL",
         "AUDIT_VIEW", "USER_VIEW", "USER_MANAGE",
         *_DIRECTOR_QUOTATION_PERMS,
-        "SUPPLIER_VIEW", "SUPPLIER_CREATE", "SUPPLIER_UPDATE", "SUPPLIER_DELETE",
         "CONTRACT_VIEW_ALL", "CONTRACT_APPROVE", "CONTRACT_START_PRODUCTION", "CONTRACT_COMPLETE", "CONTRACT_DELETE",
-        "PROCUREMENT_VIEW", "PROCUREMENT_DIRECTOR_APPROVE",
-        "INVENTORY_VIEW", "INVENTORY_MANAGE", "INVENTORY_APPROVE",
+        "MATERIAL_REQUEST_VIEW", "MATERIAL_REQUEST_APPROVE",
     ],
     "department_head": list(_DEPT_HEAD_LIKE_PERMS),
     "sales": [
@@ -208,16 +188,14 @@ ROLE_PERMISSION_MAP: dict[str, list[str]] = {
         "CONTRACT_VIEW", "CONTRACT_CREATE", "CONTRACT_UPDATE",
         "CONTRACT_SUBMIT", "CONTRACT_SIGN", "CONTRACT_CONFIRM_ADVANCE",
     ],
-    "engineer": [*_DEPT_HEAD_LIKE_PERMS, *_ENGINEER_QUOTATION_PERMS, "PROCUREMENT_REQUEST_CREATE", "PROCUREMENT_TECH_REVIEW"],
+    "engineer": [*_DEPT_HEAD_LIKE_PERMS, *_ENGINEER_QUOTATION_PERMS],
     "materials": [
         *_DEPT_HEAD_LIKE_PERMS, *_MATERIALS_QUOTATION_PERMS,
-        "SUPPLIER_CREATE", "SUPPLIER_UPDATE",
-        "PROCUREMENT_PO_CREATE", "PROCUREMENT_RECEIVE",
-        "INVENTORY_MANAGE", "INVENTORY_APPROVE",
+        "MATERIAL_REQUEST_VIEW", "MATERIAL_REQUEST_CREATE", "MATERIAL_REQUEST_REVIEW",
     ],
     "planner": list(_DEPT_HEAD_LIKE_PERMS),
-    "workshop_lead": [*_DEPT_HEAD_LIKE_PERMS, "PROCUREMENT_REQUEST_CREATE", "INVENTORY_ISSUE_REQUEST"],
-    "site_supply": [*_DEPT_HEAD_LIKE_PERMS, "PROCUREMENT_RECEIVE", "INVENTORY_ISSUE_REQUEST"],
+    "workshop_lead": list(_DEPT_HEAD_LIKE_PERMS),
+    "site_supply": list(_DEPT_HEAD_LIKE_PERMS),
     "installer": list(_WORKER_LIKE_PERMS),
     "worker": list(_WORKER_LIKE_PERMS),
 }

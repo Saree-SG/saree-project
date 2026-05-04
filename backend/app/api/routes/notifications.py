@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import uuid
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, Query, status
 from sqlalchemy import func, select, update
 
 from app.api.deps import AsyncSessionDep, CurrentUser
@@ -17,8 +17,8 @@ router = APIRouter(prefix="/notifications", tags=["notifications"])
 async def list_notifications(
     session: AsyncSessionDep,
     current_user: CurrentUser,
-    skip: int = 0,
-    limit: int = 50,
+    skip: int = Query(default=0, ge=0),
+    limit: int = Query(default=50, ge=1, le=200),
 ) -> list[NotificationPublic]:
     """List notifications for the current user, newest first."""
     result = await session.execute(
