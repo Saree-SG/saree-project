@@ -22,5 +22,6 @@ FROM nginx:1
 
 COPY --from=build-stage /app/frontend/dist/ /usr/share/nginx/html
 
+COPY ./frontend/nginx-ws-map.conf /etc/nginx/conf.d/00-ws-map.conf
 COPY ./frontend/nginx.conf /etc/nginx/conf.d/default.conf
 COPY ./frontend/nginx-backend-not-found.conf /etc/nginx/extra-conf.d/backend-not-found.conf
