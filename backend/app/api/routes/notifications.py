@@ -5,10 +5,13 @@ from __future__ import annotations
 import uuid
 
 from fastapi import APIRouter, HTTPException, Query, status
-from sqlalchemy import func, select, update
+from pydantic import BaseModel
+from sqlalchemy import delete, func, select, update
 
 from app.api.deps import AsyncSessionDep, CurrentUser
+from app.core.config import settings
 from app.models.notification import Notification, NotificationPublic, NotificationUnreadCount
+from app.models.push_subscription import PushSubscription
 
 router = APIRouter(prefix="/notifications", tags=["notifications"])
 
@@ -77,4 +80,64 @@ async def mark_all_read(
             Notification.is_read == False,  # noqa: E712
         )
         .values(is_read=True)
+    )
+
+
+# ---------------------------------------------------------------------------
+# Web Push
+# ---------------------------------------------------------------------------
+
+class PushSubscribeRequest(BaseModel):
+    endpoint: str
+    p256dh: str
+    auth: str
+
+
+class VapidKeyResponse(BaseModel):
+    public_key: str | None
+
+
+@router.get("/push/vapid-key", response_model=VapidKeyResponse)
+async def get_vapid_public_key() -> VapidKeyResponse:
+    """Return the VAPID public key for the frontend to subscribe."""
+    return VapidKeyResponse(public_key=settings.VAPID_PUBLIC_KEY)
+
+
+@router.post("/push/subscribe", status_code=status.HTTP_204_NO_CONTENT)
+async def subscribe_push(
+    body: PushSubscribeRequest,
+    session: AsyncSessionDep,
+    current_user: CurrentUser,
+) -> None:
+    """Register or update a push subscription for the current user."""
+    existing = await session.execute(
+        select(PushSubscription).where(PushSubscription.endpoint == body.endpoint)
+    )
+    sub = existing.scalar_one_or_none()
+    if sub:
+        sub.user_id = current_user.id
+        sub.p256dh = body.p256dh
+        sub.auth = body.auth
+    else:
+        sub = PushSubscription(
+            user_id=current_user.id,
+            endpoint=body.endpoint,
+            p256dh=body.p256dh,
+            auth=body.auth,
+        )
+    session.add(sub)
+
+
+@router.delete("/push/unsubscribe", status_code=status.HTTP_204_NO_CONTENT)
+async def unsubscribe_push(
+    body: PushSubscribeRequest,
+    session: AsyncSessionDep,
+    current_user: CurrentUser,
+) -> None:
+    """Remove a push subscription for the current user."""
+    await session.execute(
+        delete(PushSubscription).where(
+            PushSubscription.endpoint == body.endpoint,
+            PushSubscription.user_id == current_user.id,
+        )
     )

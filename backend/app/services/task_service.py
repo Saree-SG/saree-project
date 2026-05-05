@@ -47,7 +47,10 @@ from app.models.task import (
     TaskStatusUpdate,
     TaskUpdate,
 )
+import asyncio
+
 from app.models.notification import Notification
+from app.services.push_service import send_push_to_user
 from app.models.user import User
 from app.models.project import Project
 from app.repositories.audit_repository import AuditRepository
@@ -473,6 +476,9 @@ class TaskService:
             )
             self._session.add(notif)
             await self._session.flush()
+            asyncio.create_task(
+                send_push_to_user(self._session, user_id, title, body, entity_type, entity_id)
+            )
         except Exception:
             logger.exception("Failed to persist notification user_id={} type={}", user_id, notif_type)
 

@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "@tanstack/react-router"
-import { Bell } from "lucide-react"
+import { Bell, BellOff, Smartphone } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -17,6 +17,7 @@ import {
   markRead,
   type Notification,
 } from "@/modules/notifications/notificationApi"
+import { usePushNotifications } from "@/hooks/usePushNotifications"
 
 function notifLink(notif: Notification): string {
   if (notif.entity_type === "task") return `/tasks/${notif.entity_id}`
@@ -70,6 +71,7 @@ export function NotificationBell() {
     },
   })
 
+  const push = usePushNotifications()
   const unreadCount = countData?.count ?? 0
   const items = notifications ?? []
 
@@ -106,6 +108,36 @@ export function NotificationBell() {
             </button>
           )}
         </div>
+        <>
+          <DropdownMenuSeparator />
+          <div className="px-3 py-2">
+            {!push.isSupported ? (
+              <p className="text-xs text-muted-foreground">
+                {"Trình duyệt chưa hỗ trợ thông báo"}
+                {typeof window !== "undefined" && !("serviceWorker" in navigator) && " (thiếu SW)"}
+                {typeof window !== "undefined" && !("PushManager" in window) && " (thiếu Push)"}
+                {typeof window !== "undefined" && !("Notification" in window) && " (thiếu Notif API)"}
+              </p>
+            ) : push.isSubscribed ? (
+              <button
+                className="flex w-full items-center gap-2 text-xs text-muted-foreground hover:text-foreground"
+                onClick={() => void push.unsubscribe()}
+              >
+                <BellOff className="size-3.5" />
+                Tắt thông báo thiết bị này
+              </button>
+            ) : (
+              <button
+                className="flex w-full items-center gap-2 text-xs text-primary hover:text-primary/80 font-medium"
+                onClick={() => void push.subscribe()}
+              >
+                <Smartphone className="size-3.5" />
+                Bật thông báo thiết bị này
+              </button>
+            )}
+          </div>
+        </>
+
         <DropdownMenuSeparator />
 
         {items.length === 0 ? (
