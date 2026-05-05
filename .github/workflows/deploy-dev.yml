@@ -1,0 +1,79 @@
+name: Deploy Dev
+
+on:
+  push:
+    branches:
+      - dev
+
+jobs:
+  deploy:
+    runs-on: [self-hosted, dev]
+    if: github.ref == 'refs/heads/dev'
+
+    env:
+      FRONTEND_PORT: "3000"
+      BACKEND_PORT: "8100"
+      ADMINER_PORT: "8282"
+      STACK_NAME: saree-dev
+      DOMAIN: localhost
+      ENVIRONMENT: staging
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Write .env
+        run: |
+          set -euo pipefail
+          {
+            echo "ENVIRONMENT=$ENVIRONMENT"
+            echo "DOMAIN=$DOMAIN"
+            echo "PROJECT_NAME=Saree ERP"
+            echo "DOCKER_IMAGE_BACKEND=saree-backend"
+            echo "DOCKER_IMAGE_FRONTEND=saree-frontend"
+            echo "TAG=latest"
+            echo "SECRET_KEY=$SECRET_KEY"
+            echo "POSTGRES_PASSWORD=$POSTGRES_PASSWORD"
+            echo "FIRST_SUPERUSER=$FIRST_SUPERUSER"
+            echo "FIRST_SUPERUSER_PASSWORD=$FIRST_SUPERUSER_PASSWORD"
+            echo "POSTGRES_SERVER=db"
+            echo "POSTGRES_PORT=5432"
+            echo "POSTGRES_DB=saree-erp-project"
+            echo "POSTGRES_USER=saree"
+            echo "FRONTEND_HOST=http://localhost:${FRONTEND_PORT}"
+            echo "BACKEND_CORS_ORIGINS=http://localhost:${FRONTEND_PORT}"
+            echo "PUBLIC_BASE_URL=http://localhost:${BACKEND_PORT}"
+            echo "VITE_API_URL=http://localhost:${BACKEND_PORT}"
+            echo "SMTP_HOST="
+            echo "SMTP_USER="
+            echo "SMTP_PASSWORD="
+            echo "EMAILS_FROM_EMAIL="
+            echo "SENTRY_DSN="
+          } > .env
+        env:
+          SECRET_KEY: ${{ secrets.DEV_SECRET_KEY }}
+          POSTGRES_PASSWORD: ${{ secrets.DEV_POSTGRES_PASSWORD }}
+          FIRST_SUPERUSER: ${{ secrets.FIRST_SUPERUSER }}
+          FIRST_SUPERUSER_PASSWORD: ${{ secrets.DEV_FIRST_SUPERUSER_PASSWORD }}
+
+      - name: Docker Compose up
+        run: |
+          set -euo pipefail
+          docker compose -f compose.local.yml -p saree-dev up --build -d
+
+      - name: Health check
+        run: |
+          set -euo pipefail
+          ok=0
+          for _ in $(seq 1 30); do
+            if curl -sf "http://127.0.0.1:${BACKEND_PORT}/api/v1/utils/health-check/" >/dev/null; then
+              ok=1
+              break
+            fi
+            sleep 2
+          done
+          if [ "$ok" -ne 1 ]; then
+            echo "Backend health check timed out"
+            exit 1
+          fi
+          curl -sf "http://127.0.0.1:${FRONTEND_PORT}/" >/dev/null
