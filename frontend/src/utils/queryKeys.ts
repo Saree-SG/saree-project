@@ -37,7 +37,7 @@ export const QueryKeys = {
   dashboardOverdue: (params: unknown) => ["dashboard", "overdue", params] as const,
   dashboardProjectsCatalog: () => ["dashboard", "projects-catalog"] as const,
   dashboardPendingQuotations: () => ["dashboard", "pending-quotations"] as const,
-  dashboardPendingProcurement: (permissions: unknown) => ["dashboard", "pending-procurement", permissions] as const,
+  dashboardPendingMaterialRequests: (permissions: unknown) => ["dashboard", "pending-material-requests", permissions] as const,
   dashboardDepartments: (companyId: string | undefined) => ["dashboard", "departments", companyId] as const,
   dashboardUsers: () => ["dashboard", "users"] as const,
   dashboardMe: () => ["dashboard", "me"] as const,
@@ -47,21 +47,9 @@ export const QueryKeys = {
   notificationsUnreadCount: () => ["notifications-unread-count"] as const,
   notificationsList: () => ["notifications-list"] as const,
 
-  // Inventory
-  inventoryItems: (search?: string) => ["inventory-items", search] as const,
-  inventoryItem: (itemId: string) => ["inventory-item", itemId] as const,
-  inventoryMovements: (itemId: string) => ["inventory-movements", itemId] as const,
-  inventoryIssues: (statusFilter?: string) => ["inventory-issues", statusFilter] as const,
-
-  // Procurement
-  procurementRequests: (statusFilter?: string) => ["procurement-requests", statusFilter] as const,
-  procurementOrders: (statusFilter?: string) => ["procurement-orders", statusFilter] as const,
-  procurementRequest: (requestId: string) => ["procurement-request", requestId] as const,
-  procurementPosForRequest: (requestId: string) => ["procurement-pos-for-request", requestId] as const,
-
-  // Suppliers
-  suppliers: (search?: string) => ["suppliers", search] as const,
-  supplier: (supplierId: string) => ["supplier", supplierId] as const,
+  // Material Requests
+  materialRequests: (statusFilter?: string) => ["material-requests", statusFilter] as const,
+  materialRequest: (requestId: string) => ["material-request", requestId] as const,
 
   // Contracts
   contract: (contractId: string) => ["contract", contractId] as const,

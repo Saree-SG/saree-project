@@ -1,4 +1,6 @@
+from contextlib import asynccontextmanager
 from pathlib import Path
+from typing import AsyncGenerator
 
 import sentry_sdk
 from fastapi import FastAPI, HTTPException, Request
@@ -28,10 +30,31 @@ if settings.SENTRY_DSN and settings.ENVIRONMENT != "local":
 
 setup_loguru()
 
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI) -> AsyncGenerator[None, None]:
+    yield
+    # Graceful shutdown: release DB connection pools and Redis connections.
+    from app.core.database.engine import async_engine, sync_engine
+    from app.shared.chat_realtime import chat_fanout
+
+    await async_engine.dispose()
+    sync_engine.dispose()
+
+    if chat_fanout.enabled() and chat_fanout._client is not None:
+        try:
+            await chat_fanout._client.aclose()
+        except Exception:
+            pass
+
+    logger.info("Application shutdown complete — all resources released.")
+
+
 app = FastAPI(
     title=settings.PROJECT_NAME,
     openapi_url=f"{settings.API_V1_STR}/openapi.json",
     generate_unique_id_function=custom_generate_unique_id,
+    lifespan=lifespan,
 )
 
 # Request/exception logs
@@ -103,10 +126,10 @@ app.mount(
     name="quotation-static",
 )
 
-inventory_issue_upload_dir = Path(settings.INVENTORY_ISSUE_UPLOAD_DIR).resolve()
-inventory_issue_upload_dir.mkdir(parents=True, exist_ok=True)
+material_request_upload_dir = Path(settings.MATERIAL_REQUEST_UPLOAD_DIR).resolve()
+material_request_upload_dir.mkdir(parents=True, exist_ok=True)
 app.mount(
-    "/static/inventory-issue",
-    StaticFiles(directory=str(inventory_issue_upload_dir)),
-    name="inventory-issue-static",
+    "/static/material-requests",
+    StaticFiles(directory=str(material_request_upload_dir)),
+    name="material-requests-static",
 )

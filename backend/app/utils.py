@@ -1,3 +1,4 @@
+import asyncio
 import logging
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
@@ -53,6 +54,21 @@ def send_email(
         smtp_options["password"] = settings.SMTP_PASSWORD
     response = message.send(to=email_to, smtp=smtp_options)
     logger.info(f"send email result: {response}")
+
+
+async def send_email_async(
+    *,
+    email_to: str,
+    subject: str = "",
+    html_content: str = "",
+) -> None:
+    """Non-blocking wrapper: runs send_email in a thread pool to avoid blocking the event loop."""
+    await asyncio.to_thread(
+        send_email,
+        email_to=email_to,
+        subject=subject,
+        html_content=html_content,
+    )
 
 
 def generate_test_email(email_to: str) -> EmailData:

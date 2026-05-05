@@ -9,6 +9,8 @@ from pathlib import Path
 
 from fastapi import UploadFile
 
+_MAX_UPLOAD_BYTES: int = 10 * 1024 * 1024  # 10 MB hard cap
+
 from app.core.config import settings
 
 
@@ -49,21 +51,44 @@ class LocalStorage:
             return f"{str(settings.PUBLIC_BASE_URL).rstrip('/')}/static/{self._static_segment}/{stored_name}"
         return f"/static/{self._static_segment}/{stored_name}"
 
-    async def save_upload(self, upload: UploadFile) -> StoredObject:
-        """Persist an UploadFile to disk and return metadata."""
+    async def save_upload(
+        self,
+        upload: UploadFile,
+        *,
+        max_bytes: int = _MAX_UPLOAD_BYTES,
+    ) -> StoredObject:
+        """Persist an UploadFile to disk in 64 KB chunks and return metadata.
 
+        Raises ValueError if the file is empty, has no filename, or exceeds max_bytes.
+        Cleans up any partial file on error.
+        """
         if not upload.filename:
             raise ValueError("filename is required")
         stored_name = self._safe_name(upload.filename)
         out_path = self._base_dir / stored_name
-        data = await upload.read()
-        if not data:
+        total_bytes = 0
+        try:
+            with out_path.open("wb") as fh:
+                while True:
+                    chunk = await upload.read(65536)
+                    if not chunk:
+                        break
+                    total_bytes += len(chunk)
+                    if total_bytes > max_bytes:
+                        raise ValueError(
+                            f"File exceeds maximum allowed size of {max_bytes} bytes"
+                        )
+                    fh.write(chunk)
+        except Exception:
+            out_path.unlink(missing_ok=True)
+            raise
+        if total_bytes == 0:
+            out_path.unlink(missing_ok=True)
             raise ValueError("empty file")
-        out_path.write_bytes(data)
         return StoredObject(
             storage_path=str(out_path),
             public_url=self._public_url(stored_name),
             stored_name=stored_name,
-            size_bytes=len(data),
+            size_bytes=total_bytes,
         )
 

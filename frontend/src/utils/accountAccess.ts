@@ -109,13 +109,6 @@ export function canAccessQuotation(permissions: Set<string> | string[] | undefin
 }
 
 /**
- * Supplier module access gate.
- */
-export function canAccessSupplier(permissions: Set<string> | string[] | undefined) {
-  return hasPermission(permissions, "SUPPLIER_VIEW")
-}
-
-/**
  * Contract module access gate.
  */
 export function canAccessContract(permissions: Set<string> | string[] | undefined) {
@@ -125,15 +118,9 @@ export function canAccessContract(permissions: Set<string> | string[] | undefine
   )
 }
 
-export function canAccessProcurement(permissions: Set<string> | string[] | undefined) {
-  return hasPermission(permissions, "PROCUREMENT_VIEW")
-}
-
-export function canAccessInventory(permissions: Set<string> | string[] | undefined) {
-  return (
-    hasPermission(permissions, "INVENTORY_VIEW") ||
-    hasPermission(permissions, "INVENTORY_MANAGE") ||
-    hasPermission(permissions, "INVENTORY_APPROVE") ||
-    hasPermission(permissions, "INVENTORY_ISSUE_REQUEST")
-  )
+/**
+ * Material Request module access gate.
+ */
+export function canAccessMaterialRequest(permissions: Set<string> | string[] | undefined) {
+  return hasPermission(permissions, "MATERIAL_REQUEST_VIEW")
 }

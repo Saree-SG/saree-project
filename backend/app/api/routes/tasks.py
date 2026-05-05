@@ -11,6 +11,7 @@ import uuid
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlmodel import SQLModel
 
 from app.api.deps import AsyncSessionDep, CurrentUser
 from app.core.config import settings
@@ -35,9 +36,9 @@ from app.models.task import (
     TaskStatusUpdate,
     TaskUpdate,
 )
-from app.models.inventory import LinkedEntityCreate
+from app.models.material_request import MaterialRequestCreate, MaterialRequestPublic
 from app.models.user import User
-from app.services.linked_entity_service import LinkedEntityService
+from app.services.material_request_service import MaterialRequestService
 from app.services.task_service import TaskService
 from app.shared.permission import require_permission
 from app.shared.storage import LocalStorage
@@ -373,23 +374,44 @@ async def list_proofs(
 
 
 # ---------------------------------------------------------------------------
-# Linked business entity (procurement / inventory)
+# Dependencies (Gantt links)
+# ---------------------------------------------------------------------------
+# Linked material request (replaces old linked-entity for procurement/inventory)
 # ---------------------------------------------------------------------------
 
-@router.post("/tasks/{task_id}/linked-entity", response_model=TaskPublic)
-async def create_linked_entity(
+class _LinkedEntityBody(SQLModel):
+    """Simplified body — frontend compatibility shim."""
+    item_name: str | None = None
+    quantity: float = 1
+    unit: str = "cái"
+    reason: str = "Yêu cầu từ công việc"
+
+
+@router.post("/tasks/{task_id}/linked-entity", response_model=MaterialRequestPublic)
+async def create_linked_material_request(
     task_id: uuid.UUID,
-    body: LinkedEntityCreate,
+    body: _LinkedEntityBody,
     session: AsyncSessionDep,
     current_user: User = Depends(require_permission("TASK_UPDATE")),
-) -> TaskPublic:
-    """Create a business entity (PurchaseRequest or MaterialIssue) linked to this task
-    based on the task's module_tag, then update the task with the linked entity reference."""
-    return await LinkedEntityService(session).create_and_link(task_id, current_user, body)
+) -> MaterialRequestPublic:
+    """Create a material request linked to this task."""
+    from app.core.config import settings as _settings
+    from app.shared.storage import LocalStorage
+    storage = LocalStorage(
+        base_dir=_settings.MATERIAL_REQUEST_UPLOAD_DIR,
+        static_url_segment="material-requests",
+    )
+    svc = MaterialRequestService(session, storage)
+    mr_body = MaterialRequestCreate(
+        item_name=body.item_name or f"Yêu cầu từ task {task_id}",
+        quantity=body.quantity,
+        unit=body.unit,
+        reason=body.reason,
+        task_id=task_id,
+    )
+    return await svc.create(mr_body, current_user)
 
 
-# ---------------------------------------------------------------------------
-# Dependencies (Gantt links)
 # ---------------------------------------------------------------------------
 
 @router.post("/tasks/{task_id}/dependencies", status_code=status.HTTP_201_CREATED)
@@ -397,7 +419,7 @@ async def add_dependency(
     task_id: uuid.UUID,
     body: TaskDependencyCreate,
     session: AsyncSessionDep,
-    _current_user: User = Depends(require_permission("TASK_UPDATE")),
+    _current_user: CurrentUser,
 ) -> dict:
     """Create a dependency link between two tasks."""
     return await _svc(session).add_dependency(task_id, body, _current_user)
@@ -411,7 +433,7 @@ async def remove_dependency(
     task_id: uuid.UUID,
     dep_id: uuid.UUID,
     session: AsyncSessionDep,
-    _current_user: User = Depends(require_permission("TASK_UPDATE")),
+    _current_user: CurrentUser,
 ) -> None:
     """Remove a dependency link and recalculate the critical path."""
     await _svc(session).remove_dependency(task_id, dep_id, _current_user)

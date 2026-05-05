@@ -47,13 +47,17 @@ from app.models.task import (
     TaskStatusUpdate,
     TaskUpdate,
 )
+import asyncio
+
 from app.models.notification import Notification
+from app.services.push_service import send_push_to_user
 from app.models.user import User
 from app.models.project import Project
 from app.repositories.audit_repository import AuditRepository
 from app.repositories.outbox_repository import CascadeRepository, OutboxRepository
 from app.repositories.task_repository import TaskRepository
 from app.repositories.user_repository import UserRepository
+from app.shared.permission import has_permission
 from app.shared.task_realtime import broadcast_task_event, broadcast_task_user_event
 
 ALLOWED_DEPENDENCY_TYPES = {"FS", "SS", "FF", "SF"}
@@ -278,10 +282,13 @@ async def _enrich(
 
     waiting_for_links = await repo.list_waiting_for_links(task.id)
     blocked_by: list[BlockerInfo] = []
-    for link in waiting_for_links:
-        blocker = await repo.get_by_id(link.blocking_task_id)
-        if blocker and blocker.status != "done":
-            blocked_by.append(BlockerInfo(id=blocker.id, name=blocker.name, status=blocker.status))
+    if waiting_for_links:
+        blocker_ids = [link.blocking_task_id for link in waiting_for_links]
+        blocker_map = {t.id: t for t in await repo.list_by_ids(blocker_ids)}
+        for link in waiting_for_links:
+            blocker = blocker_map.get(link.blocking_task_id)
+            if blocker and blocker.status != "done":
+                blocked_by.append(BlockerInfo(id=blocker.id, name=blocker.name, status=blocker.status))
 
     extra_rows = await repo.list_extra_assignees(task.id)
     extra_assignees: list[TaskAssigneePublic] = []
@@ -469,6 +476,9 @@ class TaskService:
             )
             self._session.add(notif)
             await self._session.flush()
+            asyncio.create_task(
+                send_push_to_user(self._session, user_id, title, body, entity_type, entity_id)
+            )
         except Exception:
             logger.exception("Failed to persist notification user_id={} type={}", user_id, notif_type)
 
@@ -663,7 +673,23 @@ class TaskService:
                 ],
                 key=lambda r: r["project_name"].lower(),
             ),
+            **await self._material_request_dashboard(current_user),
         }
+
+    async def _material_request_dashboard(self, current_user: User) -> dict:
+        try:
+            from app.services.material_request_service import MaterialRequestService
+            from app.shared.storage import LocalStorage
+            from app.core.config import settings as _settings
+            storage = LocalStorage(
+                base_dir=_settings.MATERIAL_REQUEST_UPLOAD_DIR,
+                static_url_segment="material-requests",
+            )
+            svc = MaterialRequestService(self._session, storage)
+            return await svc.get_dashboard_data(current_user)
+        except Exception:
+            logger.exception("Failed to load material request dashboard data")
+            return {"pending_material_reviews": [], "pending_material_approvals": [], "my_material_requests": []}
 
     # ------------------------------------------------------------------
     # Update
@@ -1153,6 +1179,11 @@ class TaskService:
         if dep is None or dep.blocking_task_id != task_id:
             raise HTTPException(404, "Dependency not found")
         task = await self._task_repo.get_or_404(task_id)
+
+        # Authorization: assignor or user with TASK_UPDATE permission
+        if task.assignor_id != current_user.id and not current_user.is_superuser:
+            if not await has_permission(self._session, current_user, "TASK_UPDATE", task.project_id):
+                raise HTTPException(403, "Chỉ người tạo task hoặc quản lý mới được sửa phụ thuộc")
         await self._task_repo.delete_dependency(dep)
         await self._audit_repo.write(
             actor_id=current_user.id,
@@ -1579,22 +1610,61 @@ class TaskService:
     # Dependencies
     # ------------------------------------------------------------------
 
+    async def _would_create_cycle(
+        self, blocking_id: uuid.UUID, dependent_id: uuid.UUID
+    ) -> bool:
+        """Return True if adding blocking_id → dependent_id would create a cycle.
+
+        Traverses upward from blocking_id (tasks that block blocking_id)
+        to detect if dependent_id is already an ancestor.
+        """
+        visited: set[uuid.UUID] = set()
+        queue: deque[uuid.UUID] = deque([blocking_id])
+        while queue:
+            node = queue.popleft()
+            if node == dependent_id:
+                return True
+            if node in visited:
+                continue
+            visited.add(node)
+            # Find tasks that `node` itself waits for (its own blockers)
+            links = await self._task_repo.list_waiting_for_links(node)
+            for link in links:
+                queue.append(link.blocking_task_id)
+        return False
+
     async def add_dependency(
         self, task_id: uuid.UUID, body: TaskDependencyCreate, current_user: User
     ) -> dict:
         """Create a dependency link between two tasks."""
+        task = await self._task_repo.get_or_404(task_id)
+
+        # Authorization: assignor or user with TASK_UPDATE permission
+        if task.assignor_id != current_user.id and not current_user.is_superuser:
+            if not await has_permission(self._session, current_user, "TASK_UPDATE", task.project_id):
+                raise HTTPException(403, "Chỉ người tạo task hoặc quản lý mới được sửa phụ thuộc")
+
         if body.dependency_type not in ALLOWED_DEPENDENCY_TYPES:
             raise HTTPException(422, "dependency_type must be one of FS, SS, FF, SF")
+
+        if body.blocking_task_id == body.dependent_task_id:
+            raise HTTPException(422, "Task không thể phụ thuộc vào chính nó")
+
+        # Validate both tasks belong to the same project
+        blocking_task = await self._task_repo.get_or_404(body.blocking_task_id)
+        if blocking_task.project_id != task.project_id:
+            raise HTTPException(422, "Không thể tạo phụ thuộc giữa các task khác project")
 
         existing = await self._task_repo.get_dependency(
             body.blocking_task_id, body.dependent_task_id
         )
         if existing:
-            raise HTTPException(409, "Dependency already exists")
-        await self._task_repo.create_dependency(body.model_dump())
+            raise HTTPException(409, "Phụ thuộc này đã tồn tại")
 
-        # Recalculate critical path after adding a new dependency link
-        task = await self._task_repo.get_or_404(task_id)
+        if await self._would_create_cycle(body.blocking_task_id, body.dependent_task_id):
+            raise HTTPException(422, "Tạo phụ thuộc này sẽ tạo vòng lặp phụ thuộc")
+
+        await self._task_repo.create_dependency(body.model_dump())
         await self.recalculate_critical_path(task.project_id)
 
         return {"message": "Dependency added"}

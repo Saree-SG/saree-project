@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import date, datetime, timezone
+from typing import Any
 
 from fastapi import HTTPException
 from loguru import logger
@@ -79,31 +80,42 @@ def _stage_to_status(stage: str, action: str = "submit") -> str:
 # ---------------------------------------------------------------------------
 
 async def _enrich_quotation(
-    quotation: Quotation, user_repo: UserRepository
+    quotation: Quotation,
+    user_repo: UserRepository,
+    user_cache: dict[uuid.UUID, Any] | None = None,
 ) -> QuotationPublic:
-    """Attach owner display names to the response schema."""
-    sales_name: str | None = None
-    tech_name: str | None = None
-    proc_name: str | None = None
+    """Attach owner display names to the response schema.
 
-    if quotation.sales_owner_id:
-        u = await user_repo.get_by_id(quotation.sales_owner_id)
-        sales_name = u.full_name if u else None
-    if quotation.technical_owner_id:
-        u = await user_repo.get_by_id(quotation.technical_owner_id)
-        tech_name = u.full_name if u else None
-    if quotation.procurement_owner_id:
-        u = await user_repo.get_by_id(quotation.procurement_owner_id)
-        proc_name = u.full_name if u else None
+    Pass user_cache when enriching multiple quotations to avoid N+1 queries.
+    """
+    async def _resolve(uid: uuid.UUID | None) -> str | None:
+        if not uid:
+            return None
+        if user_cache is not None:
+            u = user_cache.get(uid)
+        else:
+            u = await user_repo.get_by_id(uid)
+        return u.full_name if u else None
 
-    data = QuotationPublic.model_validate(
-        quotation, from_attributes=True
-    )
-    data.sales_owner_name = sales_name
-    data.technical_owner_name = tech_name
-    data.procurement_owner_name = proc_name
+    data = QuotationPublic.model_validate(quotation, from_attributes=True)
+    data.sales_owner_name = await _resolve(quotation.sales_owner_id)
+    data.technical_owner_name = await _resolve(quotation.technical_owner_id)
+    data.procurement_owner_name = await _resolve(quotation.procurement_owner_id)
     data.stage_label = STAGE_LABELS.get(quotation.current_stage)
     return data
+
+
+async def _enrich_quotations_batch(
+    quotations: list[Any], user_repo: UserRepository
+) -> list[QuotationPublic]:
+    """Batch-enrich a list of quotations with a single user lookup."""
+    owner_ids: set[uuid.UUID] = set()
+    for q in quotations:
+        for fld in (q.sales_owner_id, q.technical_owner_id, q.procurement_owner_id):
+            if fld:
+                owner_ids.add(fld)
+    users = {u.id: u for u in await user_repo.list_by_ids(list(owner_ids))}
+    return [await _enrich_quotation(q, user_repo, user_cache=users) for q in quotations]
 
 
 # ---------------------------------------------------------------------------
@@ -299,7 +311,7 @@ class QuotationService:
             skip=skip,
             limit=limit,
         )
-        enriched = [await _enrich_quotation(r, self._user_repo) for r in rows]
+        enriched = await _enrich_quotations_batch(list(rows), self._user_repo)
         return QuotationsPublic(data=enriched, count=total)
 
     async def update_quotation(
@@ -994,9 +1006,11 @@ class QuotationService:
     ) -> list[QuotationStageTransitionPublic]:
         await self._repo.get_or_404(quotation_id)
         transitions = await self._repo.get_transitions(quotation_id)
+        actor_ids = list({t.actor_id for t in transitions if t.actor_id})
+        actors = {u.id: u for u in await self._user_repo.list_by_ids(actor_ids)}
         result = []
         for t in transitions:
-            actor = await self._user_repo.get_by_id(t.actor_id)
+            actor = actors.get(t.actor_id)
             row = QuotationStageTransitionPublic.model_validate(t, from_attributes=True)
             row.actor_name = actor.full_name if actor else None
             row.from_stage_label = STAGE_LABELS.get(t.from_stage) if t.from_stage else None
@@ -1014,9 +1028,11 @@ class QuotationService:
     ) -> list[QuotationNegotiationLogPublic]:
         await self._repo.get_or_404(quotation_id)
         logs = await self._repo.get_negotiations(quotation_id)
+        user_ids = list({log.logged_by for log in logs if log.logged_by})
+        users = {u.id: u for u in await self._user_repo.list_by_ids(user_ids)}
         result = []
         for log in logs:
-            user = await self._user_repo.get_by_id(log.logged_by)
+            user = users.get(log.logged_by)
             row = QuotationNegotiationLogPublic.model_validate(log, from_attributes=True)
             row.logged_by_name = user.full_name if user else None
             result.append(row)
@@ -1047,9 +1063,11 @@ class QuotationService:
     ) -> list[QuotationAttachmentPublic]:
         await self._repo.get_or_404(quotation_id)
         atts = await self._repo.get_attachments(quotation_id)
+        user_ids = list({att.uploaded_by for att in atts if att.uploaded_by})
+        users = {u.id: u for u in await self._user_repo.list_by_ids(user_ids)}
         result = []
         for att in atts:
-            user = await self._user_repo.get_by_id(att.uploaded_by)
+            user = users.get(att.uploaded_by)
             row = QuotationAttachmentPublic.model_validate(att, from_attributes=True)
             row.uploaded_by_name = user.full_name if user else None
             result.append(row)
@@ -1091,9 +1109,11 @@ class QuotationService:
     ) -> list[QuotationVersionPublic]:
         await self._repo.get_or_404(quotation_id)
         versions = await self._repo.get_versions(quotation_id)
+        user_ids = list({v.created_by for v in versions if v.created_by})
+        users = {u.id: u for u in await self._user_repo.list_by_ids(user_ids)}
         result = []
         for v in versions:
-            user = await self._user_repo.get_by_id(v.created_by)
+            user = users.get(v.created_by)
             row = QuotationVersionPublic.model_validate(v, from_attributes=True)
             row.created_by_name = user.full_name if user else None
             result.append(row)
@@ -1232,4 +1252,4 @@ class QuotationService:
             company_id=current_user.company_id,
             stages=list(actionable_stages),
         )
-        return [await _enrich_quotation(q, self._user_repo) for q in rows]
+        return await _enrich_quotations_batch(list(rows), self._user_repo)

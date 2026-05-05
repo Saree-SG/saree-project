@@ -22,7 +22,7 @@ export type TaskObserverPublic = {
 export type TaskLinkedEntityPublic = {
   id: string
   task_id: string
-  entity_type: "purchase_request" | "material_issue" | string
+  entity_type: string
   entity_id: string
   created_by: string
   created_at: string
@@ -38,17 +38,19 @@ function authHeaders() {
   return { Authorization: `Bearer ${getAccessToken() || ""}` }
 }
 
-export interface LinkedEntityCreateBody {
-  entity_type?: "purchase_request" | "material_issue"
-  items?: Array<{ inventory_item_id: string; quantity_requested: number }>
+export interface MaterialRequestLinkBody {
+  item_name?: string
+  quantity?: number
+  unit?: string
+  reason?: string
 }
 
-/** Create and link a business entity (PurchaseRequest or MaterialIssue) to the task. */
+/** Create a material request linked to this task. */
 export async function createLinkedEntity(
   taskId: string,
-  body: LinkedEntityCreateBody = {},
-): Promise<TaskPublic> {
-  const res = await axios.post<TaskPublic>(
+  body: MaterialRequestLinkBody = {},
+): Promise<unknown> {
+  const res = await axios.post<unknown>(
     `${OpenAPI.BASE}/api/v1/tasks/${taskId}/linked-entity`,
     body,
     { headers: authHeaders() },
