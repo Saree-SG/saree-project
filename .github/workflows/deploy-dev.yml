@@ -24,7 +24,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Write .env
-        shell: pwsh
+        shell: powershell
         run: |
           $envLines = @(
             "ENVIRONMENT=$env:ENVIRONMENT"
@@ -59,12 +59,12 @@ jobs:
           FIRST_SUPERUSER_PASSWORD: ${{ secrets.DEV_FIRST_SUPERUSER_PASSWORD }}
 
       - name: Docker Compose up
-        shell: pwsh
+        shell: powershell
         run: |
           docker compose -f compose.local.yml -p saree-dev up --build -d
 
       - name: Health check
-        shell: pwsh
+        shell: powershell
         run: |
           $backendUrl = "http://127.0.0.1:$env:BACKEND_PORT/api/v1/utils/health-check/"
           $frontendUrl = "http://127.0.0.1:$env:FRONTEND_PORT/"
