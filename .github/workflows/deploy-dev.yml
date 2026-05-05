@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - dev
+  workflow_dispatch:
 
 jobs:
   deploy:
@@ -23,34 +24,34 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Write .env
-        shell: bash
+        shell: pwsh
         run: |
-          set -euo pipefail
-          {
-            echo "ENVIRONMENT=$ENVIRONMENT"
-            echo "DOMAIN=$DOMAIN"
-            echo "PROJECT_NAME=Saree ERP"
-            echo "DOCKER_IMAGE_BACKEND=saree-backend"
-            echo "DOCKER_IMAGE_FRONTEND=saree-frontend"
-            echo "TAG=latest"
-            echo "SECRET_KEY=$SECRET_KEY"
-            echo "POSTGRES_PASSWORD=$POSTGRES_PASSWORD"
-            echo "FIRST_SUPERUSER=$FIRST_SUPERUSER"
-            echo "FIRST_SUPERUSER_PASSWORD=$FIRST_SUPERUSER_PASSWORD"
-            echo "POSTGRES_SERVER=db"
-            echo "POSTGRES_PORT=5432"
-            echo "POSTGRES_DB=saree-erp-project"
-            echo "POSTGRES_USER=saree"
-            echo "FRONTEND_HOST=http://localhost:${FRONTEND_PORT}"
-            echo "BACKEND_CORS_ORIGINS=http://localhost:${FRONTEND_PORT}"
-            echo "PUBLIC_BASE_URL=http://localhost:${BACKEND_PORT}"
-            echo "VITE_API_URL=http://localhost:${BACKEND_PORT}"
-            echo "SMTP_HOST="
-            echo "SMTP_USER="
-            echo "SMTP_PASSWORD="
-            echo "EMAILS_FROM_EMAIL="
-            echo "SENTRY_DSN="
-          } > .env
+          $envLines = @(
+            "ENVIRONMENT=$env:ENVIRONMENT"
+            "DOMAIN=$env:DOMAIN"
+            "PROJECT_NAME=Saree ERP"
+            "DOCKER_IMAGE_BACKEND=saree-backend"
+            "DOCKER_IMAGE_FRONTEND=saree-frontend"
+            "TAG=latest"
+            "SECRET_KEY=$env:SECRET_KEY"
+            "POSTGRES_PASSWORD=$env:POSTGRES_PASSWORD"
+            "FIRST_SUPERUSER=$env:FIRST_SUPERUSER"
+            "FIRST_SUPERUSER_PASSWORD=$env:FIRST_SUPERUSER_PASSWORD"
+            "POSTGRES_SERVER=db"
+            "POSTGRES_PORT=5432"
+            "POSTGRES_DB=saree-erp-project"
+            "POSTGRES_USER=saree"
+            "FRONTEND_HOST=http://localhost:$env:FRONTEND_PORT"
+            "BACKEND_CORS_ORIGINS=http://localhost:$env:FRONTEND_PORT"
+            "PUBLIC_BASE_URL=http://localhost:$env:BACKEND_PORT"
+            "VITE_API_URL=http://localhost:$env:BACKEND_PORT"
+            "SMTP_HOST="
+            "SMTP_USER="
+            "SMTP_PASSWORD="
+            "EMAILS_FROM_EMAIL="
+            "SENTRY_DSN="
+          )
+          Set-Content -Path ".env" -Value $envLines -Encoding UTF8
         env:
           SECRET_KEY: ${{ secrets.DEV_SECRET_KEY }}
           POSTGRES_PASSWORD: ${{ secrets.DEV_POSTGRES_PASSWORD }}
@@ -58,25 +59,29 @@ jobs:
           FIRST_SUPERUSER_PASSWORD: ${{ secrets.DEV_FIRST_SUPERUSER_PASSWORD }}
 
       - name: Docker Compose up
-        shell: bash
+        shell: pwsh
         run: |
-          set -euo pipefail
           docker compose -f compose.local.yml -p saree-dev up --build -d
 
       - name: Health check
-        shell: bash
+        shell: pwsh
         run: |
-          set -euo pipefail
-          ok=0
-          for _ in $(seq 1 30); do
-            if curl -sf "http://127.0.0.1:${BACKEND_PORT}/api/v1/utils/health-check/" >/dev/null; then
-              ok=1
+          $backendUrl = "http://127.0.0.1:$env:BACKEND_PORT/api/v1/utils/health-check/"
+          $frontendUrl = "http://127.0.0.1:$env:FRONTEND_PORT/"
+          $ok = $false
+
+          for ($i = 0; $i -lt 30; $i++) {
+            try {
+              Invoke-WebRequest -Uri $backendUrl -UseBasicParsing | Out-Null
+              $ok = $true
               break
-            fi
-            sleep 2
-          done
-          if [ "$ok" -ne 1 ]; then
-            echo "Backend health check timed out"
-            exit 1
-          fi
-          curl -sf "http://127.0.0.1:${FRONTEND_PORT}/" >/dev/null
+            } catch {
+              Start-Sleep -Seconds 2
+            }
+          }
+
+          if (-not $ok) {
+            throw "Backend health check timed out"
+          }
+
+          Invoke-WebRequest -Uri $frontendUrl -UseBasicParsing | Out-Null
