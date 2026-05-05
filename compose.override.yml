@@ -1,6 +1,6 @@
-# compose.override.yml — local dev overrides (auto-merged by docker compose)
-# Contains: proxy, dev reload, mailcatcher, adminer, playwright
-# Saree reset (wipe tenant data) is opt-in: set RUN_SAREE_RESET=1 in .env or environment
+# compose.override.yml — chỉnh máy dev (Docker tự ghép lên compose.yml; không dùng trên server).
+# Nội dung: proxy, hot reload, mailcatcher, adminer, playwright. RUN_SAREE_RESET=1 để reset demo.
+# Bảng tổng quan file compose: DOCKER_COMPOSE.md
 services:
 
   # Local services are available on their ports, but also available on:

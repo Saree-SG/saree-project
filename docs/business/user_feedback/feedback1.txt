@@ -1,0 +1,12 @@
+1.Tổng quan: Nhấn vào sổ liệu sẽ move xuống các section có liên quan
+2. Chỗ cảnh báo trễ deadline trong tổng quan:  cần sắp xếp lại vị trí hiển thị: Tdự án > tên công việc > người phụ trách > trạng thái > ngày
+3. Thay chữ ảnh hưởng tiến độ bằng thông tin trễ bao nhiêu ngày, và màu sắc cho từng cấp mức độ
+4. chỗ phan bổ nguồn lực cần có filter lựuc tên, nhóm, mức độ công việc
+5. filter hiệu suất công việc
+6. Trang riêng của nhân sự trong hiệu suất nhân sự
+7. Thông tin nhân sự biểu đồ thời gian
+8. Thêm option lưu công ty khi tạo hồ sơ báo giá
+9. Đổi tên "tạo hồ sơ báo giá"
+10. Thêm "Nhập thông tin công ty" trước phase "thu thập" trong báo giá
+11. Có nút ẩn đối với giá cuối
+12. Phase trong báo giá: Kỹ thuật thiết kế sẽ upload một file excel và chuyển file excel đó sang cho vật tư, và vật tư sẽ điền vào file excel đó và cung cấp cho hệ thống file báo giá cuối cùng và tổng giá tiền, xóa đi mấy cái liên quan đến hạng mục số lượng,.. Và hệ thống giờ chỉ là tracking task không phải quản lý kho.

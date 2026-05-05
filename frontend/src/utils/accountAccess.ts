@@ -87,3 +87,40 @@ export function canManageCompany(permissions: Set<string> | string[] | undefined
 export function canCreateProject(permissions: Set<string> | string[] | undefined) {
   return hasPermission(permissions, "PROJECT_CREATE")
 }
+
+/**
+ * Project module access gate.
+ */
+export function canAccessProject(permissions: Set<string> | string[] | undefined) {
+  return (
+    hasPermission(permissions, "PROJECT_VIEW") ||
+    hasPermission(permissions, "PROJECT_VIEW_ALL")
+  )
+}
+
+/**
+ * Quotation module access gate — any of the two view permissions suffices.
+ */
+export function canAccessQuotation(permissions: Set<string> | string[] | undefined) {
+  return (
+    hasPermission(permissions, "QUOTATION_VIEW") ||
+    hasPermission(permissions, "QUOTATION_VIEW_ALL")
+  )
+}
+
+/**
+ * Contract module access gate.
+ */
+export function canAccessContract(permissions: Set<string> | string[] | undefined) {
+  return (
+    hasPermission(permissions, "CONTRACT_VIEW") ||
+    hasPermission(permissions, "CONTRACT_VIEW_ALL")
+  )
+}
+
+/**
+ * Material Request module access gate.
+ */
+export function canAccessMaterialRequest(permissions: Set<string> | string[] | undefined) {
+  return hasPermission(permissions, "MATERIAL_REQUEST_VIEW")
+}

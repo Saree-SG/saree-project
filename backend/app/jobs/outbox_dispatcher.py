@@ -43,6 +43,7 @@ def dispatch_pending_events(_self) -> dict:
                 event.status = "failed"
                 event.error_message = "Max retries exceeded"
                 session.add(event)
+                session.commit()
                 failed += 1
                 continue
 
@@ -81,8 +82,7 @@ def _handle_event(session: Session, event: OutboxEvent) -> None:
     }
     handler = handlers.get(event.event_type)
     if handler is None:
-        logger.warning("No handler for event type: %s", event.event_type)
-        return
+        raise ValueError(f"No handler registered for event type: '{event.event_type}'")
     handler(session, event.payload)
 
 

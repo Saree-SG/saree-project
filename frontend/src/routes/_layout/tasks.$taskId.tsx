@@ -1,6 +1,14 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { createFileRoute, Link } from "@tanstack/react-router"
 import { useEffect, useMemo, useRef, useState } from "react"
+import { toIsoFromLocalDateTime, toLocalDateTimeInputValue } from "@/utils/dateTime"
+import {
+  auditActionIcon,
+  auditActionLabel,
+  formatAuditChange,
+  type AuditLogWithActor,
+} from "@/utils/auditLog"
+import { useTaskWebSocket } from "@/hooks/useTaskWebSocket"
 
 import {
   ProjectsService,
@@ -20,12 +28,29 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import useAuth from "@/hooks/useAuth"
 import useCustomToast from "@/hooks/useCustomToast"
 import { useMyPermissions } from "@/hooks/useMyPermissions"
-import { getAccessToken } from "@/modules/auth/tokenStore"
+import { addDependency, fetchProjectGantt, removeDependency } from "@/modules/gantt/ganttApi"
+import {
+  addTaskExtraAssignee,
+  addTaskObserver,
+  createLinkedEntity,
+  reassignTask,
+  removeTaskExtraAssignee,
+  removeTaskObserver,
+  type MaterialRequestLinkBody,
+  type TaskExtraAssigneePublic,
+  type TaskObserverPublic,
+  type TaskWithPeople,
+} from "@/modules/tasks/taskApi"
 import { uploadTaskProgressPhoto } from "@/modules/tasks/taskProgressApi"
-import { buildTaskWsUrl } from "@/modules/tasks/taskWs"
 import { handleError } from "@/utils"
 import { resolveBackendMediaUrl } from "@/utils/mediaUrl"
 
@@ -44,237 +69,12 @@ function parseProgressPercent(raw: string): number | null {
   return n
 }
 
-/**
- * Convert datetime-local input value to ISO string.
- */
-function toIsoFromLocalDateTime(raw: string): string | null {
-  if (!raw.trim()) {
-    return null
-  }
-  const normalized = raw.trim()
-  const withSeconds =
-    normalized.length === 16 ? `${normalized}:00` : normalized
-  const parsed = new Date(withSeconds)
-  if (Number.isNaN(parsed.getTime())) {
-    return null
-  }
-  return withSeconds
-}
-
-/**
- * Convert ISO datetime string to datetime-local input format.
- */
-function toLocalDateTimeInputValue(raw: string | undefined): string {
-  if (!raw) {
-    return ""
-  }
-  const parsed = new Date(raw)
-  if (Number.isNaN(parsed.getTime())) {
-    return ""
-  }
-  const pad = (value: number) => String(value).padStart(2, "0")
-  const yyyy = parsed.getFullYear()
-  const mm = pad(parsed.getMonth() + 1)
-  const dd = pad(parsed.getDate())
-  const hh = pad(parsed.getHours())
-  const min = pad(parsed.getMinutes())
-  return `${yyyy}-${mm}-${dd}T${hh}:${min}`
-}
-
-type AuditLogPublicWithActorName = AuditLogPublic & {
-  actor_name?: string | null
-}
-
-/**
- * Returns an emoji icon for the given audit action.
- */
-function auditActionIcon(action: string, newValue?: unknown): string {
-  switch (action) {
-    case "task.created":
-      return "➕"
-    case "task.updated":
-      return "✏️"
-    case "task.status_changed":
-      return "🔄"
-    case "task.deleted":
-      return "🗑️"
-    case "task.proof_uploaded":
-      return "📷"
-    case "task.proof_reviewed": {
-      if (newValue === "approved") return "✅"
-      if (newValue === "rejected") return "❌"
-      return "📷"
-    }
-    case "task.delay_request_approved":
-      return "⏳"
-    case "task.delay_request_reviewed": {
-      if (isPlainObject(newValue)) {
-        const ap = newValue.approval_status
-        if (ap === "APPROVED") return "✅"
-        if (ap === "REJECTED") return "❌"
-      }
-      return "⏳"
-    }
-    case "task.deadline_cascaded_to_parent":
-      return "↔️"
-    default:
-      return "📝"
-  }
-}
-
-/**
- * Returns a Vietnamese action label for the given audit action.
- */
-function auditActionLabel(action: string, newValue?: unknown): string {
-  switch (action) {
-    case "task.created":
-      return "đã tạo công việc"
-    case "task.updated":
-      return "đã cập nhật thông tin"
-    case "task.status_changed":
-      return "đã đổi trạng thái"
-    case "task.deleted":
-      return "đã xoá công việc"
-    case "task.proof_uploaded":
-      return "đã nộp bằng chứng"
-    case "task.proof_reviewed":
-      if (newValue === "approved") return "bằng chứng đã được duyệt"
-      if (newValue === "rejected") return "bằng chứng bị từ chối"
-      return "đã xem xét bằng chứng"
-    case "task.delay_request_approved":
-      return "đã phê duyệt gia hạn"
-    case "task.delay_request_reviewed":
-      if (isPlainObject(newValue)) {
-        const ap = newValue.approval_status
-        if (ap === "APPROVED") return "đã duyệt gia hạn"
-        if (ap === "REJECTED") return "đã từ chối gia hạn"
-      }
-      return "đã xem xét yêu cầu gia hạn"
-    case "task.deadline_cascaded_to_parent":
-      return "đã cập nhật deadline lên công việc cha"
-    default:
-      return action
-  }
-}
-
-/**
- * Returns true if the value is a plain object (not null/array).
- */
-function isPlainObject(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value)
-}
-
-/**
- * Formats an audit old/new value into a short, readable string.
- */
-function formatAuditValue(value: unknown): string | null {
-  if (value === null || value === undefined) {
-    return null
-  }
-
-  if (typeof value === "string") {
-    switch (value) {
-      case "todo":
-        return "Chờ xử lý"
-      case "in_progress":
-        return "Đang làm"
-      case "done":
-        return "Hoàn thành"
-      case "approved":
-        return "Đã duyệt"
-      case "rejected":
-        return "Bị từ chối"
-      case "pending":
-      case "PENDING":
-        return "Chờ duyệt"
-      case "APPROVED":
-        return "Đã duyệt"
-      case "REJECTED":
-        return "Bị từ chối"
-      default:
-        return value
-    }
-  }
-
-  if (typeof value === "number" || typeof value === "boolean") {
-    return String(value)
-  }
-
-  if (isPlainObject(value)) {
-    const status = value.status
-    if (typeof status === "string") {
-      return formatAuditValue(status)
-    }
-
-    const approvalStatus = value.approval_status
-    if (typeof approvalStatus === "string") {
-      return formatAuditValue(approvalStatus)
-    }
-
-    const endTime = value.end_time
-    if (typeof endTime === "string") {
-      const dt = new Date(endTime)
-      if (Number.isNaN(dt.getTime())) {
-        return endTime
-      }
-      return dt.toLocaleString("vi-VN")
-    }
-  }
-
-  try {
-    return JSON.stringify(value)
-  } catch {
-    return String(value)
-  }
-}
-
-/**
- * Returns a formatted `old -> new` description for an audit entry.
- */
-function formatAuditChange(entry: AuditLogPublicWithActorName): string | null {
-  if (entry.old_value === null || entry.old_value === undefined) {
-    return null
-  }
-  if (entry.new_value === null || entry.new_value === undefined) {
-    return null
-  }
-
-  if (
-    entry.action === "task.updated" &&
-    isPlainObject(entry.old_value) &&
-    isPlainObject(entry.new_value)
-  ) {
-    const oldObj = entry.old_value
-    const newObj = entry.new_value
-
-    const changedKeys = Object.keys(newObj).filter(
-      (key) => JSON.stringify(oldObj[key]) !== JSON.stringify(newObj[key]),
-    )
-
-    if (changedKeys.length === 0) {
-      return null
-    }
-
-    const preview = changedKeys.slice(0, 3).join(", ")
-    const more = changedKeys.length > 3 ? "..." : ""
-    return `Các trường thay đổi: ${preview}${more}`
-  }
-
-  const oldStr = formatAuditValue(entry.old_value)
-  const newStr = formatAuditValue(entry.new_value)
-  if (!oldStr || !newStr) {
-    return null
-  }
-  return `${oldStr} → ${newStr}`
-}
+// Date helpers, audit formatters, and isPlainObject are imported from shared utils above.
 
 function TaskDetailPage() {
   const { taskId } = Route.useParams()
   const queryClient = useQueryClient()
   const { showErrorToast, showSuccessToast } = useCustomToast()
-  const showSuccessToastRef = useRef(showSuccessToast)
-  const showErrorToastRef = useRef(showErrorToast)
-
   const [commentDraft, setCommentDraft] = useState("")
   const [proofNote, setProofNote] = useState("")
   const [proofUrl, setProofUrl] = useState("")
@@ -288,8 +88,9 @@ function TaskDetailPage() {
   const [progressImageLightboxUrl, setProgressImageLightboxUrl] = useState<
     string | null
   >(null)
-
-  const [wsConnected, setWsConnected] = useState(false)
+  const [progressReportPhotoFailed, setProgressReportPhotoFailed] = useState<
+    Record<string, boolean>
+  >({})
 
   // Delay request state
   const [delayDialogOpen, setDelayDialogOpen] = useState(false)
@@ -300,7 +101,14 @@ function TaskDetailPage() {
   const [rejectProofId, setRejectProofId] = useState<string | null>(null)
   const [rejectProofNote, setRejectProofNote] = useState("")
   const [deadlineDialogOpen, setDeadlineDialogOpen] = useState(false)
+  const [taskEditDialogOpen, setTaskEditDialogOpen] = useState(false)
+  const [dependencyDraft, setDependencyDraft] = useState("none")
   const [taskDeadlineDraft, setTaskDeadlineDraft] = useState("")
+  const [taskStartDraft, setTaskStartDraft] = useState("")
+  const [taskModuleTagDraft, setTaskModuleTagDraft] = useState("")
+  const [taskNameDraft, setTaskNameDraft] = useState("")
+  const [taskDescriptionDraft, setTaskDescriptionDraft] = useState("")
+  const [taskPriorityDraft, setTaskPriorityDraft] = useState("medium")
   const [subtaskDialogOpen, setSubtaskDialogOpen] = useState(false)
   const [subtaskName, setSubtaskName] = useState("")
   const [subtaskDescription, setSubtaskDescription] = useState("")
@@ -308,15 +116,20 @@ function TaskDetailPage() {
   const [subtaskStartTime, setSubtaskStartTime] = useState("")
   const [subtaskEndTime, setSubtaskEndTime] = useState("")
   const [subtaskWeightDraft, setSubtaskWeightDraft] = useState("")
+  const [extraAssigneeDialogOpen, setExtraAssigneeDialogOpen] = useState(false)
+  const [extraAssigneeUserId, setExtraAssigneeUserId] = useState("")
+  const [observerDialogOpen, setObserverDialogOpen] = useState(false)
+  const [observerUserId, setObserverUserId] = useState("")
+  const [reassignDialogOpen, setReassignDialogOpen] = useState(false)
+  const [reassignUserId, setReassignUserId] = useState("")
 
   useEffect(() => {
-    showSuccessToastRef.current = showSuccessToast
-    showErrorToastRef.current = showErrorToast
-  }, [showErrorToast, showSuccessToast])
+    setProgressReportPhotoFailed({})
+  }, [taskId])
 
   const taskQuery = useQuery({
     queryKey: ["task-detail", "task", taskId],
-    queryFn: () => TasksService.getTask({ taskId }) as Promise<TaskPublic>,
+    queryFn: () => TasksService.getTask({ taskId }) as Promise<TaskWithPeople>,
   })
 
   const siblingTasksQuery = useQuery({
@@ -345,6 +158,11 @@ function TaskDetailPage() {
       ProjectsService.getMembers({
         projectId: taskQuery.data!.project_id,
       }) as Promise<ProjectMemberWithUserPublic[]>,
+  })
+  const projectGanttQuery = useQuery({
+    enabled: Boolean(taskQuery.data?.project_id),
+    queryKey: ["task-detail", "gantt", taskQuery.data?.project_id],
+    queryFn: () => fetchProjectGantt(taskQuery.data!.project_id),
   })
 
   const subtasksQuery = useQuery({
@@ -393,12 +211,6 @@ function TaskDetailPage() {
       TasksService.getTaskAudit({ taskId }) as Promise<AuditLogPublic[]>,
   })
 
-  const activeTasks = useMemo(() => {
-    return (siblingTasksQuery.data?.data ?? [])
-      .filter((task) => task.status !== "done")
-      .slice(0, 8)
-  }, [siblingTasksQuery.data?.data])
-
   const updateStatusMutation = useMutation({
     mutationFn: (status: "todo" | "in_progress" | "done") =>
       TasksService.updateTaskStatus({ taskId, requestBody: { status } }),
@@ -414,6 +226,105 @@ function TaskDetailPage() {
         queryKey: ["task-detail", "project-tasks"],
       })
       await queryClient.invalidateQueries({ queryKey: ["project-dashboard"] })
+    },
+    onError: handleError.bind(showErrorToast),
+  })
+
+  const [createEntityDialogOpen, setCreateEntityDialogOpen] = useState(false)
+  const [mrItemName, setMrItemName] = useState("")
+  const [mrQuantity, setMrQuantity] = useState("1")
+  const [mrUnit, setMrUnit] = useState("cái")
+  const [mrReason, setMrReason] = useState("")
+
+  const createLinkedEntityMutation = useMutation({
+    mutationFn: (body: MaterialRequestLinkBody) => createLinkedEntity(taskId, body),
+    onSuccess: async () => {
+      showSuccessToast("Đã tạo yêu cầu vật tư thành công")
+      setCreateEntityDialogOpen(false)
+      setMrItemName("")
+      setMrQuantity("1")
+      setMrUnit("cái")
+      setMrReason("")
+      await queryClient.invalidateQueries({ queryKey: ["task-detail", "task", taskId] })
+    },
+    onError: handleError.bind(showErrorToast),
+  })
+
+  const addExtraAssigneeMutation = useMutation({
+    mutationFn: (userId: string) => addTaskExtraAssignee(taskId, userId),
+    onSuccess: async () => {
+      showSuccessToast("Đã thêm người phối hợp")
+      setExtraAssigneeUserId("")
+      setExtraAssigneeDialogOpen(false)
+      await queryClient.invalidateQueries({
+        queryKey: ["task-detail", "task", taskId],
+      })
+      await queryClient.invalidateQueries({
+        queryKey: ["task-detail", "audit", taskId],
+      })
+    },
+    onError: handleError.bind(showErrorToast),
+  })
+
+  const removeExtraAssigneeMutation = useMutation({
+    mutationFn: (userId: string) => removeTaskExtraAssignee(taskId, userId),
+    onSuccess: async () => {
+      showSuccessToast("Đã gỡ người phối hợp")
+      await queryClient.invalidateQueries({
+        queryKey: ["task-detail", "task", taskId],
+      })
+      await queryClient.invalidateQueries({
+        queryKey: ["task-detail", "audit", taskId],
+      })
+    },
+    onError: handleError.bind(showErrorToast),
+  })
+
+  const addObserverMutation = useMutation({
+    mutationFn: (userId: string) => addTaskObserver(taskId, userId),
+    onSuccess: async () => {
+      showSuccessToast("Đã thêm observer")
+      setObserverUserId("")
+      setObserverDialogOpen(false)
+      await queryClient.invalidateQueries({
+        queryKey: ["task-detail", "task", taskId],
+      })
+      await queryClient.invalidateQueries({
+        queryKey: ["task-detail", "audit", taskId],
+      })
+    },
+    onError: handleError.bind(showErrorToast),
+  })
+
+  const removeObserverMutation = useMutation({
+    mutationFn: (userId: string) => removeTaskObserver(taskId, userId),
+    onSuccess: async () => {
+      showSuccessToast("Đã gỡ observer")
+      await queryClient.invalidateQueries({
+        queryKey: ["task-detail", "task", taskId],
+      })
+      await queryClient.invalidateQueries({
+        queryKey: ["task-detail", "audit", taskId],
+      })
+    },
+    onError: handleError.bind(showErrorToast),
+  })
+
+  const reassignMutation = useMutation({
+    mutationFn: (newAssigneeId: string) => reassignTask(taskId, newAssigneeId),
+    onSuccess: async () => {
+      showSuccessToast("Đã chuyển người phụ trách chính")
+      setReassignUserId("")
+      setReassignDialogOpen(false)
+      await queryClient.invalidateQueries({
+        queryKey: ["task-detail", "task", taskId],
+      })
+      await queryClient.invalidateQueries({
+        queryKey: ["task-detail", "audit", taskId],
+      })
+      await queryClient.invalidateQueries({
+        queryKey: ["my-tasks-dashboard"],
+      })
     },
     onError: handleError.bind(showErrorToast),
   })
@@ -593,13 +504,15 @@ function TaskDetailPage() {
       if (!endTime) {
         throw new Error("Deadline không hợp lệ")
       }
-      return TasksService.updateTask({
-        taskId,
-        requestBody: { end_time: endTime },
-      })
+      const startTime = toIsoFromLocalDateTime(taskStartDraft)
+      const requestBody: Record<string, string> = { end_time: endTime }
+      if (startTime) {
+        requestBody.start_time = startTime
+      }
+      return TasksService.updateTask({ taskId, requestBody })
     },
     onSuccess: async () => {
-      showSuccessToast("Đã cập nhật deadline task")
+      showSuccessToast("Đã cập nhật thời gian task")
       setDeadlineDialogOpen(false)
       await queryClient.invalidateQueries({
         queryKey: ["task-detail", "task", taskId],
@@ -611,6 +524,90 @@ function TaskDetailPage() {
         queryKey: ["task-detail", "project-tasks"],
       })
       await queryClient.invalidateQueries({ queryKey: ["project-dashboard"] })
+    },
+    onError: handleError.bind(showErrorToast),
+  })
+
+  const updateTaskModuleTagMutation = useMutation({
+    mutationFn: async (moduleTag: string) =>
+      TasksService.updateTask({
+        taskId,
+        requestBody: {
+          module_tag: moduleTag || null,
+        } as any,
+      }),
+    onSuccess: async () => {
+      showSuccessToast("Đã cập nhật loại task")
+      await queryClient.invalidateQueries({
+        queryKey: ["task-detail", "task", taskId],
+      })
+      await queryClient.invalidateQueries({
+        queryKey: ["task-detail", "audit", taskId],
+      })
+    },
+    onError: handleError.bind(showErrorToast),
+  })
+
+  const updateTaskInfoMutation = useMutation({
+    mutationFn: async () => {
+      const startTime = toIsoFromLocalDateTime(taskStartDraft)
+      const endTime = toIsoFromLocalDateTime(taskDeadlineDraft)
+      if (!startTime || !endTime) {
+        throw new Error("Thời gian task không hợp lệ")
+      }
+      return TasksService.updateTask({
+        taskId,
+        requestBody: {
+          name: taskNameDraft.trim(),
+          description: taskDescriptionDraft.trim() || null,
+          priority: taskPriorityDraft,
+          start_time: startTime,
+          end_time: endTime,
+          module_tag: taskModuleTagDraft || null,
+        } as any,
+      })
+    },
+    onSuccess: async () => {
+      showSuccessToast("Đã cập nhật thông tin task")
+      setTaskEditDialogOpen(false)
+      await queryClient.invalidateQueries({
+        queryKey: ["task-detail", "task", taskId],
+      })
+      await queryClient.invalidateQueries({
+        queryKey: ["task-detail", "audit", taskId],
+      })
+      await queryClient.invalidateQueries({
+        queryKey: ["task-detail", "project-tasks"],
+      })
+      await queryClient.invalidateQueries({ queryKey: ["project-dashboard"] })
+    },
+    onError: handleError.bind(showErrorToast),
+  })
+  const addDependencyMutation = useMutation({
+    mutationFn: async (blockingTaskId: string) => addDependency(blockingTaskId, taskId),
+    onSuccess: async () => {
+      showSuccessToast("Đã thêm phụ thuộc")
+      setDependencyDraft("none")
+      await queryClient.invalidateQueries({
+        queryKey: ["task-detail", "task", taskId],
+      })
+      await queryClient.invalidateQueries({
+        queryKey: ["task-detail", "gantt", task?.project_id],
+      })
+    },
+    onError: handleError.bind(showErrorToast),
+  })
+  const removeDependencyMutation = useMutation({
+    mutationFn: async (row: { blockingTaskId: string; depId: string }) =>
+      removeDependency(row.blockingTaskId, row.depId),
+    onSuccess: async () => {
+      showSuccessToast("Đã xóa phụ thuộc")
+      await queryClient.invalidateQueries({
+        queryKey: ["task-detail", "task", taskId],
+      })
+      await queryClient.invalidateQueries({
+        queryKey: ["task-detail", "gantt", task?.project_id],
+      })
     },
     onError: handleError.bind(showErrorToast),
   })
@@ -664,6 +661,15 @@ function TaskDetailPage() {
 
   const task = taskQuery.data
 
+  useEffect(() => {
+    setTaskModuleTagDraft(task?.module_tag ?? "")
+    setTaskNameDraft(task?.name ?? "")
+    setTaskDescriptionDraft(task?.description ?? "")
+    setTaskPriorityDraft(task?.priority ?? "medium")
+    setTaskStartDraft(toLocalDateTimeInputValue(task?.start_time))
+    setTaskDeadlineDraft(toLocalDateTimeInputValue(task?.end_time))
+  }, [task])
+
   // Self-progress = sum of direct reports on this task (0–100, independent of children)
   const selfProgress = useMemo(
     () => (progressReportsQuery.data ?? []).reduce((acc, r) => acc + r.progress_percent, 0),
@@ -702,12 +708,103 @@ function TaskDetailPage() {
   const canApproveProof = (myPermissionsQuery.data ?? []).includes(
     "PROOF_APPROVE",
   )
+  const canEditTask = (myPermissionsQuery.data ?? []).includes("TASK_UPDATE")
   const canUpdateTaskDeadline =
-    (myPermissionsQuery.data ?? []).includes("TASK_UPDATE") &&
+    canEditTask &&
     Boolean(
       currentUser?.is_superuser || task?.assignor_id === currentUser?.id,
     )
+  const canManageExtraAssignees = canEditTask
   const isAssignee = task?.assignee_id === currentUser?.id
+  const canEditDependency =
+    task?.status !== "done" &&
+    (task?.assignor_id === currentUser?.id ||
+      (myPermissionsQuery.data ?? []).includes("TASK_UPDATE"))
+
+  const wsConnected = useTaskWebSocket(taskId, {
+    queryClient,
+    currentUserId: currentUser?.id,
+    showSuccessToast,
+    showErrorToast,
+  })
+  const extraAssignees = useMemo<TaskExtraAssigneePublic[]>(
+    () => task?.extra_assignees ?? [],
+    [task?.extra_assignees],
+  )
+  const linkedEntities = useMemo(
+    () => {
+      const rows = [...(((task as TaskWithPeople | undefined)?.linked_entities ?? []))]
+      if (task?.linked_entity_id && task.linked_entity_type) {
+        const exists = rows.some((row) => row.entity_id === task.linked_entity_id)
+        if (!exists) {
+          rows.unshift({
+            id: `legacy-${task.linked_entity_id}`,
+            task_id: task.id,
+            entity_id: task.linked_entity_id,
+            entity_type: task.linked_entity_type,
+            created_by: task.assignor_id,
+            created_at: task.updated_at,
+          })
+        }
+      }
+      return rows
+    },
+    [task],
+  )
+  const observers = useMemo<TaskObserverPublic[]>(
+    () => task?.observers ?? [],
+    [task?.observers],
+  )
+  const dependencyCandidates = useMemo(() => {
+    const statusLabel: Record<string, string> = {
+      todo: "Chờ làm",
+      in_progress: "Đang làm",
+      done: "Hoàn thành",
+      blocked: "Đang bị chặn",
+    }
+    return (projectGanttQuery.data?.tasks ?? [])
+      .filter((row) => row.id !== taskId)
+      .map((row) => ({
+        id: row.id,
+        label: `${row.name} [${statusLabel[row.status] ?? row.status}]`,
+      }))
+  }, [projectGanttQuery.data?.tasks, taskId])
+  const dependencyRows = useMemo(() => {
+    const deps = projectGanttQuery.data?.dependencies ?? []
+    const tasks = projectGanttQuery.data?.tasks ?? []
+    const nameById = new Map(tasks.map((row) => [row.id, row.name]))
+    return deps
+      .filter((row) => row.dependent_task_id === taskId && row.dependency_type === "FS")
+      .map((row) => ({
+        depId: row.id,
+        blockingTaskId: row.blocking_task_id,
+        blockingName: nameById.get(row.blocking_task_id) ?? row.blocking_task_id,
+      }))
+  }, [projectGanttQuery.data?.dependencies, projectGanttQuery.data?.tasks, taskId])
+  const availableExtraAssignees = useMemo(() => {
+    const excluded = new Set<string>([
+      task?.assignee_id ?? "",
+      ...extraAssignees.map((row) => row.user_id),
+    ])
+    return (projectMembersQuery.data ?? []).filter(
+      (member) => !excluded.has(member.user_id),
+    )
+  }, [projectMembersQuery.data, task?.assignee_id, extraAssignees])
+  const availableObservers = useMemo(() => {
+    const excluded = new Set<string>([
+      task?.assignee_id ?? "",
+      ...extraAssignees.map((row) => row.user_id),
+      ...observers.map((row) => row.user_id),
+    ])
+    return (projectMembersQuery.data ?? []).filter(
+      (member) => !excluded.has(member.user_id),
+    )
+  }, [projectMembersQuery.data, task?.assignee_id, extraAssignees, observers])
+  const reassignCandidates = useMemo(() => {
+    return (projectMembersQuery.data ?? []).filter(
+      (member) => member.user_id !== task?.assignee_id,
+    )
+  }, [projectMembersQuery.data, task?.assignee_id])
   const taskIndexById = useMemo(() => {
     const index = new Map<string, TaskPublic>()
     for (const item of siblingTasksQuery.data?.data ?? []) {
@@ -762,224 +859,227 @@ function TaskDetailPage() {
   )
   const totalProgress = task?.reported_progress_total ?? 0
 
-  useEffect(() => {
-    const token = getAccessToken()
-    if (!token || !taskId) return
-
-    let ws: WebSocket | null = null
-    try {
-      ws = new WebSocket(buildTaskWsUrl(taskId))
-    } catch {
-      return
-    }
-    ws.onopen = () => setWsConnected(true)
-    ws.onclose = () => setWsConnected(false)
-    ws.onerror = () => setWsConnected(false)
-    ws.onmessage = (eventValue) => {
-      try {
-        const msg = JSON.parse(eventValue.data as string) as {
-          event?: string
-          data?: Record<string, string | undefined>
-        }
-        const d = msg.data ?? {}
-        const actorId = d.actor_id
-        const isOwnEvent = Boolean(actorId && actorId === currentUser?.id)
-        switch (msg.event) {
-          case "task.delay_requested":
-            void queryClient.invalidateQueries({
-              queryKey: ["task-detail", "comments", taskId],
-            })
-            if (!isOwnEvent) {
-              showSuccessToastRef.current(
-                `${d.author_name ?? "Người thực hiện"} vừa xin gia hạn deadline`,
-              )
-            }
-            break
-          case "task.delay_approved":
-            void queryClient.invalidateQueries({
-              queryKey: ["task-detail", "task", taskId],
-            })
-            void queryClient.invalidateQueries({
-              queryKey: ["task-detail", "audit", taskId],
-            })
-            void queryClient.invalidateQueries({
-              queryKey: ["task-detail", "comments", taskId],
-            })
-            if (!isOwnEvent) {
-              showSuccessToastRef.current(
-                `Deadline đã được duyệt → ${d.new_end_time ?? ""}`,
-              )
-            }
-            break
-          case "task.delay_rejected":
-            void queryClient.invalidateQueries({
-              queryKey: ["task-detail", "comments", taskId],
-            })
-            void queryClient.invalidateQueries({
-              queryKey: ["task-detail", "audit", taskId],
-            })
-            if (!isOwnEvent) {
-              showErrorToastRef.current("Yêu cầu gia hạn bị từ chối")
-            }
-            break
-          case "task.proof_uploaded":
-            void queryClient.invalidateQueries({
-              queryKey: ["task-detail", "proofs", taskId],
-            })
-            void queryClient.invalidateQueries({
-              queryKey: ["task-detail", "audit", taskId],
-            })
-            if (!isOwnEvent) {
-              showSuccessToastRef.current(
-                `${d.uploader_name ?? "Người thực hiện"} vừa nộp bằng chứng`,
-              )
-            }
-            break
-          case "task.proof_approved":
-            void queryClient.invalidateQueries({
-              queryKey: ["task-detail", "proofs", taskId],
-            })
-            void queryClient.invalidateQueries({
-              queryKey: ["task-detail", "audit", taskId],
-            })
-            if (!isOwnEvent) {
-              showSuccessToastRef.current("Bằng chứng đã được duyệt")
-            }
-            break
-          case "task.proof_rejected":
-            void queryClient.invalidateQueries({
-              queryKey: ["task-detail", "proofs", taskId],
-            })
-            void queryClient.invalidateQueries({
-              queryKey: ["task-detail", "audit", taskId],
-            })
-            if (!isOwnEvent) {
-              showErrorToastRef.current(`Bằng chứng bị từ chối: ${d.note ?? ""}`)
-            }
-            break
-          case "task.status_changed":
-            void queryClient.invalidateQueries({
-              queryKey: ["task-detail", "task", taskId],
-            })
-            void queryClient.invalidateQueries({
-              queryKey: ["task-detail", "audit", taskId],
-            })
-            if (!isOwnEvent) {
-              showSuccessToastRef.current(`Trạng thái → ${d.new_status ?? ""}`)
-            }
-            break
-          case "task.updated":
-            void queryClient.invalidateQueries({
-              queryKey: ["task-detail", "task", taskId],
-            })
-            void queryClient.invalidateQueries({
-              queryKey: ["task-detail", "project-tasks"],
-            })
-            void queryClient.invalidateQueries({
-              queryKey: ["task-detail", "audit", taskId],
-            })
-            if (!isOwnEvent) {
-              showSuccessToastRef.current(
-                d.message ??
-                  `${d.actor_name ?? "Nhân viên"} đã cập nhật thông tin công việc "${d.task_name ?? ""}".`,
-              )
-            }
-            break
-          case "task.progress_reported":
-            void queryClient.invalidateQueries({
-              queryKey: ["task-detail", "progress-reports", taskId],
-            })
-            void queryClient.invalidateQueries({
-              queryKey: ["task-detail", "task", taskId],
-            })
-            void queryClient.invalidateQueries({
-              queryKey: ["task-detail", "audit", taskId],
-            })
-            if (!isOwnEvent) {
-              showSuccessToastRef.current(
-                d.message ??
-                  `${d.actor_name ?? "Nhân viên"} đã cập nhật "báo cáo tiến độ" cho công việc "${d.task_name ?? ""}".`,
-              )
-            }
-            break
-          case "task.discussion_added":
-            void queryClient.invalidateQueries({
-              queryKey: ["task-detail", "comments", taskId],
-            })
-            void queryClient.invalidateQueries({
-              queryKey: ["task-detail", "audit", taskId],
-            })
-            if (!isOwnEvent) {
-              showSuccessToastRef.current(
-                d.message ??
-                  `${d.actor_name ?? "Nhân viên"} đã cập nhật "thảo luận" cho công việc "${d.task_name ?? ""}".`,
-              )
-            }
-            break
-          default:
-            break
-        }
-      } catch {
-        // ignore malformed frames
-      }
-    }
-
-    return () => {
-      setWsConnected(false)
-      ws?.close()
-    }
-  }, [taskId, queryClient, currentUser?.id])
-
   return (
     <div className="mx-auto w-full max-w-3xl space-y-6 px-2 pb-24 pt-3 sm:px-4">
-      <section className="space-y-3">
+      <section className="space-y-1 pt-1">
         <div className="flex items-center justify-between">
-          <div>
-            <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-              Active Project
-            </p>
-            <h2 className="text-lg font-bold">
-              {projectQuery.data?.name ?? "Project"}
-            </h2>
-          </div>
-          <div className="flex flex-col items-end gap-1">
-            {wsConnected ? (
-              <span className="flex items-center gap-1 text-[10px] font-bold text-green-600">
-                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-green-500" />
-                Live
-              </span>
-            ) : null}
-            <span className="rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
-              Task Detail
+          <Link
+            to="/projects/$projectId"
+            params={{ projectId: task?.project_id ?? "" }}
+            className="text-xs text-muted-foreground hover:text-foreground"
+          >
+            ← {projectQuery.data?.name ?? "Quay lại dự án"}
+          </Link>
+          {wsConnected ? (
+            <span className="flex items-center gap-1 text-[10px] text-green-600">
+              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-green-500" />
+              Trực tiếp
             </span>
-          </div>
-        </div>
-        <div className="flex gap-2 overflow-x-auto pb-1">
-          {activeTasks.map((item) => (
-            <Link
-              key={item.id}
-              to="/tasks/$taskId"
-              params={{ taskId: item.id }}
-              title={item.name}
-              className={[
-                "shrink-0 rounded-lg px-4 py-1.5 text-xs font-medium",
-                item.id === taskId
-                  ? "bg-primary text-white"
-                  : "border border-slate-200 bg-slate-100 text-slate-600 hover:bg-slate-200",
-              ].join(" ")}
-            >
-              {item.name}
-            </Link>
-          ))}
+          ) : null}
         </div>
       </section>
 
-      {parentBreadcrumbs.length > 0 ? (
+      {/* ── Module tag + Linked entity ── */}
+      {task && (
+        <section className="space-y-3 rounded-xl border bg-white p-5 shadow-sm">
+          <div className="flex items-center justify-between">
+            <h4 className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
+              Phân loại nghiệp vụ
+            </h4>
+            <span className={[
+              "rounded-full px-3 py-0.5 text-[11px] font-bold uppercase tracking-wide",
+              task.module_tag === "procurement" ? "bg-orange-100 text-orange-700" :
+              task.module_tag === "supply"       ? "bg-yellow-100 text-yellow-700" :
+              task.module_tag === "production"   ? "bg-blue-100 text-blue-700"   :
+              task.module_tag === "engineering"  ? "bg-violet-100 text-violet-700" :
+              task.module_tag === "planning"     ? "bg-sky-100 text-sky-700"     :
+              task.module_tag === "installation" ? "bg-green-100 text-green-700" :
+              "bg-slate-100 text-slate-600",
+            ].join(" ")}>
+              {task.module_tag === "procurement"  ? "Mua hàng"
+               : task.module_tag === "supply"     ? "Cung ứng"
+               : task.module_tag === "production" ? "Sản xuất"
+               : task.module_tag === "engineering"? "Kỹ thuật"
+               : task.module_tag === "planning"   ? "Kế hoạch"
+               : task.module_tag === "installation"? "Lắp đặt"
+               : "Chưa phân loại"}
+            </span>
+          </div>
+          {canEditTask && (
+            <div className="flex flex-wrap items-center gap-2">
+              <select
+                title="Chọn loại task"
+                aria-label="Chọn loại task"
+                value={taskModuleTagDraft}
+                onChange={(e) => setTaskModuleTagDraft(e.target.value)}
+                className="h-9 min-w-[180px] rounded-md border px-2 text-sm"
+              >
+                <option value="">Chưa phân loại</option>
+                <option value="engineering">Kỹ thuật</option>
+                <option value="planning">Kế hoạch</option>
+                <option value="procurement">Mua hàng</option>
+                <option value="production">Sản xuất</option>
+                <option value="supply">Cung ứng</option>
+                <option value="installation">Lắp đặt</option>
+              </select>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                disabled={
+                  updateTaskModuleTagMutation.isPending ||
+                  taskModuleTagDraft === (task.module_tag ?? "")
+                }
+                onClick={() => updateTaskModuleTagMutation.mutate(taskModuleTagDraft)}
+              >
+                Cập nhật loại task
+              </Button>
+            </div>
+          )}
+
+          {/* Linked material requests */}
+          {linkedEntities.length > 0 && (
+            <div className="space-y-2">
+              {linkedEntities.map((entity) => (
+                <div key={entity.id} className="flex items-center justify-between rounded-lg border border-orange-200 bg-orange-50 px-4 py-2.5">
+                  <div className="flex items-center gap-2 text-sm text-orange-800">
+                    <span className="text-base">📋</span>
+                    <span className="font-medium">Yêu cầu vật tư</span>
+                    <span className="rounded bg-orange-200 px-1.5 py-0.5 text-[10px] font-mono text-orange-700">
+                      {entity.entity_id.slice(0, 8)}…
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+          {canEditTask && (
+            <button
+              type="button"
+              onClick={() => setCreateEntityDialogOpen(true)}
+              disabled={createLinkedEntityMutation.isPending}
+              className="flex w-full items-center justify-center gap-2 rounded-lg border border-dashed border-orange-300 bg-orange-50 py-3 text-sm font-semibold text-orange-700 transition-colors hover:bg-orange-100 disabled:opacity-60"
+            >
+              {createLinkedEntityMutation.isPending ? "Đang tạo…" : (
+                <>
+                  <span>📋</span>
+                  Tạo yêu cầu vật tư
+                </>
+              )}
+            </button>
+          )}
+        </section>
+      )}
+
+      <Dialog open={createEntityDialogOpen} onOpenChange={setCreateEntityDialogOpen}>
+        <DialogContent className="max-w-md" showCloseButton>
+          <DialogHeader>
+            <DialogTitle>Tạo yêu cầu vật tư</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div>
+              <label className="mb-1 block text-sm font-medium">Tên vật tư <span className="text-red-500">*</span></label>
+              <input
+                type="text"
+                className="w-full rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"
+                placeholder="Ví dụ: Sơn tường, Ống thép..."
+                value={mrItemName}
+                onChange={(e) => setMrItemName(e.target.value)}
+              />
+            </div>
+            <div className="flex gap-3">
+              <div className="flex-1">
+                <label className="mb-1 block text-sm font-medium">Số lượng</label>
+                <input
+                  type="number"
+                  min={0.001}
+                  step={0.001}
+                  className="w-full rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"
+                  value={mrQuantity}
+                  onChange={(e) => setMrQuantity(e.target.value)}
+                />
+              </div>
+              <div className="w-28">
+                <label className="mb-1 block text-sm font-medium">Đơn vị</label>
+                <input
+                  type="text"
+                  className="w-full rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"
+                  placeholder="cái, m, kg..."
+                  value={mrUnit}
+                  onChange={(e) => setMrUnit(e.target.value)}
+                />
+              </div>
+            </div>
+            <div>
+              <label className="mb-1 block text-sm font-medium">Lý do / Ghi chú</label>
+              <textarea
+                className="w-full rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"
+                rows={3}
+                placeholder="Mô tả lý do cần vật tư..."
+                value={mrReason}
+                onChange={(e) => setMrReason(e.target.value)}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setCreateEntityDialogOpen(false)}>
+              Huỷ
+            </Button>
+            <Button
+              type="button"
+              disabled={!mrItemName.trim() || createLinkedEntityMutation.isPending}
+              onClick={() =>
+                createLinkedEntityMutation.mutate({
+                  item_name: mrItemName.trim(),
+                  quantity: parseFloat(mrQuantity) || 1,
+                  unit: mrUnit.trim() || "cái",
+                  reason: mrReason.trim() || "Yêu cầu từ công việc",
+                })
+              }
+            >
+              {createLinkedEntityMutation.isPending ? "Đang tạo…" : "Tạo yêu cầu"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Subtask indicator banner (only shown for subtasks) ── */}
+      {task?.parent_id ? (
+        <div className="flex flex-col gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-2.5 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-3 sm:gap-y-2">
+          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-1">
+            <span className="shrink-0 rounded bg-amber-400 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-white">
+              Công việc con
+            </span>
+            {parentBreadcrumbs.length > 0 ? (
+              <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-1 gap-y-1 text-xs text-amber-700">
+                <span className="shrink-0 text-amber-400">thuộc</span>
+                {parentBreadcrumbs.map((item) => (
+                  <span
+                    key={item.id}
+                    className="flex min-w-0 max-w-full items-center gap-1"
+                  >
+                    <Link
+                      to="/tasks/$taskId"
+                      params={{ taskId: item.id }}
+                      className="min-w-0 max-w-full break-words font-semibold underline underline-offset-2"
+                    >
+                      {item.name}
+                    </Link>
+                    <span className="shrink-0 text-amber-300">/</span>
+                  </span>
+                ))}
+              </div>
+            ) : null}
+          </div>
+          {task.progress_weight != null ? (
+            <span className="shrink-0 text-[11px] font-semibold text-amber-700 sm:text-right">
+              Mức đóng góp: {task.progress_weight}%
+            </span>
+          ) : null}
+        </div>
+      ) : parentBreadcrumbs.length > 0 ? (
         <section className="rounded-xl border bg-white px-4 py-3 shadow-sm">
-          <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-            Breadcrumb
-          </p>
-          <div className="mt-1 flex flex-wrap items-center gap-1 text-xs">
+          <div className="flex flex-wrap items-center gap-1 text-xs">
             {parentBreadcrumbs.map((item) => (
               <span key={item.id} className="flex items-center gap-1">
                 <Link
@@ -997,73 +1097,132 @@ function TaskDetailPage() {
         </section>
       ) : null}
 
-      <section className="space-y-4 rounded-xl border bg-white p-5 shadow-sm">
+      {/* ── Task / Subtask header card ── */}
+      <section className={[
+        "space-y-4 rounded-xl border p-5 shadow-sm",
+        task?.parent_id ? "border-amber-200 bg-amber-50/40" : "bg-white",
+      ].join(" ")}>
         <div className="flex items-start justify-between gap-3">
           <div className="space-y-1">
+            {task?.parent_id && (
+              <p className="text-[10px] font-bold uppercase tracking-widest text-amber-500">
+                Công việc con
+              </p>
+            )}
             <h3 className="text-lg font-bold">{task?.name ?? "Task"}</h3>
             <p className="text-sm text-muted-foreground">
-              Due {task ? new Date(task.end_time).toLocaleString() : "-"}
+              Hạn: {task ? new Date(task.end_time).toLocaleString("vi-VN") : "-"}
             </p>
             {canUpdateTaskDeadline ? (
               <button
                 type="button"
                 className="text-xs font-semibold text-primary underline"
                 onClick={() => {
+                  setTaskStartDraft(toLocalDateTimeInputValue(task?.start_time))
                   setTaskDeadlineDraft(toLocalDateTimeInputValue(task?.end_time))
                   setDeadlineDialogOpen(true)
                 }}
               >
-                Cập nhật deadline
+                Đổi thời gian
               </button>
             ) : null}
           </div>
-          <span className="rounded bg-primary/10 px-2 py-1 text-[10px] font-black uppercase text-primary">
-            {task?.status ?? "todo"}
-          </span>
+          <div className="flex items-center gap-2">
+            <span className={[
+              "rounded px-2 py-1 text-[10px] font-black uppercase",
+              task?.parent_id ? "bg-amber-100 text-amber-700" : "bg-primary/10 text-primary",
+            ].join(" ")}>
+              {task?.status === "todo" ? "Chờ làm"
+                : task?.status === "in_progress" ? "Đang làm"
+                : task?.status === "done" ? "Hoàn thành"
+                : task?.status ?? "todo"}
+            </span>
+            {canEditTask && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    type="button"
+                    title="Tác vụ task"
+                    aria-label="Tác vụ task"
+                    className="h-8 w-8 rounded-md border text-lg leading-none text-muted-foreground hover:bg-muted"
+                  >
+                    ⋯
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem
+                    onClick={() => setTaskEditDialogOpen(true)}
+                  >
+                    Sửa thông tin task
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+          </div>
         </div>
+
+        {(task?.blocked_by?.length ?? 0) > 0 && (
+          <div className="mb-3 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3">
+            <p className="mb-1.5 text-xs font-bold uppercase tracking-wide text-amber-700">
+              Đang bị chặn bởi
+            </p>
+            <ul className="space-y-1">
+              {task!.blocked_by!.map((b) => (
+                <li key={b.id} className="flex items-center gap-2 text-sm text-amber-800">
+                  <span className="inline-block h-1.5 w-1.5 rounded-full bg-amber-500" />
+                  <span className="font-medium">{b.name}</span>
+                  <span className="rounded bg-amber-200 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-amber-700">
+                    {b.status === "todo" ? "Chờ làm" : b.status === "in_progress" ? "Đang làm" : b.status}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
 
         <div className="grid grid-cols-3 gap-2">
           <button
             type="button"
             className={[
-              "rounded-lg border px-2 py-3 text-[10px] font-bold",
+              "rounded-lg border py-3 text-sm font-semibold transition-colors",
               task?.status === "todo"
-                ? "bg-slate-900 text-white"
-                : "bg-slate-100 text-slate-600",
+                ? "bg-slate-800 text-white shadow-sm"
+                : "bg-muted text-muted-foreground hover:bg-muted/80",
             ].join(" ")}
             onClick={() => updateStatusMutation.mutate("todo")}
           >
-            Pending
+            Chờ làm
           </button>
           <button
             type="button"
             className={[
-              "rounded-lg border px-2 py-3 text-[10px] font-bold",
+              "rounded-lg border py-3 text-sm font-semibold transition-colors",
               task?.status === "in_progress"
-                ? "bg-primary text-white"
-                : "bg-slate-100 text-slate-600",
+                ? "bg-primary text-white shadow-sm"
+                : "bg-muted text-muted-foreground hover:bg-muted/80",
             ].join(" ")}
             onClick={() => updateStatusMutation.mutate("in_progress")}
           >
-            Working
+            Đang làm
           </button>
           <button
             type="button"
             className={[
-              "rounded-lg border px-2 py-3 text-[10px] font-bold",
+              "rounded-lg border py-3 text-sm font-semibold transition-colors",
               task?.status === "done"
-                ? "bg-green-600 text-white"
-                : "bg-slate-100 text-slate-600",
+                ? "bg-green-600 text-white shadow-sm"
+                : "bg-muted text-muted-foreground hover:bg-muted/80",
             ].join(" ")}
             onClick={() => {
               if ((task?.reported_progress_total ?? 0) < 100) {
-                showErrorToast("Chưa thể hoàn thành: tổng tiến độ (báo cáo + công việc con) phải đạt 100%")
+                showErrorToast("Chưa thể đánh dấu hoàn thành khi tiến độ chưa đạt 100%")
                 return
               }
               updateStatusMutation.mutate("done")
             }}
           >
-            Complete
+            Hoàn thành ✓
           </button>
         </div>
       </section>
@@ -1131,7 +1290,7 @@ function TaskDetailPage() {
                       </span>
                     )}
                   </div>
-                  <p className="text-[13px]">{req.content}</p>
+                  <p className="break-words text-[13px]">{req.content}</p>
                   {isPending &&
                   canApproveDelay &&
                   (currentUser?.is_superuser ||
@@ -1182,13 +1341,101 @@ function TaskDetailPage() {
       </section>
 
       <section className="space-y-2 rounded-xl border bg-white p-4 shadow-sm">
-        <h4 className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
-          Người thực hiện & giao việc
-        </h4>
+        <div className="flex items-center justify-between gap-2">
+          <h4 className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
+            Người thực hiện & giao việc
+          </h4>
+          {canManageExtraAssignees ? (
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={() => setExtraAssigneeDialogOpen(true)}
+              >
+                + Thêm người phối hợp
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={() => setObserverDialogOpen(true)}
+              >
+                + Thêm observer
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={() => setReassignDialogOpen(true)}
+              >
+                Đổi phụ trách
+              </Button>
+            </div>
+          ) : null}
+        </div>
         <p className="text-sm">
           <span className="font-semibold text-primary">Thực hiện:</span>{" "}
           {task?.assignee_name?.trim() || task?.assignee_id || "—"}
         </p>
+        <div className="space-y-1">
+          <p className="text-sm text-muted-foreground">
+            <span className="font-semibold">Phối hợp:</span>
+          </p>
+          {extraAssignees.length === 0 ? (
+            <p className="text-xs text-muted-foreground">Chưa có người phối hợp.</p>
+          ) : (
+            <div className="flex flex-wrap gap-2">
+              {extraAssignees.map((row) => (
+                <span
+                  key={row.id}
+                  className="inline-flex items-center gap-2 rounded-full border px-2.5 py-1 text-xs"
+                >
+                  <span>{row.user_name?.trim() || row.user_id}</span>
+                  {canManageExtraAssignees ? (
+                    <button
+                      type="button"
+                      className="font-bold text-destructive"
+                      disabled={removeExtraAssigneeMutation.isPending}
+                      onClick={() => removeExtraAssigneeMutation.mutate(row.user_id)}
+                    >
+                      ×
+                    </button>
+                  ) : null}
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+        <div className="space-y-1">
+          <p className="text-sm text-muted-foreground">
+            <span className="font-semibold">Observer:</span>
+          </p>
+          {observers.length === 0 ? (
+            <p className="text-xs text-muted-foreground">Chưa có observer.</p>
+          ) : (
+            <div className="flex flex-wrap gap-2">
+              {observers.map((row) => (
+                <span
+                  key={`${row.task_id}-${row.user_id}`}
+                  className="inline-flex items-center gap-2 rounded-full border px-2.5 py-1 text-xs"
+                >
+                  <span>{row.user_name?.trim() || row.user_id}</span>
+                  {canManageExtraAssignees ? (
+                    <button
+                      type="button"
+                      className="font-bold text-destructive"
+                      disabled={removeObserverMutation.isPending}
+                      onClick={() => removeObserverMutation.mutate(row.user_id)}
+                    >
+                      ×
+                    </button>
+                  ) : null}
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
         <p className="text-sm text-muted-foreground">
           <span className="font-semibold">Giao bởi:</span>{" "}
           {task?.assignor_name?.trim() || task?.assignor_id || "—"}
@@ -1197,10 +1444,10 @@ function TaskDetailPage() {
 
       <section className="space-y-2">
         <h4 className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
-          Description
+          Mô tả công việc
         </h4>
-        <div className="rounded-lg bg-slate-100 p-4 text-sm leading-relaxed">
-          {task?.description || "No description."}
+        <div className="break-words rounded-lg bg-muted p-4 text-sm leading-relaxed">
+          {task?.description || "Chưa có mô tả."}
         </div>
       </section>
 
@@ -1236,36 +1483,30 @@ function TaskDetailPage() {
                   params={{ taskId: subtask.id }}
                   className="block rounded-lg border border-slate-200 bg-slate-50 p-3 hover:bg-slate-100"
                 >
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0">
-                      <p className="text-sm font-bold">{subtask.name}</p>
-                      <p className="text-[11px] text-muted-foreground">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
+                    <div className="min-w-0 flex-1 space-y-1">
+                      <p className="break-words text-sm font-bold">{subtask.name}</p>
+                      <p className="break-words text-[11px] text-muted-foreground">
                         {subtask.assignee_name ?? subtask.assignee_id} · Hạn{" "}
                         {new Date(subtask.end_time).toLocaleString("vi-VN")}
                       </p>
+                    </div>
+                    <div className="flex shrink-0 flex-row flex-wrap items-end justify-between gap-x-4 gap-y-1 sm:flex-col sm:items-end sm:justify-start sm:text-right">
+                      <p className="text-[10px] font-bold uppercase text-primary">
+                        {subtask.computed_status ?? subtask.status}
+                      </p>
+                      <p className="text-sm font-bold text-slate-800">{completionPct}%</p>
                       {weight != null ? (
-                        <p className="text-[10px] text-slate-400">
-                          Trọng số {weight}% → đóng góp {Math.round(weight * completionPct / 100)}% vào task cha
+                        <p className="max-w-full break-words text-left text-[10px] text-slate-400 sm:text-right">
+                          đóng góp {Math.round((weight * completionPct) / 100)}/{weight}%
                         </p>
                       ) : (
                         <p className="text-[10px] text-amber-500">Chưa đặt trọng số</p>
                       )}
                     </div>
-                    <div className="shrink-0 text-right">
-                      <p className="text-[10px] font-bold uppercase text-primary">
-                        {subtask.computed_status ?? subtask.status}
-                      </p>
-                      <p className="text-[11px] font-semibold text-slate-700">
-                        {completionPct}%
-                      </p>
-                    </div>
                   </div>
-                  <div className="mt-2">
-                    <progress
-                      max={100}
-                      value={completionPct}
-                      className="h-1.5 w-full [&::-webkit-progress-bar]:rounded-full [&::-webkit-progress-bar]:bg-slate-200 [&::-webkit-progress-value]:rounded-full [&::-webkit-progress-value]:bg-primary"
-                    />
+                  <div className="mt-2 h-1.5 w-full rounded-full bg-muted">
+                    <div className="h-1.5 rounded-full bg-primary transition-all" style={{ width: `${Math.min(100, completionPct)}%` }} />
                   </div>
                 </Link>
               )
@@ -1286,43 +1527,43 @@ function TaskDetailPage() {
           </p>
         </div>
 
-        {/* Two-bar breakdown */}
+        {/* Progress bar */}
         <div className="space-y-1.5">
-          {/* Total bar */}
-          <progress
-            max={100}
-            value={totalProgress}
-            className="h-2.5 w-full [&::-webkit-progress-bar]:rounded-full [&::-webkit-progress-bar]:bg-slate-100 [&::-webkit-progress-value]:rounded-full [&::-webkit-progress-value]:bg-primary"
-          />
-          {/* Breakdown rows */}
+          <div className="h-2.5 w-full rounded-full bg-muted">
+            <div className="h-2.5 rounded-full bg-primary transition-all" style={{ width: `${Math.min(100, totalProgress)}%` }} />
+          </div>
+          {/* Breakdown: only shown for root tasks with subtasks */}
           {subtaskRows.length > 0 && (
-            <div className="grid grid-cols-2 gap-2 text-[10px]">
-              <div>
-                <p className="text-muted-foreground">
-                  Công việc con ({totalChildWeight}% trọng số)
-                </p>
-                <p className="font-semibold text-slate-700">{childContribution}% đóng góp</p>
+            <div className="grid grid-cols-1 gap-2 rounded-lg bg-slate-50 px-3 py-2 text-[11px] min-[380px]:grid-cols-2">
+              <div className="min-w-0">
+                <p className="break-words text-muted-foreground">Từ công việc con</p>
+                <p className="font-semibold text-slate-700">{childContribution}%</p>
               </div>
-              <div>
-                <p className="text-muted-foreground">
-                  Báo cáo trực tiếp ({wReport}% trọng số)
+              <div className="min-w-0">
+                <p className="break-words text-muted-foreground">
+                  Báo cáo tại đây {wReport < 100 ? `(tối đa ${wReport}%)` : ""}
                 </p>
-                <p className="font-semibold text-slate-700">
-                  {selfProgress}% tự thân → {directContribution}% đóng góp
+                <p className="break-words font-semibold text-slate-700">
+                  {directContribution}%
+                  {selfProgress > 0 && selfProgress !== directContribution ? (
+                    <span className="ml-1 font-normal text-muted-foreground">
+                      (đã báo {selfProgress}%)
+                    </span>
+                  ) : null}
                 </p>
               </div>
             </div>
           )}
           {subtaskRows.length === 0 && (
-            <p className="text-[10px] text-muted-foreground">
-              Báo cáo trực tiếp: {selfProgress}/100% · Tổng đạt 100% thì task tự chuyển sang Done.
+            <p className="text-[11px] text-muted-foreground">
+              Đã báo cáo {selfProgress}/100% · Khi đạt 100% sẽ tự chuyển sang Hoàn thành.
             </p>
           )}
         </div>
 
         {totalChildWeight > 100 && (
           <p className="rounded-md bg-red-50 px-3 py-2 text-[11px] font-semibold text-red-600">
-            Tổng trọng số công việc con ({totalChildWeight}%) vượt quá 100%. Hãy điều chỉnh lại.
+            Tổng mức đóng góp của công việc con ({totalChildWeight}%) đang vượt quá 100%. Hãy điều chỉnh lại.
           </p>
         )}
         <>
@@ -1406,7 +1647,7 @@ function TaskDetailPage() {
                 htmlFor="progress-pct"
                 className="text-[11px] font-semibold text-muted-foreground"
               >
-                % tự thân (1–{maxRemainingProgress})
+                % hoàn thành (1–{maxRemainingProgress})
               </label>
               <input
                 id="progress-pct"
@@ -1419,11 +1660,6 @@ function TaskDetailPage() {
                 disabled={task?.status === "done" || selfProgress >= 100}
                 className="h-9 w-full rounded-md border px-3 text-sm outline-none disabled:opacity-60"
               />
-              {wReport < 100 && (
-                <p className="text-[10px] text-muted-foreground">
-                  Trọng số báo cáo: {wReport}%
-                </p>
-              )}
             </div>
           </div>
           <div className="mb-3 space-y-1">
@@ -1474,42 +1710,60 @@ function TaskDetailPage() {
           </button>
         </div>
         <div className="space-y-3">
-          {(progressReportsQuery.data ?? []).map((row) => (
-            <div
-              key={row.id}
-              className="flex gap-3 rounded-lg border bg-slate-50 p-3"
-            >
-              <button
-                type="button"
-                title="Xem ảnh báo cáo"
-                className="shrink-0 cursor-zoom-in rounded-md border-0 bg-transparent p-0"
-                onClick={() =>
-                  setProgressImageLightboxUrl(
-                    resolveBackendMediaUrl(row.photo_url),
-                  )
-                }
+          {(progressReportsQuery.data ?? []).map((row) => {
+            const thumbSrc = resolveBackendMediaUrl(row.photo_url)
+            const thumbFailed = Boolean(progressReportPhotoFailed[row.id])
+            const showThumb = Boolean(thumbSrc) && !thumbFailed
+            return (
+              <div
+                key={row.id}
+                className="flex min-w-0 gap-3 rounded-lg border bg-slate-50 p-3"
               >
-                <img
-                  src={resolveBackendMediaUrl(row.photo_url)}
-                  alt="Ảnh báo cáo tiến độ"
-                  className="h-20 w-20 rounded-md border object-cover"
-                />
-              </button>
-              <div className="min-w-0 flex-1 text-sm">
-                <p className="font-bold text-primary">
-                  +{row.progress_percent}%
-                </p>
-                <p className="text-[11px] text-muted-foreground">
-                  {row.reporter_name ?? row.reporter_id}
-                  {" · "}
-                  {new Date(row.created_at).toLocaleString()}
-                </p>
-                {row.note ? (
-                  <p className="mt-1 text-[13px]">{row.note}</p>
-                ) : null}
+                {showThumb ? (
+                  <button
+                    type="button"
+                    title="Xem ảnh báo cáo"
+                    className="h-20 w-20 shrink-0 cursor-zoom-in overflow-hidden rounded-md border-0 bg-transparent p-0"
+                    onClick={() => setProgressImageLightboxUrl(thumbSrc)}
+                  >
+                    <img
+                      src={thumbSrc}
+                      alt="Ảnh báo cáo tiến độ"
+                      className="h-full w-full rounded-md object-cover"
+                      loading="lazy"
+                      decoding="async"
+                      onError={() =>
+                        setProgressReportPhotoFailed((previous) => ({
+                          ...previous,
+                          [row.id]: true,
+                        }))
+                      }
+                    />
+                  </button>
+                ) : (
+                  <div
+                    className="flex h-20 w-20 shrink-0 items-center justify-center rounded-md border border-dashed bg-muted px-1 text-center text-[9px] font-medium leading-tight text-muted-foreground"
+                    title={thumbFailed ? "Không tải được ảnh" : "Chưa có ảnh"}
+                  >
+                    {thumbFailed ? "Lỗi ảnh" : "—"}
+                  </div>
+                )}
+                <div className="min-w-0 flex-1 text-sm">
+                  <p className="font-bold text-primary">
+                    +{row.progress_percent}%
+                  </p>
+                  <p className="break-words text-[11px] text-muted-foreground">
+                    {row.reporter_name ?? row.reporter_id}
+                    {" · "}
+                    {new Date(row.created_at).toLocaleString()}
+                  </p>
+                  {row.note ? (
+                    <p className="mt-1 break-words text-[13px]">{row.note}</p>
+                  ) : null}
+                </div>
               </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
         </>
       </section>
@@ -1634,40 +1888,48 @@ function TaskDetailPage() {
 
       <section className="space-y-3">
         <h4 className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
-          Discussion
+          Thảo luận
         </h4>
-        <div className="space-y-3 rounded-xl border bg-white p-4">
-          <div className="space-y-2">
-            {generalComments.map((comment) => (
-              <div
-                key={comment.id}
-                className="max-w-[90%] rounded-2xl border bg-slate-50 p-3 text-sm"
-              >
-                <p className="mb-1 text-[10px] font-bold text-muted-foreground">
-                  {comment.author_name ?? comment.author_id}
-                </p>
-                <p>{comment.content}</p>
-              </div>
-            ))}
-          </div>
+        <div className="space-y-3 rounded-xl border bg-card p-4">
+          {generalComments.length === 0 ? (
+            <p className="text-xs text-muted-foreground">Chưa có tin nhắn nào.</p>
+          ) : (
+            <div className="space-y-2">
+              {generalComments.map((comment) => (
+                <div
+                  key={comment.id}
+                  className="max-w-[90%] rounded-2xl border bg-muted p-3 text-sm"
+                >
+                  <p className="mb-1 text-[10px] font-bold text-muted-foreground">
+                    {comment.author_name ?? comment.author_id}
+                  </p>
+                  <p>{comment.content}</p>
+                </div>
+              ))}
+            </div>
+          )}
           <div className="flex items-center gap-2">
             <input
               value={commentDraft}
-              onChange={(eventValue) =>
-                setCommentDraft(eventValue.target.value)
-              }
-              placeholder="Send a message..."
-              className="h-10 flex-1 rounded-full border px-4 text-sm outline-none"
+              onChange={(eventValue) => setCommentDraft(eventValue.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey && commentDraft.trim()) {
+                  e.preventDefault()
+                  addCommentMutation.mutate()
+                }
+              }}
+              placeholder="Nhập tin nhắn... (Enter để gửi)"
+              className="h-10 flex-1 rounded-full border px-4 text-sm outline-none focus:ring-2 focus:ring-primary/30"
             />
             <button
               type="button"
-              className="h-10 w-10 rounded-full bg-primary text-white"
+              className="flex h-10 w-10 items-center justify-center rounded-full bg-primary text-white hover:bg-primary/90"
               onClick={() => {
                 if (!commentDraft.trim()) return
                 addCommentMutation.mutate()
               }}
             >
-              →
+              ↑
             </button>
           </div>
         </div>
@@ -1695,7 +1957,7 @@ function TaskDetailPage() {
                       new Date(a.created_at).getTime(),
                   )
                   .map((entry) => {
-                    const typedEntry = entry as AuditLogPublicWithActorName
+                    const typedEntry = entry as AuditLogWithActor
                     const actor = typedEntry.actor_name ?? typedEntry.actor_id
                     const time = new Date(typedEntry.created_at).toLocaleString(
                       "vi-VN",
@@ -1732,15 +1994,177 @@ function TaskDetailPage() {
         </div>
       </section>
 
-      <button
-        type="button"
-        className="w-full rounded-xl bg-primary py-4 text-base font-bold text-white"
-        onClick={() => showSuccessToast("Task changes synced")}
-      >
-        Save & Update Task
-      </button>
-
       {/* Delay Request Dialog */}
+      <Dialog open={taskEditDialogOpen} onOpenChange={setTaskEditDialogOpen}>
+        <DialogContent className="max-w-md" showCloseButton>
+          <DialogHeader>
+            <DialogTitle>Sửa thông tin task</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div>
+              <label className="mb-1 block text-xs font-semibold text-muted-foreground">
+                Tên task
+              </label>
+              <input
+                type="text"
+                value={taskNameDraft}
+                onChange={(e) => setTaskNameDraft(e.target.value)}
+                className="h-10 w-full rounded-md border px-3 text-sm outline-none"
+                placeholder="Nhập tên task"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-semibold text-muted-foreground">
+                Mô tả
+              </label>
+              <textarea
+                value={taskDescriptionDraft}
+                onChange={(e) => setTaskDescriptionDraft(e.target.value)}
+                className="min-h-[84px] w-full rounded-md border px-3 py-2 text-sm outline-none"
+                placeholder="Mô tả ngắn"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="mb-1 block text-xs font-semibold text-muted-foreground">
+                  Ưu tiên
+                </label>
+                <select
+                  value={taskPriorityDraft}
+                  onChange={(e) => setTaskPriorityDraft(e.target.value)}
+                  title="Chọn mức ưu tiên"
+                  className="h-10 w-full rounded-md border px-2 text-sm"
+                >
+                  <option value="low">Thấp</option>
+                  <option value="medium">Trung bình</option>
+                  <option value="high">Cao</option>
+                  <option value="critical">Khẩn cấp</option>
+                </select>
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-semibold text-muted-foreground">
+                  Loại task
+                </label>
+                <select
+                  value={taskModuleTagDraft}
+                  onChange={(e) => setTaskModuleTagDraft(e.target.value)}
+                  title="Chọn loại task"
+                  className="h-10 w-full rounded-md border px-2 text-sm"
+                >
+                  <option value="">Chưa phân loại</option>
+                  <option value="engineering">Kỹ thuật</option>
+                  <option value="planning">Kế hoạch</option>
+                  <option value="procurement">Mua hàng</option>
+                  <option value="production">Sản xuất</option>
+                  <option value="supply">Cung ứng</option>
+                  <option value="installation">Lắp đặt</option>
+                </select>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="mb-1 block text-xs font-semibold text-muted-foreground">
+                  Bắt đầu
+                </label>
+                <input
+                  type="datetime-local"
+                  title="Chọn thời gian bắt đầu"
+                  aria-label="Chọn thời gian bắt đầu"
+                  value={taskStartDraft}
+                  onChange={(e) => setTaskStartDraft(e.target.value)}
+                  className="h-10 w-full rounded-md border px-2 text-sm"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-semibold text-muted-foreground">
+                  Deadline
+                </label>
+                <input
+                  type="datetime-local"
+                  title="Chọn deadline task"
+                  aria-label="Chọn deadline task"
+                  value={taskDeadlineDraft}
+                  onChange={(e) => setTaskDeadlineDraft(e.target.value)}
+                  className="h-10 w-full rounded-md border px-2 text-sm"
+                />
+              </div>
+            </div>
+            {canEditDependency && (
+              <div>
+                <label className="mb-1 block text-xs font-semibold text-muted-foreground">
+                  Task phụ thuộc phía trước
+                </label>
+                <div className="flex flex-wrap items-center gap-2">
+                  <select
+                    title="Chọn task phụ thuộc"
+                    aria-label="Chọn task phụ thuộc"
+                    className="h-9 min-w-[200px] flex-1 rounded-md border px-2 text-sm"
+                    value={dependencyDraft}
+                    onChange={(e) => setDependencyDraft(e.target.value)}
+                  >
+                    <option value="none">Chọn task cần hoàn thành trước</option>
+                    {dependencyCandidates.map((item) => (
+                      <option key={item.id} value={item.id}>
+                        {item.label}
+                      </option>
+                    ))}
+                  </select>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    disabled={dependencyDraft === "none" || addDependencyMutation.isPending}
+                    onClick={() => addDependencyMutation.mutate(dependencyDraft)}
+                  >
+                    Thêm
+                  </Button>
+                </div>
+                {dependencyRows.length > 0 ? (
+                  <div className="mt-2 space-y-1">
+                    {dependencyRows.map((row) => (
+                      <div
+                        key={row.depId}
+                        className="flex items-center justify-between rounded border bg-white px-2 py-1.5 text-sm"
+                      >
+                        <span className="text-slate-700">{row.blockingName}</span>
+                        <button
+                          type="button"
+                          className="text-xs font-semibold text-red-600 hover:underline"
+                          onClick={() => removeDependencyMutation.mutate(row)}
+                          disabled={removeDependencyMutation.isPending}
+                        >
+                          Xóa
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="mt-1.5 text-xs text-muted-foreground">
+                    Chưa có task phụ thuộc nào.
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setTaskEditDialogOpen(false)}
+            >
+              Huỷ
+            </Button>
+            <Button
+              type="button"
+              disabled={updateTaskInfoMutation.isPending || !taskNameDraft.trim()}
+              onClick={() => updateTaskInfoMutation.mutate()}
+            >
+              Lưu thay đổi
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={delayDialogOpen} onOpenChange={setDelayDialogOpen}>
         <DialogContent className="max-w-md" showCloseButton>
           <DialogHeader>
@@ -1880,7 +2304,7 @@ function TaskDetailPage() {
             <img
               src={progressImageLightboxUrl}
               alt="Ảnh báo cáo tiến độ phóng to"
-              className="mx-auto max-h-[70vh] w-full object-contain"
+              className="mx-auto max-h-[min(70vh,80dvh)] w-full max-w-full object-contain"
             />
           ) : null}
           <DialogFooter>
@@ -1890,6 +2314,162 @@ function TaskDetailPage() {
               onClick={() => setProgressImageLightboxUrl(null)}
             >
               Đóng
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={extraAssigneeDialogOpen}
+        onOpenChange={setExtraAssigneeDialogOpen}
+      >
+        <DialogContent className="max-w-md" showCloseButton>
+          <DialogHeader>
+            <DialogTitle>Thêm người phối hợp</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2 py-2">
+            <label
+              htmlFor="extra-assignee-user"
+              className="text-xs font-semibold text-muted-foreground"
+            >
+              Thành viên dự án
+            </label>
+            <select
+              id="extra-assignee-user"
+              title="Chọn người phối hợp"
+              value={extraAssigneeUserId}
+              onChange={(eventValue) =>
+                setExtraAssigneeUserId(eventValue.target.value)
+              }
+              className="h-10 w-full rounded-md border bg-white px-3 text-sm outline-none"
+            >
+              <option value="">Chọn nhân sự</option>
+              {availableExtraAssignees.map((member) => (
+                <option key={member.user_id} value={member.user_id}>
+                  {member.full_name?.trim() || member.email}
+                </option>
+              ))}
+            </select>
+            {availableExtraAssignees.length === 0 ? (
+              <p className="text-xs text-muted-foreground">
+                Không còn thành viên phù hợp để thêm.
+              </p>
+            ) : null}
+          </div>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setExtraAssigneeDialogOpen(false)}
+            >
+              Huỷ
+            </Button>
+            <Button
+              type="button"
+              disabled={
+                addExtraAssigneeMutation.isPending ||
+                !extraAssigneeUserId
+              }
+              onClick={() => addExtraAssigneeMutation.mutate(extraAssigneeUserId)}
+            >
+              Thêm
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={observerDialogOpen} onOpenChange={setObserverDialogOpen}>
+        <DialogContent className="max-w-md" showCloseButton>
+          <DialogHeader>
+            <DialogTitle>Thêm observer</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2 py-2">
+            <label
+              htmlFor="observer-user"
+              className="text-xs font-semibold text-muted-foreground"
+            >
+              Thành viên dự án
+            </label>
+            <select
+              id="observer-user"
+              title="Chọn observer"
+              value={observerUserId}
+              onChange={(eventValue) => setObserverUserId(eventValue.target.value)}
+              className="h-10 w-full rounded-md border bg-white px-3 text-sm outline-none"
+            >
+              <option value="">Chọn nhân sự</option>
+              {availableObservers.map((member) => (
+                <option key={member.user_id} value={member.user_id}>
+                  {member.full_name?.trim() || member.email}
+                </option>
+              ))}
+            </select>
+            {availableObservers.length === 0 ? (
+              <p className="text-xs text-muted-foreground">
+                Không còn thành viên phù hợp để thêm.
+              </p>
+            ) : null}
+          </div>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setObserverDialogOpen(false)}
+            >
+              Huỷ
+            </Button>
+            <Button
+              type="button"
+              disabled={addObserverMutation.isPending || !observerUserId}
+              onClick={() => addObserverMutation.mutate(observerUserId)}
+            >
+              Thêm
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={reassignDialogOpen} onOpenChange={setReassignDialogOpen}>
+        <DialogContent className="max-w-md" showCloseButton>
+          <DialogHeader>
+            <DialogTitle>Đổi người phụ trách chính</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2 py-2">
+            <label
+              htmlFor="reassign-user"
+              className="text-xs font-semibold text-muted-foreground"
+            >
+              Người phụ trách mới
+            </label>
+            <select
+              id="reassign-user"
+              title="Chọn người phụ trách mới"
+              value={reassignUserId}
+              onChange={(eventValue) => setReassignUserId(eventValue.target.value)}
+              className="h-10 w-full rounded-md border bg-white px-3 text-sm outline-none"
+            >
+              <option value="">Chọn nhân sự</option>
+              {reassignCandidates.map((member) => (
+                <option key={member.user_id} value={member.user_id}>
+                  {member.full_name?.trim() || member.email}
+                </option>
+              ))}
+            </select>
+          </div>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setReassignDialogOpen(false)}
+            >
+              Huỷ
+            </Button>
+            <Button
+              type="button"
+              disabled={reassignMutation.isPending || !reassignUserId}
+              onClick={() => reassignMutation.mutate(reassignUserId)}
+            >
+              Chuyển giao
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1973,8 +2553,8 @@ function TaskDetailPage() {
             <div className="flex gap-3">
               <div className="min-w-0 flex-1 space-y-1">
                 <label className="text-xs font-semibold text-muted-foreground">
-                  Trọng số (W) cho công việc cha
-                  <span className="ml-1 font-normal text-muted-foreground">(1–100)</span>
+                  Đóng góp bao nhiêu % vào công việc cha?
+                  <span className="ml-1 font-normal">(1–100)</span>
                 </label>
                 <input
                   inputMode="numeric"
@@ -1992,8 +2572,8 @@ function TaskDetailPage() {
                   "text-[10px]",
                   totalChildWeight > 100 ? "text-red-500 font-semibold" : "text-muted-foreground",
                 ].join(" ")}>
-                  Đã dùng: {totalChildWeight}% · Còn dành cho báo cáo trực tiếp: {wReport}%
-                  {totalChildWeight > 100 && " · VƯỢT 100%!"}
+                  Các công việc con đã chiếm {totalChildWeight}% · Còn lại {wReport}% cho báo cáo trực tiếp
+                  {totalChildWeight > 100 && " · Vượt 100%, cần điều chỉnh!"}
                 </p>
               </div>
             </div>
@@ -2039,23 +2619,41 @@ function TaskDetailPage() {
       <Dialog open={deadlineDialogOpen} onOpenChange={setDeadlineDialogOpen}>
         <DialogContent className="max-w-md" showCloseButton>
           <DialogHeader>
-            <DialogTitle>Cập nhật deadline task</DialogTitle>
+            <DialogTitle>Cập nhật thời gian task</DialogTitle>
           </DialogHeader>
-          <div className="space-y-1.5 py-2">
-            <label
-              htmlFor="task-deadline-update"
-              className="text-xs font-semibold text-muted-foreground"
-            >
-              Deadline mới
-            </label>
-            <input
-              id="task-deadline-update"
-              type="datetime-local"
-              title="Chọn deadline mới cho task"
-              value={taskDeadlineDraft}
-              onChange={(eventValue) => setTaskDeadlineDraft(eventValue.target.value)}
-              className="h-10 w-full rounded-md border px-3 text-sm outline-none"
-            />
+          <div className="space-y-3 py-2">
+            <div className="space-y-1.5">
+              <label
+                htmlFor="task-start-update"
+                className="text-xs font-semibold text-muted-foreground"
+              >
+                Ngày bắt đầu
+              </label>
+              <input
+                id="task-start-update"
+                type="datetime-local"
+                title="Chọn ngày bắt đầu mới cho task"
+                value={taskStartDraft}
+                onChange={(e) => setTaskStartDraft(e.target.value)}
+                className="h-10 w-full rounded-md border px-3 text-sm outline-none"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label
+                htmlFor="task-deadline-update"
+                className="text-xs font-semibold text-muted-foreground"
+              >
+                Deadline
+              </label>
+              <input
+                id="task-deadline-update"
+                type="datetime-local"
+                title="Chọn deadline mới cho task"
+                value={taskDeadlineDraft}
+                onChange={(e) => setTaskDeadlineDraft(e.target.value)}
+                className="h-10 w-full rounded-md border px-3 text-sm outline-none"
+              />
+            </div>
           </div>
           <DialogFooter>
             <Button
@@ -2075,6 +2673,7 @@ function TaskDetailPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
     </div>
   )
 }

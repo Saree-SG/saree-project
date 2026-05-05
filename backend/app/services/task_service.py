@@ -19,9 +19,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.task import (
     AuditLogPublic,
+    BlockerInfo,
     DependencyPublic,
     GanttPublic,
     Task,
+    TaskAssignee,
+    TaskAssigneeAdd,
+    TaskAssigneePublic,
     TaskComment,
     TaskCommentApprovalUpdate,
     TaskCommentCreate,
@@ -29,23 +33,31 @@ from app.models.task import (
     TaskCreate,
     TaskDependency,
     TaskDependencyCreate,
+    TaskLinkedEntityPublic,
+    TaskObserverAdd,
+    TaskObserverPublic,
     TaskProgressReport,
     TaskProgressReportCreate,
     TaskProgressReportPublic,
     TaskProofCreate,
     TaskProofPublic,
     TaskPublic,
+    TaskReassignRequest,
     TasksPublic,
     TaskStatusUpdate,
     TaskUpdate,
 )
+import asyncio
+
 from app.models.notification import Notification
+from app.services.push_service import send_push_to_user
 from app.models.user import User
 from app.models.project import Project
 from app.repositories.audit_repository import AuditRepository
 from app.repositories.outbox_repository import CascadeRepository, OutboxRepository
 from app.repositories.task_repository import TaskRepository
 from app.repositories.user_repository import UserRepository
+from app.shared.permission import has_permission
 from app.shared.task_realtime import broadcast_task_event, broadcast_task_user_event
 
 ALLOWED_DEPENDENCY_TYPES = {"FS", "SS", "FF", "SF"}
@@ -101,6 +113,29 @@ def _display_name(user: User | None) -> str | None:
     if user is None:
         return None
     return user.full_name or user.email
+
+
+def _merge_legacy_linked_entity(
+    task: Task,
+    linked_entities: list[TaskLinkedEntityPublic],
+) -> list[TaskLinkedEntityPublic]:
+    """Return linked entities including legacy singular linked_entity fields."""
+    if task.linked_entity_id is None or task.linked_entity_type is None:
+        return linked_entities
+
+    for entity in linked_entities:
+        if entity.entity_id == task.linked_entity_id:
+            return linked_entities
+
+    legacy_row = TaskLinkedEntityPublic(
+        id=uuid.uuid4(),
+        task_id=task.id,
+        entity_type=task.linked_entity_type,
+        entity_id=task.linked_entity_id,
+        created_by=task.assignor_id,
+        created_at=task.updated_at,
+    )
+    return [legacy_row, *linked_entities]
 
 
 # ---------------------------------------------------------------------------
@@ -207,8 +242,8 @@ async def _rollup_completion_pct(
         child_weights_total = 0.0
         child_contribution = 0.0
         for child in children:
-            # Subtask completion = its own direct reports (no deeper children allowed)
-            child_self = float(await repo.sum_progress(child.id))
+            # Subtask completion = its own direct reports, capped at 100
+            child_self = min(100.0, float(await repo.sum_progress(child.id)))
             w_i = float(child.progress_weight or 0)
             child_contribution += w_i * child_self / 100.0
             child_weights_total += w_i
@@ -231,19 +266,77 @@ async def _enrich(
     user_lookup: dict[uuid.UUID, User] | None = None,
     rollup_cache: dict[uuid.UUID, float] | None = None,
 ) -> TaskPublic:
-    """Build TaskPublic with computed_status, progress total, and display names."""
+    """Build TaskPublic with computed_status, progress total, display names, extra assignees."""
     repo = TaskRepository(session)
     parent = await repo.get_by_id(task.parent_id) if task.parent_id else None
     computed = compute_task_status(task, parent)
     reported = round(await _rollup_completion_pct(repo, task.id, rollup_cache))
 
+    user_repo = UserRepository(session)
     if user_lookup is not None:
         assignee = user_lookup.get(task.assignee_id)
         assignor = user_lookup.get(task.assignor_id)
     else:
-        user_repo = UserRepository(session)
         assignee = await user_repo.get_by_id(task.assignee_id)
         assignor = await user_repo.get_by_id(task.assignor_id)
+
+    waiting_for_links = await repo.list_waiting_for_links(task.id)
+    blocked_by: list[BlockerInfo] = []
+    if waiting_for_links:
+        blocker_ids = [link.blocking_task_id for link in waiting_for_links]
+        blocker_map = {t.id: t for t in await repo.list_by_ids(blocker_ids)}
+        for link in waiting_for_links:
+            blocker = blocker_map.get(link.blocking_task_id)
+            if blocker and blocker.status != "done":
+                blocked_by.append(BlockerInfo(id=blocker.id, name=blocker.name, status=blocker.status))
+
+    extra_rows = await repo.list_extra_assignees(task.id)
+    extra_assignees: list[TaskAssigneePublic] = []
+    for row in extra_rows:
+        if user_lookup is not None:
+            u = user_lookup.get(row.user_id)
+        else:
+            u = await user_repo.get_by_id(row.user_id)
+        extra_assignees.append(
+            TaskAssigneePublic(
+                id=row.id,
+                task_id=row.task_id,
+                user_id=row.user_id,
+                user_name=_display_name(u),
+                assigned_by=row.assigned_by,
+                assigned_at=row.assigned_at,
+            )
+        )
+
+    observer_rows = await repo.list_observers(task.id)
+    observers: list[TaskObserverPublic] = []
+    for row in observer_rows:
+        if user_lookup is not None:
+            u = user_lookup.get(row.user_id)
+        else:
+            u = await user_repo.get_by_id(row.user_id)
+        observers.append(
+            TaskObserverPublic(
+                task_id=row.task_id,
+                user_id=row.user_id,
+                user_name=_display_name(u),
+                added_at=row.added_at,
+            )
+        )
+
+    linked_entities = await repo.list_task_linked_entities(task.id)
+    linked_entities_public = [
+        TaskLinkedEntityPublic(
+            id=row.id,
+            task_id=row.task_id,
+            entity_type=row.entity_type,
+            entity_id=row.entity_id,
+            created_by=row.created_by,
+            created_at=row.created_at,
+        )
+        for row in linked_entities
+    ]
+    merged_linked_entities = _merge_legacy_linked_entity(task, linked_entities_public)
 
     return TaskPublic(
         **task.model_dump(),
@@ -251,6 +344,10 @@ async def _enrich(
         reported_progress_total=reported,
         assignee_name=_display_name(assignee),
         assignor_name=_display_name(assignor),
+        blocked_by=blocked_by,
+        extra_assignees=extra_assignees,
+        observers=observers,
+        linked_entities=merged_linked_entities,
     )
 
 
@@ -379,6 +476,9 @@ class TaskService:
             )
             self._session.add(notif)
             await self._session.flush()
+            asyncio.create_task(
+                send_push_to_user(self._session, user_id, title, body, entity_type, entity_id)
+            )
         except Exception:
             logger.exception("Failed to persist notification user_id={} type={}", user_id, notif_type)
 
@@ -573,7 +673,23 @@ class TaskService:
                 ],
                 key=lambda r: r["project_name"].lower(),
             ),
+            **await self._material_request_dashboard(current_user),
         }
+
+    async def _material_request_dashboard(self, current_user: User) -> dict:
+        try:
+            from app.services.material_request_service import MaterialRequestService
+            from app.shared.storage import LocalStorage
+            from app.core.config import settings as _settings
+            storage = LocalStorage(
+                base_dir=_settings.MATERIAL_REQUEST_UPLOAD_DIR,
+                static_url_segment="material-requests",
+            )
+            svc = MaterialRequestService(self._session, storage)
+            return await svc.get_dashboard_data(current_user)
+        except Exception:
+            logger.exception("Failed to load material request dashboard data")
+            return {"pending_material_reviews": [], "pending_material_approvals": [], "my_material_requests": []}
 
     # ------------------------------------------------------------------
     # Update
@@ -651,8 +767,24 @@ class TaskService:
         task = await self._task_repo.get_or_404(task_id)
         old_status = task.status
 
-        if task.assignee_id != current_user.id and not current_user.is_superuser:
+        is_assignee = await self._task_repo.is_assignee(task_id, current_user.id)
+        if not is_assignee and not current_user.is_superuser:
             raise HTTPException(403, "Can only update status of own tasks")
+
+        if body.status in ("in_progress", "done"):
+            waiting_links = await self._task_repo.list_waiting_for_links(task_id)
+            blockers = []
+            for link in waiting_links:
+                blocker = await self._task_repo.get_by_id(link.blocking_task_id)
+                if blocker and blocker.status != "done":
+                    blockers.append(blocker.name)
+            if blockers:
+                names = ", ".join(f'"{n}"' for n in blockers)
+                raise HTTPException(
+                    422,
+                    f"Công việc đang bị chặn bởi: {names}. Vui lòng hoàn thành các công việc trước đó.",
+                )
+
         if body.status == "done":
             combined_total = await _rollup_completion_pct(self._task_repo, task_id)
             if combined_total < 100:
@@ -713,6 +845,208 @@ class TaskService:
                 entity_id=task_id,
             )
 
+        return await _enrich(task, self._session)
+
+    # ------------------------------------------------------------------
+    # Extra assignees
+    # ------------------------------------------------------------------
+
+    async def add_extra_assignee(
+        self, task_id: uuid.UUID, body: TaskAssigneeAdd, current_user: User
+    ) -> TaskPublic:
+        """Add a co-worker to a task; idempotent if already assigned."""
+        task = await self._task_repo.get_or_404(task_id)
+
+        if body.user_id == task.assignee_id:
+            raise HTTPException(400, "Người này đã là người phụ trách chính của task.")
+
+        existing = await self._task_repo.get_extra_assignee(task_id, body.user_id)
+        if existing:
+            raise HTTPException(409, "Người này đã được thêm vào task.")
+
+        user = await self._user_repo.get_by_id(body.user_id)
+        if user is None:
+            raise HTTPException(404, "User not found")
+
+        await self._task_repo.add_extra_assignee(task_id, body.user_id, current_user.id)
+        await self._audit_repo.write(
+            actor_id=current_user.id,
+            action="task.assignee_added",
+            entity_type="task",
+            entity_id=task_id,
+            new_value={"user_id": str(body.user_id)},
+        )
+
+        actor_name = _display_name(current_user) or "Quản lý"
+        await self._notify(
+            user_id=body.user_id,
+            notif_type="task_assigned",
+            title=f'Bạn được thêm vào công việc "{task.name}"',
+            body=f"Được thêm bởi {actor_name}",
+            entity_type="task",
+            entity_id=task_id,
+        )
+        await self._emit_task_user_ws(
+            body.user_id,
+            task_id,
+            "task.assigned",
+            {
+                "actor_id": str(current_user.id),
+                "actor_name": actor_name,
+                "task_name": task.name,
+                "message": f'{actor_name} đã thêm bạn vào công việc "{task.name}".',
+            },
+        )
+        return await _enrich(task, self._session)
+
+    async def remove_extra_assignee(
+        self, task_id: uuid.UUID, user_id: uuid.UUID, current_user: User
+    ) -> TaskPublic:
+        """Remove a co-worker from a task."""
+        task = await self._task_repo.get_or_404(task_id)
+        row = await self._task_repo.get_extra_assignee(task_id, user_id)
+        if row is None:
+            raise HTTPException(404, "Người này không có trong danh sách phụ trách task.")
+        await self._task_repo.remove_extra_assignee(row)
+        await self._audit_repo.write(
+            actor_id=current_user.id,
+            action="task.assignee_removed",
+            entity_type="task",
+            entity_id=task_id,
+            new_value={"user_id": str(user_id)},
+        )
+        return await _enrich(task, self._session)
+
+    # ------------------------------------------------------------------
+    # Observers
+    # ------------------------------------------------------------------
+
+    async def add_observer(
+        self, task_id: uuid.UUID, body: TaskObserverAdd, current_user: User
+    ) -> TaskPublic:
+        """Add a watch-only observer to a task."""
+        task = await self._task_repo.get_or_404(task_id)
+
+        if body.user_id == task.assignee_id:
+            raise HTTPException(400, "Người phụ trách chính không thể là observer.")
+        extra = await self._task_repo.get_extra_assignee(task_id, body.user_id)
+        if extra:
+            raise HTTPException(400, "Người này đang là người phụ trách task, không thể là observer.")
+        existing = await self._task_repo.get_observer(task_id, body.user_id)
+        if existing:
+            raise HTTPException(409, "Người này đã là observer của task.")
+
+        user = await self._user_repo.get_by_id(body.user_id)
+        if user is None:
+            raise HTTPException(404, "User not found")
+
+        await self._task_repo.add_observer(task_id, body.user_id)
+        await self._audit_repo.write(
+            actor_id=current_user.id,
+            action="task.observer_added",
+            entity_type="task",
+            entity_id=task_id,
+            new_value={"user_id": str(body.user_id)},
+        )
+        actor_name = _display_name(current_user) or "Quản lý"
+        await self._notify(
+            user_id=body.user_id,
+            notif_type="task_observer_added",
+            title=f'Bạn được thêm theo dõi công việc "{task.name}"',
+            body=f"Thêm bởi {actor_name}",
+            entity_type="task",
+            entity_id=task_id,
+        )
+        return await _enrich(task, self._session)
+
+    async def remove_observer(
+        self, task_id: uuid.UUID, user_id: uuid.UUID, current_user: User
+    ) -> TaskPublic:
+        """Remove an observer from a task."""
+        task = await self._task_repo.get_or_404(task_id)
+        row = await self._task_repo.get_observer(task_id, user_id)
+        if row is None:
+            raise HTTPException(404, "Người này không trong danh sách observer.")
+        await self._task_repo.remove_observer(row)
+        await self._audit_repo.write(
+            actor_id=current_user.id,
+            action="task.observer_removed",
+            entity_type="task",
+            entity_id=task_id,
+            new_value={"user_id": str(user_id)},
+        )
+        return await _enrich(task, self._session)
+
+    # ------------------------------------------------------------------
+    # Reassign primary assignee
+    # ------------------------------------------------------------------
+
+    async def reassign_task(
+        self, task_id: uuid.UUID, body: TaskReassignRequest, current_user: User
+    ) -> TaskPublic:
+        """Transfer primary assignee to another user.
+
+        Old assignee is automatically moved to extra_assignees so they retain
+        visibility and audit trail. If new assignee was previously an extra
+        assignee, that row is removed to avoid duplication.
+        """
+        task = await self._task_repo.get_or_404(task_id)
+        old_assignee_id = task.assignee_id
+
+        if body.new_assignee_id == old_assignee_id:
+            raise HTTPException(400, "Người này đã là người phụ trách chính.")
+
+        new_user = await self._user_repo.get_by_id(body.new_assignee_id)
+        if new_user is None:
+            raise HTTPException(404, "User not found")
+
+        # If new assignee was an extra assignee, remove that row first
+        existing_extra = await self._task_repo.get_extra_assignee(task_id, body.new_assignee_id)
+        if existing_extra:
+            await self._task_repo.remove_extra_assignee(existing_extra)
+
+        # If new assignee was an observer, remove observer role
+        existing_obs = await self._task_repo.get_observer(task_id, body.new_assignee_id)
+        if existing_obs:
+            await self._task_repo.remove_observer(existing_obs)
+
+        # Move old assignee to extra assignees (if not already there)
+        old_extra = await self._task_repo.get_extra_assignee(task_id, old_assignee_id)
+        if old_extra is None:
+            await self._task_repo.add_extra_assignee(task_id, old_assignee_id, current_user.id)
+
+        # Update primary assignee
+        task = await self._task_repo.update_fields(task, {"assignee_id": body.new_assignee_id})
+
+        await self._audit_repo.write(
+            actor_id=current_user.id,
+            action="task.reassigned",
+            entity_type="task",
+            entity_id=task_id,
+            old_value={"assignee_id": str(old_assignee_id)},
+            new_value={"assignee_id": str(body.new_assignee_id)},
+        )
+
+        actor_name = _display_name(current_user) or "Quản lý"
+        await self._notify(
+            user_id=body.new_assignee_id,
+            notif_type="task_assigned",
+            title=f'Bạn được giao phụ trách công việc "{task.name}"',
+            body=f"Chuyển giao bởi {actor_name}",
+            entity_type="task",
+            entity_id=task_id,
+        )
+        await self._emit_task_user_ws(
+            body.new_assignee_id,
+            task_id,
+            "task.assigned",
+            {
+                "actor_id": str(current_user.id),
+                "actor_name": actor_name,
+                "task_name": task.name,
+                "message": f'{actor_name} đã chuyển giao công việc "{task.name}" cho bạn.',
+            },
+        )
         return await _enrich(task, self._session)
 
     # ------------------------------------------------------------------
@@ -845,6 +1179,11 @@ class TaskService:
         if dep is None or dep.blocking_task_id != task_id:
             raise HTTPException(404, "Dependency not found")
         task = await self._task_repo.get_or_404(task_id)
+
+        # Authorization: assignor or user with TASK_UPDATE permission
+        if task.assignor_id != current_user.id and not current_user.is_superuser:
+            if not await has_permission(self._session, current_user, "TASK_UPDATE", task.project_id):
+                raise HTTPException(403, "Chỉ người tạo task hoặc quản lý mới được sửa phụ thuộc")
         await self._task_repo.delete_dependency(dep)
         await self._audit_repo.write(
             actor_id=current_user.id,
@@ -971,12 +1310,18 @@ class TaskService:
                     f'{actor_name} đã cập nhật "thảo luận" cho công việc "{task.name}".'
                 ),
             }
-            await self._emit_task_ws(
-                task_id,
-                "task.discussion_added",
-                payload,
-            )
+            await self._emit_task_ws(task_id, "task.discussion_added", payload)
             await self._notify_task_participants(task, "task.discussion_added", payload)
+            # Persist bell notification for all participants except the author
+            for participant_id in {task.assignee_id, task.assignor_id} - {current_user.id}:
+                await self._notify(
+                    user_id=participant_id,
+                    notif_type="discussion_added",
+                    title=f'{actor_name} bình luận trong "{task.name}"',
+                    body=body.content[:200] if body.content else None,
+                    entity_type="task",
+                    entity_id=task_id,
+                )
 
         return _comment_to_public(comment, current_user)
 
@@ -1265,22 +1610,61 @@ class TaskService:
     # Dependencies
     # ------------------------------------------------------------------
 
+    async def _would_create_cycle(
+        self, blocking_id: uuid.UUID, dependent_id: uuid.UUID
+    ) -> bool:
+        """Return True if adding blocking_id → dependent_id would create a cycle.
+
+        Traverses upward from blocking_id (tasks that block blocking_id)
+        to detect if dependent_id is already an ancestor.
+        """
+        visited: set[uuid.UUID] = set()
+        queue: deque[uuid.UUID] = deque([blocking_id])
+        while queue:
+            node = queue.popleft()
+            if node == dependent_id:
+                return True
+            if node in visited:
+                continue
+            visited.add(node)
+            # Find tasks that `node` itself waits for (its own blockers)
+            links = await self._task_repo.list_waiting_for_links(node)
+            for link in links:
+                queue.append(link.blocking_task_id)
+        return False
+
     async def add_dependency(
         self, task_id: uuid.UUID, body: TaskDependencyCreate, current_user: User
     ) -> dict:
         """Create a dependency link between two tasks."""
+        task = await self._task_repo.get_or_404(task_id)
+
+        # Authorization: assignor or user with TASK_UPDATE permission
+        if task.assignor_id != current_user.id and not current_user.is_superuser:
+            if not await has_permission(self._session, current_user, "TASK_UPDATE", task.project_id):
+                raise HTTPException(403, "Chỉ người tạo task hoặc quản lý mới được sửa phụ thuộc")
+
         if body.dependency_type not in ALLOWED_DEPENDENCY_TYPES:
             raise HTTPException(422, "dependency_type must be one of FS, SS, FF, SF")
+
+        if body.blocking_task_id == body.dependent_task_id:
+            raise HTTPException(422, "Task không thể phụ thuộc vào chính nó")
+
+        # Validate both tasks belong to the same project
+        blocking_task = await self._task_repo.get_or_404(body.blocking_task_id)
+        if blocking_task.project_id != task.project_id:
+            raise HTTPException(422, "Không thể tạo phụ thuộc giữa các task khác project")
 
         existing = await self._task_repo.get_dependency(
             body.blocking_task_id, body.dependent_task_id
         )
         if existing:
-            raise HTTPException(409, "Dependency already exists")
-        await self._task_repo.create_dependency(body.model_dump())
+            raise HTTPException(409, "Phụ thuộc này đã tồn tại")
 
-        # Recalculate critical path after adding a new dependency link
-        task = await self._task_repo.get_or_404(task_id)
+        if await self._would_create_cycle(body.blocking_task_id, body.dependent_task_id):
+            raise HTTPException(422, "Tạo phụ thuộc này sẽ tạo vòng lặp phụ thuộc")
+
+        await self._task_repo.create_dependency(body.model_dump())
         await self.recalculate_critical_path(task.project_id)
 
         return {"message": "Dependency added"}
@@ -1344,12 +1728,18 @@ class TaskService:
                 f'{actor_name} đã cập nhật "báo cáo tiến độ" cho công việc "{task.name}".'
             ),
         }
-        await self._emit_task_ws(
-            task_id,
-            "task.progress_reported",
-            payload,
-        )
+        await self._emit_task_ws(task_id, "task.progress_reported", payload)
         await self._notify_task_participants(task, "task.progress_reported", payload)
+        # Persist bell notification for assignor (manager sees workers' progress reports)
+        if task.assignor_id != current_user.id:
+            await self._notify(
+                user_id=task.assignor_id,
+                notif_type="progress_reported",
+                title=f'{actor_name} báo cáo tiến độ +{body.progress_percent}% cho "{task.name}"',
+                body=body.note,
+                entity_type="task",
+                entity_id=task_id,
+            )
 
         return _report_to_public(report, current_user)
 

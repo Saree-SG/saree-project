@@ -21,7 +21,7 @@ from app.models import (
     UserUpdateMe,
 )
 from app.services.user_service import UserService
-from app.utils import generate_new_account_email, send_email
+from app.utils import generate_new_account_email, send_email_async
 
 router = APIRouter(prefix="/users", tags=["users"])
 
@@ -70,7 +70,7 @@ async def create_user(session: AsyncSessionDep, user_in: UserCreate) -> Any:
         email_data = generate_new_account_email(
             email_to=user_in.email, username=user_in.email, password=user_in.password
         )
-        send_email(
+        await send_email_async(
             email_to=user_in.email,
             subject=email_data.subject,
             html_content=email_data.html_content,

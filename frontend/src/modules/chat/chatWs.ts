@@ -1,5 +1,6 @@
 import { OpenAPI } from "@/client"
 import { getAccessToken } from "@/modules/auth/tokenStore"
+import { isNgrokTunnelHost } from "@/utils/ngrokBypass"
 
 export type ChatWsEvent =
   | { type: "presence.join"; room_id: string; user_id: string }
@@ -29,7 +30,10 @@ function toWsBase(httpBase: string) {
 export function buildChatWsUrl(roomId: string) {
   const token = encodeURIComponent(getAccessToken() || "")
   const base = toWsBase(OpenAPI.BASE)
-  return `${base}/api/v1/chat/ws?room_id=${encodeURIComponent(roomId)}&token=${token}`
+  // ngrok free tier blocks requests without this header; WS API can't set headers
+  // so pass it as a query param instead — ngrok accepts it either way
+  const ngrokParam = isNgrokTunnelHost(OpenAPI.BASE) ? "&ngrok-skip-browser-warning=true" : ""
+  return `${base}/api/v1/chat/ws?room_id=${encodeURIComponent(roomId)}&token=${token}${ngrokParam}`
 }
 
 export function connectChatWs(params: {

@@ -40,6 +40,21 @@ function computeBreadcrumbs(pathname: string): Crumb[] {
   if (normalized === "/items") {
     return [{ label: "Items" }]
   }
+  if (normalized === "/reports") {
+    return [{ label: "Tổng quan", to: "/" }, { label: "Báo cáo" }]
+  }
+  if (normalized === "/quotations") {
+    return [{ label: "Báo Giá" }]
+  }
+  if (normalized === "/quotations/new") {
+    return [{ label: "Báo Giá", to: "/quotations" }, { label: "Tạo mới" }]
+  }
+  if (normalized === "/quotations/reports") {
+    return [{ label: "Báo Giá", to: "/quotations" }, { label: "Báo cáo" }]
+  }
+  if (/^\/quotations\/[^/]+$/.test(normalized)) {
+    return [{ label: "Báo Giá", to: "/quotations" }, { label: "Chi tiết" }]
+  }
   return [{ label: "Trang" }]
 }
 
@@ -59,6 +74,15 @@ function resolveMobileBackTarget(pathname: string): string | "history" | null {
   }
   if (/^\/projects\/[^/]+$/.test(normalized)) {
     return "/"
+  }
+  if (normalized === "/reports") {
+    return "/"
+  }
+  if (/^\/quotations\/[^/]+$/.test(normalized)) {
+    return "/quotations"
+  }
+  if (normalized === "/quotations/new" || normalized === "/quotations/reports") {
+    return "/quotations"
   }
   return "history"
 }

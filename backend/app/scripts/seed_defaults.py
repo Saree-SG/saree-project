@@ -80,6 +80,41 @@ ALL_PERMISSIONS = [
     {"code": "USER_VIEW",              "module": "user",    "action": "read",   "scope": "global",      "description": "Xem danh sách người dùng"},
     {"code": "USER_MANAGE",            "module": "user",    "action": "update", "scope": "global",      "description": "Quản lý người dùng"},
     {"code": "COMPANY_CREATE",         "module": "company", "action": "create", "scope": "global",      "description": "Tạo công ty mới"},
+    # Quotation
+    {"code": "QUOTATION_CREATE",          "module": "quotation", "action": "create", "scope": "global",   "description": "Tạo hồ sơ báo giá mới"},
+    {"code": "QUOTATION_VIEW",            "module": "quotation", "action": "read",   "scope": "assigned", "description": "Xem hồ sơ báo giá được phân công"},
+    {"code": "QUOTATION_VIEW_ALL",        "module": "quotation", "action": "read",   "scope": "global",   "description": "Xem tất cả hồ sơ báo giá"},
+    {"code": "QUOTATION_UPDATE",          "module": "quotation", "action": "update", "scope": "assigned", "description": "Cập nhật thông tin hồ sơ báo giá"},
+    {"code": "QUOTATION_DELETE",          "module": "quotation", "action": "delete", "scope": "global",   "description": "Xóa hồ sơ báo giá (soft delete)"},
+    {"code": "QUOTATION_SUBMIT_SURVEY",   "module": "quotation", "action": "update", "scope": "assigned", "description": "Kinh Doanh nộp thông tin khảo sát (S1→S2)"},
+    {"code": "QUOTATION_APPROVE_SURVEY",  "module": "quotation", "action": "approve","scope": "global",   "description": "BGĐ duyệt/từ chối thông tin khảo sát (S2)"},
+    {"code": "QUOTATION_DESIGN",          "module": "quotation", "action": "update", "scope": "assigned", "description": "Kỹ Thuật thiết kế và nộp phương án (S3→S4)"},
+    {"code": "QUOTATION_APPROVE_DESIGN",  "module": "quotation", "action": "approve","scope": "global",   "description": "BGĐ duyệt/từ chối phương án thiết kế (S4)"},
+    {"code": "QUOTATION_FILL_PRICE",      "module": "quotation", "action": "update", "scope": "assigned", "description": "Vật Tư điền đơn giá hạng mục (S5→S6)"},
+    {"code": "QUOTATION_FINALIZE",        "module": "quotation", "action": "update", "scope": "assigned", "description": "Kinh Doanh nhập hệ số giá, hoàn thiện (S6→S7)"},
+    {"code": "QUOTATION_APPROVE_FINAL",   "module": "quotation", "action": "approve","scope": "global",   "description": "BGĐ duyệt báo giá cuối (S7→S8)"},
+    {"code": "QUOTATION_SEND_CLIENT",         "module": "quotation", "action": "update", "scope": "assigned", "description": "Ghi nhận đã gửi chào giá cho KH, trình thương lượng (S8/S8B)"},
+    {"code": "QUOTATION_APPROVE_NEGOTIATION", "module": "quotation", "action": "approve","scope": "global",   "description": "Giám đốc duyệt/từ chối thương lượng giá (S8B)"},
+    {"code": "QUOTATION_LOG_NEGOTIATION",     "module": "quotation", "action": "create", "scope": "assigned", "description": "Ghi log trao đổi với khách hàng"},
+    {"code": "QUOTATION_CLOSE",               "module": "quotation", "action": "update", "scope": "assigned", "description": "Đóng hồ sơ báo giá (won/lost) (S8→S9)"},
+    {"code": "QUOTATION_REPORT",          "module": "quotation", "action": "read",   "scope": "global",   "description": "Xem báo cáo và thống kê báo giá"},
+    # Material Request
+    {"code": "MATERIAL_REQUEST_VIEW",    "module": "material_request", "action": "read",   "scope": "global", "description": "Xem yêu cầu vật tư"},
+    {"code": "MATERIAL_REQUEST_CREATE",  "module": "material_request", "action": "create", "scope": "global", "description": "Tạo yêu cầu vật tư"},
+    {"code": "MATERIAL_REQUEST_REVIEW",  "module": "material_request", "action": "approve","scope": "global", "description": "Phòng vật tư duyệt yêu cầu (bước 1)"},
+    {"code": "MATERIAL_REQUEST_APPROVE", "module": "material_request", "action": "approve","scope": "global", "description": "Giám đốc phê duyệt yêu cầu vật tư (bước 2)"},
+    # Contract
+    {"code": "CONTRACT_VIEW",             "module": "contract", "action": "read",   "scope": "assigned", "description": "Xem hợp đồng được phân công"},
+    {"code": "CONTRACT_VIEW_ALL",         "module": "contract", "action": "read",   "scope": "global",   "description": "Xem tất cả hợp đồng"},
+    {"code": "CONTRACT_CREATE",           "module": "contract", "action": "create", "scope": "global",   "description": "Tạo hợp đồng từ báo giá đã thắng"},
+    {"code": "CONTRACT_UPDATE",           "module": "contract", "action": "update", "scope": "assigned", "description": "Cập nhật thông tin hợp đồng"},
+    {"code": "CONTRACT_DELETE",           "module": "contract", "action": "delete", "scope": "global",   "description": "Xóa hợp đồng (soft delete)"},
+    {"code": "CONTRACT_SUBMIT",           "module": "contract", "action": "update", "scope": "assigned", "description": "Nộp hợp đồng lên BGĐ duyệt (draft→pending_approval)"},
+    {"code": "CONTRACT_APPROVE",          "module": "contract", "action": "approve","scope": "global",   "description": "BGĐ duyệt/từ chối hợp đồng (pending_approval→sent/draft)"},
+    {"code": "CONTRACT_SIGN",             "module": "contract", "action": "update", "scope": "assigned", "description": "Xác nhận khách ký hợp đồng (sent→signed)"},
+    {"code": "CONTRACT_CONFIRM_ADVANCE",  "module": "contract", "action": "update", "scope": "assigned", "description": "Xác nhận nhận tạm ứng (signed→advance_received)"},
+    {"code": "CONTRACT_START_PRODUCTION", "module": "contract", "action": "approve","scope": "global",   "description": "Chuyển hợp đồng sang sản xuất (advance_received→in_production)"},
+    {"code": "CONTRACT_COMPLETE",         "module": "contract", "action": "approve","scope": "global",   "description": "Hoàn thành và đóng hợp đồng (in_production→completed)"},
 ]
 # fmt: on
 
@@ -92,6 +127,12 @@ _DEPT_HEAD_LIKE_PERMS: list[str] = [
     "PROOF_UPLOAD", "PROOF_APPROVE",
     "REPORT_VIEW_OWN", "REPORT_VIEW_TEAM",
     "USER_VIEW",
+    # Quotation — base read
+    "QUOTATION_VIEW", "QUOTATION_REPORT",
+    # Contract — view only
+    "CONTRACT_VIEW",
+    # Material Request — view + create
+    "MATERIAL_REQUEST_VIEW", "MATERIAL_REQUEST_CREATE",
 ]
 
 _WORKER_LIKE_PERMS: list[str] = [
@@ -100,6 +141,29 @@ _WORKER_LIKE_PERMS: list[str] = [
     "COMMENT_ADD", "COMMENT_DELETE_OWN",
     "PROOF_UPLOAD",
     "REPORT_VIEW_OWN",
+    # Quotation — read only
+    "QUOTATION_VIEW",
+]
+
+# Quotation workflow permissions per department role
+_SALES_QUOTATION_PERMS: list[str] = [
+    "QUOTATION_CREATE", "QUOTATION_VIEW", "QUOTATION_VIEW_ALL",
+    "QUOTATION_UPDATE", "QUOTATION_SUBMIT_SURVEY", "QUOTATION_FINALIZE",
+    "QUOTATION_SEND_CLIENT", "QUOTATION_LOG_NEGOTIATION", "QUOTATION_CLOSE",
+    "QUOTATION_REPORT",
+]
+
+_ENGINEER_QUOTATION_PERMS: list[str] = [
+    "QUOTATION_VIEW", "QUOTATION_DESIGN",
+]
+
+_MATERIALS_QUOTATION_PERMS: list[str] = [
+    "QUOTATION_VIEW", "QUOTATION_FILL_PRICE",
+]
+
+_DIRECTOR_QUOTATION_PERMS: list[str] = [
+    "QUOTATION_VIEW_ALL", "QUOTATION_APPROVE_SURVEY", "QUOTATION_APPROVE_DESIGN",
+    "QUOTATION_APPROVE_FINAL", "QUOTATION_APPROVE_NEGOTIATION", "QUOTATION_DELETE", "QUOTATION_REPORT",
 ]
 
 # Role → list of permission codes they receive
@@ -114,11 +178,21 @@ ROLE_PERMISSION_MAP: dict[str, list[str]] = {
         "PROOF_UPLOAD", "PROOF_APPROVE",
         "REPORT_VIEW_OWN", "REPORT_VIEW_TEAM", "REPORT_VIEW_ALL",
         "AUDIT_VIEW", "USER_VIEW", "USER_MANAGE",
+        *_DIRECTOR_QUOTATION_PERMS,
+        "CONTRACT_VIEW_ALL", "CONTRACT_APPROVE", "CONTRACT_START_PRODUCTION", "CONTRACT_COMPLETE", "CONTRACT_DELETE",
+        "MATERIAL_REQUEST_VIEW", "MATERIAL_REQUEST_APPROVE",
     ],
     "department_head": list(_DEPT_HEAD_LIKE_PERMS),
-    "sales": list(_DEPT_HEAD_LIKE_PERMS),
-    "engineer": list(_DEPT_HEAD_LIKE_PERMS),
-    "materials": list(_DEPT_HEAD_LIKE_PERMS),
+    "sales": [
+        *_DEPT_HEAD_LIKE_PERMS, *_SALES_QUOTATION_PERMS,
+        "CONTRACT_VIEW", "CONTRACT_CREATE", "CONTRACT_UPDATE",
+        "CONTRACT_SUBMIT", "CONTRACT_SIGN", "CONTRACT_CONFIRM_ADVANCE",
+    ],
+    "engineer": [*_DEPT_HEAD_LIKE_PERMS, *_ENGINEER_QUOTATION_PERMS],
+    "materials": [
+        *_DEPT_HEAD_LIKE_PERMS, *_MATERIALS_QUOTATION_PERMS,
+        "MATERIAL_REQUEST_VIEW", "MATERIAL_REQUEST_CREATE", "MATERIAL_REQUEST_REVIEW",
+    ],
     "planner": list(_DEPT_HEAD_LIKE_PERMS),
     "workshop_lead": list(_DEPT_HEAD_LIKE_PERMS),
     "site_supply": list(_DEPT_HEAD_LIKE_PERMS),

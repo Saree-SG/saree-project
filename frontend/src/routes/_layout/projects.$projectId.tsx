@@ -38,6 +38,7 @@ import {
 import useCustomToast from "@/hooks/useCustomToast"
 import { clearSession } from "@/modules/auth/tokenStore"
 import { createProjectChatRoom } from "@/modules/chat/chatApi"
+import { addDependency } from "@/modules/gantt/ganttApi"
 import { listCompanyMembers, readMyPermissions } from "@/modules/rbac/rbacApi"
 import { handleError } from "@/utils"
 import { hasPermission } from "@/utils/accountAccess"
@@ -83,10 +84,60 @@ export const Route = createFileRoute("/_layout/projects/$projectId")({
 })
 
 function statusLabel(status: string) {
-  if (status === "done") return "DONE"
-  if (status === "in_progress") return "IN PROGRESS"
-  if (status === "review") return "REVIEW"
-  return "TODO"
+  if (status === "todo" || status === "to_do") return "Chờ làm"
+  if (status === "done" || status === "completed") return "Hoàn thành"
+  if (status === "in_progress" || status === "active") return "Đang thực hiện"
+  if (status === "review") return "Chờ duyệt"
+  if (status === "on_hold") return "Tạm dừng"
+  if (status === "cancelled") return "Đã hủy"
+  if (status === "planning") return "Lên kế hoạch"
+  return status ?? "—"
+}
+
+function taskBusinessLabel(task: TaskPublic): string {
+  const moduleTag = task.module_tag?.trim()
+  if (moduleTag) {
+    if (moduleTag === "engineering") return "Kỹ thuật"
+    if (moduleTag === "planning") return "Kế hoạch"
+    if (moduleTag === "production") return "Sản xuất"
+    if (moduleTag === "sales") return "Kinh doanh"
+    if (moduleTag === "director") return "Ban giám đốc"
+    if (moduleTag === "procurement") return "Mua hàng"
+    if (moduleTag === "inventory") return "Kho vật tư"
+    if (moduleTag === "quotation") return "Báo giá"
+    if (moduleTag === "contract") return "Hợp đồng"
+    return moduleTag
+  }
+  if (task.linked_entity_type === "purchase_request") return "Đề nghị mua hàng"
+  if (task.linked_entity_type === "material_issue") return "Xuất vật tư"
+  return "Công việc chung"
+}
+
+function initials(name: string): string {
+  const parts = name
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+  if (parts.length === 0) return "?"
+  if (parts.length === 1) return parts[0].slice(0, 1).toUpperCase()
+  return `${parts[0].slice(0, 1)}${parts[parts.length - 1].slice(0, 1)}`.toUpperCase()
+}
+
+function projectStatusColor(status: string) {
+  if (status === "completed" || status === "done") return "bg-green-50 text-green-700 border-green-200 hover:bg-green-100"
+  if (status === "in_progress" || status === "active") return "bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100"
+  if (status === "on_hold") return "bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100"
+  if (status === "cancelled") return "bg-red-50 text-red-700 border-red-200 hover:bg-red-100"
+  return "bg-gray-50 text-gray-700 border-gray-200 hover:bg-gray-100"
+}
+
+function ProgressBar({ value, color = "bg-primary" }: { value: number; color?: string }) {
+  const pct = Math.max(0, Math.min(100, value))
+  return (
+    <div className="h-2 w-full rounded-full bg-muted">
+      <div className={`h-2 rounded-full transition-all ${color}`} style={{ width: `${pct}%` }} />
+    </div>
+  )
 }
 
 /**
@@ -124,8 +175,8 @@ function ProjectTaskDashboardPage() {
   const [taskAssigneePickerOpen, setTaskAssigneePickerOpen] = useState(false)
   const [taskStartDateDraft, setTaskStartDateDraft] = useState("")
   const [taskEndDateDraft, setTaskEndDateDraft] = useState("")
+  const [taskDependencyDraft, setTaskDependencyDraft] = useState("none")
   const [showOverdueOnly, setShowOverdueOnly] = useState(false)
-  const [taskView, setTaskView] = useState<"list" | "gantt">("list")
 
   const projectQuery = useQuery({
     queryKey: ["project-dashboard", "project", projectId],
@@ -201,6 +252,7 @@ function ProjectTaskDashboardPage() {
     setTaskAssigneeSelectedUserId("")
     setTaskStartDateDraft(toISODate(now))
     setTaskEndDateDraft(toISODate(end))
+    setTaskDependencyDraft("none")
   }, [taskOpen])
 
   const updateProjectMutation = useMutation({
@@ -217,6 +269,28 @@ function ProjectTaskDashboardPage() {
     onSuccess: async () => {
       showSuccessToast("Đã cập nhật dự án")
       setEditOpen(false)
+      await queryClient.invalidateQueries({
+        queryKey: ["project-dashboard", "project", projectId],
+      })
+      await queryClient.invalidateQueries({
+        queryKey: ["dashboard", "projects-catalog"],
+      })
+      await queryClient.invalidateQueries({
+        queryKey: ["dashboard", "project-stats"],
+      })
+    },
+    onError: handleError.bind(showErrorToast),
+  })
+
+  const quickUpdateStatusMutation = useMutation({
+    mutationFn: async (newStatus: string) => {
+      return ProjectsService.updateProject({
+        projectId,
+        requestBody: { status: newStatus },
+      })
+    },
+    onSuccess: async () => {
+      showSuccessToast("Đã cập nhật trạng thái")
       await queryClient.invalidateQueries({
         queryKey: ["project-dashboard", "project", projectId],
       })
@@ -379,10 +453,14 @@ function ProjectTaskDashboardPage() {
         end_time: `${end}T23:59:59Z`,
         assignee_id: assignee.user_id,
       }
-      return TasksService.createRootTask({
+      const createdTask = await TasksService.createRootTask({
         projectId,
         requestBody: body,
       })
+      if (taskDependencyDraft !== "none") {
+        await addDependency(taskDependencyDraft, createdTask.id)
+      }
+      return createdTask
     },
     onSuccess: async () => {
       showSuccessToast("Đã tạo task")
@@ -402,6 +480,17 @@ function ProjectTaskDashboardPage() {
       showErrorToast(message)
     },
   })
+
+  const taskDependencyCandidates = useMemo(
+    () =>
+      (tasksQuery.data ?? [])
+        .filter((row) => row.status !== "done")
+        .map((row) => ({
+          id: row.id,
+          label: `${row.name} (${row.status})`,
+        })),
+    [tasksQuery.data],
+  )
 
   const teamCards = useMemo(() => {
     const workloadMap = new Map<string, number>()
@@ -435,6 +524,13 @@ function ProjectTaskDashboardPage() {
       return {
         ...task,
         assigneeName: task.assignee_name?.trim() || task.assignee_id,
+        businessLabel: taskBusinessLabel(task),
+        collaborators: [
+          task.assignee_name?.trim() || task.assignee_id,
+          ...((task as TaskPublic & { extra_assignees?: Array<{ user_name?: string | null; user_id: string }> }).extra_assignees ?? []).map(
+            (row) => row.user_name?.trim() || row.user_id,
+          ),
+        ],
         reportedProgress: task.reported_progress_total ?? 0,
         isOverdue,
         isDueSoon,
@@ -456,29 +552,21 @@ function ProjectTaskDashboardPage() {
 
   return (
     <div className="mx-auto w-full max-w-3xl space-y-5 px-2 pb-24 sm:px-4">
-      <section className="space-y-1">
-        <div className="text-xs font-semibold uppercase tracking-wide text-primary">
-          Active Project
-        </div>
-        <div className="flex items-start justify-between gap-3">
-          <h1 className="min-w-0 flex-1 truncate text-2xl font-extrabold tracking-tight">
-            {projectQuery.data?.name ?? "Project Dashboard"}
+      <section className="space-y-2 pt-1">
+        <Link to="/" className="text-xs text-muted-foreground hover:text-foreground">
+          ← Tổng quan
+        </Link>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <h1 className="min-w-0 flex-1 text-2xl font-extrabold tracking-tight">
+            {projectQuery.data?.name ?? "Dự án"}
           </h1>
-          <div className="flex shrink-0 items-center gap-2">
-            <PermissionGuard permission="PROJECT_MANAGE_MEMBERS">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setMemberOpen(true)}
-                disabled={!projectQuery.data}
-              >
-                Thêm nhân viên
-              </Button>
-            </PermissionGuard>
+          <div className="grid w-full shrink-0 grid-cols-1 gap-2 sm:flex sm:w-auto sm:flex-wrap sm:items-center sm:justify-end">
             <PermissionGuard permission="PROJECT_VIEW">
               <Button
                 type="button"
                 variant="outline"
+                size="sm"
+                className="w-full justify-center whitespace-nowrap sm:w-auto"
                 disabled={!projectQuery.data || createProjectChatRoomMutation.isPending}
                 onClick={() => {
                   const chatRoomId = (projectQuery.data as any)?.chat_room_id as
@@ -492,64 +580,134 @@ function ProjectTaskDashboardPage() {
                   createProjectChatRoomMutation.mutate()
                 }}
               >
-                💬 Chat nhóm dự án
+                💬 Chat nhóm
+              </Button>
+            </PermissionGuard>
+            <PermissionGuard permission="PROJECT_MANAGE_MEMBERS">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="w-full justify-center whitespace-nowrap sm:w-auto"
+                onClick={() => setMemberOpen(true)}
+                disabled={!projectQuery.data}
+              >
+                + Thêm nhân viên
               </Button>
             </PermissionGuard>
             <PermissionGuard permission="PROJECT_UPDATE">
               <Button
                 type="button"
+                variant="outline"
+                size="sm"
+                className="w-full justify-center whitespace-nowrap sm:w-auto"
                 onClick={() => setEditOpen(true)}
                 disabled={!projectQuery.data}
               >
-                Sửa dự án
+                Chỉnh sửa
               </Button>
             </PermissionGuard>
           </div>
         </div>
-        <p className="text-sm text-muted-foreground">
-          Management Hub • Task execution overview
-        </p>
+        <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+          <span>{projectQuery.data?.code}</span>
+          {projectQuery.data?.start_date && (
+            <>
+              <span>·</span>
+              <span>
+                Bắt đầu: <span className="font-semibold text-foreground">{new Date(projectQuery.data.start_date).toLocaleDateString("vi-VN")}</span>
+              </span>
+            </>
+          )}
+          {projectQuery.data?.end_date && (
+            <>
+              <span>·</span>
+              <span>
+                Deadline:{" "}
+                <span
+                  className={[
+                    "font-semibold",
+                    new Date(projectQuery.data.end_date).getTime() < Date.now()
+                      ? "text-red-600"
+                      : "text-foreground",
+                  ].join(" ")}
+                >
+                  {new Date(projectQuery.data.end_date).toLocaleDateString("vi-VN")}
+                </span>
+              </span>
+            </>
+          )}
+          <span>·</span>
+          <PermissionGuard
+            permission="PROJECT_UPDATE"
+            fallback={
+              <span
+                className={[
+                  "rounded-md border px-3 py-1 text-xs font-semibold",
+                  projectStatusColor(projectQuery.data?.status ?? "").replace(/hover:[^\s]+/g, ""),
+                ].join(" ")}
+              >
+                {statusLabel(projectQuery.data?.status ?? "")}
+              </span>
+            }
+          >
+            <Select
+              value={projectQuery.data?.status ?? ""}
+              onValueChange={(val) => quickUpdateStatusMutation.mutate(val)}
+              disabled={quickUpdateStatusMutation.isPending || !projectQuery.data}
+            >
+              <SelectTrigger
+                className={[
+                  "h-8 w-[140px] rounded-md border px-3 py-1 text-xs font-semibold shadow-sm focus:ring-1 focus:ring-offset-0 focus:outline-none transition-colors",
+                  projectStatusColor(projectQuery.data?.status ?? ""),
+                ].join(" ")}
+              >
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="planning">Lên kế hoạch</SelectItem>
+                <SelectItem value="in_progress">Đang thực hiện</SelectItem>
+                <SelectItem value="on_hold">Tạm dừng</SelectItem>
+                <SelectItem value="completed">Hoàn thành</SelectItem>
+                <SelectItem value="cancelled">Đã hủy</SelectItem>
+              </SelectContent>
+            </Select>
+          </PermissionGuard>
+        </div>
       </section>
 
-      <section className="rounded-xl border bg-white p-5 shadow-sm">
-        <div className="flex items-center justify-between gap-3">
+      <section className="rounded-xl border bg-card p-5 shadow-sm">
+        <div className="mb-4 grid grid-cols-3 gap-3 text-center">
           <div>
-            <p className="text-xs font-semibold uppercase text-muted-foreground">
-              Overall Progress
-            </p>
-            <p className="text-3xl font-black">{stats?.completion_pct ?? 0}%</p>
-            <div className="mt-2 space-y-1 text-xs text-muted-foreground">
-              <p>{stats?.done_tasks ?? 0} Completed</p>
-              <p>
-                {Math.max(
-                  0,
-                  (stats?.total_tasks ?? 0) - (stats?.done_tasks ?? 0),
-                )}{" "}
-                In Progress/Todo
-              </p>
-            </div>
+            <p className="text-2xl font-black text-primary">{stats?.completion_pct ?? 0}%</p>
+            <p className="text-xs text-muted-foreground">Hoàn thành</p>
           </div>
-          <div className="text-right text-xs">
-            <button
-              type="button"
-              className={[
-                "font-semibold text-red-600 underline-offset-2",
-                showOverdueOnly ? "underline" : "hover:underline",
-              ].join(" ")}
-              onClick={() => setShowOverdueOnly((prev) => !prev)}
-            >
-              {stats?.overdue_tasks ?? 0} overdue
-            </button>
-            <p className="text-muted-foreground">
-              Status: {projectQuery.data?.status ?? "N/A"}
+          <div>
+            <p className="text-2xl font-black text-green-600">{stats?.done_tasks ?? 0}</p>
+            <p className="text-xs text-muted-foreground">Task xong</p>
+          </div>
+          <div>
+            <p className={`text-2xl font-black ${(stats?.overdue_tasks ?? 0) > 0 ? "text-red-600" : "text-muted-foreground"}`}>
+              {stats?.overdue_tasks ?? 0}
             </p>
+            <p className="text-xs text-muted-foreground">Task trễ</p>
           </div>
         </div>
-        <progress
-          max={100}
-          value={Math.max(0, Math.min(100, stats?.completion_pct ?? 0))}
-          className="mt-4 h-2 w-full [&::-webkit-progress-bar]:rounded-full [&::-webkit-progress-bar]:bg-slate-100 [&::-webkit-progress-value]:rounded-full [&::-webkit-progress-value]:bg-primary"
-        />
+        <ProgressBar value={stats?.completion_pct ?? 0} />
+        {(stats?.overdue_tasks ?? 0) > 0 && (
+          <button
+            type="button"
+            className={[
+              "mt-3 w-full rounded-lg border py-2 text-xs font-semibold transition-colors",
+              showOverdueOnly
+                ? "border-red-300 bg-red-50 text-red-700"
+                : "border-dashed border-red-200 text-red-600 hover:bg-red-50",
+            ].join(" ")}
+            onClick={() => setShowOverdueOnly((prev) => !prev)}
+          >
+            {showOverdueOnly ? "Hiển thị tất cả task" : `Chỉ xem ${stats?.overdue_tasks} task đang trễ`}
+          </button>
+        )}
       </section>
 
       <section className="rounded-xl border bg-white p-5 shadow-sm">
@@ -557,31 +715,38 @@ function ProjectTaskDashboardPage() {
       </section>
 
       <section className="space-y-3">
-        <div className="flex items-center justify-between">
-          <h2 className="text-lg font-bold">Project Team</h2>
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="text-sm font-bold">Gantt công việc</h2>
         </div>
+        <ProjectGantt projectId={projectId} />
+      </section>
+
+      <section className="space-y-3">
+        <h2 className="text-sm font-bold">Nhân sự dự án</h2>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
           {teamCards.map((member) => (
             <div
               key={member.id}
-              className="space-y-2 rounded-xl border bg-white p-3 shadow-sm"
+              className="space-y-1.5 rounded-xl border bg-card p-3 shadow-sm"
             >
-              <div className="flex items-center justify-between gap-2">
-                <div className="h-9 w-9 rounded-lg bg-primary/10" />
+              <div className="flex items-center justify-between gap-1">
+                <p className="truncate text-sm font-bold">{member.name}</p>
                 <span
                   className={[
-                    "rounded px-2 py-0.5 text-[10px] font-bold",
+                    "shrink-0 rounded px-2 py-0.5 text-[10px] font-bold",
                     member.loadTag === "OVERLOAD"
                       ? "bg-red-100 text-red-600"
                       : "bg-green-100 text-green-700",
                   ].join(" ")}
                 >
-                  {member.loadTag}
+                  {member.loadTag === "OVERLOAD" ? "Quá tải" : "Sẵn sàng"}
                 </span>
               </div>
-              <p className="truncate text-sm font-bold">{member.name}</p>
               <p className="truncate text-[11px] text-muted-foreground">
                 {member.title}
+              </p>
+              <p className="text-[11px] font-medium text-primary">
+                {member.activeTasks} công việc đang thực hiện
               </p>
             </div>
           ))}
@@ -590,43 +755,8 @@ function ProjectTaskDashboardPage() {
 
       <section className="space-y-3">
         <div className="flex items-center justify-between gap-3">
-          <h2 className="text-lg font-bold">Detailed Tasks</h2>
-          {/* View switcher */}
-          <div className="flex rounded-lg border bg-white p-0.5 text-xs font-semibold shadow-sm">
-            <button
-              type="button"
-              onClick={() => setTaskView("list")}
-              className={[
-                "rounded-md px-3 py-1.5 transition-colors",
-                taskView === "list"
-                  ? "bg-primary text-white"
-                  : "text-muted-foreground hover:text-foreground",
-              ].join(" ")}
-            >
-              Danh sách
-            </button>
-            <button
-              type="button"
-              onClick={() => setTaskView("gantt")}
-              className={[
-                "rounded-md px-3 py-1.5 transition-colors",
-                taskView === "gantt"
-                  ? "bg-primary text-white"
-                  : "text-muted-foreground hover:text-foreground",
-              ].join(" ")}
-            >
-              Gantt
-            </button>
-          </div>
+          <h2 className="text-sm font-bold">Danh sách công việc</h2>
         </div>
-
-        {/* Gantt view */}
-        {taskView === "gantt" && (
-          <ProjectGantt projectId={projectId} />
-        )}
-
-        {/* List view */}
-        {taskView === "list" && (
         <div className="space-y-3">
           {detailedTasks.map((task) => (
             <Link
@@ -646,9 +776,27 @@ function ProjectTaskDashboardPage() {
                 <div className="mt-0.5 h-10 w-10 shrink-0 rounded-full bg-primary/10" />
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-bold">{task.name}</p>
-                  <p className="text-[11px] text-primary">
-                    {task.assigneeName}
-                  </p>
+                  <div className="mt-1 flex flex-wrap items-center gap-2">
+                    <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-700">
+                      {task.businessLabel}
+                    </span>
+                    <div className="flex items-center gap-1">
+                      <div className="flex -space-x-2">
+                        {task.collaborators.slice(0, 3).map((name) => (
+                          <span
+                            key={`${task.id}-${name}`}
+                            title={name}
+                            className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-white bg-primary text-[9px] font-bold text-white"
+                          >
+                            {initials(name)}
+                          </span>
+                        ))}
+                      </div>
+                      <span className="text-[10px] font-semibold text-primary">
+                        {task.collaborators.length} người
+                      </span>
+                    </div>
+                  </div>
                   <p
                     className={[
                       "text-[11px]",
@@ -659,7 +807,7 @@ function ProjectTaskDashboardPage() {
                           : "text-muted-foreground",
                     ].join(" ")}
                   >
-                    Due: {new Date(task.end_time).toLocaleDateString()}
+                    Hạn: {new Date(task.end_time).toLocaleDateString("vi-VN")}
                   </p>
                 </div>
                 <div className="text-right">
@@ -680,38 +828,25 @@ function ProjectTaskDashboardPage() {
               </div>
               <div className="space-y-1">
                 <div className="flex items-center justify-between text-[10px] font-bold text-muted-foreground">
-                  <span>Tiến độ báo cáo (%)</span>
+                  <span>Tiến độ</span>
                   <span>{task.reportedProgress}%</span>
                 </div>
-                <progress
-                  max={100}
-                  value={Math.min(100, task.reportedProgress)}
-                  className="h-1.5 w-full [&::-webkit-progress-bar]:rounded-full [&::-webkit-progress-bar]:bg-slate-100 [&::-webkit-progress-value]:rounded-full [&::-webkit-progress-value]:bg-primary"
-                />
+                <ProgressBar value={task.reportedProgress} />
               </div>
             </Link>
           ))}
         </div>
-        )}
       </section>
 
-      <section className="grid grid-cols-2 gap-3">
-        <PermissionGuard permission="TASK_CREATE">
-          <button
-            type="button"
-            className="h-10 rounded-xl bg-primary px-4 text-xs font-bold text-white"
-            onClick={() => setTaskOpen(true)}
-          >
-            New Task
-          </button>
-        </PermissionGuard>
-        <button
+      <PermissionGuard permission="TASK_CREATE">
+        <Button
           type="button"
-          className="h-10 rounded-xl border-2 border-primary/20 bg-white px-4 text-xs font-bold text-primary"
+          className="w-full"
+          onClick={() => setTaskOpen(true)}
         >
-          Export Report
-        </button>
-      </section>
+          + Tạo công việc mới
+        </Button>
+      </PermissionGuard>
 
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
         <DialogContent className="max-w-lg">
@@ -747,11 +882,11 @@ function ProjectTaskDashboardPage() {
                   <SelectValue placeholder="Chọn trạng thái" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="planning">planning</SelectItem>
-                  <SelectItem value="active">active</SelectItem>
-                  <SelectItem value="on_hold">on_hold</SelectItem>
-                  <SelectItem value="completed">completed</SelectItem>
-                  <SelectItem value="cancelled">cancelled</SelectItem>
+                  <SelectItem value="planning">Lên kế hoạch</SelectItem>
+                  <SelectItem value="in_progress">Đang thực hiện</SelectItem>
+                  <SelectItem value="on_hold">Tạm dừng</SelectItem>
+                  <SelectItem value="completed">Hoàn thành</SelectItem>
+                  <SelectItem value="cancelled">Đã hủy</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -951,6 +1086,27 @@ function ProjectTaskDashboardPage() {
                 onChange={(e) => setTaskDescriptionDraft(e.target.value)}
                 placeholder="Mô tả ngắn..."
               />
+            </div>
+            <div className="space-y-1">
+              <p className="text-xs font-semibold text-muted-foreground">
+                Task phụ thuộc trước (tuỳ chọn)
+              </p>
+              <Select
+                value={taskDependencyDraft}
+                onValueChange={setTaskDependencyDraft}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Chọn task cần hoàn thành trước" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Không chọn</SelectItem>
+                  {taskDependencyCandidates.map((item) => (
+                    <SelectItem key={item.id} value={item.id}>
+                      {item.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
           <DialogFooter>

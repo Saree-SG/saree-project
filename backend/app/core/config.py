@@ -1,5 +1,6 @@
 import secrets
 import warnings
+from pathlib import Path
 from typing import Annotated, Any, Literal
 
 from pydantic import (
@@ -23,11 +24,14 @@ def parse_cors(v: Any) -> list[str] | str:
     raise ValueError(v)
 
 
+_BACKEND_ROOT = Path(__file__).resolve().parents[2]
+
+
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
-        # Prefer ./backend/.env when running inside backend/,
-        # fall back to repo root .env (one level above ./backend/).
-        env_file=(".env", "../.env"),
+        # Load repo root first, then backend/.env so backend-local overrides win
+        # (e.g. ngrok FRONTEND_HOST / CORS for tunnel dev).
+        env_file=("../.env", ".env"),
         env_ignore_empty=True,
         extra="ignore",
     )
@@ -38,12 +42,18 @@ class Settings(BaseSettings):
     REFRESH_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 14
     REFRESH_GRACE_PERIOD_SECONDS: int = 45
     REDIS_URL: str | None = None
+    VAPID_PRIVATE_KEY: str | None = None
+    VAPID_PUBLIC_KEY: str | None = None
+    VAPID_SUBJECT: str = "mailto:admin@saree-erp.com"
     FRONTEND_HOST: str = "http://localhost:5173"
     ENVIRONMENT: Literal["local", "staging", "production"] = "local"
 
-    # Chat / uploads
-    CHAT_UPLOAD_DIR: str = "../uploads/chat"
-    TASK_PROGRESS_UPLOAD_DIR: str = "../uploads/task_progress"
+    # Chat / uploads (anchored to backend/ so cwd does not split save vs static mount)
+    CHAT_UPLOAD_DIR: str = str(_BACKEND_ROOT / "uploads" / "chat")
+    TASK_PROGRESS_UPLOAD_DIR: str = str(_BACKEND_ROOT / "uploads" / "task_progress")
+    QUOTATION_UPLOAD_DIR: str = str(_BACKEND_ROOT / "uploads" / "quotation")
+    CONTRACT_UPLOAD_DIR: str = str(_BACKEND_ROOT / "uploads" / "contract")
+    MATERIAL_REQUEST_UPLOAD_DIR: str = str(_BACKEND_ROOT / "uploads" / "material_requests")
     PUBLIC_BASE_URL: AnyUrl | None = None
 
     BACKEND_CORS_ORIGINS: Annotated[

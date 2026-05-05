@@ -4,11 +4,40 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Full Stack FastAPI Project</title>
+    <title>Saree</title>
     <link rel="icon" type="image/x-icon" href="/assets/images/favicon.png" />
+    <link rel="manifest" href="/manifest.json" />
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <div id="app-splash" style="
+        position:fixed;inset:0;display:flex;flex-direction:column;
+        align-items:center;justify-content:center;
+        background:#ffffff;z-index:9999;gap:16px;
+      ">
+        <img src="/assets/saree_image/logo_saree.png" width="120" height="auto" alt="Saree ERP" />
+        <div style="
+          width:32px;height:32px;border:3px solid #e5e7eb;
+          border-top-color:#111827;border-radius:50%;
+          animation:spin 0.8s linear infinite;
+        "></div>
+        <style>@keyframes spin{to{transform:rotate(360deg)}}</style>
+      </div>
+    </div>
+    <script>
+      // Remove splash once React mounts
+      document.addEventListener('DOMContentLoaded', () => {
+        const observer = new MutationObserver(() => {
+          const root = document.getElementById('root')
+          if (root && root.children.length > 1) {
+            const splash = document.getElementById('app-splash')
+            if (splash) splash.remove()
+            observer.disconnect()
+          }
+        })
+        observer.observe(document.getElementById('root'), { childList: true })
+      })
+    </script>
     <script type="module" src="./src/main.tsx"></script>
   </body>
 </html>

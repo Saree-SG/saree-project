@@ -1,0 +1,61 @@
+  Tóm tắt Plan                                                                               
+                                                                                           
+  Group A — Dashboard UI (frontend only, index.tsx)                                          
+                                                                                             
+  ┌─────┬─────────────────────────────────────────────────────────────────────────────────┐
+  │  #  │                                    Thay đổi                                     │  
+  ├─────┼─────────────────────────────────────────────────────────────────────────────────┤
+  │ 1   │ KPI cards click → smooth scroll xuống section liên quan (thêm id +              │
+  │     │ scrollIntoView)                                                                 │
+  ├─────┼─────────────────────────────────────────────────────────────────────────────────┤  
+  │ 2   │ Reorder cột overdue: Dự án → Tên công việc → Người phụ trách → Trạng thái →     │
+  │     │ Ngày                                                                            │  
+  ├─────┼─────────────────────────────────────────────────────────────────────────────────┤
+  │ 3   │ Badge "Ảnh hưởng tiến độ" → "Trễ X ngày" với màu: vàng (1-3 ngày) / cam (4-7) / │  
+  │     │  đỏ (>7) => Chỗ này là màu vàng là gần tới ngày trễ, cam có thể trễ, giống như cảnh báo 4 cấp độ bên trong task chứ k phải như bạn define                                                                       │  
+  ├─────┼─────────────────────────────────────────────────────────────────────────────────┤
+  │ 4   │ Thêm filter local cho Phân bổ nguồn lực: tên, phòng ban, mức độ                 │  
+  ├─────┼─────────────────────────────────────────────────────────────────────────────────┤  
+  │ 5   │ Thêm text search local cho section Hiệu suất công việc                          │
+  └─────┴─────────────────────────────────────────────────────────────────────────────────┘  
+                                                                                           
+  Group B — Trang nhân sự (frontend + backend)                                               
+   
+  ┌─────┬─────────────────────────────────────────────────────────────────────────────────┐  
+  │  #  │                                    Thay đổi                                     │
+  ├─────┼─────────────────────────────────────────────────────────────────────────────────┤
+  │ 6   │ Trang riêng /dashboard/personnel/:userId — click tên trong leaderboard để vào   │
+  ├─────┼─────────────────────────────────────────────────────────────────────────────────┤
+  │ 7   │ Trên trang đó: Gantt tasks theo thời gian + Bar chart hoàn thành theo           │  
+  │     │ tuần/tháng. Grantt chart đường găng cần thon gọn để nhìn vô là hiểu                                                                    │  
+  └─────┴─────────────────────────────────────────────────────────────────────────────────┘  
+                                                                                             
+  Group C — Module Báo Giá (frontend + backend)                                              
+   
+  ┌─────┬─────────────────────────────────────────────────────────────────────────────────┐  
+  │  #  │                                    Thay đổi                                     │
+  ├─────┼─────────────────────────────────────────────────────────────────────────────────┤
+  │ 8   │ Autocomplete client_company_name từ danh sách công ty đã dùng trước (Nếu chưa có thì define ở lần đầu tiên)            │
+  ├─────┼─────────────────────────────────────────────────────────────────────────────────┤
+  │ 9   │ Đổi tên "Tạo hồ sơ báo giá" → "Tạo dự án mới" (dự án bắt đầu từ quy trình báo   │  
+  │     │ giá) Này sẽ là flow mới hoàn chỉnh kế thừa từ các module đã có thay vì phải vào từng task                                                                           │  
+  ├─────┼─────────────────────────────────────────────────────────────────────────────────┤  
+  │ 10  │ Form tạo thành 2 bước: Bước 1 — Thông tin công ty / Bước 2 — Thông tin dự án, cần có field để điền các thông tin cơ bản của công ty khách hàng, và phần ghi chú để add thêm
+      │  đối với bước khảo sát thì sẽ có các field có sẵn để điền Tên khách hàng: A
+SDT: 09999999
+Chức vụ: Giám đốc
+vị trí khảo sát: Xưởng A
+Thời gian bắt đầu khảo sát 25/4/2026
+Thời gian kết thúc khảo sát 26/4/2026
+Ghi chú:...
+  ├─────┼─────────────────────────────────────────────────────────────────────────────────┤  
+  │ 11  │ Nút Eye/EyeOff để ẩn/hiện giá cuối (total_sale_price)                           │
+  ├─────┼─────────────────────────────────────────────────────────────────────────────────┤  
+  │ 12  │ S3: upload Excel thay vì nhập từng hạng mục; S5: download Excel từ S3 → upload  │
+  │     │ lại + nhập tổng giá; Tab "Items" → "Hồ sơ báo giá" (lần 1, 2, 3...)             │  
+  13        Cần refactor lại lịch sử, lịch sử bên hợp đồng và báo giá phải dùng chung component và reuse lại, và hiện tại bên hợp đồng đang làm tốt hơn, câu chữ dễ hiểu hơn. Update lại lịch sử phần báo giá để khi nhìn vô là biết quá trình của báo giá đó thế nào
+  └─────┴─────────────────────────────────────────────────────────────────────────────────┘
+                                                                                             
+  ---                                                                                      
+  Bạn có muốn bắt đầu implement không? Nếu có, tôi đề nghị làm theo thứ tự: backend trước → 
+  dashboard UI → personnel page → quotation UI.  

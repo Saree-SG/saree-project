@@ -4,6 +4,9 @@ Import order matters: base models first, then relations.
 """
 
 # Core / Auth (keep backward compat with existing code)
+# Push subscriptions
+from app.models.push_subscription import PushSubscription  # noqa: F401
+
 # Notifications
 from app.models.notification import (  # noqa: F401
     Notification,
@@ -89,10 +92,33 @@ from app.models.schemas import (  # noqa: F401
     TokenPayload,
 )
 
+# Quotation
+from app.models.quotation import (  # noqa: F401
+    Quotation,
+    QuotationAttachment,
+    QuotationNegotiationLog,
+    QuotationStageTransition,
+    QuotationVersion,
+)
+
+# Contract
+from app.models.contract import (  # noqa: F401
+    Contract,
+    ContractAttachment,
+    ContractStatusTransition,
+)
+
+# Material Request
+from app.models.material_request import (  # noqa: F401
+    MaterialRequest,
+    MaterialRequestAttachment,
+)
+
 # Task
 from app.models.task import (  # noqa: F401
     AuditLog,
     Task,
+    TaskAssignee,
     TaskComment,
     TaskCommentApprovalUpdate,
     TaskCommentCreate,
@@ -106,6 +132,7 @@ from app.models.task import (  # noqa: F401
     TaskProof,
     TaskProofCreate,
     TaskPublic,
+    TaskLinkedEntity,
     TasksPublic,
     TaskUpdate,
 )

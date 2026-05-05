@@ -63,3 +63,32 @@ export async function markAllRead(): Promise<void> {
     { headers: authHeaders() },
   )
 }
+
+export type PushSubscribePayload = {
+  endpoint: string
+  p256dh: string
+  auth: string
+}
+
+export async function getVapidKey(): Promise<string | null> {
+  const r = await axios.get<{ public_key: string | null }>(
+    `${OpenAPI.BASE}/api/v1/notifications/push/vapid-key`,
+    { headers: authHeaders() },
+  )
+  return r.data.public_key
+}
+
+export async function subscribePush(payload: PushSubscribePayload): Promise<void> {
+  await axios.post(
+    `${OpenAPI.BASE}/api/v1/notifications/push/subscribe`,
+    payload,
+    { headers: authHeaders() },
+  )
+}
+
+export async function unsubscribePush(payload: PushSubscribePayload): Promise<void> {
+  await axios.delete(`${OpenAPI.BASE}/api/v1/notifications/push/unsubscribe`, {
+    data: payload,
+    headers: authHeaders(),
+  })
+}

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import uuid
 from typing import Any
 
@@ -10,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.chat import ChatMember, ChatMessage, ChatRoom
 from app.repositories.chat_repository import ChatRepository
 from app.repositories.user_repository import UserRepository
+from app.services.push_service import send_push_to_user
 
 
 class ChatService:
@@ -121,4 +123,17 @@ class ChatService:
             "message_type": "text",
             "content": content,
         })
+
+        # Push to all other members (fire-and-forget)
+        members = await self._chat_repo.list_members(room_id)
+        sender_name = getattr(current_user, "full_name", None) or getattr(current_user, "email", "")
+        room = await self._chat_repo.get_room_or_404(room_id)
+        title = f"{sender_name}: {room.name}" if room.name else sender_name
+        body = content[:100]
+        for member in members:
+            if member.user_id != current_user.id:
+                asyncio.create_task(
+                    send_push_to_user(self._session, member.user_id, title, body, "chat", room_id)
+                )
+
         return msg

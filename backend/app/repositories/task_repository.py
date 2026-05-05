@@ -9,17 +9,20 @@ from collections.abc import Sequence
 from datetime import datetime, timezone
 
 from fastapi import HTTPException
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database.repository import BaseRepository
 from app.models.task import (
     AuditLog,
     Task,
+    TaskAssignee,
     TaskComment,
     TaskDependency,
+    TaskObserver,
     TaskProgressReport,
     TaskProof,
+    TaskLinkedEntity,
 )
 
 
@@ -86,9 +89,16 @@ class TaskRepository(BaseRepository[Task]):
         return items, total
 
     async def list_assigned_to(self, user_id: uuid.UUID) -> Sequence[Task]:
-        """Return all non-done, non-deleted tasks assigned to a user."""
+        """Return all open tasks where user is primary or extra assignee."""
+        extra_task_ids = (
+            select(TaskAssignee.task_id)
+            .where(TaskAssignee.user_id == user_id)
+        )
         stmt = select(Task).where(
-            Task.assignee_id == user_id,
+            or_(
+                Task.assignee_id == user_id,
+                Task.id.in_(extra_task_ids),  # type: ignore[arg-type]
+            ),
             Task.is_deleted == False,  # noqa: E712
             Task.status.notin_(["done"]),  # type: ignore[attr-defined]
         )
@@ -322,6 +332,15 @@ class TaskRepository(BaseRepository[Task]):
         result = await self._execute(stmt)
         return result.scalars().all()
 
+    async def list_waiting_for_links(self, task_id: uuid.UUID) -> Sequence[TaskDependency]:
+        """Return all FS dependency links where task_id is the dependent (waiting) task."""
+        stmt = select(TaskDependency).where(
+            TaskDependency.dependent_task_id == task_id,
+            TaskDependency.dependency_type == "FS",
+        )
+        result = await self._execute(stmt)
+        return result.scalars().all()
+
     async def list_project_dependencies(self, project_id: uuid.UUID) -> Sequence[TaskDependency]:
         """Return all dependency links where BOTH tasks belong to the given project."""
         task_subq = (
@@ -376,6 +395,108 @@ class TaskRepository(BaseRepository[Task]):
         return {row.task_id: int(row.total) for row in result.all()}
 
     # ------------------------------------------------------------------
+    # Sub-entity: extra assignees
+    # ------------------------------------------------------------------
+
+    async def list_extra_assignees(self, task_id: uuid.UUID) -> list[TaskAssignee]:
+        """Return all extra assignees for a task."""
+        stmt = select(TaskAssignee).where(TaskAssignee.task_id == task_id)
+        result = await self._execute(stmt)
+        return list(result.scalars().all())
+
+    async def get_extra_assignee(
+        self, task_id: uuid.UUID, user_id: uuid.UUID
+    ) -> TaskAssignee | None:
+        """Return a specific extra assignee record or None."""
+        stmt = select(TaskAssignee).where(
+            TaskAssignee.task_id == task_id,
+            TaskAssignee.user_id == user_id,
+        )
+        result = await self._execute(stmt)
+        return result.scalars().first()
+
+    async def add_extra_assignee(
+        self, task_id: uuid.UUID, user_id: uuid.UUID, assigned_by: uuid.UUID
+    ) -> TaskAssignee:
+        """Add an extra assignee; flush to get PK."""
+        row = TaskAssignee(task_id=task_id, user_id=user_id, assigned_by=assigned_by)
+        self._session.add(row)
+        await self._session.flush()
+        await self._session.refresh(row)
+        return row
+
+    async def remove_extra_assignee(self, row: TaskAssignee) -> None:
+        """Delete an extra assignee row."""
+        await self._session.delete(row)
+        await self._session.flush()
+
+    async def is_assignee(self, task_id: uuid.UUID, user_id: uuid.UUID) -> bool:
+        """True if user is primary assignee OR in extra assignees."""
+        task = await self.get_by_id(task_id)
+        if task and task.assignee_id == user_id:
+            return True
+        row = await self.get_extra_assignee(task_id, user_id)
+        return row is not None
+
+    # ------------------------------------------------------------------
+    # Sub-entity: observers
+    # ------------------------------------------------------------------
+
+    async def list_observers(self, task_id: uuid.UUID) -> list[TaskObserver]:
+        """Return all observers for a task."""
+        stmt = select(TaskObserver).where(TaskObserver.task_id == task_id)
+        result = await self._execute(stmt)
+        return list(result.scalars().all())
+
+    async def list_task_linked_entities(self, task_id: uuid.UUID) -> list[TaskLinkedEntity]:
+        """Return linked business entities attached to a task."""
+        stmt = (
+            select(TaskLinkedEntity)
+            .where(TaskLinkedEntity.task_id == task_id)
+            .order_by(TaskLinkedEntity.created_at.desc())
+        )
+        result = await self._execute(stmt)
+        return list(result.scalars().all())
+
+    async def add_task_linked_entity(
+        self,
+        task_id: uuid.UUID,
+        entity_type: str,
+        entity_id: uuid.UUID,
+        created_by: uuid.UUID,
+    ) -> TaskLinkedEntity:
+        """Create a new task-linked business entity row."""
+        row = TaskLinkedEntity(
+            task_id=task_id,
+            entity_type=entity_type,
+            entity_id=entity_id,
+            created_by=created_by,
+        )
+        self._session.add(row)
+        await self._session.flush()
+        await self._session.refresh(row)
+        return row
+
+    async def get_observer(
+        self, task_id: uuid.UUID, user_id: uuid.UUID
+    ) -> TaskObserver | None:
+        """Return a specific observer row or None."""
+        return await self._session.get(TaskObserver, (task_id, user_id))
+
+    async def add_observer(self, task_id: uuid.UUID, user_id: uuid.UUID) -> TaskObserver:
+        """Add an observer; flush to get PK."""
+        row = TaskObserver(task_id=task_id, user_id=user_id)
+        self._session.add(row)
+        await self._session.flush()
+        await self._session.refresh(row)
+        return row
+
+    async def remove_observer(self, row: TaskObserver) -> None:
+        """Delete an observer row."""
+        await self._session.delete(row)
+        await self._session.flush()
+
+    # ------------------------------------------------------------------
     # Sub-entity: audit log
     # ------------------------------------------------------------------
 
@@ -388,3 +509,10 @@ class TaskRepository(BaseRepository[Task]):
         )
         result = await self._execute(stmt)
         return result.scalars().all()
+
+    async def list_by_ids(self, ids: list[uuid.UUID]) -> list[Task]:
+        """Batch-fetch tasks by a list of PKs."""
+        if not ids:
+            return []
+        result = await self._execute(select(Task).where(Task.id.in_(ids)))  # type: ignore[arg-type]
+        return list(result.scalars().all())

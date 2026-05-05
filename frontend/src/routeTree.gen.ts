@@ -16,13 +16,25 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as LayoutRouteImport } from './routes/_layout'
 import { Route as LayoutIndexRouteImport } from './routes/_layout/index'
 import { Route as LayoutSettingsRouteImport } from './routes/_layout/settings'
+import { Route as LayoutReportsRouteImport } from './routes/_layout/reports'
 import { Route as LayoutItemsRouteImport } from './routes/_layout/items'
 import { Route as LayoutCompanyRouteImport } from './routes/_layout/company'
 import { Route as LayoutChatRouteImport } from './routes/_layout/chat'
 import { Route as LayoutAdminRouteImport } from './routes/_layout/admin'
 import { Route as LayoutTasksIndexRouteImport } from './routes/_layout/tasks.index'
+import { Route as LayoutQuotationsIndexRouteImport } from './routes/_layout/quotations.index'
+import { Route as LayoutProjectsIndexRouteImport } from './routes/_layout/projects.index'
+import { Route as LayoutMaterialRequestsIndexRouteImport } from './routes/_layout/material-requests.index'
+import { Route as LayoutContractsIndexRouteImport } from './routes/_layout/contracts.index'
 import { Route as LayoutTasksTaskIdRouteImport } from './routes/_layout/tasks.$taskId'
+import { Route as LayoutQuotationsReportsRouteImport } from './routes/_layout/quotations.reports'
+import { Route as LayoutQuotationsNewRouteImport } from './routes/_layout/quotations.new'
+import { Route as LayoutQuotationsQuotationIdRouteImport } from './routes/_layout/quotations.$quotationId'
 import { Route as LayoutProjectsProjectIdRouteImport } from './routes/_layout/projects.$projectId'
+import { Route as LayoutMaterialRequestsRequestIdRouteImport } from './routes/_layout/material-requests.$requestId'
+import { Route as LayoutContractsNewRouteImport } from './routes/_layout/contracts.new'
+import { Route as LayoutContractsContractIdRouteImport } from './routes/_layout/contracts.$contractId'
+import { Route as LayoutDashboardPersonnelUserIdRouteImport } from './routes/_layout/dashboard.personnel.$userId'
 
 const SignupRoute = SignupRouteImport.update({
   id: '/signup',
@@ -58,6 +70,11 @@ const LayoutSettingsRoute = LayoutSettingsRouteImport.update({
   path: '/settings',
   getParentRoute: () => LayoutRoute,
 } as any)
+const LayoutReportsRoute = LayoutReportsRouteImport.update({
+  id: '/reports',
+  path: '/reports',
+  getParentRoute: () => LayoutRoute,
+} as any)
 const LayoutItemsRoute = LayoutItemsRouteImport.update({
   id: '/items',
   path: '/items',
@@ -83,16 +100,76 @@ const LayoutTasksIndexRoute = LayoutTasksIndexRouteImport.update({
   path: '/tasks/',
   getParentRoute: () => LayoutRoute,
 } as any)
+const LayoutQuotationsIndexRoute = LayoutQuotationsIndexRouteImport.update({
+  id: '/quotations/',
+  path: '/quotations/',
+  getParentRoute: () => LayoutRoute,
+} as any)
+const LayoutProjectsIndexRoute = LayoutProjectsIndexRouteImport.update({
+  id: '/projects/',
+  path: '/projects/',
+  getParentRoute: () => LayoutRoute,
+} as any)
+const LayoutMaterialRequestsIndexRoute =
+  LayoutMaterialRequestsIndexRouteImport.update({
+    id: '/material-requests/',
+    path: '/material-requests/',
+    getParentRoute: () => LayoutRoute,
+  } as any)
+const LayoutContractsIndexRoute = LayoutContractsIndexRouteImport.update({
+  id: '/contracts/',
+  path: '/contracts/',
+  getParentRoute: () => LayoutRoute,
+} as any)
 const LayoutTasksTaskIdRoute = LayoutTasksTaskIdRouteImport.update({
   id: '/tasks/$taskId',
   path: '/tasks/$taskId',
   getParentRoute: () => LayoutRoute,
 } as any)
+const LayoutQuotationsReportsRoute = LayoutQuotationsReportsRouteImport.update({
+  id: '/quotations/reports',
+  path: '/quotations/reports',
+  getParentRoute: () => LayoutRoute,
+} as any)
+const LayoutQuotationsNewRoute = LayoutQuotationsNewRouteImport.update({
+  id: '/quotations/new',
+  path: '/quotations/new',
+  getParentRoute: () => LayoutRoute,
+} as any)
+const LayoutQuotationsQuotationIdRoute =
+  LayoutQuotationsQuotationIdRouteImport.update({
+    id: '/quotations/$quotationId',
+    path: '/quotations/$quotationId',
+    getParentRoute: () => LayoutRoute,
+  } as any)
 const LayoutProjectsProjectIdRoute = LayoutProjectsProjectIdRouteImport.update({
   id: '/projects/$projectId',
   path: '/projects/$projectId',
   getParentRoute: () => LayoutRoute,
 } as any)
+const LayoutMaterialRequestsRequestIdRoute =
+  LayoutMaterialRequestsRequestIdRouteImport.update({
+    id: '/material-requests/$requestId',
+    path: '/material-requests/$requestId',
+    getParentRoute: () => LayoutRoute,
+  } as any)
+const LayoutContractsNewRoute = LayoutContractsNewRouteImport.update({
+  id: '/contracts/new',
+  path: '/contracts/new',
+  getParentRoute: () => LayoutRoute,
+} as any)
+const LayoutContractsContractIdRoute =
+  LayoutContractsContractIdRouteImport.update({
+    id: '/contracts/$contractId',
+    path: '/contracts/$contractId',
+    getParentRoute: () => LayoutRoute,
+  } as any)
+const LayoutDashboardPersonnelUserIdRoute =
+  LayoutDashboardPersonnelUserIdRouteImport.update({
+    id: '/dashboard/personnel/$userId',
+    path: '/dashboard/personnel/$userId',
+    getParentRoute: () => LayoutRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof LayoutIndexRoute
@@ -104,10 +181,22 @@ export interface FileRoutesByFullPath {
   '/chat': typeof LayoutChatRoute
   '/company': typeof LayoutCompanyRoute
   '/items': typeof LayoutItemsRoute
+  '/reports': typeof LayoutReportsRoute
   '/settings': typeof LayoutSettingsRoute
+  '/contracts/$contractId': typeof LayoutContractsContractIdRoute
+  '/contracts/new': typeof LayoutContractsNewRoute
+  '/material-requests/$requestId': typeof LayoutMaterialRequestsRequestIdRoute
   '/projects/$projectId': typeof LayoutProjectsProjectIdRoute
+  '/quotations/$quotationId': typeof LayoutQuotationsQuotationIdRoute
+  '/quotations/new': typeof LayoutQuotationsNewRoute
+  '/quotations/reports': typeof LayoutQuotationsReportsRoute
   '/tasks/$taskId': typeof LayoutTasksTaskIdRoute
+  '/contracts/': typeof LayoutContractsIndexRoute
+  '/material-requests/': typeof LayoutMaterialRequestsIndexRoute
+  '/projects/': typeof LayoutProjectsIndexRoute
+  '/quotations/': typeof LayoutQuotationsIndexRoute
   '/tasks/': typeof LayoutTasksIndexRoute
+  '/dashboard/personnel/$userId': typeof LayoutDashboardPersonnelUserIdRoute
 }
 export interface FileRoutesByTo {
   '/login': typeof LoginRoute
@@ -118,11 +207,23 @@ export interface FileRoutesByTo {
   '/chat': typeof LayoutChatRoute
   '/company': typeof LayoutCompanyRoute
   '/items': typeof LayoutItemsRoute
+  '/reports': typeof LayoutReportsRoute
   '/settings': typeof LayoutSettingsRoute
   '/': typeof LayoutIndexRoute
+  '/contracts/$contractId': typeof LayoutContractsContractIdRoute
+  '/contracts/new': typeof LayoutContractsNewRoute
+  '/material-requests/$requestId': typeof LayoutMaterialRequestsRequestIdRoute
   '/projects/$projectId': typeof LayoutProjectsProjectIdRoute
+  '/quotations/$quotationId': typeof LayoutQuotationsQuotationIdRoute
+  '/quotations/new': typeof LayoutQuotationsNewRoute
+  '/quotations/reports': typeof LayoutQuotationsReportsRoute
   '/tasks/$taskId': typeof LayoutTasksTaskIdRoute
+  '/contracts': typeof LayoutContractsIndexRoute
+  '/material-requests': typeof LayoutMaterialRequestsIndexRoute
+  '/projects': typeof LayoutProjectsIndexRoute
+  '/quotations': typeof LayoutQuotationsIndexRoute
   '/tasks': typeof LayoutTasksIndexRoute
+  '/dashboard/personnel/$userId': typeof LayoutDashboardPersonnelUserIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -135,11 +236,23 @@ export interface FileRoutesById {
   '/_layout/chat': typeof LayoutChatRoute
   '/_layout/company': typeof LayoutCompanyRoute
   '/_layout/items': typeof LayoutItemsRoute
+  '/_layout/reports': typeof LayoutReportsRoute
   '/_layout/settings': typeof LayoutSettingsRoute
   '/_layout/': typeof LayoutIndexRoute
+  '/_layout/contracts/$contractId': typeof LayoutContractsContractIdRoute
+  '/_layout/contracts/new': typeof LayoutContractsNewRoute
+  '/_layout/material-requests/$requestId': typeof LayoutMaterialRequestsRequestIdRoute
   '/_layout/projects/$projectId': typeof LayoutProjectsProjectIdRoute
+  '/_layout/quotations/$quotationId': typeof LayoutQuotationsQuotationIdRoute
+  '/_layout/quotations/new': typeof LayoutQuotationsNewRoute
+  '/_layout/quotations/reports': typeof LayoutQuotationsReportsRoute
   '/_layout/tasks/$taskId': typeof LayoutTasksTaskIdRoute
+  '/_layout/contracts/': typeof LayoutContractsIndexRoute
+  '/_layout/material-requests/': typeof LayoutMaterialRequestsIndexRoute
+  '/_layout/projects/': typeof LayoutProjectsIndexRoute
+  '/_layout/quotations/': typeof LayoutQuotationsIndexRoute
   '/_layout/tasks/': typeof LayoutTasksIndexRoute
+  '/_layout/dashboard/personnel/$userId': typeof LayoutDashboardPersonnelUserIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -153,10 +266,22 @@ export interface FileRouteTypes {
     | '/chat'
     | '/company'
     | '/items'
+    | '/reports'
     | '/settings'
+    | '/contracts/$contractId'
+    | '/contracts/new'
+    | '/material-requests/$requestId'
     | '/projects/$projectId'
+    | '/quotations/$quotationId'
+    | '/quotations/new'
+    | '/quotations/reports'
     | '/tasks/$taskId'
+    | '/contracts/'
+    | '/material-requests/'
+    | '/projects/'
+    | '/quotations/'
     | '/tasks/'
+    | '/dashboard/personnel/$userId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/login'
@@ -167,11 +292,23 @@ export interface FileRouteTypes {
     | '/chat'
     | '/company'
     | '/items'
+    | '/reports'
     | '/settings'
     | '/'
+    | '/contracts/$contractId'
+    | '/contracts/new'
+    | '/material-requests/$requestId'
     | '/projects/$projectId'
+    | '/quotations/$quotationId'
+    | '/quotations/new'
+    | '/quotations/reports'
     | '/tasks/$taskId'
+    | '/contracts'
+    | '/material-requests'
+    | '/projects'
+    | '/quotations'
     | '/tasks'
+    | '/dashboard/personnel/$userId'
   id:
     | '__root__'
     | '/_layout'
@@ -183,11 +320,23 @@ export interface FileRouteTypes {
     | '/_layout/chat'
     | '/_layout/company'
     | '/_layout/items'
+    | '/_layout/reports'
     | '/_layout/settings'
     | '/_layout/'
+    | '/_layout/contracts/$contractId'
+    | '/_layout/contracts/new'
+    | '/_layout/material-requests/$requestId'
     | '/_layout/projects/$projectId'
+    | '/_layout/quotations/$quotationId'
+    | '/_layout/quotations/new'
+    | '/_layout/quotations/reports'
     | '/_layout/tasks/$taskId'
+    | '/_layout/contracts/'
+    | '/_layout/material-requests/'
+    | '/_layout/projects/'
+    | '/_layout/quotations/'
     | '/_layout/tasks/'
+    | '/_layout/dashboard/personnel/$userId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -249,6 +398,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LayoutSettingsRouteImport
       parentRoute: typeof LayoutRoute
     }
+    '/_layout/reports': {
+      id: '/_layout/reports'
+      path: '/reports'
+      fullPath: '/reports'
+      preLoaderRoute: typeof LayoutReportsRouteImport
+      parentRoute: typeof LayoutRoute
+    }
     '/_layout/items': {
       id: '/_layout/items'
       path: '/items'
@@ -284,6 +440,34 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LayoutTasksIndexRouteImport
       parentRoute: typeof LayoutRoute
     }
+    '/_layout/quotations/': {
+      id: '/_layout/quotations/'
+      path: '/quotations'
+      fullPath: '/quotations/'
+      preLoaderRoute: typeof LayoutQuotationsIndexRouteImport
+      parentRoute: typeof LayoutRoute
+    }
+    '/_layout/projects/': {
+      id: '/_layout/projects/'
+      path: '/projects'
+      fullPath: '/projects/'
+      preLoaderRoute: typeof LayoutProjectsIndexRouteImport
+      parentRoute: typeof LayoutRoute
+    }
+    '/_layout/material-requests/': {
+      id: '/_layout/material-requests/'
+      path: '/material-requests'
+      fullPath: '/material-requests/'
+      preLoaderRoute: typeof LayoutMaterialRequestsIndexRouteImport
+      parentRoute: typeof LayoutRoute
+    }
+    '/_layout/contracts/': {
+      id: '/_layout/contracts/'
+      path: '/contracts'
+      fullPath: '/contracts/'
+      preLoaderRoute: typeof LayoutContractsIndexRouteImport
+      parentRoute: typeof LayoutRoute
+    }
     '/_layout/tasks/$taskId': {
       id: '/_layout/tasks/$taskId'
       path: '/tasks/$taskId'
@@ -291,11 +475,60 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LayoutTasksTaskIdRouteImport
       parentRoute: typeof LayoutRoute
     }
+    '/_layout/quotations/reports': {
+      id: '/_layout/quotations/reports'
+      path: '/quotations/reports'
+      fullPath: '/quotations/reports'
+      preLoaderRoute: typeof LayoutQuotationsReportsRouteImport
+      parentRoute: typeof LayoutRoute
+    }
+    '/_layout/quotations/new': {
+      id: '/_layout/quotations/new'
+      path: '/quotations/new'
+      fullPath: '/quotations/new'
+      preLoaderRoute: typeof LayoutQuotationsNewRouteImport
+      parentRoute: typeof LayoutRoute
+    }
+    '/_layout/quotations/$quotationId': {
+      id: '/_layout/quotations/$quotationId'
+      path: '/quotations/$quotationId'
+      fullPath: '/quotations/$quotationId'
+      preLoaderRoute: typeof LayoutQuotationsQuotationIdRouteImport
+      parentRoute: typeof LayoutRoute
+    }
     '/_layout/projects/$projectId': {
       id: '/_layout/projects/$projectId'
       path: '/projects/$projectId'
       fullPath: '/projects/$projectId'
       preLoaderRoute: typeof LayoutProjectsProjectIdRouteImport
+      parentRoute: typeof LayoutRoute
+    }
+    '/_layout/material-requests/$requestId': {
+      id: '/_layout/material-requests/$requestId'
+      path: '/material-requests/$requestId'
+      fullPath: '/material-requests/$requestId'
+      preLoaderRoute: typeof LayoutMaterialRequestsRequestIdRouteImport
+      parentRoute: typeof LayoutRoute
+    }
+    '/_layout/contracts/new': {
+      id: '/_layout/contracts/new'
+      path: '/contracts/new'
+      fullPath: '/contracts/new'
+      preLoaderRoute: typeof LayoutContractsNewRouteImport
+      parentRoute: typeof LayoutRoute
+    }
+    '/_layout/contracts/$contractId': {
+      id: '/_layout/contracts/$contractId'
+      path: '/contracts/$contractId'
+      fullPath: '/contracts/$contractId'
+      preLoaderRoute: typeof LayoutContractsContractIdRouteImport
+      parentRoute: typeof LayoutRoute
+    }
+    '/_layout/dashboard/personnel/$userId': {
+      id: '/_layout/dashboard/personnel/$userId'
+      path: '/dashboard/personnel/$userId'
+      fullPath: '/dashboard/personnel/$userId'
+      preLoaderRoute: typeof LayoutDashboardPersonnelUserIdRouteImport
       parentRoute: typeof LayoutRoute
     }
   }
@@ -306,11 +539,23 @@ interface LayoutRouteChildren {
   LayoutChatRoute: typeof LayoutChatRoute
   LayoutCompanyRoute: typeof LayoutCompanyRoute
   LayoutItemsRoute: typeof LayoutItemsRoute
+  LayoutReportsRoute: typeof LayoutReportsRoute
   LayoutSettingsRoute: typeof LayoutSettingsRoute
   LayoutIndexRoute: typeof LayoutIndexRoute
+  LayoutContractsContractIdRoute: typeof LayoutContractsContractIdRoute
+  LayoutContractsNewRoute: typeof LayoutContractsNewRoute
+  LayoutMaterialRequestsRequestIdRoute: typeof LayoutMaterialRequestsRequestIdRoute
   LayoutProjectsProjectIdRoute: typeof LayoutProjectsProjectIdRoute
+  LayoutQuotationsQuotationIdRoute: typeof LayoutQuotationsQuotationIdRoute
+  LayoutQuotationsNewRoute: typeof LayoutQuotationsNewRoute
+  LayoutQuotationsReportsRoute: typeof LayoutQuotationsReportsRoute
   LayoutTasksTaskIdRoute: typeof LayoutTasksTaskIdRoute
+  LayoutContractsIndexRoute: typeof LayoutContractsIndexRoute
+  LayoutMaterialRequestsIndexRoute: typeof LayoutMaterialRequestsIndexRoute
+  LayoutProjectsIndexRoute: typeof LayoutProjectsIndexRoute
+  LayoutQuotationsIndexRoute: typeof LayoutQuotationsIndexRoute
   LayoutTasksIndexRoute: typeof LayoutTasksIndexRoute
+  LayoutDashboardPersonnelUserIdRoute: typeof LayoutDashboardPersonnelUserIdRoute
 }
 
 const LayoutRouteChildren: LayoutRouteChildren = {
@@ -318,11 +563,23 @@ const LayoutRouteChildren: LayoutRouteChildren = {
   LayoutChatRoute: LayoutChatRoute,
   LayoutCompanyRoute: LayoutCompanyRoute,
   LayoutItemsRoute: LayoutItemsRoute,
+  LayoutReportsRoute: LayoutReportsRoute,
   LayoutSettingsRoute: LayoutSettingsRoute,
   LayoutIndexRoute: LayoutIndexRoute,
+  LayoutContractsContractIdRoute: LayoutContractsContractIdRoute,
+  LayoutContractsNewRoute: LayoutContractsNewRoute,
+  LayoutMaterialRequestsRequestIdRoute: LayoutMaterialRequestsRequestIdRoute,
   LayoutProjectsProjectIdRoute: LayoutProjectsProjectIdRoute,
+  LayoutQuotationsQuotationIdRoute: LayoutQuotationsQuotationIdRoute,
+  LayoutQuotationsNewRoute: LayoutQuotationsNewRoute,
+  LayoutQuotationsReportsRoute: LayoutQuotationsReportsRoute,
   LayoutTasksTaskIdRoute: LayoutTasksTaskIdRoute,
+  LayoutContractsIndexRoute: LayoutContractsIndexRoute,
+  LayoutMaterialRequestsIndexRoute: LayoutMaterialRequestsIndexRoute,
+  LayoutProjectsIndexRoute: LayoutProjectsIndexRoute,
+  LayoutQuotationsIndexRoute: LayoutQuotationsIndexRoute,
   LayoutTasksIndexRoute: LayoutTasksIndexRoute,
+  LayoutDashboardPersonnelUserIdRoute: LayoutDashboardPersonnelUserIdRoute,
 }
 
 const LayoutRouteWithChildren =

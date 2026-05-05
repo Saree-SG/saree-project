@@ -11,34 +11,44 @@ import uuid
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlmodel import SQLModel
 
 from app.api.deps import AsyncSessionDep, CurrentUser
+from app.core.config import settings
 from app.models.task import (
     AuditLogPublic,
     GanttPublic,
+    TaskAssigneeAdd,
     TaskCommentApprovalUpdate,
     TaskCommentCreate,
     TaskCommentPublic,
     TaskCreate,
     TaskDependencyCreate,
+    TaskObserverAdd,
     TaskProgressPhotoUploadPublic,
     TaskProgressReportCreate,
     TaskProgressReportPublic,
     TaskProofCreate,
     TaskProofPublic,
     TaskPublic,
+    TaskReassignRequest,
     TasksPublic,
     TaskStatusUpdate,
     TaskUpdate,
 )
+from app.models.material_request import MaterialRequestCreate, MaterialRequestPublic
 from app.models.user import User
+from app.services.material_request_service import MaterialRequestService
 from app.services.task_service import TaskService
 from app.shared.permission import require_permission
 from app.shared.storage import LocalStorage
 
 router = APIRouter(tags=["tasks"])
 
-_progress_storage = LocalStorage(base_dir="uploads/task_progress", static_url_segment="task_progress")
+_progress_storage = LocalStorage(
+    base_dir=settings.TASK_PROGRESS_UPLOAD_DIR,
+    static_url_segment="task-progress",
+)
 
 
 # ---------------------------------------------------------------------------
@@ -181,6 +191,82 @@ async def delete_task(
 
 
 # ---------------------------------------------------------------------------
+# Extra assignees
+# ---------------------------------------------------------------------------
+
+@router.post(
+    "/tasks/{task_id}/assignees",
+    response_model=TaskPublic,
+    status_code=status.HTTP_201_CREATED,
+)
+async def add_extra_assignee(
+    task_id: uuid.UUID,
+    body: TaskAssigneeAdd,
+    session: AsyncSessionDep,
+    current_user: User = Depends(require_permission("TASK_UPDATE")),
+) -> TaskPublic:
+    """Add a co-worker to a task (extra assignee)."""
+    return await _svc(session).add_extra_assignee(task_id, body, current_user)
+
+
+@router.delete("/tasks/{task_id}/assignees/{user_id}", response_model=TaskPublic)
+async def remove_extra_assignee(
+    task_id: uuid.UUID,
+    user_id: uuid.UUID,
+    session: AsyncSessionDep,
+    current_user: User = Depends(require_permission("TASK_UPDATE")),
+) -> TaskPublic:
+    """Remove a co-worker from a task."""
+    return await _svc(session).remove_extra_assignee(task_id, user_id, current_user)
+
+
+# ---------------------------------------------------------------------------
+# Observers
+# ---------------------------------------------------------------------------
+
+@router.post(
+    "/tasks/{task_id}/observers",
+    response_model=TaskPublic,
+    status_code=status.HTTP_201_CREATED,
+)
+async def add_observer(
+    task_id: uuid.UUID,
+    body: TaskObserverAdd,
+    session: AsyncSessionDep,
+    current_user: User = Depends(require_permission("TASK_UPDATE")),
+) -> TaskPublic:
+    """Add a watch-only observer to a task."""
+    return await _svc(session).add_observer(task_id, body, current_user)
+
+
+@router.delete("/tasks/{task_id}/observers/{user_id}", response_model=TaskPublic)
+async def remove_observer(
+    task_id: uuid.UUID,
+    user_id: uuid.UUID,
+    session: AsyncSessionDep,
+    current_user: User = Depends(require_permission("TASK_UPDATE")),
+) -> TaskPublic:
+    """Remove an observer from a task."""
+    return await _svc(session).remove_observer(task_id, user_id, current_user)
+
+
+# ---------------------------------------------------------------------------
+# Reassign primary assignee
+# ---------------------------------------------------------------------------
+
+@router.patch("/tasks/{task_id}/reassign", response_model=TaskPublic)
+async def reassign_task(
+    task_id: uuid.UUID,
+    body: TaskReassignRequest,
+    session: AsyncSessionDep,
+    current_user: User = Depends(require_permission("TASK_UPDATE")),
+) -> TaskPublic:
+    """Transfer the primary assignee to another user.
+    Old assignee is moved to extra_assignees automatically."""
+    return await _svc(session).reassign_task(task_id, body, current_user)
+
+
+# ---------------------------------------------------------------------------
 # Clone
 # ---------------------------------------------------------------------------
 
@@ -290,13 +376,50 @@ async def list_proofs(
 # ---------------------------------------------------------------------------
 # Dependencies (Gantt links)
 # ---------------------------------------------------------------------------
+# Linked material request (replaces old linked-entity for procurement/inventory)
+# ---------------------------------------------------------------------------
+
+class _LinkedEntityBody(SQLModel):
+    """Simplified body — frontend compatibility shim."""
+    item_name: str | None = None
+    quantity: float = 1
+    unit: str = "cái"
+    reason: str = "Yêu cầu từ công việc"
+
+
+@router.post("/tasks/{task_id}/linked-entity", response_model=MaterialRequestPublic)
+async def create_linked_material_request(
+    task_id: uuid.UUID,
+    body: _LinkedEntityBody,
+    session: AsyncSessionDep,
+    current_user: User = Depends(require_permission("TASK_UPDATE")),
+) -> MaterialRequestPublic:
+    """Create a material request linked to this task."""
+    from app.core.config import settings as _settings
+    from app.shared.storage import LocalStorage
+    storage = LocalStorage(
+        base_dir=_settings.MATERIAL_REQUEST_UPLOAD_DIR,
+        static_url_segment="material-requests",
+    )
+    svc = MaterialRequestService(session, storage)
+    mr_body = MaterialRequestCreate(
+        item_name=body.item_name or f"Yêu cầu từ task {task_id}",
+        quantity=body.quantity,
+        unit=body.unit,
+        reason=body.reason,
+        task_id=task_id,
+    )
+    return await svc.create(mr_body, current_user)
+
+
+# ---------------------------------------------------------------------------
 
 @router.post("/tasks/{task_id}/dependencies", status_code=status.HTTP_201_CREATED)
 async def add_dependency(
     task_id: uuid.UUID,
     body: TaskDependencyCreate,
     session: AsyncSessionDep,
-    _current_user: User = Depends(require_permission("TASK_UPDATE")),
+    _current_user: CurrentUser,
 ) -> dict:
     """Create a dependency link between two tasks."""
     return await _svc(session).add_dependency(task_id, body, _current_user)
@@ -310,7 +433,7 @@ async def remove_dependency(
     task_id: uuid.UUID,
     dep_id: uuid.UUID,
     session: AsyncSessionDep,
-    _current_user: User = Depends(require_permission("TASK_UPDATE")),
+    _current_user: CurrentUser,
 ) -> None:
     """Remove a dependency link and recalculate the critical path."""
     await _svc(session).remove_dependency(task_id, dep_id, _current_user)

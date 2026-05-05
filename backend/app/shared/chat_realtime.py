@@ -106,9 +106,19 @@ class ChatConnectionManager:
     async def _sender_loop(self, websocket: WebSocket, q: asyncio.Queue[str]) -> None:
         """Continuously send queued messages to the websocket."""
 
-        while True:
-            data = await q.get()
-            await websocket.send_text(data)
+        try:
+            while True:
+                data = await q.get()
+                try:
+                    await websocket.send_text(data)
+                except Exception:
+                    # Socket is broken; drain remaining items so the queue
+                    # doesn't block producers, then exit cleanly.
+                    while not q.empty():
+                        q.get_nowait()
+                    return
+        except asyncio.CancelledError:
+            pass
 
 
 chat_manager = ChatConnectionManager()
@@ -170,14 +180,22 @@ class ChatRedisFanout:
                 pass
 
     async def publish(self, room_id: uuid.UUID, payload: dict[str, Any]) -> None:
-        """Publish payload to the room channel."""
+        """Publish payload to the room channel.
 
+        Falls back to in-process broadcast if Redis is unavailable so the
+        caller never crashes due to a transient Redis failure.
+        """
         if not self.enabled():
             await chat_manager.broadcast_json(room_id, payload)
             return
         await self.ensure_room_listener(room_id)
         client = self._get_client()
-        await client.publish(self._channel(room_id), json.dumps(payload, default=str))
+        try:
+            await client.publish(self._channel(room_id), json.dumps(payload, default=str))
+        except Exception:
+            # Redis publish failed — fall back to local broadcast so at least
+            # clients on this node receive the message.
+            await chat_manager.broadcast_json(room_id, payload)
 
     async def _listen_room(self, room_id: uuid.UUID) -> None:
         """Listen for redis events for room and broadcast locally."""

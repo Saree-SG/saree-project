@@ -17,6 +17,7 @@ export type GanttTask = {
   reported_progress_total: number
   assignee_name: string | null
   assignor_name: string | null
+  blocked_by?: Array<{ id: string; name: string; status: string }>
 }
 
 export type GanttDependency = {
@@ -62,6 +63,22 @@ export async function removeDependency(
 ): Promise<void> {
   await axios.delete(
     `${OpenAPI.BASE}/api/v1/tasks/${blockingTaskId}/dependencies/${depId}`,
+    { headers: authHeaders() },
+  )
+}
+
+export async function addDependency(
+  blockingTaskId: string,
+  dependentTaskId: string,
+): Promise<void> {
+  await axios.post(
+    `${OpenAPI.BASE}/api/v1/tasks/${blockingTaskId}/dependencies`,
+    {
+      blocking_task_id: blockingTaskId,
+      dependent_task_id: dependentTaskId,
+      dependency_type: "FS",
+      lag_hours: 0,
+    },
     { headers: authHeaders() },
   )
 }

@@ -228,6 +228,8 @@ This includes using Docker Compose, custom local domains, `.env` configurations,
 
 Prerequisites: Docker Desktop (or Docker Engine + Compose).
 
+Which Compose file is which (dev vs prod vs Traefik): **[DOCKER_COMPOSE.md](./DOCKER_COMPOSE.md)**. Shortcuts: `./scripts/docker.sh dev …` (same as `docker compose …` on your machine).
+
 ```bash
 docker compose up --build
 ```

@@ -2,8 +2,12 @@ import type { LucideIcon } from "lucide-react"
 import {
   Building2,
   ClipboardList,
+  FileSignature,
+  FileText,
+  FolderOpen,
   LayoutDashboard,
   MessageCircle,
+  PackagePlus,
   Settings,
   Users,
 } from "lucide-react"
@@ -22,6 +26,10 @@ export function buildLayoutNavItems(
   isSuperuser: boolean,
   showManagement: boolean,
   showCompanyManagement: boolean,
+  canAccessProjects?: boolean,
+  canAccessQuotations?: boolean,
+  canAccessContracts?: boolean,
+  canAccessMaterialRequests?: boolean,
 ): LayoutNavItem[] {
   const items: LayoutNavItem[] = []
   if (showManagement) {
@@ -37,6 +45,38 @@ export function buildLayoutNavItems(
     path: "/tasks",
     matchPrefix: true,
   })
+  if (canAccessProjects) {
+    items.push({
+      icon: FolderOpen,
+      title: "Dự án",
+      path: "/projects",
+      matchPrefix: true,
+    })
+  }
+  if (canAccessQuotations) {
+    items.push({
+      icon: FileText,
+      title: "Báo Giá",
+      path: "/quotations",
+      matchPrefix: true,
+    })
+  }
+  if (canAccessContracts) {
+    items.push({
+      icon: FileSignature,
+      title: "Hợp Đồng",
+      path: "/contracts",
+      matchPrefix: true,
+    })
+  }
+  if (canAccessMaterialRequests) {
+    items.push({
+      icon: PackagePlus,
+      title: "Yêu Cầu Vật Tư",
+      path: "/material-requests",
+      matchPrefix: true,
+    })
+  }
   items.push({ icon: MessageCircle, title: "Chat", path: "/chat" })
   if (showCompanyManagement) {
     items.push({ icon: Building2, title: "Quản lý công ty", path: "/company" })
@@ -54,9 +94,13 @@ export function buildMobileBottomNavItems(
   isSuperuser: boolean,
   showManagement: boolean,
   showCompanyManagement: boolean,
+  canAccessProjects?: boolean,
+  canAccessQuotations?: boolean,
+  canAccessContracts?: boolean,
+  canAccessMaterialRequests?: boolean,
 ): LayoutNavItem[] {
   return [
-    ...buildLayoutNavItems(isSuperuser, showManagement, showCompanyManagement),
+    ...buildLayoutNavItems(isSuperuser, showManagement, showCompanyManagement, canAccessProjects, canAccessQuotations, canAccessContracts, canAccessMaterialRequests),
     { icon: Settings, title: "Cài đặt", path: "/settings" },
   ]
 }

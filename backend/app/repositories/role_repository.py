@@ -98,6 +98,26 @@ class RoleRepository(BaseRepository[Role]):
         await self._session.refresh(dept)
         return dept
 
+    async def get_department_or_404(self, dept_id: uuid.UUID) -> Department:
+        """Fetch department or raise 404."""
+        dept = await self.get_department(dept_id)
+        if not dept:
+            raise HTTPException(status_code=404, detail="Department not found")
+        return dept
+
+    async def update_department(self, dept: Department, data: dict) -> Department:
+        """Apply partial update to a department."""
+        for field, val in data.items():
+            setattr(dept, field, val)
+        self._session.add(dept)
+        await self._session.flush()
+        await self._session.refresh(dept)
+        return dept
+
+    async def delete_department(self, dept: Department) -> None:
+        """Hard-delete a department."""
+        await self._session.delete(dept)
+
     # ------------------------------------------------------------------
     # Role
     # ------------------------------------------------------------------

@@ -43,20 +43,40 @@ class RotateResult:
 class _MemoryKV:
     """Small in-memory TTL key-value store for local fallback."""
 
+    _EVICT_EVERY = 100  # run a full eviction sweep every N writes
+
     def __init__(self) -> None:
         """Initialize in-memory store."""
 
         self._data: dict[str, tuple[str, int | None]] = {}
+        self._write_count: int = 0
+
+    def _evict_expired(self) -> None:
+        """Purge all entries whose TTL has elapsed."""
+        now = _now_ts()
+        expired_keys = [
+            k for k, (_, exp) in self._data.items() if exp is not None and exp <= now
+        ]
+        for k in expired_keys:
+            del self._data[k]
+
+    def _maybe_evict(self) -> None:
+        self._write_count += 1
+        if self._write_count >= self._EVICT_EVERY:
+            self._write_count = 0
+            self._evict_expired()
 
     def setex(self, key: str, seconds: int, value: str) -> None:
         """Set key with expiration in seconds."""
 
         self._data[key] = (value, _now_ts() + seconds)
+        self._maybe_evict()
 
     def set(self, key: str, value: str) -> None:
         """Set key without expiration."""
 
         self._data[key] = (value, None)
+        self._maybe_evict()
 
     def get(self, key: str) -> str | None:
         """Get key value if not expired."""

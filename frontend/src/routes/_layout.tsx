@@ -102,6 +102,11 @@ function Layout() {
         ) {
           void queryClient.invalidateQueries({ queryKey: ["my-tasks-dashboard"] })
           void queryClient.invalidateQueries({ queryKey: ["project-dashboard"] })
+          // Refresh notification bell immediately on any relevant event
+          if (!isOwnEvent) {
+            void queryClient.invalidateQueries({ queryKey: ["notifications-unread-count"] })
+            void queryClient.invalidateQueries({ queryKey: ["notifications-list"] })
+          }
         }
 
         if (!isOwnEvent && !isOnThisTaskPage) {
@@ -188,7 +193,7 @@ function Layout() {
       <AppSidebar />
       <SidebarInset className="flex min-h-svh flex-col">
         <MobileAppHeader />
-        <header className="sticky top-0 z-10 hidden h-16 shrink-0 items-center gap-2 border-b px-4 md:flex">
+        <header className="supports-backdrop-filter:bg-background/80 sticky top-0 z-20 hidden h-16 shrink-0 items-center gap-2 border-b bg-background/95 px-4 backdrop-blur md:flex">
           <SidebarTrigger className="-ml-1 text-muted-foreground" />
           <div className="ml-auto flex items-center gap-2">
             {isRefreshing ? (
