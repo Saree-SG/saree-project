@@ -35,7 +35,7 @@ def _utcnow_aware() -> datetime:
 def _utcnow_naive() -> datetime:
     """Return naive UTC (for TIMESTAMP WITHOUT TIME ZONE columns)."""
 
-    return datetime.utcnow()
+    return datetime.now(timezone.utc).replace(tzinfo=None)
 
 
 class TaskRepository(BaseRepository[Task]):
@@ -167,6 +167,16 @@ class TaskRepository(BaseRepository[Task]):
         task.is_deleted = True
         task.deleted_at = _utcnow_naive()
         self._session.add(task)
+
+    async def delete_all_dependencies(self, task_id: uuid.UUID) -> None:
+        """Remove all dependency links where this task is either the blocker or the dependent."""
+        from sqlalchemy import delete as sa_delete
+        stmt = sa_delete(TaskDependency).where(
+            (TaskDependency.blocking_task_id == task_id)
+            | (TaskDependency.dependent_task_id == task_id)
+        )
+        await self._session.execute(stmt)
+        await self._session.flush()
 
     async def set_status(self, task: Task, new_status: str) -> Task:
         """Update task status and set actual_end_time when done."""

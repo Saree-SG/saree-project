@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import uuid
 
-from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import SQLModel
 
@@ -492,11 +492,29 @@ async def upload_progress_report_photo(
 )
 async def add_progress_report(
     task_id: uuid.UUID,
-    body: TaskProgressReportCreate,
     session: AsyncSessionDep,
     current_user: User = Depends(require_permission("PROOF_UPLOAD")),
+    file: UploadFile = File(...),
+    progress_percent: int = Form(..., ge=1, le=100),
+    note: str | None = Form(default=None),
 ) -> TaskProgressReportPublic:
-    """Worker submits photo URL and percent; auto transitions task status."""
+    """
+    Upload progress photo and create the report atomically in one request.
+    Accepts multipart/form-data: file (image), progress_percent (1-100), note (optional).
+    """
+    content_type = (file.content_type or "").lower()
+    if not content_type.startswith("image/"):
+        raise HTTPException(422, "File must be an image")
+    try:
+        stored = await _progress_storage.save_upload(file)
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from exc
+
+    body = TaskProgressReportCreate(
+        photo_url=stored.public_url,
+        progress_percent=progress_percent,
+        note=note,
+    )
     return await _svc(session).add_progress_report(task_id, body, current_user)
 
 

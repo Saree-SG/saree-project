@@ -132,6 +132,30 @@ def _run_cascade(session: Session, req: CascadeRequest) -> None:
                 session.add(task)
                 session.flush()
 
+                # If the shifted end_time now exceeds the parent's deadline, extend parent too.
+                if task.parent_id is not None:
+                    parent = session.get(Task, task.parent_id)
+                    if parent is not None and not parent.is_deleted and task.end_time > parent.end_time:
+                        old_parent_end = parent.end_time
+                        parent.end_time = task.end_time
+                        parent.updated_at = datetime.now(timezone.utc)
+                        session.add(parent)
+                        session.flush()
+                        parent_log = AuditLog(
+                            actor_id=req.actor_id,
+                            action="task.cascade_parent_extended",
+                            entity_type="task",
+                            entity_id=parent.id,
+                            old_value={"end_time": old_parent_end.isoformat()},
+                            new_value={
+                                "end_time": parent.end_time.isoformat(),
+                                "cascade_request_id": str(req.id),
+                                "reason": "child_task_exceeded_parent_deadline",
+                            },
+                        )
+                        session.add(parent_log)
+                        session.flush()
+
                 log = AuditLog(
                     actor_id=req.actor_id,
                     action="task.cascade_delayed",

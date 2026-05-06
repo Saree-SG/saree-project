@@ -24,6 +24,7 @@ celery_app = Celery(
         "app.jobs.outbox_dispatcher",
         "app.jobs.cascade_job",
         "app.jobs.daily_jobs",
+        "app.jobs.delay_expiry_job",
     ],
 )
 
@@ -52,6 +53,10 @@ celery_app.conf.update(
         "daily-summary": {
             "task": "app.jobs.daily_jobs.send_daily_summary",
             "schedule": crontab(hour=7, minute=0),
+        },
+        "delay-expiry": {
+            "task": "app.jobs.delay_expiry_job.expire_pending_delay_requests",
+            "schedule": crontab(minute=0),  # every hour
         },
     },
 )
