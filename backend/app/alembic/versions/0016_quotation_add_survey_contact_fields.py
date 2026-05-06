@@ -16,10 +16,17 @@ depends_on = None
 
 
 def upgrade():
-    op.add_column('quotation', sa.Column('client_contact_title', sqlmodel.sql.sqltypes.AutoString(length=100), nullable=True))
-    op.add_column('quotation', sa.Column('survey_note', sa.Text(), nullable=True))
-    op.add_column('quotation', sa.Column('survey_start_date', sa.Date(), nullable=True))
-    op.add_column('quotation', sa.Column('survey_end_date', sa.Date(), nullable=True))
+    from sqlalchemy import inspect as sa_inspect
+    insp = sa_inspect(op.get_bind())
+    existing = {c["name"] for c in insp.get_columns("quotation")}
+    if "client_contact_title" not in existing:
+        op.add_column('quotation', sa.Column('client_contact_title', sqlmodel.sql.sqltypes.AutoString(length=100), nullable=True))
+    if "survey_note" not in existing:
+        op.add_column('quotation', sa.Column('survey_note', sa.Text(), nullable=True))
+    if "survey_start_date" not in existing:
+        op.add_column('quotation', sa.Column('survey_start_date', sa.Date(), nullable=True))
+    if "survey_end_date" not in existing:
+        op.add_column('quotation', sa.Column('survey_end_date', sa.Date(), nullable=True))
 
 
 def downgrade():

@@ -15,6 +15,10 @@ depends_on = None
 
 
 def upgrade() -> None:
+    from sqlalchemy import inspect as sa_inspect
+    insp = sa_inspect(op.get_bind())
+    if "phase" in {c["name"] for c in insp.get_columns("contractattachment")}:
+        return
     op.add_column(
         "contractattachment",
         sa.Column("phase", sa.String(length=50), nullable=True),

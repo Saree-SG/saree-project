@@ -25,7 +25,7 @@ def upgrade():
     from app.models import org, project, task, user  # noqa: F401
 
     bind = op.get_bind()
-    SQLModel.metadata.create_all(bind=bind)
+    SQLModel.metadata.create_all(bind=bind, checkfirst=True)
 
 
 def downgrade():

@@ -17,6 +17,9 @@ depends_on = None
 
 def upgrade():
     """Create tasklinkedentity table for one-to-many task links."""
+    from sqlalchemy import inspect as sa_inspect
+    if sa_inspect(op.get_bind()).has_table("tasklinkedentity"):
+        return
     op.create_table(
         "tasklinkedentity",
         sa.Column("id", sa.UUID(), nullable=False),

@@ -15,11 +15,20 @@ depends_on = None
 
 
 def upgrade():
-    op.add_column("task", sa.Column("module_tag", sa.String(50), nullable=True))
-    op.add_column("task", sa.Column("linked_entity_type", sa.String(50), nullable=True))
-    op.add_column("task", sa.Column("linked_entity_id", sa.UUID(), nullable=True))
-    op.create_index("ix_task_module_tag", "task", ["module_tag"])
-    op.create_index("ix_task_linked_entity", "task", ["linked_entity_type", "linked_entity_id"])
+    from sqlalchemy import inspect as sa_inspect
+    insp = sa_inspect(op.get_bind())
+    existing_cols = {c["name"] for c in insp.get_columns("task")}
+    existing_idx = {i["name"] for i in insp.get_indexes("task")}
+    if "module_tag" not in existing_cols:
+        op.add_column("task", sa.Column("module_tag", sa.String(50), nullable=True))
+    if "linked_entity_type" not in existing_cols:
+        op.add_column("task", sa.Column("linked_entity_type", sa.String(50), nullable=True))
+    if "linked_entity_id" not in existing_cols:
+        op.add_column("task", sa.Column("linked_entity_id", sa.UUID(), nullable=True))
+    if "ix_task_module_tag" not in existing_idx:
+        op.create_index("ix_task_module_tag", "task", ["module_tag"])
+    if "ix_task_linked_entity" not in existing_idx:
+        op.create_index("ix_task_linked_entity", "task", ["linked_entity_type", "linked_entity_id"])
 
 
 def downgrade():
