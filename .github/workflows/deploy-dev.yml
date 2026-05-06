@@ -6,6 +6,7 @@ on:
 jobs:
   deploy:
     runs-on: [self-hosted, dev]
+    environment: dev
     if: github.ref == 'refs/heads/dev'
 
     env:
