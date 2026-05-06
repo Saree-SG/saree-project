@@ -62,4 +62,4 @@ jobs:
       - name: Health check
         shell: cmd
         run: |
-          powershell -NoProfile -ExecutionPolicy Bypass -Command "$backendUrl = 'http://127.0.0.1:%BACKEND_PORT%/api/v1/utils/health-check/'; $frontendUrl = 'http://127.0.0.1:%FRONTEND_PORT%/'; $ok = $false; for ($i = 0; $i -lt 30; $i++) { try { Invoke-WebRequest -Uri $backendUrl -UseBasicParsing ^| Out-Null; $ok = $true; break } catch { Start-Sleep -Seconds 2 } }; if (-not $ok) { throw 'Backend health check timed out' }; Invoke-WebRequest -Uri $frontendUrl -UseBasicParsing ^| Out-Null"
+          powershell -NoProfile -ExecutionPolicy Bypass -Command "$backendUrl = 'http://127.0.0.1:%BACKEND_PORT%/api/v1/utils/health-check/'; $frontendUrl = 'http://127.0.0.1:%FRONTEND_PORT%/'; $ok = $false; for ($i = 0; $i -lt 45; $i++) { try { Invoke-WebRequest -Uri $backendUrl -UseBasicParsing ^| Out-Null; $ok = $true; break } catch { Start-Sleep -Seconds 3 } }; if (-not $ok) { throw 'Backend health check timed out' }; Invoke-WebRequest -Uri $frontendUrl -UseBasicParsing ^| Out-Null"
