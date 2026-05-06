@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useState } from "react"
 import { getVapidKey, subscribePush, unsubscribePush } from "@/modules/notifications/notificationApi"
 
-function urlBase64ToUint8Array(base64String: string): Uint8Array {
+function urlBase64ToUint8Array(base64String: string): Uint8Array<ArrayBuffer> {
   const padding = "=".repeat((4 - (base64String.length % 4)) % 4)
   const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/")
   const rawData = atob(base64)
-  return Uint8Array.from([...rawData].map((c) => c.charCodeAt(0)))
+  return Uint8Array.from([...rawData].map((c) => c.charCodeAt(0))) as Uint8Array<ArrayBuffer>
 }
 
 function subToPayload(sub: PushSubscription) {

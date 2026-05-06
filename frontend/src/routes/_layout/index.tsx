@@ -55,7 +55,6 @@ import { clearSession } from "@/modules/auth/tokenStore"
 import { getMyPendingQuotations } from "@/modules/quotation/quotationApi"
 import { STAGE_CONFIG } from "@/modules/quotation/stageConfig"
 
-import { useMyPermissions } from "@/hooks/useMyPermissions"
 import { listCompanyMembers, readMyPermissions } from "@/modules/rbac/rbacApi"
 import { canAccessDashboard } from "@/utils/accountAccess"
 
@@ -381,9 +380,6 @@ function Dashboard() {
     queryFn: getMyPendingQuotations,
     refetchInterval: 60_000,
   })
-
-  const myPermissionsQuery = useMyPermissions()
-  const myPermissions = myPermissionsQuery.data ?? []
 
   const createProjectMutation = useMutation({
     mutationFn: async (payload: ProjectCreate) => {

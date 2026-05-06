@@ -13,7 +13,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { useToast } from "@/hooks/use-toast"
+import { toast } from "sonner"
 
 export const Route = createFileRoute("/_layout/material-requests/")({
   component: MaterialRequestsPage,
@@ -112,7 +112,6 @@ async function decideMaterialRequest(
 
 function MaterialRequestsPage() {
   const queryClient = useQueryClient()
-  const { toast } = useToast()
   const [createOpen, setCreateOpen] = useState(false)
   const [itemName, setItemName] = useState("")
   const [quantity, setQuantity] = useState("1")
@@ -130,12 +129,12 @@ function MaterialRequestsPage() {
   const createMutation = useMutation({
     mutationFn: createMaterialRequest,
     onSuccess: () => {
-      toast({ title: "Đã tạo yêu cầu vật tư" })
+      toast.success("Đã tạo yêu cầu vật tư")
       setCreateOpen(false)
       setItemName(""); setQuantity("1"); setUnit("cái"); setReason("")
       void queryClient.invalidateQueries({ queryKey: ["material-requests"] })
     },
-    onError: () => toast({ title: "Lỗi khi tạo yêu cầu", variant: "destructive" }),
+    onError: () => toast.error("Lỗi khi tạo yêu cầu"),
   })
 
   const reviewMutation = useMutation({
@@ -144,11 +143,11 @@ function MaterialRequestsPage() {
         ? reviewMaterialRequest(id, { approved, note })
         : decideMaterialRequest(id, { approved, note }),
     onSuccess: () => {
-      toast({ title: "Đã cập nhật yêu cầu" })
+      toast.success("Đã cập nhật yêu cầu")
       setReviewOpen(null); setReviewNote("")
       void queryClient.invalidateQueries({ queryKey: ["material-requests"] })
     },
-    onError: () => toast({ title: "Lỗi khi duyệt yêu cầu", variant: "destructive" }),
+    onError: () => toast.error("Lỗi khi duyệt yêu cầu"),
   })
 
   const requests = listQuery.data ?? []

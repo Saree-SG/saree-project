@@ -557,7 +557,7 @@ function MyTasksPage() {
         <BandSection
           key={band.key}
           band={band}
-          items={data?.[band.key] ?? []}
+          items={(data?.[band.key] ?? []) as MyTaskItem[]}
         />
       ))}
     </div>
