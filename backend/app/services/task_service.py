@@ -66,7 +66,7 @@ ALLOWED_DEPENDENCY_TYPES = {"FS", "SS", "FF", "SF"}
 def _utcnow() -> datetime:
     """Return a naive UTC timestamp (matches DB TIMESTAMP WITHOUT TZ)."""
 
-    return datetime.utcnow()
+    return datetime.now(timezone.utc).replace(tzinfo=None)
 
 
 def _naive_utc(dt: datetime) -> datetime:
@@ -501,6 +501,9 @@ class TaskService:
         self, body: TaskCreate, level: int, current_user: User
     ) -> TaskPublic:
         """Create a task; validate timeline, write audit, enqueue cascade outbox."""
+        if body.progress_weight is not None and not (1 <= body.progress_weight <= 100):
+            raise HTTPException(422, "progress_weight phải từ 1 đến 100 (hoặc để trống = tự động 100%).")
+
         update_data = body.model_dump()
         try:
             await validate_timeline(
@@ -703,6 +706,10 @@ class TaskService:
         old_data = task.model_dump()
         update_data = body.model_dump(exclude_unset=True)
 
+        if "progress_weight" in update_data and update_data["progress_weight"] is not None:
+            if not (1 <= update_data["progress_weight"] <= 100):
+                raise HTTPException(422, "progress_weight phải từ 1 đến 100 (hoặc để trống = tự động 100%).")
+
         if "start_time" in update_data or "end_time" in update_data:
             merged = {**old_data, **update_data}
             try:
@@ -768,8 +775,18 @@ class TaskService:
         old_status = task.status
 
         is_assignee = await self._task_repo.is_assignee(task_id, current_user.id)
-        if not is_assignee and not current_user.is_superuser:
+        is_assignor = task.assignor_id == current_user.id
+
+        # "review" → "done" or "review" → "in_progress": only assignor (or superuser) can decide.
+        if old_status == "review" and body.status in ("done", "in_progress"):
+            if not is_assignor and not current_user.is_superuser:
+                raise HTTPException(403, "Chỉ người giao việc mới có thể duyệt hoặc từ chối công việc đang review.")
+        elif not is_assignee and not current_user.is_superuser:
             raise HTTPException(403, "Can only update status of own tasks")
+
+        # Only assignee can submit for review.
+        if body.status == "review" and not is_assignee and not current_user.is_superuser:
+            raise HTTPException(403, "Chỉ người thực hiện mới có thể chuyển sang trạng thái review.")
 
         if body.status in ("in_progress", "done"):
             waiting_links = await self._task_repo.list_waiting_for_links(task_id)
@@ -834,13 +851,24 @@ class TaskService:
             "task_name": task.name,
         }
         await self._notify_task_participants(task, "task.status_changed", user_payload)
+        actor_name = _display_name(current_user) or "Nhân viên"
         if body.status == "done" and task.assignor_id != current_user.id:
-            actor_name = _display_name(current_user) or "Nhân viên"
             await self._notify(
                 user_id=task.assignor_id,
                 notif_type="task_done",
                 title=f'Công việc "{task.name}" đã hoàn thành',
                 body=f"Hoàn thành bởi {actor_name}",
+                entity_type="task",
+                entity_id=task_id,
+            )
+
+        # Notify assignee when assignor rejects the review (→ in_progress).
+        if old_status == "review" and body.status == "in_progress":
+            await self._notify(
+                user_id=task.assignee_id,
+                notif_type="task_review_rejected",
+                title=f'Công việc "{task.name}" cần chỉnh sửa',
+                body=f"{actor_name} đã yêu cầu chỉnh sửa lại.",
                 entity_type="task",
                 entity_id=task_id,
             )
@@ -863,6 +891,11 @@ class TaskService:
         existing = await self._task_repo.get_extra_assignee(task_id, body.user_id)
         if existing:
             raise HTTPException(409, "Người này đã được thêm vào task.")
+
+        # Auto-remove from observers so the user can be promoted to extra assignee.
+        existing_obs = await self._task_repo.get_observer(task_id, body.user_id)
+        if existing_obs:
+            await self._task_repo.remove_observer(existing_obs)
 
         user = await self._user_repo.get_by_id(body.user_id)
         if user is None:
@@ -1056,6 +1089,8 @@ class TaskService:
     async def delete_task(self, task_id: uuid.UUID, current_user: User) -> None:
         """Soft-delete a task and write audit log — all-or-nothing."""
         task = await self._task_repo.get_or_404(task_id)
+        # Remove dependency links so other tasks are no longer blocked by this deleted task.
+        await self._task_repo.delete_all_dependencies(task_id)
         await self._task_repo.soft_delete(task)
         await self._audit_repo.write(
             actor_id=current_user.id,

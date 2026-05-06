@@ -50,7 +50,7 @@ import {
   type TaskObserverPublic,
   type TaskWithPeople,
 } from "@/modules/tasks/taskApi"
-import { uploadTaskProgressPhoto } from "@/modules/tasks/taskProgressApi"
+import { submitProgressReport } from "@/modules/tasks/taskProgressApi"
 import { handleError } from "@/utils"
 import { resolveBackendMediaUrl } from "@/utils/mediaUrl"
 
@@ -344,17 +344,11 @@ function TaskDetailPage() {
 
   const addProgressReportMutation = useMutation({
     mutationFn: async (payload: { pct: number; file: File }) => {
-      const { photo_url } = await uploadTaskProgressPhoto({
+      return submitProgressReport({
         taskId,
         file: payload.file,
-      })
-      return TasksService.addProgressReport({
-        taskId,
-        requestBody: {
-          photo_url,
-          progress_percent: payload.pct,
-          note: progressNoteInput.trim() || undefined,
-        },
+        progressPercent: payload.pct,
+        note: progressNoteInput.trim() || undefined,
       })
     },
     onSuccess: async () => {
@@ -2606,7 +2600,8 @@ function TaskDetailPage() {
                 !subtaskName.trim() ||
                 !subtaskAssigneeId ||
                 !subtaskStartTime.trim() ||
-                !subtaskEndTime.trim()
+                !subtaskEndTime.trim() ||
+                totalChildWeight + (parseInt(subtaskWeightDraft || "0", 10) || 0) > 100
               }
               onClick={() => createSubtaskMutation.mutate()}
             >
