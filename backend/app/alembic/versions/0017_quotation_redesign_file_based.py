@@ -19,33 +19,42 @@ depends_on = None
 
 
 def upgrade():
-    # Drop line items table
-    op.drop_table('quotationlineitem')
+    from sqlalchemy import inspect as sa_inspect, text
+    insp = sa_inspect(op.get_bind())
+
+    # Drop line items table (may not exist on fresh install if 5edf was skipped)
+    if insp.has_table('quotationlineitem'):
+        op.drop_table('quotationlineitem')
 
     # Add document_category to attachments
-    op.add_column(
-        'quotationattachment',
-        sa.Column('document_category', sqlmodel.sql.sqltypes.AutoString(length=30),
-                  nullable=False, server_default='other')
-    )
+    qa_cols = {c["name"] for c in insp.get_columns('quotationattachment')}
+    if 'document_category' not in qa_cols:
+        op.add_column(
+            'quotationattachment',
+            sa.Column('document_category', sqlmodel.sql.sqltypes.AutoString(length=30),
+                      nullable=False, server_default='other')
+        )
 
-    # Replace pricing fields on quotation with total_contract_value
-    op.add_column(
-        'quotation',
-        sa.Column('total_contract_value', sa.Float(), nullable=True)
-    )
-    op.drop_column('quotation', 'price_coefficient')
-    op.drop_column('quotation', 'total_cost_price')
-    op.drop_column('quotation', 'total_sale_price')
+    q_cols = {c["name"] for c in insp.get_columns('quotation')}
+    if 'total_contract_value' not in q_cols:
+        op.add_column('quotation', sa.Column('total_contract_value', sa.Float(), nullable=True))
+    for col in ('price_coefficient', 'total_cost_price', 'total_sale_price'):
+        if col in q_cols:
+            op.drop_column('quotation', col)
 
-    # Increase action field length from 20 to 50
-    op.alter_column(
-        'quotationstagetransition',
-        'action',
-        existing_type=sqlmodel.sql.sqltypes.AutoString(length=20),
-        type_=sqlmodel.sql.sqltypes.AutoString(length=50),
-        existing_nullable=False,
-    )
+    # Increase action field length from 20 to 50 (skip if already correct)
+    bind = op.get_bind()
+    row = bind.execute(text(
+        "SELECT character_maximum_length FROM information_schema.columns "
+        "WHERE table_name='quotationstagetransition' AND column_name='action'"
+    )).fetchone()
+    if row and row[0] != 50:
+        op.alter_column(
+            'quotationstagetransition', 'action',
+            existing_type=sqlmodel.sql.sqltypes.AutoString(length=20),
+            type_=sqlmodel.sql.sqltypes.AutoString(length=50),
+            existing_nullable=False,
+        )
 
 
 def downgrade():
