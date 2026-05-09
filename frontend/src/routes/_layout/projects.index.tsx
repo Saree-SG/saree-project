@@ -11,9 +11,17 @@ import { useMemo, useState } from "react"
 
 export const Route = createFileRoute("/_layout/projects/")({
   beforeLoad: async () => {
-    let permissions
+    let permissions: string[] = []
+    let isSuperuser = false
     try {
-      permissions = await import("@/modules/rbac/rbacApi").then((m) => m.readMyPermissions())
+      const [rbac, { UsersService }] = await Promise.all([
+        import("@/modules/rbac/rbacApi"),
+        import("@/client"),
+      ])
+      ;[permissions] = await Promise.all([
+        rbac.readMyPermissions(),
+        UsersService.readUserMe().then((u) => { isSuperuser = Boolean(u.is_superuser) }),
+      ])
     } catch (err: unknown) {
       const e = err as { status?: number }
       if (e?.status === 401) {
@@ -22,7 +30,7 @@ export const Route = createFileRoute("/_layout/projects/")({
       }
       throw err
     }
-    const allowed = hasPermission(permissions, "PROJECT_VIEW") || hasPermission(permissions, "PROJECT_VIEW_ALL")
+    const allowed = isSuperuser || hasPermission(permissions, "PROJECT_VIEW") || hasPermission(permissions, "PROJECT_VIEW_ALL")
     if (!allowed) {
       throw redirect({ to: "/" })
     }

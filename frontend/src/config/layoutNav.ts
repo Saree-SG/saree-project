@@ -7,7 +7,6 @@ import {
   FolderOpen,
   LayoutDashboard,
   MessageCircle,
-  PackagePlus,
   Settings,
   Users,
 } from "lucide-react"
@@ -29,7 +28,6 @@ export function buildLayoutNavItems(
   canAccessProjects?: boolean,
   canAccessQuotations?: boolean,
   canAccessContracts?: boolean,
-  canAccessMaterialRequests?: boolean,
 ): LayoutNavItem[] {
   const items: LayoutNavItem[] = []
   if (showManagement) {
@@ -69,14 +67,6 @@ export function buildLayoutNavItems(
       matchPrefix: true,
     })
   }
-  if (canAccessMaterialRequests) {
-    items.push({
-      icon: PackagePlus,
-      title: "Yêu Cầu Vật Tư",
-      path: "/material-requests",
-      matchPrefix: true,
-    })
-  }
   items.push({ icon: MessageCircle, title: "Chat", path: "/chat" })
   if (showCompanyManagement) {
     items.push({ icon: Building2, title: "Quản lý công ty", path: "/company" })
@@ -97,10 +87,9 @@ export function buildMobileBottomNavItems(
   canAccessProjects?: boolean,
   canAccessQuotations?: boolean,
   canAccessContracts?: boolean,
-  canAccessMaterialRequests?: boolean,
 ): LayoutNavItem[] {
   return [
-    ...buildLayoutNavItems(isSuperuser, showManagement, showCompanyManagement, canAccessProjects, canAccessQuotations, canAccessContracts, canAccessMaterialRequests),
+    ...buildLayoutNavItems(isSuperuser, showManagement, showCompanyManagement, canAccessProjects, canAccessQuotations, canAccessContracts),
     { icon: Settings, title: "Cài đặt", path: "/settings" },
   ]
 }

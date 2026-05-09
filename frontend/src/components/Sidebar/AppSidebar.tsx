@@ -9,7 +9,7 @@ import {
 import { buildLayoutNavItems } from "@/config/layoutNav"
 import useAuth from "@/hooks/useAuth"
 import { useMyPermissions } from "@/hooks/useMyPermissions"
-import { canAccessContract, canAccessDashboard, canAccessMaterialRequest, canAccessProject, canAccessQuotation, canManageCompany } from "@/utils/accountAccess"
+import { canAccessContract, canAccessDashboard, canAccessProject, canAccessQuotation, canManageCompany } from "@/utils/accountAccess"
 import { Main } from "./Main"
 import { User } from "./User"
 
@@ -34,9 +34,6 @@ export function AppSidebar() {
   const showContracts =
     Boolean(currentUser?.is_superuser) || canAccessContract(permissions)
 
-  const showMaterialRequests =
-    Boolean(currentUser?.is_superuser) || canAccessMaterialRequest(permissions)
-
   const items = buildLayoutNavItems(
     Boolean(currentUser?.is_superuser),
     showManagement,
@@ -44,7 +41,6 @@ export function AppSidebar() {
     showProjects,
     showQuotations,
     showContracts,
-    showMaterialRequests,
   )
 
   return (
