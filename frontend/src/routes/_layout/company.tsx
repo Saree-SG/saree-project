@@ -8,11 +8,12 @@ import { canManageCompany } from "@/utils/accountAccess"
 
 export const Route = createFileRoute("/_layout/company")({
   beforeLoad: async () => {
-    let permissions
+    let permissions: string[]
+    let isSuperuser = false
     try {
       ;[permissions] = await Promise.all([
         readMyPermissions(),
-        UsersService.readUserMe(),
+        UsersService.readUserMe().then((u) => { isSuperuser = Boolean(u.is_superuser) }),
       ])
     } catch (errorValue) {
       if (errorValue instanceof ApiError && errorValue.status === 401) {
@@ -21,7 +22,7 @@ export const Route = createFileRoute("/_layout/company")({
       }
       throw errorValue
     }
-    const allowed = canManageCompany(permissions)
+    const allowed = isSuperuser || canManageCompany(permissions)
     if (!allowed) {
       throw redirect({ to: "/" })
     }

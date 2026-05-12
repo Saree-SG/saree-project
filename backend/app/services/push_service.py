@@ -78,7 +78,6 @@ def _build_url(entity_type: str, entity_id: uuid.UUID) -> str:
         "task": "/tasks/",
         "project": "/projects/",
         "quotation": "/quotations/",
-        "material_request": "/material-requests/",
         "chat": "/chat?room=",
     }
     path = routes.get(entity_type, "/")

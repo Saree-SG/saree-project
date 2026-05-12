@@ -17,6 +17,10 @@ depends_on = None
 
 def upgrade() -> None:
     """Add progress_weight to task (nullable int — % of parent this subtask covers)."""
+    from sqlalchemy import inspect as sa_inspect
+    insp = sa_inspect(op.get_bind())
+    if "progress_weight" in {c["name"] for c in insp.get_columns("task")}:
+        return
     op.add_column(
         "task",
         sa.Column("progress_weight", sa.Integer(), nullable=True),

@@ -37,7 +37,6 @@ export const QueryKeys = {
   dashboardOverdue: (params: unknown) => ["dashboard", "overdue", params] as const,
   dashboardProjectsCatalog: () => ["dashboard", "projects-catalog"] as const,
   dashboardPendingQuotations: () => ["dashboard", "pending-quotations"] as const,
-  dashboardPendingMaterialRequests: (permissions: unknown) => ["dashboard", "pending-material-requests", permissions] as const,
   dashboardDepartments: (companyId: string | undefined) => ["dashboard", "departments", companyId] as const,
   dashboardUsers: () => ["dashboard", "users"] as const,
   dashboardMe: () => ["dashboard", "me"] as const,
@@ -46,10 +45,6 @@ export const QueryKeys = {
   // Notifications
   notificationsUnreadCount: () => ["notifications-unread-count"] as const,
   notificationsList: () => ["notifications-list"] as const,
-
-  // Material Requests
-  materialRequests: (statusFilter?: string) => ["material-requests", statusFilter] as const,
-  materialRequest: (requestId: string) => ["material-request", requestId] as const,
 
   // Contracts
   contract: (contractId: string) => ["contract", contractId] as const,

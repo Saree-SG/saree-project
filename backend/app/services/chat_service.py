@@ -9,6 +9,7 @@ from typing import Any
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.chat import ChatMember, ChatMessage, ChatRoom
+from app.models.notification import Notification
 from app.repositories.chat_repository import ChatRepository
 from app.repositories.user_repository import UserRepository
 from app.services.push_service import send_push_to_user
@@ -124,7 +125,7 @@ class ChatService:
             "content": content,
         })
 
-        # Push to all other members (fire-and-forget)
+        # Notify all other members: persist in-app notification + fire web push
         members = await self._chat_repo.list_members(room_id)
         sender_name = getattr(current_user, "full_name", None) or getattr(current_user, "email", "")
         room = await self._chat_repo.get_room_or_404(room_id)
@@ -132,8 +133,18 @@ class ChatService:
         body = content[:100]
         for member in members:
             if member.user_id != current_user.id:
+                notif = Notification(
+                    user_id=member.user_id,
+                    type="chat_message",
+                    title=title,
+                    body=body,
+                    entity_type="chat",
+                    entity_id=room_id,
+                )
+                self._session.add(notif)
                 asyncio.create_task(
                     send_push_to_user(self._session, member.user_id, title, body, "chat", room_id)
                 )
+        await self._session.flush()
 
         return msg

@@ -18,6 +18,10 @@ depends_on = None
 
 def upgrade() -> None:
     """Create notification table."""
+    from sqlalchemy import inspect as sa_inspect
+    insp = sa_inspect(op.get_bind())
+    if insp.has_table("notification"):
+        return
     op.create_table(
         "notification",
         sa.Column("id", postgresql.UUID(), nullable=False),

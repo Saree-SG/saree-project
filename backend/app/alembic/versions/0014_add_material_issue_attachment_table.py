@@ -16,6 +16,9 @@ depends_on = None
 
 
 def upgrade():
+    from sqlalchemy import inspect as sa_inspect
+    if sa_inspect(op.get_bind()).has_table("materialissueattachment"):
+        return
     op.create_table(
         "materialissueattachment",
         sa.Column("id", sa.UUID(), nullable=False),

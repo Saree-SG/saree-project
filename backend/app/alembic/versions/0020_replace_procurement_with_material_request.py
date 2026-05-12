@@ -77,24 +77,24 @@ def upgrade() -> None:
     bind = op.get_bind()
 
     # ----------------------------------------------------------------
-    # 1. Drop old tables (order matters for FK constraints)
+    # 1. Drop old tables — use CASCADE to handle FK deps regardless of order.
+    #    Include both snake_case and camelCase variants for compatibility.
     # ----------------------------------------------------------------
     _drop_if_exists = [
-        "material_issue_item",
-        "material_issue",
-        "stock_movement",
-        "inventory_item",
-        "purchase_order_item",
-        "supplier_quote",
-        "purchase_order",
-        "purchase_request_item",
-        "purchase_request",
+        "materialissueitem", "material_issue_item",
+        "materialissue", "material_issue",
+        "stockmovement", "stock_movement",
+        "inventoryitem", "inventory_item",
+        "purchaseorderitem", "purchase_order_item",
+        "supplierquote", "supplier_quote",
+        "purchaseorder", "purchase_order",
+        "purchaserequestitem", "purchase_request_item",
+        "purchaserequest", "purchase_request",
         "vendor",
         "supplier",
     ]
     for tbl in _drop_if_exists:
-        if _table_exists(bind, tbl):
-            op.drop_table(tbl)
+        bind.execute(sa.text(f'DROP TABLE IF EXISTS "{tbl}" CASCADE'))
 
     # ----------------------------------------------------------------
     # 2. Create material_request table

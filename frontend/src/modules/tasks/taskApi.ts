@@ -38,26 +38,6 @@ function authHeaders() {
   return { Authorization: `Bearer ${getAccessToken() || ""}` }
 }
 
-export interface MaterialRequestLinkBody {
-  item_name?: string
-  quantity?: number
-  unit?: string
-  reason?: string
-}
-
-/** Create a material request linked to this task. */
-export async function createLinkedEntity(
-  taskId: string,
-  body: MaterialRequestLinkBody = {},
-): Promise<unknown> {
-  const res = await axios.post<unknown>(
-    `${OpenAPI.BASE}/api/v1/tasks/${taskId}/linked-entity`,
-    body,
-    { headers: authHeaders() },
-  )
-  return res.data
-}
-
 /** Unlink the business entity from a task (clear linked_entity fields). */
 export async function unlinkEntity(taskId: string): Promise<TaskPublic> {
   const res = await axios.patch<TaskPublic>(

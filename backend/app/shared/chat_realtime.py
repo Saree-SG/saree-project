@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 import json
 import uuid
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 from fastapi import WebSocket
@@ -20,50 +20,96 @@ except Exception:
 
 @dataclass(slots=True)
 class ChatConnection:
-    """Represents a single connected WebSocket client."""
+    """Represents a single connected WebSocket client (multiplexed across rooms)."""
 
+    connection_id: uuid.UUID
     websocket: WebSocket
     user_id: uuid.UUID
-    room_id: uuid.UUID
     send_queue: asyncio.Queue[str]
     sender_task: asyncio.Task[None]
+    subscribed_rooms: set[uuid.UUID] = field(default_factory=set)
 
 
 class ChatConnectionManager:
-    """Manage active room connections with backpressure protection."""
+    """Manage active connections (identity-based) with backpressure protection.
+
+    Connections are tracked by a server-generated `connection_id` rather than
+    `user_id`, so that multiple concurrent connections from the same user
+    (multiple tabs / devices / reconnect races) can coexist without one
+    silently evicting another.
+    """
 
     def __init__(self, max_queue_size: int = 200) -> None:
         """Create manager with bounded per-connection send queue."""
 
         self._max_queue_size = max_queue_size
-        self._rooms: dict[uuid.UUID, dict[uuid.UUID, ChatConnection]] = {}
+        self._connections: dict[uuid.UUID, ChatConnection] = {}
+        self._room_subs: dict[uuid.UUID, set[uuid.UUID]] = {}
+        self._user_conns: dict[uuid.UUID, set[uuid.UUID]] = {}
         self._lock = asyncio.Lock()
 
-    async def connect(self, websocket: WebSocket, room_id: uuid.UUID, user_id: uuid.UUID) -> None:
-        """Accept WS and register connection in room."""
+    async def connect(self, websocket: WebSocket, user_id: uuid.UUID) -> uuid.UUID:
+        """Register an already-accepted WS connection. Returns the new connection_id."""
 
-        await websocket.accept()
+        connection_id = uuid.uuid4()
         q: asyncio.Queue[str] = asyncio.Queue(maxsize=self._max_queue_size)
         sender_task = asyncio.create_task(self._sender_loop(websocket, q))
         conn = ChatConnection(
+            connection_id=connection_id,
             websocket=websocket,
             user_id=user_id,
-            room_id=room_id,
             send_queue=q,
             sender_task=sender_task,
         )
         async with self._lock:
-            self._rooms.setdefault(room_id, {})[user_id] = conn
+            self._connections[connection_id] = conn
+            self._user_conns.setdefault(user_id, set()).add(connection_id)
+        return connection_id
 
-    async def disconnect(self, room_id: uuid.UUID, user_id: uuid.UUID) -> None:
-        """Remove connection and stop sender task."""
+    async def subscribe(self, connection_id: uuid.UUID, room_id: uuid.UUID) -> bool:
+        """Add `room_id` to the connection's subscription set."""
 
         async with self._lock:
-            conn = self._rooms.get(room_id, {}).pop(user_id, None)
-            if self._rooms.get(room_id) == {}:
-                self._rooms.pop(room_id, None)
-        if not conn:
-            return
+            conn = self._connections.get(connection_id)
+            if not conn:
+                return False
+            conn.subscribed_rooms.add(room_id)
+            self._room_subs.setdefault(room_id, set()).add(connection_id)
+            return True
+
+    async def unsubscribe(self, connection_id: uuid.UUID, room_id: uuid.UUID) -> bool:
+        """Remove `room_id` from the connection's subscription set."""
+
+        async with self._lock:
+            conn = self._connections.get(connection_id)
+            if not conn:
+                return False
+            conn.subscribed_rooms.discard(room_id)
+            subs = self._room_subs.get(room_id)
+            if subs is not None:
+                subs.discard(connection_id)
+                if not subs:
+                    self._room_subs.pop(room_id, None)
+            return True
+
+    async def disconnect(self, connection_id: uuid.UUID) -> ChatConnection | None:
+        """Remove connection and stop sender task. Returns the removed conn."""
+
+        async with self._lock:
+            conn = self._connections.pop(connection_id, None)
+            if not conn:
+                return None
+            user_set = self._user_conns.get(conn.user_id)
+            if user_set is not None:
+                user_set.discard(connection_id)
+                if not user_set:
+                    self._user_conns.pop(conn.user_id, None)
+            for room_id in conn.subscribed_rooms:
+                subs = self._room_subs.get(room_id)
+                if subs is not None:
+                    subs.discard(connection_id)
+                    if not subs:
+                        self._room_subs.pop(room_id, None)
         conn.sender_task.cancel()
         try:
             await conn.sender_task
@@ -71,19 +117,22 @@ class ChatConnectionManager:
             pass
         except Exception:
             pass
+        return conn
 
     async def room_connection_count(self, room_id: uuid.UUID) -> int:
-        """Return number of active local connections for a room."""
+        """Return number of active local connections subscribed to a room."""
 
         async with self._lock:
-            return len(self._rooms.get(room_id, {}))
+            return len(self._room_subs.get(room_id, set()))
 
-    async def send_json(self, room_id: uuid.UUID, user_id: uuid.UUID, payload: dict[str, Any]) -> None:
+    async def send_to_connection(
+        self, connection_id: uuid.UUID, payload: dict[str, Any]
+    ) -> None:
         """Enqueue a JSON payload for a single connection."""
 
         msg = json.dumps(payload, default=str)
         async with self._lock:
-            conn = self._rooms.get(room_id, {}).get(user_id)
+            conn = self._connections.get(connection_id)
         if not conn:
             return
         try:
@@ -92,11 +141,12 @@ class ChatConnectionManager:
             await conn.websocket.close(code=1013, reason="Client too slow")
 
     async def broadcast_json(self, room_id: uuid.UUID, payload: dict[str, Any]) -> None:
-        """Broadcast JSON payload to all active connections in the room."""
+        """Broadcast JSON payload to all connections subscribed to the room."""
 
         msg = json.dumps(payload, default=str)
         async with self._lock:
-            conns = list(self._rooms.get(room_id, {}).values())
+            sub_ids = list(self._room_subs.get(room_id, set()))
+            conns = [self._connections[c] for c in sub_ids if c in self._connections]
         for conn in conns:
             try:
                 conn.send_queue.put_nowait(msg)
@@ -229,4 +279,3 @@ class ChatRedisFanout:
 
 
 chat_fanout = ChatRedisFanout()
-

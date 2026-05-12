@@ -118,9 +118,3 @@ export function canAccessContract(permissions: Set<string> | string[] | undefine
   )
 }
 
-/**
- * Material Request module access gate.
- */
-export function canAccessMaterialRequest(permissions: Set<string> | string[] | undefined) {
-  return hasPermission(permissions, "MATERIAL_REQUEST_VIEW")
-}

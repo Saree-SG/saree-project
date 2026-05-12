@@ -1311,12 +1311,18 @@ function QuotationDetailPage() {
               <Button
                 type="button"
                 variant="outline"
-                size="sm"
-                className="h-7 gap-1 px-2"
+                size="icon"
+                className="h-7 w-7 shrink-0"
                 onClick={() => setPriceVisible((prev) => !prev)}
+                aria-pressed={priceVisible}
+                aria-label={priceVisible ? "Ẩn số tiền" : "Hiện số tiền"}
+                title={priceVisible ? "Ẩn giá" : "Hiện giá"}
               >
-                {priceVisible ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
-                {priceVisible ? "Ẩn giá" : "Hiện giá"}
+                {priceVisible ? (
+                  <EyeOff className="h-3.5 w-3.5" aria-hidden />
+                ) : (
+                  <Eye className="h-3.5 w-3.5" aria-hidden />
+                )}
               </Button>
             </div>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">

@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query"
 import { createFileRoute, Link, redirect } from "@tanstack/react-router"
-import { BarChart2, FileText, Plus, Search, SlidersHorizontal, X } from "lucide-react"
+import { BarChart2, Eye, EyeOff, FileText, Plus, Search, SlidersHorizontal, X } from "lucide-react"
 import { useState } from "react"
 
 import { Button } from "@/components/ui/button"
@@ -43,11 +43,17 @@ import { hasPermission } from "@/utils/accountAccess"
 
 export const Route = createFileRoute("/_layout/quotations/")({
   beforeLoad: async () => {
-    let permissions
+    let permissions: string[] = []
+    let isSuperuser = false
     try {
-      permissions = await import("@/modules/rbac/rbacApi").then((m) =>
-        m.readMyPermissions(),
-      )
+      const [rbac, { UsersService }] = await Promise.all([
+        import("@/modules/rbac/rbacApi"),
+        import("@/client"),
+      ])
+      ;[permissions] = await Promise.all([
+        rbac.readMyPermissions(),
+        UsersService.readUserMe().then((u) => { isSuperuser = Boolean(u.is_superuser) }),
+      ])
     } catch (err: unknown) {
       const e = err as { status?: number }
       if (e?.status === 401) {
@@ -57,6 +63,7 @@ export const Route = createFileRoute("/_layout/quotations/")({
       throw err
     }
     const allowed =
+      isSuperuser ||
       hasPermission(permissions, "QUOTATION_VIEW") ||
       hasPermission(permissions, "QUOTATION_VIEW_ALL")
     if (!allowed) {
@@ -315,6 +322,7 @@ function QuotationsPage() {
     current_stage: "",
   })
   const [page, setPage] = useState(0)
+  const [priceVisible, setPriceVisible] = useState(false)
 
   const queryParams = {
     ...(filters.client_company_name
@@ -419,7 +427,27 @@ function QuotationsPage() {
                 <TableHead className="w-36">Hạng mục</TableHead>
                 <TableHead className="w-36">Trạng thái</TableHead>
                 <TableHead className="w-44">Giai đoạn</TableHead>
-                <TableHead className="w-32 text-right">Giá bán</TableHead>
+                <TableHead className="w-38 text-right">
+                  <div className="inline-flex w-full items-center justify-end gap-1.5">
+                    <span>Giá bán</span>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      className="h-7 w-7 shrink-0"
+                      onClick={() => setPriceVisible((prev) => !prev)}
+                      aria-pressed={priceVisible}
+                      aria-label={priceVisible ? "Ẩn cột giá bán" : "Hiện cột giá bán"}
+                      title={priceVisible ? "Ẩn giá bán" : "Hiện giá bán"}
+                    >
+                      {priceVisible ? (
+                        <EyeOff className="h-3.5 w-3.5" aria-hidden />
+                      ) : (
+                        <Eye className="h-3.5 w-3.5" aria-hidden />
+                      )}
+                    </Button>
+                  </div>
+                </TableHead>
                 <TableHead className="w-28">Ngày tạo</TableHead>
                 <TableHead className="w-28"></TableHead>
               </TableRow>
@@ -464,8 +492,12 @@ function QuotationsPage() {
                   <TableCell>
                     <StageBadge stage={q.current_stage} />
                   </TableCell>
-                  <TableCell className="text-right text-sm font-medium">
-                    {formatVND(q.total_contract_value)}
+                  <TableCell className="text-right text-sm font-medium tabular-nums">
+                    {priceVisible
+                      ? formatVND(q.total_contract_value)
+                      : q.total_contract_value != null
+                        ? "••••••"
+                        : "—"}
                   </TableCell>
                   <TableCell className="text-xs text-muted-foreground">
                     {formatDate(q.created_at)}

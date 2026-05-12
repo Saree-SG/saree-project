@@ -15,6 +15,9 @@ depends_on = None
 
 
 def upgrade() -> None:
+    from sqlalchemy import inspect as sa_inspect
+    if sa_inspect(op.get_bind()).has_table("pushsubscription"):
+        return
     op.create_table(
         "pushsubscription",
         sa.Column("id", sa.Uuid(), nullable=False),

@@ -33,9 +33,11 @@ import {
   listRoomMembers,
   listRoomMessages,
   removeRoomMember,
+  sendRoomMessage,
   updateChatRoom,
   uploadRoomAttachment,
 } from "@/modules/chat/chatApi"
+import { getDebugInfo } from "@/modules/chat/chatWs"
 import { handleError } from "@/utils"
 
 const searchSchema = z.object({
@@ -87,7 +89,9 @@ function ChatPage() {
 
   const messageListRef = useRef<HTMLDivElement | null>(null)
   const autoScrolledRoomIdRef = useRef<string | null>(null)
-  const socket = useChatSocket(selectedRoomId)
+  const socket = useChatSocket(selectedRoomId, () => {
+    void queryClient.invalidateQueries({ queryKey: ["chat", "messages", selectedRoomId] })
+  })
 
   const roomsQuery = useQuery({
     queryKey: ["chat", "rooms"],
@@ -386,6 +390,15 @@ function ChatPage() {
                       ? `${memberCount} members · ${socket.status}`
                       : "No room selected"}
                   </p>
+                  {selectedRoomId && socket.status !== "open" && (() => {
+                    const d = getDebugInfo()
+                    return (
+                      <p className="break-all text-[10px] text-red-500 leading-tight mt-0.5">
+                        url: {d.url || "(none)"}<br />
+                        rs:{d.readyState} code:{d.closeCode} {d.closeReason} retry:{d.retryCount}
+                      </p>
+                    )
+                  })()}
                 </div>
               </div>
 
@@ -650,11 +663,20 @@ function ChatPage() {
                 if (!selectedRoomId) return
                 const textValue = draft.trim()
                 if (!textValue) return
-                try {
-                  socket.sendMessage(textValue)
+                const sent = socket.sendMessage(textValue)
+                if (sent === false) {
+                  // WS not ready — fall back to HTTP so message is never lost
                   setDraft("")
-                } catch (errorValue) {
-                  showErrorToast(String(errorValue))
+                  sendRoomMessage({ roomId: selectedRoomId, content: textValue })
+                    .then(() => {
+                      void queryClient.invalidateQueries({ queryKey: ["chat", "messages", selectedRoomId] })
+                    })
+                    .catch(() => {
+                      showErrorToast("Gửi tin nhắn thất bại, vui lòng thử lại")
+                      setDraft(textValue)
+                    })
+                } else {
+                  setDraft("")
                 }
               }}
             >

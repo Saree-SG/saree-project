@@ -1,0 +1,34 @@
+name: Deploy Traefik
+
+on:
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: [self-hosted, production]
+
+    env:
+      DOMAIN: erp.sareeref.vn
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Ensure traefik-public network
+        shell: cmd
+        run: |
+          docker network inspect traefik-public >NUL 2>&1 || docker network create traefik-public
+
+      - name: Docker Compose up Traefik
+        shell: cmd
+        env:
+          EMAIL: ${{ secrets.TRAEFIK_EMAIL }}
+          USERNAME: ${{ secrets.TRAEFIK_USERNAME }}
+          HASHED_PASSWORD: ${{ secrets.TRAEFIK_HASHED_PASSWORD }}
+        run: |
+          docker compose -f compose.traefik.yml -p traefik up -d
+
+      - name: Show Traefik logs (tail)
+        shell: cmd
+        run: |
+          docker logs --tail 80 traefik-traefik-1

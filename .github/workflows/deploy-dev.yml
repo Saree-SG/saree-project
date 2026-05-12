@@ -9,16 +9,18 @@ jobs:
     if: github.ref == 'refs/heads/dev'
 
     env:
-      FRONTEND_PORT: "3000"
-      BACKEND_PORT: "8100"
-      ADMINER_PORT: "8282"
       STACK_NAME: saree-dev
-      DOMAIN: localhost
+      DOMAIN: dev.erp.sareeref.vn
       ENVIRONMENT: staging
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Ensure traefik-public network
+        shell: cmd
+        run: |
+          docker network inspect traefik-public >NUL 2>&1 || docker network create traefik-public
 
       - name: Write .env
         shell: cmd
@@ -26,22 +28,23 @@ jobs:
           (
             echo ENVIRONMENT=%ENVIRONMENT%
             echo DOMAIN=%DOMAIN%
-            echo PROJECT_NAME=Saree ERP
-            echo DOCKER_IMAGE_BACKEND=saree-backend
-            echo DOCKER_IMAGE_FRONTEND=saree-frontend
+            echo STACK_NAME=%STACK_NAME%
+            echo PROJECT_NAME=Saree ERP dev
+            echo DOCKER_IMAGE_BACKEND=saree-backend-dev
+            echo DOCKER_IMAGE_FRONTEND=saree-frontend-dev
             echo TAG=latest
             echo SECRET_KEY=%SECRET_KEY%
-            echo POSTGRES_PASSWORD=%POSTGRES_PASSWORD%
-            echo FIRST_SUPERUSER=%FIRST_SUPERUSER%
-            echo FIRST_SUPERUSER_PASSWORD=%FIRST_SUPERUSER_PASSWORD%
             echo POSTGRES_SERVER=db
             echo POSTGRES_PORT=5432
             echo POSTGRES_DB=saree-erp-project
             echo POSTGRES_USER=saree
-            echo FRONTEND_HOST=http://localhost:%FRONTEND_PORT%
-            echo BACKEND_CORS_ORIGINS=http://localhost:%FRONTEND_PORT%
-            echo PUBLIC_BASE_URL=http://localhost:%BACKEND_PORT%
-            echo VITE_API_URL=http://localhost:%BACKEND_PORT%
+            echo POSTGRES_PASSWORD=%POSTGRES_PASSWORD%
+            echo FIRST_SUPERUSER=%FIRST_SUPERUSER%
+            echo FIRST_SUPERUSER_PASSWORD=%FIRST_SUPERUSER_PASSWORD%
+            echo FRONTEND_HOST=https://dashboard.%DOMAIN%
+            echo BACKEND_CORS_ORIGINS=https://dashboard.%DOMAIN%
+            echo PUBLIC_BASE_URL=https://api.%DOMAIN%
+            echo VITE_API_URL=https://api.%DOMAIN%
             echo SMTP_HOST=
             echo SMTP_USER=
             echo SMTP_PASSWORD=
@@ -54,12 +57,20 @@ jobs:
           FIRST_SUPERUSER: ${{ secrets.FIRST_SUPERUSER }}
           FIRST_SUPERUSER_PASSWORD: ${{ secrets.DEV_FIRST_SUPERUSER_PASSWORD }}
 
+      - name: Debug .env
+        shell: cmd
+        run: |
+          echo --- listing workspace ---
+          dir
+          echo --- .env content (passwords masked by GH) ---
+          type .env
+
       - name: Docker Compose up
         shell: cmd
         run: |
-          docker compose -f compose.local.yml -p saree-dev up --build -d
+          docker compose --env-file .env -f compose.prod.yml -p %STACK_NAME% up --build -d
 
       - name: Health check
         shell: cmd
         run: |
-          powershell -NoProfile -ExecutionPolicy Bypass -Command "$backendUrl = 'http://127.0.0.1:%BACKEND_PORT%/api/v1/utils/health-check/'; $frontendUrl = 'http://127.0.0.1:%FRONTEND_PORT%/'; $ok = $false; for ($i = 0; $i -lt 30; $i++) { try { Invoke-WebRequest -Uri $backendUrl -UseBasicParsing ^| Out-Null; $ok = $true; break } catch { Start-Sleep -Seconds 2 } }; if (-not $ok) { throw 'Backend health check timed out' }; Invoke-WebRequest -Uri $frontendUrl -UseBasicParsing ^| Out-Null"
+          powershell -NoProfile -ExecutionPolicy Bypass -Command "$ok = $false; for ($i = 0; $i -lt 60; $i++) { $h = (docker inspect --format='{{.State.Health.Status}}' saree-dev-backend-1 2>$null); if ($h -eq 'healthy') { $ok = $true; break }; Start-Sleep -Seconds 3 }; if (-not $ok) { docker logs --tail 200 saree-dev-backend-1; throw 'Backend health check timed out' }"

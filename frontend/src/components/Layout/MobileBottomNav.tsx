@@ -11,7 +11,6 @@ import { cn } from "@/lib/utils"
 import {
   canAccessContract,
   canAccessDashboard,
-  canAccessMaterialRequest,
   canAccessProject,
   canAccessQuotation,
   isCompanyDirector,
@@ -40,7 +39,6 @@ export function MobileBottomNav() {
     isSuperuser || canAccessProject(permissions),
     isSuperuser || canAccessQuotation(permissions),
     isSuperuser || canAccessContract(permissions),
-    isSuperuser || canAccessMaterialRequest(permissions),
   )
 
   const tabItems = allItems.slice(0, 3)
