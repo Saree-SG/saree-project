@@ -41,11 +41,9 @@ import { addDependency, fetchProjectGantt, removeDependency } from "@/modules/ga
 import {
   addTaskExtraAssignee,
   addTaskObserver,
-  createLinkedEntity,
   reassignTask,
   removeTaskExtraAssignee,
   removeTaskObserver,
-  type MaterialRequestLinkBody,
   type TaskExtraAssigneePublic,
   type TaskObserverPublic,
   type TaskWithPeople,
@@ -226,26 +224,6 @@ function TaskDetailPage() {
         queryKey: ["task-detail", "project-tasks"],
       })
       await queryClient.invalidateQueries({ queryKey: ["project-dashboard"] })
-    },
-    onError: handleError.bind(showErrorToast),
-  })
-
-  const [createEntityDialogOpen, setCreateEntityDialogOpen] = useState(false)
-  const [mrItemName, setMrItemName] = useState("")
-  const [mrQuantity, setMrQuantity] = useState("1")
-  const [mrUnit, setMrUnit] = useState("cái")
-  const [mrReason, setMrReason] = useState("")
-
-  const createLinkedEntityMutation = useMutation({
-    mutationFn: (body: MaterialRequestLinkBody) => createLinkedEntity(taskId, body),
-    onSuccess: async () => {
-      showSuccessToast("Đã tạo yêu cầu vật tư thành công")
-      setCreateEntityDialogOpen(false)
-      setMrItemName("")
-      setMrQuantity("1")
-      setMrUnit("cái")
-      setMrReason("")
-      await queryClient.invalidateQueries({ queryKey: ["task-detail", "task", taskId] })
     },
     onError: handleError.bind(showErrorToast),
   })
@@ -725,26 +703,6 @@ function TaskDetailPage() {
     () => task?.extra_assignees ?? [],
     [task?.extra_assignees],
   )
-  const linkedEntities = useMemo(
-    () => {
-      const rows = [...(((task as TaskWithPeople | undefined)?.linked_entities ?? []))]
-      if (task?.linked_entity_id && task.linked_entity_type) {
-        const exists = rows.some((row) => row.entity_id === task.linked_entity_id)
-        if (!exists) {
-          rows.unshift({
-            id: `legacy-${task.linked_entity_id}`,
-            task_id: task.id,
-            entity_id: task.linked_entity_id,
-            entity_type: task.linked_entity_type,
-            created_by: task.assignor_id,
-            created_at: task.updated_at,
-          })
-        }
-      }
-      return rows
-    },
-    [task],
-  )
   const observers = useMemo<TaskObserverPublic[]>(
     () => task?.observers ?? [],
     [task?.observers],
@@ -931,111 +889,8 @@ function TaskDetailPage() {
             </div>
           )}
 
-          {/* Linked material requests */}
-          {linkedEntities.length > 0 && (
-            <div className="space-y-2">
-              {linkedEntities.map((entity) => (
-                <div key={entity.id} className="flex items-center justify-between rounded-lg border border-orange-200 bg-orange-50 px-4 py-2.5">
-                  <div className="flex items-center gap-2 text-sm text-orange-800">
-                    <span className="text-base">📋</span>
-                    <span className="font-medium">Yêu cầu vật tư</span>
-                    <span className="rounded bg-orange-200 px-1.5 py-0.5 text-[10px] font-mono text-orange-700">
-                      {entity.entity_id.slice(0, 8)}…
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-          {canEditTask && (
-            <button
-              type="button"
-              onClick={() => setCreateEntityDialogOpen(true)}
-              disabled={createLinkedEntityMutation.isPending}
-              className="flex w-full items-center justify-center gap-2 rounded-lg border border-dashed border-orange-300 bg-orange-50 py-3 text-sm font-semibold text-orange-700 transition-colors hover:bg-orange-100 disabled:opacity-60"
-            >
-              {createLinkedEntityMutation.isPending ? "Đang tạo…" : (
-                <>
-                  <span>📋</span>
-                  Tạo yêu cầu vật tư
-                </>
-              )}
-            </button>
-          )}
         </section>
       )}
-
-      <Dialog open={createEntityDialogOpen} onOpenChange={setCreateEntityDialogOpen}>
-        <DialogContent className="max-w-md" showCloseButton>
-          <DialogHeader>
-            <DialogTitle>Tạo yêu cầu vật tư</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-3">
-            <div>
-              <label className="mb-1 block text-sm font-medium">Tên vật tư <span className="text-red-500">*</span></label>
-              <input
-                type="text"
-                className="w-full rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"
-                placeholder="Ví dụ: Sơn tường, Ống thép..."
-                value={mrItemName}
-                onChange={(e) => setMrItemName(e.target.value)}
-              />
-            </div>
-            <div className="flex gap-3">
-              <div className="flex-1">
-                <label className="mb-1 block text-sm font-medium">Số lượng</label>
-                <input
-                  type="number"
-                  min={0.001}
-                  step={0.001}
-                  className="w-full rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"
-                  value={mrQuantity}
-                  onChange={(e) => setMrQuantity(e.target.value)}
-                />
-              </div>
-              <div className="w-28">
-                <label className="mb-1 block text-sm font-medium">Đơn vị</label>
-                <input
-                  type="text"
-                  className="w-full rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"
-                  placeholder="cái, m, kg..."
-                  value={mrUnit}
-                  onChange={(e) => setMrUnit(e.target.value)}
-                />
-              </div>
-            </div>
-            <div>
-              <label className="mb-1 block text-sm font-medium">Lý do / Ghi chú</label>
-              <textarea
-                className="w-full rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"
-                rows={3}
-                placeholder="Mô tả lý do cần vật tư..."
-                value={mrReason}
-                onChange={(e) => setMrReason(e.target.value)}
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setCreateEntityDialogOpen(false)}>
-              Huỷ
-            </Button>
-            <Button
-              type="button"
-              disabled={!mrItemName.trim() || createLinkedEntityMutation.isPending}
-              onClick={() =>
-                createLinkedEntityMutation.mutate({
-                  item_name: mrItemName.trim(),
-                  quantity: parseFloat(mrQuantity) || 1,
-                  unit: mrUnit.trim() || "cái",
-                  reason: mrReason.trim() || "Yêu cầu từ công việc",
-                })
-              }
-            >
-              {createLinkedEntityMutation.isPending ? "Đang tạo…" : "Tạo yêu cầu"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       {/* ── Subtask indicator banner (only shown for subtasks) ── */}
       {task?.parent_id ? (

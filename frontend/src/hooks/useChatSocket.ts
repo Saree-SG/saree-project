@@ -1,114 +1,87 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 
-import { type ChatWsEvent, connectChatWs } from "@/modules/chat/chatWs"
+import {
+  type ChatWsEvent,
+  type ChatWsStatus,
+  getStatus,
+  onStatusChange,
+  sendChatMessage,
+  subscribeRoom,
+} from "@/modules/chat/chatWs"
 
-const RECONNECT_DELAYS = [1000, 2000, 5000, 10000]
-const PING_INTERVAL_MS = 25_000
+type HookStatus = "idle" | "connecting" | "open" | "closed" | "error"
 
-export function useChatSocket(roomId: string | null) {
-  const [status, setStatus] = useState<
-    "idle" | "connecting" | "open" | "closed" | "error"
-  >("idle")
+export function useChatSocket(roomId: string | null, onReconnected?: () => void) {
+  const [status, setStatus] = useState<HookStatus>(() =>
+    roomId ? mapStatus(getStatus()) : "idle",
+  )
   const [events, setEvents] = useState<ChatWsEvent[]>([])
-  const connRef = useRef<ReturnType<typeof connectChatWs> | null>(null)
-  const retryCountRef = useRef(0)
-  const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const pingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
-  const roomIdRef = useRef(roomId)
+  const onReconnectedRef = useRef(onReconnected)
+  const wasDownRef = useRef(false)
 
   useEffect(() => {
-    roomIdRef.current = roomId
-  }, [roomId])
+    onReconnectedRef.current = onReconnected
+  }, [onReconnected])
 
   useEffect(() => {
     if (!roomId) {
-      connRef.current?.close()
-      connRef.current = null
-      if (retryTimerRef.current) clearTimeout(retryTimerRef.current)
-      retryCountRef.current = 0
       setStatus("idle")
       setEvents([])
+      wasDownRef.current = false
       return
     }
 
-    connRef.current?.close()
-    if (retryTimerRef.current) clearTimeout(retryTimerRef.current)
-    if (pingTimerRef.current) clearInterval(pingTimerRef.current)
-    retryCountRef.current = 0
     setEvents([])
+    wasDownRef.current = false
 
-    function startPing() {
-      if (pingTimerRef.current) clearInterval(pingTimerRef.current)
-      pingTimerRef.current = setInterval(() => {
-        const conn = connRef.current
-        if (conn && conn.ws.readyState === WebSocket.OPEN) {
-          conn.ping()
-        }
-      }, PING_INTERVAL_MS)
-    }
+    const unsubscribeRoom = subscribeRoom(roomId, (evt) => {
+      // Filter out heartbeat traffic from the visible event log.
+      if (evt.type === "pong" || evt.type === "server_ping") return
+      if (evt.type === "subscribed" || evt.type === "unsubscribed") return
+      // Only surface message-bearing events for the active room.
+      const eventRoom =
+        evt.type === "message.new"
+          ? evt.message.room_id
+          : "room_id" in evt
+            ? evt.room_id
+            : null
+      if (eventRoom && eventRoom !== roomId) return
+      setEvents((prev) => [...prev, evt])
+    })
 
-    function connect() {
-      const currentRoomId = roomIdRef.current
-      if (!currentRoomId) return
-
-      const conn = connectChatWs({
-        roomId: currentRoomId,
-        onEvent: (evt) => {
-          // Ignore pong events — they're only keepalive responses
-          if (evt.type === "pong") return
-          setEvents((prev) => [...prev, evt])
-        },
-        onStatus: (s) => {
-          if (s === "connecting") {
-            setStatus("connecting")
-          } else if (s === "open") {
-            retryCountRef.current = 0
-            setStatus("open")
-            startPing()
-          } else if (s === "closed" || s === "error") {
-            if (pingTimerRef.current) clearInterval(pingTimerRef.current)
-            setStatus(s)
-            // Auto-reconnect with backoff
-            const delay = RECONNECT_DELAYS[Math.min(retryCountRef.current, RECONNECT_DELAYS.length - 1)]
-            retryCountRef.current += 1
-            retryTimerRef.current = setTimeout(() => {
-              if (roomIdRef.current) connect()
-            }, delay)
-          }
-        },
-      })
-      connRef.current = conn
-    }
-
-    connect()
-
-    // Reconnect when tab becomes visible again (mobile background → foreground)
-    function handleVisibilityChange() {
-      if (document.visibilityState === "visible" && connRef.current) {
-        const ws = connRef.current.ws
-        if (ws.readyState === WebSocket.CLOSED || ws.readyState === WebSocket.CLOSING) {
-          if (retryTimerRef.current) clearTimeout(retryTimerRef.current)
-          retryCountRef.current = 0
-          connect()
+    const unsubscribeStatus = onStatusChange((s) => {
+      const next = mapStatus(s)
+      setStatus(next)
+      if (next === "closed" || next === "error" || next === "connecting") {
+        if (next !== "connecting") wasDownRef.current = true
+      } else if (next === "open") {
+        if (wasDownRef.current) {
+          wasDownRef.current = false
+          onReconnectedRef.current?.()
         }
       }
-    }
+    })
 
-    document.addEventListener("visibilitychange", handleVisibilityChange)
+    setStatus(mapStatus(getStatus()))
 
     return () => {
-      connRef.current?.close()
-      connRef.current = null
-      if (retryTimerRef.current) clearTimeout(retryTimerRef.current)
-      if (pingTimerRef.current) clearInterval(pingTimerRef.current)
-      document.removeEventListener("visibilitychange", handleVisibilityChange)
+      unsubscribeRoom()
+      unsubscribeStatus()
     }
   }, [roomId])
 
-  return useMemo(() => ({
-    status,
-    events,
-    sendMessage: (content: string) => connRef.current?.sendMessage(content),
-    clearEvents: () => setEvents([]),
-  }), [events, status])
+  return useMemo(
+    () => ({
+      status,
+      events,
+      sendMessage: (content: string) =>
+        roomId ? sendChatMessage(roomId, content) : false,
+      clearEvents: () => setEvents([]),
+    }),
+    [events, status, roomId],
+  )
+}
+
+function mapStatus(s: ChatWsStatus): HookStatus {
+  return s
 }

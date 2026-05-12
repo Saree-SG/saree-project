@@ -98,11 +98,6 @@ ALL_PERMISSIONS = [
     {"code": "QUOTATION_LOG_NEGOTIATION",     "module": "quotation", "action": "create", "scope": "assigned", "description": "Ghi log trao đổi với khách hàng"},
     {"code": "QUOTATION_CLOSE",               "module": "quotation", "action": "update", "scope": "assigned", "description": "Đóng hồ sơ báo giá (won/lost) (S8→S9)"},
     {"code": "QUOTATION_REPORT",          "module": "quotation", "action": "read",   "scope": "global",   "description": "Xem báo cáo và thống kê báo giá"},
-    # Material Request
-    {"code": "MATERIAL_REQUEST_VIEW",    "module": "material_request", "action": "read",   "scope": "global", "description": "Xem yêu cầu vật tư"},
-    {"code": "MATERIAL_REQUEST_CREATE",  "module": "material_request", "action": "create", "scope": "global", "description": "Tạo yêu cầu vật tư"},
-    {"code": "MATERIAL_REQUEST_REVIEW",  "module": "material_request", "action": "approve","scope": "global", "description": "Phòng vật tư duyệt yêu cầu (bước 1)"},
-    {"code": "MATERIAL_REQUEST_APPROVE", "module": "material_request", "action": "approve","scope": "global", "description": "Giám đốc phê duyệt yêu cầu vật tư (bước 2)"},
     # Contract
     {"code": "CONTRACT_VIEW",             "module": "contract", "action": "read",   "scope": "assigned", "description": "Xem hợp đồng được phân công"},
     {"code": "CONTRACT_VIEW_ALL",         "module": "contract", "action": "read",   "scope": "global",   "description": "Xem tất cả hợp đồng"},
@@ -131,8 +126,6 @@ _DEPT_HEAD_LIKE_PERMS: list[str] = [
     "QUOTATION_VIEW", "QUOTATION_REPORT",
     # Contract — view only
     "CONTRACT_VIEW",
-    # Material Request — view + create
-    "MATERIAL_REQUEST_VIEW", "MATERIAL_REQUEST_CREATE",
 ]
 
 _WORKER_LIKE_PERMS: list[str] = [
@@ -180,7 +173,6 @@ ROLE_PERMISSION_MAP: dict[str, list[str]] = {
         "AUDIT_VIEW", "USER_VIEW", "USER_MANAGE",
         *_DIRECTOR_QUOTATION_PERMS,
         "CONTRACT_VIEW_ALL", "CONTRACT_APPROVE", "CONTRACT_START_PRODUCTION", "CONTRACT_COMPLETE", "CONTRACT_DELETE",
-        "MATERIAL_REQUEST_VIEW", "MATERIAL_REQUEST_APPROVE",
     ],
     "department_head": list(_DEPT_HEAD_LIKE_PERMS),
     "sales": [
@@ -189,10 +181,7 @@ ROLE_PERMISSION_MAP: dict[str, list[str]] = {
         "CONTRACT_SUBMIT", "CONTRACT_SIGN", "CONTRACT_CONFIRM_ADVANCE",
     ],
     "engineer": [*_DEPT_HEAD_LIKE_PERMS, *_ENGINEER_QUOTATION_PERMS],
-    "materials": [
-        *_DEPT_HEAD_LIKE_PERMS, *_MATERIALS_QUOTATION_PERMS,
-        "MATERIAL_REQUEST_VIEW", "MATERIAL_REQUEST_CREATE", "MATERIAL_REQUEST_REVIEW",
-    ],
+    "materials": [*_DEPT_HEAD_LIKE_PERMS, *_MATERIALS_QUOTATION_PERMS],
     "planner": list(_DEPT_HEAD_LIKE_PERMS),
     "workshop_lead": list(_DEPT_HEAD_LIKE_PERMS),
     "site_supply": list(_DEPT_HEAD_LIKE_PERMS),

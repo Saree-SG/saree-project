@@ -125,11 +125,3 @@ app.mount(
     StaticFiles(directory=str(quotation_upload_dir)),
     name="quotation-static",
 )
-
-material_request_upload_dir = Path(settings.MATERIAL_REQUEST_UPLOAD_DIR).resolve()
-material_request_upload_dir.mkdir(parents=True, exist_ok=True)
-app.mount(
-    "/static/material-requests",
-    StaticFiles(directory=str(material_request_upload_dir)),
-    name="material-requests-static",
-)

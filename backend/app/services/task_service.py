@@ -676,23 +676,7 @@ class TaskService:
                 ],
                 key=lambda r: r["project_name"].lower(),
             ),
-            **await self._material_request_dashboard(current_user),
         }
-
-    async def _material_request_dashboard(self, current_user: User) -> dict:
-        try:
-            from app.services.material_request_service import MaterialRequestService
-            from app.shared.storage import LocalStorage
-            from app.core.config import settings as _settings
-            storage = LocalStorage(
-                base_dir=_settings.MATERIAL_REQUEST_UPLOAD_DIR,
-                static_url_segment="material-requests",
-            )
-            svc = MaterialRequestService(self._session, storage)
-            return await svc.get_dashboard_data(current_user)
-        except Exception:
-            logger.exception("Failed to load material request dashboard data")
-            return {"pending_material_reviews": [], "pending_material_approvals": [], "my_material_requests": []}
 
     # ------------------------------------------------------------------
     # Update

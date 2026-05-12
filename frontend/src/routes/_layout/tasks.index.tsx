@@ -30,25 +30,12 @@ type MyTaskItem = {
   company_name: string
 }
 
-type MaterialRequestItem = {
-  id: string
-  item_name: string
-  quantity: number
-  unit: string
-  reason: string
-  status: string
-  created_at: string
-}
-
 type MyDashboardPayload = {
   overdue_critical?: MyTaskItem[]
   overdue_local?: MyTaskItem[]
   due_soon?: MyTaskItem[]
   today?: MyTaskItem[]
   ongoing?: MyTaskItem[]
-  pending_material_reviews?: MaterialRequestItem[]
-  pending_material_approvals?: MaterialRequestItem[]
-  my_material_requests?: MaterialRequestItem[]
 }
 
 // ---------------------------------------------------------------------------
@@ -96,7 +83,6 @@ function taskBusinessLabel(task: TaskPublic): string {
     if (moduleTag === "contract") return "Hợp đồng"
     return moduleTag
   }
-  if (task.linked_entity_type) return "Yêu cầu vật tư"
   return "Công việc chung"
 }
 
@@ -340,35 +326,6 @@ function PendingQuotationCard({ q }: { q: QuotationPublic }) {
   )
 }
 
-const MR_STATUS_LABELS: Record<string, string> = {
-  pending_materials: "Chờ vật tư duyệt",
-  pending_director: "Chờ GĐ duyệt",
-  approved: "Đã duyệt",
-  rejected: "Từ chối",
-}
-
-function PendingMaterialRequestCard({ req }: { req: MaterialRequestItem }) {
-  return (
-    <Link
-      to="/material-requests/$requestId"
-      params={{ requestId: req.id }}
-      className="block rounded-xl border bg-white p-4 shadow-sm transition-shadow hover:shadow-md"
-    >
-      <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0 flex-1">
-          <p className="text-sm font-bold leading-snug text-slate-900">{req.item_name}</p>
-          <p className="mt-0.5 text-[11px] text-muted-foreground">
-            {req.quantity} {req.unit} · {req.reason}
-          </p>
-        </div>
-        <span className="shrink-0 rounded-full bg-orange-100 px-2 py-0.5 text-[10px] font-bold text-orange-700">
-          {MR_STATUS_LABELS[req.status] ?? req.status}
-        </span>
-      </div>
-    </Link>
-  )
-}
-
 function PendingContractCard({ contract }: { contract: ContractPublic }) { // eslint-disable-line @typescript-eslint/no-unused-vars
   return (
     <Link
@@ -419,8 +376,6 @@ function MyTasksPage() {
 
   const pendingQuotations = pendingQuotationsQuery.data ?? []
   const pendingContracts = pendingContractsQuery.data?.data ?? []
-  const pendingMaterialReviews = dashboardQuery.data?.pending_material_reviews ?? []
-  const pendingMaterialApprovals = dashboardQuery.data?.pending_material_approvals ?? []
 
   const data = dashboardQuery.data
 
@@ -470,40 +425,6 @@ function MyTasksPage() {
           <div className="space-y-2 bg-white p-3">
             {pendingQuotations.map((q) => (
               <PendingQuotationCard key={q.id} q={q} />
-            ))}
-          </div>
-        </section>
-      )}
-      {pendingMaterialReviews.length > 0 && (
-        <section className="rounded-xl border border-orange-200 overflow-hidden">
-          <div className="flex items-center justify-between px-4 py-2.5 border-b bg-orange-50 border-orange-200">
-            <h2 className="text-sm font-bold text-orange-700">
-              📋 Yêu cầu vật tư chờ bạn duyệt
-            </h2>
-            <span className="text-xs font-semibold text-orange-700 opacity-70">
-              {pendingMaterialReviews.length} yêu cầu
-            </span>
-          </div>
-          <div className="space-y-2 bg-white p-3">
-            {pendingMaterialReviews.map((req) => (
-              <PendingMaterialRequestCard key={req.id} req={req} />
-            ))}
-          </div>
-        </section>
-      )}
-      {pendingMaterialApprovals.length > 0 && (
-        <section className="rounded-xl border border-red-200 overflow-hidden">
-          <div className="flex items-center justify-between px-4 py-2.5 border-b bg-red-50 border-red-200">
-            <h2 className="text-sm font-bold text-red-700">
-              ✅ Yêu cầu vật tư chờ phê duyệt
-            </h2>
-            <span className="text-xs font-semibold text-red-700 opacity-70">
-              {pendingMaterialApprovals.length} yêu cầu
-            </span>
-          </div>
-          <div className="space-y-2 bg-white p-3">
-            {pendingMaterialApprovals.map((req) => (
-              <PendingMaterialRequestCard key={req.id} req={req} />
             ))}
           </div>
         </section>

@@ -108,12 +108,6 @@ from app.models.contract import (  # noqa: F401
     ContractStatusTransition,
 )
 
-# Material Request
-from app.models.material_request import (  # noqa: F401
-    MaterialRequest,
-    MaterialRequestAttachment,
-)
-
 # Task
 from app.models.task import (  # noqa: F401
     AuditLog,

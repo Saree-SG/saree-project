@@ -23,6 +23,7 @@ function notifLink(notif: Notification): string {
   if (notif.entity_type === "task") return `/tasks/${notif.entity_id}`
   if (notif.entity_type === "project") return `/projects/${notif.entity_id}`
   if (notif.entity_type === "quotation") return `/quotations/${notif.entity_id}`
+  if (notif.entity_type === "chat") return `/chat/${notif.entity_id}`
   return "/"
 }
 

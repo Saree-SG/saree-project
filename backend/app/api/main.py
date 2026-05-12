@@ -6,7 +6,6 @@ from app.api.routes import (
     contracts,
     dashboard,
     login,
-    material_requests,
     notifications,
     private,
     projects,
@@ -35,7 +34,6 @@ api_router.include_router(dashboard.router)
 api_router.include_router(notifications.router)
 api_router.include_router(quotations.router)
 api_router.include_router(contracts.router)
-api_router.include_router(material_requests.router)
 
 if settings.ENVIRONMENT == "local":
     api_router.include_router(private.router)

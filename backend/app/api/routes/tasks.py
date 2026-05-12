@@ -11,7 +11,6 @@ import uuid
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile, status
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlmodel import SQLModel
 
 from app.api.deps import AsyncSessionDep, CurrentUser
 from app.core.config import settings
@@ -36,9 +35,7 @@ from app.models.task import (
     TaskStatusUpdate,
     TaskUpdate,
 )
-from app.models.material_request import MaterialRequestCreate, MaterialRequestPublic
 from app.models.user import User
-from app.services.material_request_service import MaterialRequestService
 from app.services.task_service import TaskService
 from app.shared.permission import require_permission
 from app.shared.storage import LocalStorage
@@ -372,47 +369,6 @@ async def list_proofs(
     """List proofs for a task."""
     return await _svc(session).list_proofs(task_id)
 
-
-# ---------------------------------------------------------------------------
-# Dependencies (Gantt links)
-# ---------------------------------------------------------------------------
-# Linked material request (replaces old linked-entity for procurement/inventory)
-# ---------------------------------------------------------------------------
-
-class _LinkedEntityBody(SQLModel):
-    """Simplified body — frontend compatibility shim."""
-    item_name: str | None = None
-    quantity: float = 1
-    unit: str = "cái"
-    reason: str = "Yêu cầu từ công việc"
-
-
-@router.post("/tasks/{task_id}/linked-entity", response_model=MaterialRequestPublic)
-async def create_linked_material_request(
-    task_id: uuid.UUID,
-    body: _LinkedEntityBody,
-    session: AsyncSessionDep,
-    current_user: User = Depends(require_permission("TASK_UPDATE")),
-) -> MaterialRequestPublic:
-    """Create a material request linked to this task."""
-    from app.core.config import settings as _settings
-    from app.shared.storage import LocalStorage
-    storage = LocalStorage(
-        base_dir=_settings.MATERIAL_REQUEST_UPLOAD_DIR,
-        static_url_segment="material-requests",
-    )
-    svc = MaterialRequestService(session, storage)
-    mr_body = MaterialRequestCreate(
-        item_name=body.item_name or f"Yêu cầu từ task {task_id}",
-        quantity=body.quantity,
-        unit=body.unit,
-        reason=body.reason,
-        task_id=task_id,
-    )
-    return await svc.create(mr_body, current_user)
-
-
-# ---------------------------------------------------------------------------
 
 @router.post("/tasks/{task_id}/dependencies", status_code=status.HTTP_201_CREATED)
 async def add_dependency(

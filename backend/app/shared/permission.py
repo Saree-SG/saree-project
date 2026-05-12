@@ -44,9 +44,6 @@ MANAGER_AUTO_PERMISSION_CODES = {
     "QUOTATION_VIEW",
     "QUOTATION_VIEW_ALL",
     "QUOTATION_REPORT",
-    # Material Request — managers can view and create
-    "MATERIAL_REQUEST_VIEW",
-    "MATERIAL_REQUEST_CREATE",
 }
 
 
