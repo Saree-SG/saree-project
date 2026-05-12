@@ -57,10 +57,18 @@ jobs:
           FIRST_SUPERUSER: ${{ secrets.FIRST_SUPERUSER }}
           FIRST_SUPERUSER_PASSWORD: ${{ secrets.DEV_FIRST_SUPERUSER_PASSWORD }}
 
+      - name: Debug .env
+        shell: cmd
+        run: |
+          echo --- listing workspace ---
+          dir
+          echo --- .env content (passwords masked by GH) ---
+          type .env
+
       - name: Docker Compose up
         shell: cmd
         run: |
-          docker compose -f compose.prod.yml -p %STACK_NAME% up --build -d
+          docker compose --env-file .env -f compose.prod.yml -p %STACK_NAME% up --build -d
 
       - name: Health check
         shell: cmd
