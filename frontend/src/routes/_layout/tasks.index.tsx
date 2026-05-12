@@ -18,10 +18,6 @@ export const Route = createFileRoute("/_layout/tasks/")({
   }),
 })
 
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
-
 type MyTaskItem = {
   task: TaskPublic
   project_id: string
@@ -38,63 +34,10 @@ type MyDashboardPayload = {
   ongoing?: MyTaskItem[]
 }
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
+type UrgencyBucket = "urgent" | "today" | "ongoing"
 
-function statusLabel(status: string): string {
-  switch (status) {
-    case "todo": return "Chờ làm"
-    case "active": return "Đang làm"
-    case "in_progress": return "Đang làm"
-    case "review": return "Chờ duyệt"
-    case "completed": return "Hoàn thành"
-    case "done": return "Hoàn thành"
-    case "overdue_local": return "Quá hạn"
-    case "overdue_critical": return "Quá hạn nghiêm trọng"
-    case "due_soon": return "Sắp đến hạn"
-    default: return status
-  }
-}
-
-function statusBadgeClass(status: string): string {
-  switch (status) {
-    case "done": return "bg-green-100 text-green-700"
-    case "completed": return "bg-green-100 text-green-700"
-    case "active":
-    case "in_progress": return "bg-blue-100 text-blue-700"
-    case "review": return "bg-purple-100 text-purple-700"
-    case "overdue_critical": return "bg-red-100 text-red-700"
-    case "overdue_local": return "bg-orange-100 text-orange-700"
-    case "due_soon": return "bg-amber-100 text-amber-700"
-    default: return "bg-slate-100 text-slate-600"
-  }
-}
-
-function taskBusinessLabel(task: TaskPublic): string {
-  const moduleTag = task.module_tag?.trim()
-  if (moduleTag) {
-    if (moduleTag === "engineering") return "Kỹ thuật"
-    if (moduleTag === "planning") return "Kế hoạch"
-    if (moduleTag === "production") return "Sản xuất"
-    if (moduleTag === "sales") return "Kinh doanh"
-    if (moduleTag === "director") return "Ban giám đốc"
-    if (moduleTag === "quotation") return "Báo giá"
-    if (moduleTag === "contract") return "Hợp đồng"
-    return moduleTag
-  }
-  return "Công việc chung"
-}
-
-function initials(name: string): string {
-  const parts = name.trim().split(/\s+/).filter(Boolean)
-  if (parts.length === 0) return "?"
-  if (parts.length === 1) return parts[0].slice(0, 1).toUpperCase()
-  return `${parts[0].slice(0, 1)}${parts[parts.length - 1].slice(0, 1)}`.toUpperCase()
-}
-
-function deadlineText(endTime: string, effectiveStatus: string): { text: string; cls: string } {
-  const end = new Date(endTime)
+function bucketHeadline(bucket: UrgencyBucket, task: TaskPublic, effectiveStatus: string): { emoji: string; text: string } {
+  const end = new Date(task.end_time)
   const now = new Date()
   const diffMs = end.getTime() - now.getTime()
   const diffH = Math.floor(diffMs / 3_600_000)
@@ -102,43 +45,46 @@ function deadlineText(endTime: string, effectiveStatus: string): { text: string;
 
   if (effectiveStatus === "overdue_critical" || effectiveStatus === "overdue_local") {
     const overdueDays = Math.abs(diffD)
+    const emoji = effectiveStatus === "overdue_critical" ? "🔴" : "🟠"
     return {
-      text: overdueDays === 0 ? "Hết hạn hôm nay" : `Quá hạn ${overdueDays} ngày`,
-      cls: "text-red-600 font-semibold",
+      emoji,
+      text: overdueDays === 0 ? "QUÁ HẠN HÔM NAY" : `QUÁ HẠN ${overdueDays} NGÀY`,
     }
   }
-  if (diffH < 24) {
-    return {
-      text: diffH <= 0 ? "Hết hạn hôm nay" : `Còn ${diffH} giờ`,
-      cls: "text-amber-600 font-semibold",
-    }
+  if (bucket === "urgent") {
+    if (diffH <= 0) return { emoji: "🟡", text: "HẾT HẠN HÔM NAY" }
+    return { emoji: "🟡", text: `CÒN ${diffH} GIỜ` }
   }
-  if (diffD <= 3) {
-    return { text: `Còn ${diffD} ngày`, cls: "text-amber-500" }
+  if (bucket === "today") {
+    return { emoji: "📌", text: "HÔM NAY" }
   }
-  return {
-    text: end.toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit", year: "numeric" }),
-    cls: "text-muted-foreground",
-  }
+  if (diffD <= 3) return { emoji: "📋", text: `CÒN ${diffD} NGÀY` }
+  return { emoji: "📋", text: "ĐANG LÀM" }
 }
 
-// ---------------------------------------------------------------------------
-// Task card
-// ---------------------------------------------------------------------------
+function bucketHeadlineClass(bucket: UrgencyBucket, effectiveStatus: string): string {
+  if (effectiveStatus === "overdue_critical") return "text-red-700"
+  if (effectiveStatus === "overdue_local") return "text-orange-700"
+  if (bucket === "urgent") return "text-amber-700"
+  if (bucket === "today") return "text-blue-700"
+  return "text-slate-600"
+}
 
-function TaskCard({ row }: { row: MyTaskItem }) {
+function formatDeadline(endTime: string): string {
+  const end = new Date(endTime)
+  const now = new Date()
+  const sameDay = end.toDateString() === now.toDateString()
+  const time = end.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })
+  if (sameDay) return `hôm nay ${time}`
+  return end.toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit", year: "numeric" })
+}
+
+function TaskCard({ row, bucket }: { row: MyTaskItem; bucket: UrgencyBucket }) {
   const task = row.task
   const effectiveStatus = task.computed_status ?? task.status
   const progress = task.reported_progress_total ?? 0
-  const isSubtask = Boolean(task.parent_id)
-  const dl = deadlineText(task.end_time, effectiveStatus)
-  const businessLabel = taskBusinessLabel(task)
-  const collaborators = [
-    task.assignee_name?.trim() || task.assignee_id,
-    ...((task as TaskPublic & { extra_assignees?: Array<{ user_name?: string | null; user_id: string }> }).extra_assignees ?? []).map(
-      (item) => item.user_name?.trim() || item.user_id,
-    ),
-  ]
+  const headline = bucketHeadline(bucket, task, effectiveStatus)
+  const headlineCls = bucketHeadlineClass(bucket, effectiveStatus)
 
   return (
     <Link
@@ -146,55 +92,20 @@ function TaskCard({ row }: { row: MyTaskItem }) {
       params={{ taskId: task.id }}
       className="block rounded-xl border bg-white p-4 shadow-sm transition-shadow hover:shadow-md"
     >
-      {/* Top row: name + status badge */}
-      <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0 flex-1">
-          {isSubtask && (
-            <span className="mb-1 inline-block rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold text-amber-700">
-              Công việc con
-            </span>
-          )}
-          <p className="text-sm font-bold leading-snug text-slate-900">{task.name}</p>
-          <div className="mt-1 flex flex-wrap items-center gap-2">
-            <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-700">
-              {businessLabel}
-            </span>
-            <div className="flex items-center gap-1">
-              <div className="flex -space-x-2">
-                {collaborators.slice(0, 3).map((name) => (
-                  <span
-                    key={`${task.id}-${name}`}
-                    title={name}
-                    className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-white bg-primary text-[9px] font-bold text-white"
-                  >
-                    {initials(name)}
-                  </span>
-                ))}
-              </div>
-              <span className="text-[10px] font-semibold text-primary">
-                {collaborators.length} người
-              </span>
-            </div>
-          </div>
-          <p className="mt-0.5 text-[11px] text-muted-foreground">
-            {row.company_name} · {row.project_name}
-          </p>
-        </div>
-        <span className={[
-          "shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold",
-          statusBadgeClass(effectiveStatus),
-        ].join(" ")}>
-          {statusLabel(effectiveStatus)}
-        </span>
-      </div>
+      <p className={["text-sm font-bold tracking-wide", headlineCls].join(" ")}>
+        {headline.emoji} {headline.text}
+      </p>
 
-      {/* Progress bar */}
-      <div className="mt-3 space-y-1">
-        <div className="flex items-center justify-between text-[10px] text-muted-foreground">
-          <span>Tiến độ</span>
-          <span className="font-semibold text-slate-700">{progress}%</span>
-        </div>
-        <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-100">
+      <p className="mt-2 text-base font-bold leading-snug text-slate-900">
+        {task.name}
+      </p>
+
+      <p className="mt-2 text-sm text-slate-600">
+        Hạn: {formatDeadline(task.end_time)}
+      </p>
+
+      <div className="mt-2 flex items-center gap-3">
+        <div className="h-2 flex-1 overflow-hidden rounded-full bg-slate-100">
           <div
             className={[
               "h-full rounded-full transition-all",
@@ -206,56 +117,29 @@ function TaskCard({ row }: { row: MyTaskItem }) {
             style={{ width: `${Math.min(100, progress)}%` }}
           />
         </div>
-      </div>
-
-      {/* Bottom row: deadline + assignor */}
-      <div className="mt-2.5 flex items-center justify-between gap-2">
-        <p className={["text-[11px]", dl.cls].join(" ")}>
-          🗓 {dl.text}
-        </p>
-        {task.assignor_name && (
-          <p className="text-[10px] text-muted-foreground truncate">
-            Giao bởi {task.assignor_name}
-          </p>
-        )}
+        <span className="text-sm font-semibold text-slate-700 min-w-[36px] text-right">
+          {progress}%
+        </span>
       </div>
     </Link>
   )
 }
 
-// ---------------------------------------------------------------------------
-// Priority section
-// ---------------------------------------------------------------------------
-
-type BandConfig = {
-  key: keyof MyDashboardPayload
+type GroupConfig = {
+  key: UrgencyBucket
   label: string
   emoji: string
   headerCls: string
   borderCls: string
 }
 
-const BANDS: BandConfig[] = [
+const GROUPS: GroupConfig[] = [
   {
-    key: "overdue_critical",
-    label: "Quá hạn nghiêm trọng",
+    key: "urgent",
+    label: "Cần làm gấp",
     emoji: "🔴",
     headerCls: "text-red-700 bg-red-50 border-red-200",
     borderCls: "border-red-200",
-  },
-  {
-    key: "overdue_local",
-    label: "Đã quá hạn",
-    emoji: "🟠",
-    headerCls: "text-orange-700 bg-orange-50 border-orange-200",
-    borderCls: "border-orange-200",
-  },
-  {
-    key: "due_soon",
-    label: "Sắp đến hạn (trong 24h)",
-    emoji: "🟡",
-    headerCls: "text-amber-700 bg-amber-50 border-amber-200",
-    borderCls: "border-amber-200",
   },
   {
     key: "today",
@@ -266,35 +150,37 @@ const BANDS: BandConfig[] = [
   },
   {
     key: "ongoing",
-    label: "Đang thực hiện",
+    label: "Đang làm",
     emoji: "📋",
     headerCls: "text-slate-700 bg-slate-50 border-slate-200",
     borderCls: "border-slate-200",
   },
 ]
 
-function BandSection({ band, items }: { band: BandConfig; items: MyTaskItem[] }) {
+function GroupSection({
+  group,
+  items,
+}: {
+  group: GroupConfig
+  items: MyTaskItem[]
+}) {
   if (items.length === 0) return null
   return (
-    <section className={["rounded-xl border overflow-hidden", band.borderCls].join(" ")}>
-      <div className={["flex items-center justify-between px-4 py-2.5 border-b", band.headerCls].join(" ")}>
-        <h2 className="text-sm font-bold">
-          {band.emoji} {band.label}
+    <section className={["rounded-xl border overflow-hidden", group.borderCls].join(" ")}>
+      <div className={["flex items-center justify-between px-4 py-3 border-b", group.headerCls].join(" ")}>
+        <h2 className="text-base font-bold">
+          {group.emoji} {group.label}
         </h2>
-        <span className="text-xs font-semibold opacity-70">{items.length} việc</span>
+        <span className="text-sm font-semibold opacity-80">{items.length} việc</span>
       </div>
       <div className="space-y-2 bg-white p-3">
         {items.map((row) => (
-          <TaskCard key={row.task.id} row={row} />
+          <TaskCard key={row.task.id} row={row} bucket={group.key} />
         ))}
       </div>
     </section>
   )
 }
-
-// ---------------------------------------------------------------------------
-// Pending quotation card
-// ---------------------------------------------------------------------------
 
 function PendingQuotationCard({ q }: { q: QuotationPublic }) {
   const stageCfg = STAGE_CONFIG[q.current_stage]
@@ -307,18 +193,18 @@ function PendingQuotationCard({ q }: { q: QuotationPublic }) {
     >
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0 flex-1">
-          <p className="text-sm font-bold leading-snug text-slate-900">{q.project_name}</p>
-          <p className="mt-0.5 text-[11px] text-muted-foreground">{q.client_company_name}</p>
+          <p className="text-base font-bold leading-snug text-slate-900">{q.project_name}</p>
+          <p className="mt-1 text-sm text-muted-foreground">{q.client_company_name}</p>
         </div>
         <span className={[
-          "shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold",
+          "shrink-0 rounded-full px-2.5 py-1 text-xs font-bold",
           stageCfg.badgeBg,
           stageCfg.badgeText,
         ].join(" ")}>
           {stageCfg.shortLabel}
         </span>
       </div>
-      <div className="mt-2 flex items-center justify-between text-[11px] text-muted-foreground">
+      <div className="mt-2 flex items-center justify-between text-sm text-muted-foreground">
         <span>#{q.quote_number}</span>
         {q.sales_owner_name && <span>KD: {q.sales_owner_name}</span>}
       </div>
@@ -326,7 +212,7 @@ function PendingQuotationCard({ q }: { q: QuotationPublic }) {
   )
 }
 
-function PendingContractCard({ contract }: { contract: ContractPublic }) { // eslint-disable-line @typescript-eslint/no-unused-vars
+function PendingContractCard({ contract }: { contract: ContractPublic }) {
   return (
     <Link
       to="/contracts/$contractId"
@@ -335,23 +221,18 @@ function PendingContractCard({ contract }: { contract: ContractPublic }) { // es
     >
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0 flex-1">
-          <p className="text-sm font-bold leading-snug text-slate-900">{contract.contract_number}</p>
-          <p className="mt-0.5 text-[11px] text-muted-foreground">
+          <p className="text-base font-bold leading-snug text-slate-900">{contract.contract_number}</p>
+          <p className="mt-1 text-sm text-muted-foreground">
             Giá trị: {new Intl.NumberFormat("vi-VN").format(contract.total_value)} {contract.currency}
           </p>
         </div>
-        <span className="shrink-0 rounded-full bg-indigo-100 px-2 py-0.5 text-[10px] font-bold text-indigo-700">
+        <span className="shrink-0 rounded-full bg-indigo-100 px-2.5 py-1 text-xs font-bold text-indigo-700">
           {CONTRACT_STATUS_LABELS[contract.status]}
         </span>
       </div>
     </Link>
   )
 }
-
-
-// ---------------------------------------------------------------------------
-// Page
-// ---------------------------------------------------------------------------
 
 function MyTasksPage() {
   const permissionsQuery = useMyPermissions()
@@ -379,46 +260,40 @@ function MyTasksPage() {
 
   const data = dashboardQuery.data
 
-  const totalAll = useMemo(
-    () =>
-      (data?.overdue_critical?.length ?? 0) +
-      (data?.overdue_local?.length ?? 0) +
-      (data?.due_soon?.length ?? 0) +
-      (data?.today?.length ?? 0) +
-      (data?.ongoing?.length ?? 0),
-    [data],
-  )
+  const grouped = useMemo(() => {
+    const urgent: MyTaskItem[] = [
+      ...(data?.overdue_critical ?? []),
+      ...(data?.overdue_local ?? []),
+      ...(data?.due_soon ?? []),
+    ]
+    const today = data?.today ?? []
+    const ongoing = data?.ongoing ?? []
+    return { urgent, today, ongoing }
+  }, [data])
 
-  const urgentCount = useMemo(
-    () =>
-      (data?.overdue_critical?.length ?? 0) +
-      (data?.overdue_local?.length ?? 0) +
-      (data?.due_soon?.length ?? 0),
-    [data],
-  )
+  const totalAll = grouped.urgent.length + grouped.today.length + grouped.ongoing.length
+  const urgentCount = grouped.urgent.length
 
   return (
     <div className="mx-auto w-full max-w-2xl space-y-4 px-2 pb-24 pt-3 sm:px-4">
-      {/* Header */}
       <div className="flex items-end justify-between gap-3">
         <div>
-          <h1 className="text-xl font-extrabold tracking-tight">Công việc của tôi</h1>
-          <p className="text-xs text-muted-foreground">
+          <h1 className="text-2xl font-extrabold tracking-tight">Công việc của tôi</h1>
+          <p className="text-sm text-muted-foreground">
             {totalAll > 0
-              ? `${totalAll} công việc đang mở${urgentCount > 0 ? ` · ${urgentCount} cần xử lý gấp` : ""}`
+              ? `${totalAll} công việc${urgentCount > 0 ? ` · ${urgentCount} cần làm gấp` : ""}`
               : "Chưa có công việc nào"}
           </p>
         </div>
       </div>
 
-      {/* Pending quotations */}
       {pendingQuotations.length > 0 && (
         <section className="rounded-xl border border-amber-200 overflow-hidden">
-          <div className="flex items-center justify-between px-4 py-2.5 border-b bg-amber-50 border-amber-200">
-            <h2 className="text-sm font-bold text-amber-700">
+          <div className="flex items-center justify-between px-4 py-3 border-b bg-amber-50 border-amber-200">
+            <h2 className="text-base font-bold text-amber-700">
               📋 Báo giá cần xử lý
             </h2>
-            <span className="text-xs font-semibold text-amber-700 opacity-70">
+            <span className="text-sm font-semibold text-amber-700 opacity-80">
               {pendingQuotations.length} hồ sơ
             </span>
           </div>
@@ -431,11 +306,11 @@ function MyTasksPage() {
       )}
       {pendingContracts.length > 0 && (
         <section className="rounded-xl border border-indigo-200 overflow-hidden">
-          <div className="flex items-center justify-between px-4 py-2.5 border-b bg-indigo-50 border-indigo-200">
-            <h2 className="text-sm font-bold text-indigo-700">
+          <div className="flex items-center justify-between px-4 py-3 border-b bg-indigo-50 border-indigo-200">
+            <h2 className="text-base font-bold text-indigo-700">
               📑 Hợp đồng chờ phê duyệt
             </h2>
-            <span className="text-xs font-semibold text-indigo-700 opacity-70">
+            <span className="text-sm font-semibold text-indigo-700 opacity-80">
               {pendingContracts.length} hợp đồng
             </span>
           </div>
@@ -446,7 +321,7 @@ function MyTasksPage() {
           </div>
         </section>
       )}
-      {/* Loading */}
+
       {dashboardQuery.isLoading && (
         <div className="space-y-3">
           {[1, 2, 3].map((i) => (
@@ -455,30 +330,27 @@ function MyTasksPage() {
         </div>
       )}
 
-      {/* Error */}
       {dashboardQuery.isError && (
         <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
           Không tải được danh sách công việc. Vui lòng thử lại.
         </div>
       )}
 
-      {/* Empty */}
       {!dashboardQuery.isLoading && !dashboardQuery.isError && totalAll === 0 && (
         <div className="rounded-xl border border-dashed p-10 text-center">
-          <p className="text-2xl">✅</p>
-          <p className="mt-2 font-semibold text-slate-700">Bạn không có công việc nào đang mở</p>
+          <p className="text-3xl">✅</p>
+          <p className="mt-2 text-lg font-semibold text-slate-700">Bạn không có công việc nào</p>
           <p className="mt-1 text-sm text-muted-foreground">
             Khi được giao việc, danh sách sẽ hiển thị tại đây.
           </p>
         </div>
       )}
 
-      {/* Band sections */}
-      {BANDS.map((band) => (
-        <BandSection
-          key={band.key}
-          band={band}
-          items={(data?.[band.key] ?? []) as MyTaskItem[]}
+      {GROUPS.map((group) => (
+        <GroupSection
+          key={group.key}
+          group={group}
+          items={grouped[group.key]}
         />
       ))}
     </div>

@@ -9,45 +9,48 @@ jobs:
     if: github.ref == 'refs/heads/releases' && github.event_name == 'workflow_dispatch'
 
     env:
-      FRONTEND_PORT: "80"
-      BACKEND_PORT: "8000"
-      ADMINER_PORT: "8181"
       STACK_NAME: saree-prod
-      DOMAIN: localhost
+      DOMAIN: erp.sareeref.vn
       ENVIRONMENT: production
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Write .env
+      - name: Ensure traefik-public network
+        shell: cmd
         run: |
-          set -euo pipefail
-          {
-            echo "ENVIRONMENT=$ENVIRONMENT"
-            echo "DOMAIN=$DOMAIN"
-            echo "PROJECT_NAME=Saree ERP"
-            echo "DOCKER_IMAGE_BACKEND=saree-backend"
-            echo "DOCKER_IMAGE_FRONTEND=saree-frontend"
-            echo "TAG=latest"
-            echo "SECRET_KEY=$SECRET_KEY"
-            echo "POSTGRES_PASSWORD=$POSTGRES_PASSWORD"
-            echo "FIRST_SUPERUSER=$FIRST_SUPERUSER"
-            echo "FIRST_SUPERUSER_PASSWORD=$FIRST_SUPERUSER_PASSWORD"
-            echo "POSTGRES_SERVER=db"
-            echo "POSTGRES_PORT=5432"
-            echo "POSTGRES_DB=saree-erp-project"
-            echo "POSTGRES_USER=saree"
-            echo "FRONTEND_HOST=http://localhost:${FRONTEND_PORT}"
-            echo "BACKEND_CORS_ORIGINS=http://localhost:${FRONTEND_PORT}"
-            echo "PUBLIC_BASE_URL=http://localhost:${BACKEND_PORT}"
-            echo "VITE_API_URL=http://localhost:${BACKEND_PORT}"
-            echo "SMTP_HOST="
-            echo "SMTP_USER="
-            echo "SMTP_PASSWORD="
-            echo "EMAILS_FROM_EMAIL="
-            echo "SENTRY_DSN="
-          } > .env
+          docker network inspect traefik-public >NUL 2>&1 || docker network create traefik-public
+
+      - name: Write .env
+        shell: cmd
+        run: |
+          (
+            echo ENVIRONMENT=%ENVIRONMENT%
+            echo DOMAIN=%DOMAIN%
+            echo STACK_NAME=%STACK_NAME%
+            echo PROJECT_NAME=Saree ERP
+            echo DOCKER_IMAGE_BACKEND=saree-backend
+            echo DOCKER_IMAGE_FRONTEND=saree-frontend
+            echo TAG=latest
+            echo SECRET_KEY=%SECRET_KEY%
+            echo POSTGRES_SERVER=db
+            echo POSTGRES_PORT=5432
+            echo POSTGRES_DB=saree-erp-project
+            echo POSTGRES_USER=saree
+            echo POSTGRES_PASSWORD=%POSTGRES_PASSWORD%
+            echo FIRST_SUPERUSER=%FIRST_SUPERUSER%
+            echo FIRST_SUPERUSER_PASSWORD=%FIRST_SUPERUSER_PASSWORD%
+            echo FRONTEND_HOST=https://dashboard.%DOMAIN%
+            echo BACKEND_CORS_ORIGINS=https://dashboard.%DOMAIN%
+            echo PUBLIC_BASE_URL=https://api.%DOMAIN%
+            echo VITE_API_URL=https://api.%DOMAIN%
+            echo SMTP_HOST=
+            echo SMTP_USER=
+            echo SMTP_PASSWORD=
+            echo EMAILS_FROM_EMAIL=
+            echo SENTRY_DSN=
+          ) > .env
         env:
           SECRET_KEY: ${{ secrets.PROD_SECRET_KEY }}
           POSTGRES_PASSWORD: ${{ secrets.PROD_POSTGRES_PASSWORD }}
@@ -55,23 +58,11 @@ jobs:
           FIRST_SUPERUSER_PASSWORD: ${{ secrets.PROD_FIRST_SUPERUSER_PASSWORD }}
 
       - name: Docker Compose up
+        shell: cmd
         run: |
-          set -euo pipefail
-          docker compose -f compose.local.yml -p saree-prod up --build -d
+          docker compose -f compose.prod.yml -p %STACK_NAME% up --build -d
 
       - name: Health check
+        shell: cmd
         run: |
-          set -euo pipefail
-          ok=0
-          for _ in $(seq 1 30); do
-            if curl -sf "http://127.0.0.1:${BACKEND_PORT}/api/v1/utils/health-check/" >/dev/null; then
-              ok=1
-              break
-            fi
-            sleep 2
-          done
-          if [ "$ok" -ne 1 ]; then
-            echo "Backend health check timed out"
-            exit 1
-          fi
-          curl -sf "http://127.0.0.1:${FRONTEND_PORT}/" >/dev/null
+          powershell -NoProfile -ExecutionPolicy Bypass -Command "$ok = $false; for ($i = 0; $i -lt 60; $i++) { $h = (docker inspect --format='{{.State.Health.Status}}' saree-prod-backend-1 2>$null); if ($h -eq 'healthy') { $ok = $true; break }; Start-Sleep -Seconds 3 }; if (-not $ok) { docker logs --tail 200 saree-prod-backend-1; throw 'Backend health check timed out' }"

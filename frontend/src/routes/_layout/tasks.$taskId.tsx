@@ -34,6 +34,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import useAuth from "@/hooks/useAuth"
 import useCustomToast from "@/hooks/useCustomToast"
 import { useMyPermissions } from "@/hooks/useMyPermissions"
@@ -67,6 +68,46 @@ function parseProgressPercent(raw: string): number | null {
   return n
 }
 
+function computeHeaderHeadline(task: TaskPublic): { emoji: string; text: string; cls: string } {
+  const effectiveStatus = task.computed_status ?? task.status
+  const end = new Date(task.end_time)
+  const now = new Date()
+  const diffMs = end.getTime() - now.getTime()
+  const diffH = Math.floor(diffMs / 3_600_000)
+  const diffD = Math.floor(diffMs / 86_400_000)
+
+  if (task.status === "done") {
+    return { emoji: "✅", text: "ĐÃ HOÀN THÀNH", cls: "text-green-700" }
+  }
+  if (effectiveStatus === "overdue_critical" || effectiveStatus === "overdue_local") {
+    const overdueDays = Math.abs(diffD)
+    return {
+      emoji: effectiveStatus === "overdue_critical" ? "🔴" : "🟠",
+      text: overdueDays === 0 ? "QUÁ HẠN HÔM NAY" : `QUÁ HẠN ${overdueDays} NGÀY`,
+      cls: effectiveStatus === "overdue_critical" ? "text-red-700" : "text-orange-700",
+    }
+  }
+  if (diffH <= 24) {
+    if (diffH <= 0) return { emoji: "🟡", text: "HẾT HẠN HÔM NAY", cls: "text-amber-700" }
+    return { emoji: "🟡", text: `CÒN ${diffH} GIỜ`, cls: "text-amber-700" }
+  }
+  if (diffD <= 3) return { emoji: "📌", text: `CÒN ${diffD} NGÀY`, cls: "text-blue-700" }
+  if (effectiveStatus === "in_progress") return { emoji: "📋", text: "ĐANG LÀM", cls: "text-slate-600" }
+  return { emoji: "📋", text: "CHỜ LÀM", cls: "text-slate-600" }
+}
+
+function formatDeadlineFull(iso: string | undefined): string {
+  if (!iso) return "—"
+  const d = new Date(iso)
+  return d.toLocaleString("vi-VN", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  })
+}
+
 // Date helpers, audit formatters, and isPlainObject are imported from shared utils above.
 
 function TaskDetailPage() {
@@ -77,6 +118,9 @@ function TaskDetailPage() {
   const [proofNote, setProofNote] = useState("")
   const [proofUrl, setProofUrl] = useState("")
   const progressPhotoInputRef = useRef<HTMLInputElement>(null)
+  const progressSectionRef = useRef<HTMLDivElement>(null)
+  const commentsSectionRef = useRef<HTMLDivElement>(null)
+  const commentInputRef = useRef<HTMLInputElement>(null)
   const [progressPhotoFile, setProgressPhotoFile] = useState<File | null>(null)
   const [progressPhotoPreview, setProgressPhotoPreview] = useState<
     string | null
@@ -120,6 +164,7 @@ function TaskDetailPage() {
   const [observerUserId, setObserverUserId] = useState("")
   const [reassignDialogOpen, setReassignDialogOpen] = useState(false)
   const [reassignUserId, setReassignUserId] = useState("")
+  const [activeTab, setActiveTab] = useState<"progress" | "comments" | "subtasks" | "history">("progress")
 
   useEffect(() => {
     setProgressReportPhotoFailed({})
@@ -500,26 +545,6 @@ function TaskDetailPage() {
     onError: handleError.bind(showErrorToast),
   })
 
-  const updateTaskModuleTagMutation = useMutation({
-    mutationFn: async (moduleTag: string) =>
-      TasksService.updateTask({
-        taskId,
-        requestBody: {
-          module_tag: moduleTag || null,
-        } as any,
-      }),
-    onSuccess: async () => {
-      showSuccessToast("Đã cập nhật loại task")
-      await queryClient.invalidateQueries({
-        queryKey: ["task-detail", "task", taskId],
-      })
-      await queryClient.invalidateQueries({
-        queryKey: ["task-detail", "audit", taskId],
-      })
-    },
-    onError: handleError.bind(showErrorToast),
-  })
-
   const updateTaskInfoMutation = useMutation({
     mutationFn: async () => {
       const startTime = toIsoFromLocalDateTime(taskStartDraft)
@@ -831,480 +856,300 @@ function TaskDetailPage() {
         </div>
       </section>
 
-      {/* ── Module tag + Linked entity ── */}
-      {task && (
-        <section className="space-y-3 rounded-xl border bg-white p-5 shadow-sm">
-          <div className="flex items-center justify-between">
-            <h4 className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
-              Phân loại nghiệp vụ
-            </h4>
-            <span className={[
-              "rounded-full px-3 py-0.5 text-[11px] font-bold uppercase tracking-wide",
-              task.module_tag === "procurement" ? "bg-orange-100 text-orange-700" :
-              task.module_tag === "supply"       ? "bg-yellow-100 text-yellow-700" :
-              task.module_tag === "production"   ? "bg-blue-100 text-blue-700"   :
-              task.module_tag === "engineering"  ? "bg-violet-100 text-violet-700" :
-              task.module_tag === "planning"     ? "bg-sky-100 text-sky-700"     :
-              task.module_tag === "installation" ? "bg-green-100 text-green-700" :
-              "bg-slate-100 text-slate-600",
-            ].join(" ")}>
-              {task.module_tag === "procurement"  ? "Mua hàng"
-               : task.module_tag === "supply"     ? "Cung ứng"
-               : task.module_tag === "production" ? "Sản xuất"
-               : task.module_tag === "engineering"? "Kỹ thuật"
-               : task.module_tag === "planning"   ? "Kế hoạch"
-               : task.module_tag === "installation"? "Lắp đặt"
-               : "Chưa phân loại"}
-            </span>
-          </div>
-          {canEditTask && (
-            <div className="flex flex-wrap items-center gap-2">
-              <select
-                title="Chọn loại task"
-                aria-label="Chọn loại task"
-                value={taskModuleTagDraft}
-                onChange={(e) => setTaskModuleTagDraft(e.target.value)}
-                className="h-9 min-w-[180px] rounded-md border px-2 text-sm"
-              >
-                <option value="">Chưa phân loại</option>
-                <option value="engineering">Kỹ thuật</option>
-                <option value="planning">Kế hoạch</option>
-                <option value="procurement">Mua hàng</option>
-                <option value="production">Sản xuất</option>
-                <option value="supply">Cung ứng</option>
-                <option value="installation">Lắp đặt</option>
-              </select>
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                disabled={
-                  updateTaskModuleTagMutation.isPending ||
-                  taskModuleTagDraft === (task.module_tag ?? "")
-                }
-                onClick={() => updateTaskModuleTagMutation.mutate(taskModuleTagDraft)}
-              >
-                Cập nhật loại task
-              </Button>
+      {/* ── Header card (new compact layout) ── */}
+      {task ? (() => {
+        const headline = computeHeaderHeadline(task)
+        const progress = task.reported_progress_total ?? 0
+        const progressBarCls =
+          progress >= 100 ? "bg-green-500"
+            : progress >= 60 ? "bg-blue-500"
+            : progress >= 30 ? "bg-amber-400"
+            : "bg-slate-300"
+        const canRequestDelay =
+          isAssignee && task.status !== "done" && !hasPendingDelay
+        return (
+          <section className="space-y-4 rounded-xl border bg-white p-5 shadow-sm">
+            {/* Status banner + manager menu */}
+            <div className="flex items-center justify-between gap-2">
+              <p className={["text-sm font-bold tracking-wide", headline.cls].join(" ")}>
+                {headline.emoji} {headline.text} · {progress}%
+              </p>
+              {canEditTask && (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button
+                      type="button"
+                      title="Tác vụ quản lý"
+                      aria-label="Tác vụ quản lý"
+                      className="h-9 w-9 rounded-md border text-xl leading-none text-muted-foreground hover:bg-muted"
+                    >
+                      ⋯
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="min-w-[220px]">
+                    <DropdownMenuItem onClick={() => setTaskEditDialogOpen(true)}>
+                      ✏️ Sửa thông tin việc
+                    </DropdownMenuItem>
+                    {canUpdateTaskDeadline && (
+                      <DropdownMenuItem
+                        onClick={() => {
+                          setTaskStartDraft(toLocalDateTimeInputValue(task.start_time))
+                          setTaskDeadlineDraft(toLocalDateTimeInputValue(task.end_time))
+                          setDeadlineDialogOpen(true)
+                        }}
+                      >
+                        🗓 Đổi thời gian
+                      </DropdownMenuItem>
+                    )}
+                    {canManageExtraAssignees && (
+                      <>
+                        <DropdownMenuItem onClick={() => setReassignDialogOpen(true)}>
+                          🔄 Đổi người làm chính
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => setExtraAssigneeDialogOpen(true)}>
+                          ➕ Thêm người làm cùng
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => setObserverDialogOpen(true)}>
+                          👀 Thêm người theo dõi
+                        </DropdownMenuItem>
+                      </>
+                    )}
+                    <DropdownMenuItem
+                      disabled={task.status === "todo"}
+                      onClick={() => updateStatusMutation.mutate("todo")}
+                    >
+                      ⏸ Đánh dấu: Chờ làm
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      disabled={task.status === "in_progress"}
+                      onClick={() => updateStatusMutation.mutate("in_progress")}
+                    >
+                      ▶ Đánh dấu: Đang làm
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      disabled={task.status === "done"}
+                      onClick={() => {
+                        if ((task.reported_progress_total ?? 0) < 100) {
+                          showErrorToast("Chưa thể đánh dấu hoàn thành khi tiến độ chưa đạt 100%")
+                          return
+                        }
+                        updateStatusMutation.mutate("done")
+                      }}
+                    >
+                      ✅ Đánh dấu: Hoàn thành
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
             </div>
-          )}
 
-        </section>
-      )}
-
-      {/* ── Subtask indicator banner (only shown for subtasks) ── */}
-      {task?.parent_id ? (
-        <div className="flex flex-col gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-2.5 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-3 sm:gap-y-2">
-          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-1">
-            <span className="shrink-0 rounded bg-amber-400 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-white">
-              Công việc con
-            </span>
-            {parentBreadcrumbs.length > 0 ? (
-              <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-1 gap-y-1 text-xs text-amber-700">
-                <span className="shrink-0 text-amber-400">thuộc</span>
-                {parentBreadcrumbs.map((item) => (
-                  <span
-                    key={item.id}
-                    className="flex min-w-0 max-w-full items-center gap-1"
-                  >
+            {/* Parent breadcrumb (subtask) */}
+            {parentBreadcrumbs.length > 0 && (
+              <p className="flex flex-wrap items-center gap-x-1 gap-y-0.5 text-xs text-muted-foreground">
+                <span>Việc con của:</span>
+                {parentBreadcrumbs.map((item, idx) => (
+                  <span key={item.id} className="flex items-center gap-1">
                     <Link
                       to="/tasks/$taskId"
                       params={{ taskId: item.id }}
-                      className="min-w-0 max-w-full break-words font-semibold underline underline-offset-2"
+                      className="font-semibold text-primary underline-offset-2 hover:underline"
                     >
                       {item.name}
                     </Link>
-                    <span className="shrink-0 text-amber-300">/</span>
+                    {idx < parentBreadcrumbs.length - 1 && <span>/</span>}
+                  </span>
+                ))}
+              </p>
+            )}
+
+            {/* Title */}
+            <h1 className="text-xl font-extrabold leading-snug text-slate-900">
+              {task.name}
+            </h1>
+
+            {/* Progress bar */}
+            <div className="h-2.5 w-full overflow-hidden rounded-full bg-slate-100">
+              <div
+                className={["h-full rounded-full transition-all", progressBarCls].join(" ")}
+                style={{ width: `${Math.min(100, progress)}%` }}
+              />
+            </div>
+
+            {/* Meta */}
+            <div className="space-y-0.5 text-sm text-slate-600">
+              <p>
+                <span className="font-semibold">Hạn:</span>{" "}
+                {formatDeadlineFull(task.end_time)}
+              </p>
+              <p>
+                <span className="font-semibold">Người làm:</span>{" "}
+                {task.assignee_name?.trim() || task.assignee_id || "—"}
+              </p>
+              {task.assignor_name && (
+                <p>
+                  <span className="font-semibold">Giao bởi:</span>{" "}
+                  {task.assignor_name}
+                </p>
+              )}
+            </div>
+
+            {/* Blocked-by alert */}
+            {(task.blocked_by?.length ?? 0) > 0 && (
+              <div className="rounded-lg border border-amber-300 bg-amber-50 px-4 py-3">
+                <p className="mb-1.5 text-sm font-bold text-amber-700">
+                  ⏳ Đang chờ việc khác xong trước
+                </p>
+                <ul className="space-y-1">
+                  {task.blocked_by!.map((b) => (
+                    <li key={b.id} className="flex items-center gap-2 text-sm text-amber-800">
+                      <span className="inline-block h-1.5 w-1.5 rounded-full bg-amber-500" />
+                      <span className="font-medium">{b.name}</span>
+                      <span className="rounded bg-amber-200 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700">
+                        {b.status === "todo" ? "Chờ làm" : b.status === "in_progress" ? "Đang làm" : b.status}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {/* 3 BIG ACTION BUTTONS */}
+            <div className="grid grid-cols-3 gap-2 pt-1">
+              <button
+                type="button"
+                className="rounded-xl border border-blue-200 bg-blue-50 px-2 py-4 text-sm font-bold leading-tight text-blue-700 transition hover:bg-blue-100 active:scale-95"
+                onClick={() => {
+                  setActiveTab("progress")
+                  setTimeout(() => progressSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 50)
+                }}
+              >
+                ✓ Cập nhật<br />tiến độ
+              </button>
+              <button
+                type="button"
+                className="rounded-xl border border-slate-200 bg-slate-50 px-2 py-4 text-sm font-bold leading-tight text-slate-700 transition hover:bg-slate-100 active:scale-95"
+                onClick={() => {
+                  setActiveTab("comments")
+                  setTimeout(() => {
+                    commentsSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })
+                    commentInputRef.current?.focus()
+                  }, 80)
+                }}
+              >
+                💬 Bình luận
+              </button>
+              <button
+                type="button"
+                disabled={!canRequestDelay}
+                className="rounded-xl border border-amber-200 bg-amber-50 px-2 py-4 text-sm font-bold leading-tight text-amber-700 transition hover:bg-amber-100 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-amber-50"
+                onClick={() => setDelayDialogOpen(true)}
+                title={
+                  !isAssignee
+                    ? "Chỉ người làm chính mới xin gia hạn được"
+                    : task.status === "done"
+                      ? "Việc đã hoàn thành"
+                      : hasPendingDelay
+                        ? "Đã có yêu cầu gia hạn chờ duyệt"
+                        : undefined
+                }
+              >
+                ⏰ Xin<br />gia hạn
+              </button>
+            </div>
+          </section>
+        )
+      })() : null}
+
+      {(extraAssignees.length > 0 || observers.length > 0) && (
+        <section className="space-y-3 rounded-xl border bg-white p-4 shadow-sm">
+          <h4 className="text-sm font-bold text-slate-700">
+            Người tham gia
+          </h4>
+          {extraAssignees.length > 0 && (
+            <div className="space-y-1.5">
+              <p className="text-sm font-semibold text-slate-700">Người làm cùng</p>
+              <div className="flex flex-wrap gap-2">
+                {extraAssignees.map((row) => (
+                  <span
+                    key={row.id}
+                    className="inline-flex items-center gap-2 rounded-full border bg-slate-50 px-3 py-1 text-sm"
+                  >
+                    <span>{row.user_name?.trim() || row.user_id}</span>
+                    {canManageExtraAssignees ? (
+                      <button
+                        type="button"
+                        className="font-bold text-destructive"
+                        disabled={removeExtraAssigneeMutation.isPending}
+                        onClick={() => removeExtraAssigneeMutation.mutate(row.user_id)}
+                      >
+                        ×
+                      </button>
+                    ) : null}
                   </span>
                 ))}
               </div>
-            ) : null}
-          </div>
-          {task.progress_weight != null ? (
-            <span className="shrink-0 text-[11px] font-semibold text-amber-700 sm:text-right">
-              Mức đóng góp: {task.progress_weight}%
-            </span>
-          ) : null}
-        </div>
-      ) : parentBreadcrumbs.length > 0 ? (
-        <section className="rounded-xl border bg-white px-4 py-3 shadow-sm">
-          <div className="flex flex-wrap items-center gap-1 text-xs">
-            {parentBreadcrumbs.map((item) => (
-              <span key={item.id} className="flex items-center gap-1">
-                <Link
-                  to="/tasks/$taskId"
-                  params={{ taskId: item.id }}
-                  className="font-semibold text-primary underline"
-                >
-                  {item.name}
-                </Link>
-                <span className="text-muted-foreground">/</span>
-              </span>
-            ))}
-            <span className="font-bold text-slate-700">{task?.name ?? "Task"}</span>
+            </div>
+          )}
+          {observers.length > 0 && (
+            <div className="space-y-1.5">
+              <p className="text-sm font-semibold text-slate-700">Người theo dõi</p>
+              <div className="flex flex-wrap gap-2">
+                {observers.map((row) => (
+                  <span
+                    key={`${row.task_id}-${row.user_id}`}
+                    className="inline-flex items-center gap-2 rounded-full border bg-slate-50 px-3 py-1 text-sm"
+                  >
+                    <span>{row.user_name?.trim() || row.user_id}</span>
+                    {canManageExtraAssignees ? (
+                      <button
+                        type="button"
+                        className="font-bold text-destructive"
+                        disabled={removeObserverMutation.isPending}
+                        onClick={() => removeObserverMutation.mutate(row.user_id)}
+                      >
+                        ×
+                      </button>
+                    ) : null}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+        </section>
+      )}
+
+      {task?.description ? (
+        <section className="space-y-2">
+          <h4 className="text-base font-bold text-slate-700">Mô tả công việc</h4>
+          <div className="break-words rounded-lg bg-muted p-4 text-sm leading-relaxed">
+            {task.description}
           </div>
         </section>
       ) : null}
 
-      {/* ── Task / Subtask header card ── */}
-      <section className={[
-        "space-y-4 rounded-xl border p-5 shadow-sm",
-        task?.parent_id ? "border-amber-200 bg-amber-50/40" : "bg-white",
-      ].join(" ")}>
-        <div className="flex items-start justify-between gap-3">
-          <div className="space-y-1">
-            {task?.parent_id && (
-              <p className="text-[10px] font-bold uppercase tracking-widest text-amber-500">
-                Công việc con
-              </p>
-            )}
-            <h3 className="text-lg font-bold">{task?.name ?? "Task"}</h3>
-            <p className="text-sm text-muted-foreground">
-              Hạn: {task ? new Date(task.end_time).toLocaleString("vi-VN") : "-"}
-            </p>
-            {canUpdateTaskDeadline ? (
-              <button
-                type="button"
-                className="text-xs font-semibold text-primary underline"
-                onClick={() => {
-                  setTaskStartDraft(toLocalDateTimeInputValue(task?.start_time))
-                  setTaskDeadlineDraft(toLocalDateTimeInputValue(task?.end_time))
-                  setDeadlineDialogOpen(true)
-                }}
-              >
-                Đổi thời gian
-              </button>
-            ) : null}
-          </div>
-          <div className="flex items-center gap-2">
-            <span className={[
-              "rounded px-2 py-1 text-[10px] font-black uppercase",
-              task?.parent_id ? "bg-amber-100 text-amber-700" : "bg-primary/10 text-primary",
-            ].join(" ")}>
-              {task?.status === "todo" ? "Chờ làm"
-                : task?.status === "in_progress" ? "Đang làm"
-                : task?.status === "done" ? "Hoàn thành"
-                : task?.status ?? "todo"}
-            </span>
-            {canEditTask && (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <button
-                    type="button"
-                    title="Tác vụ task"
-                    aria-label="Tác vụ task"
-                    className="h-8 w-8 rounded-md border text-lg leading-none text-muted-foreground hover:bg-muted"
-                  >
-                    ⋯
-                  </button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem
-                    onClick={() => setTaskEditDialogOpen(true)}
-                  >
-                    Sửa thông tin task
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            )}
-          </div>
-        </div>
+      {/* ── Tabs navigation ── */}
+      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as typeof activeTab)} className="w-full">
+        <TabsList className="grid h-auto w-full grid-cols-4 gap-1 bg-slate-100 p-1">
+          <TabsTrigger value="progress" className="py-2 text-sm font-semibold">
+            Tiến độ
+          </TabsTrigger>
+          <TabsTrigger value="comments" className="py-2 text-sm font-semibold">
+            Bình luận
+          </TabsTrigger>
+          <TabsTrigger value="subtasks" className="py-2 text-sm font-semibold">
+            Việc con
+          </TabsTrigger>
+          <TabsTrigger value="history" className="py-2 text-sm font-semibold">
+            Lịch sử
+          </TabsTrigger>
+        </TabsList>
+      </Tabs>
 
-        {(task?.blocked_by?.length ?? 0) > 0 && (
-          <div className="mb-3 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3">
-            <p className="mb-1.5 text-xs font-bold uppercase tracking-wide text-amber-700">
-              Đang bị chặn bởi
-            </p>
-            <ul className="space-y-1">
-              {task!.blocked_by!.map((b) => (
-                <li key={b.id} className="flex items-center gap-2 text-sm text-amber-800">
-                  <span className="inline-block h-1.5 w-1.5 rounded-full bg-amber-500" />
-                  <span className="font-medium">{b.name}</span>
-                  <span className="rounded bg-amber-200 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-amber-700">
-                    {b.status === "todo" ? "Chờ làm" : b.status === "in_progress" ? "Đang làm" : b.status}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
-
-
-        <div className="grid grid-cols-3 gap-2">
-          <button
-            type="button"
-            className={[
-              "rounded-lg border py-3 text-sm font-semibold transition-colors",
-              task?.status === "todo"
-                ? "bg-slate-800 text-white shadow-sm"
-                : "bg-muted text-muted-foreground hover:bg-muted/80",
-            ].join(" ")}
-            onClick={() => updateStatusMutation.mutate("todo")}
-          >
-            Chờ làm
-          </button>
-          <button
-            type="button"
-            className={[
-              "rounded-lg border py-3 text-sm font-semibold transition-colors",
-              task?.status === "in_progress"
-                ? "bg-primary text-white shadow-sm"
-                : "bg-muted text-muted-foreground hover:bg-muted/80",
-            ].join(" ")}
-            onClick={() => updateStatusMutation.mutate("in_progress")}
-          >
-            Đang làm
-          </button>
-          <button
-            type="button"
-            className={[
-              "rounded-lg border py-3 text-sm font-semibold transition-colors",
-              task?.status === "done"
-                ? "bg-green-600 text-white shadow-sm"
-                : "bg-muted text-muted-foreground hover:bg-muted/80",
-            ].join(" ")}
-            onClick={() => {
-              if ((task?.reported_progress_total ?? 0) < 100) {
-                showErrorToast("Chưa thể đánh dấu hoàn thành khi tiến độ chưa đạt 100%")
-                return
-              }
-              updateStatusMutation.mutate("done")
-            }}
-          >
-            Hoàn thành ✓
-          </button>
-        </div>
-      </section>
-
-      {/* ── Delay Requests ── */}
-      <section className="space-y-3 rounded-xl border bg-white p-5 shadow-sm">
-        <div className="flex items-center justify-between">
-          <h4 className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
-            Yêu cầu gia hạn
-          </h4>
-          {isAssignee && task?.status !== "done" && !hasPendingDelay ? (
-            <button
-              type="button"
-              className="rounded-lg bg-amber-50 px-3 py-1.5 text-xs font-bold text-amber-700 hover:bg-amber-100"
-              onClick={() => setDelayDialogOpen(true)}
-            >
-              + Xin gia hạn
-            </button>
-          ) : null}
-          {isAssignee && task?.status !== "done" && hasPendingDelay ? (
-            <span className="text-[10px] text-muted-foreground">
-              Đang có yêu cầu gia hạn chờ duyệt
-            </span>
-          ) : null}
-        </div>
-
-        {delayRequests.length === 0 ? (
-          <p className="text-xs text-muted-foreground">Chưa có yêu cầu gia hạn.</p>
-        ) : (
-          <div className="space-y-3">
-            {delayRequests.map((req) => {
-              const isPending = req.approval_status === "PENDING"
-              const isApproved = req.approval_status === "APPROVED"
-              return (
-                <div
-                  key={req.id}
-                  className={[
-                    "rounded-lg border p-3 text-sm",
-                    isPending
-                      ? "border-amber-200 bg-amber-50"
-                      : isApproved
-                        ? "border-green-200 bg-green-50"
-                        : "border-red-200 bg-red-50",
-                  ].join(" ")}
-                >
-                  <div className="mb-1.5 flex flex-wrap items-center gap-2">
-                    <span className="text-[10px] font-bold text-muted-foreground">
-                      {req.author_name ?? req.author_id}
-                    </span>
-                    <span
-                      className={[
-                        "rounded-full px-2 py-0.5 text-[10px] font-black uppercase",
-                        isPending
-                          ? "bg-amber-200 text-amber-800"
-                          : isApproved
-                            ? "bg-green-200 text-green-800"
-                            : "bg-red-200 text-red-800",
-                      ].join(" ")}
-                    >
-                      {isPending ? "Đang chờ" : isApproved ? "Đã duyệt" : "Từ chối"}
-                    </span>
-                    {req.requested_end_time && (
-                      <span className="text-[10px] text-muted-foreground">
-                        → {new Date(req.requested_end_time).toLocaleDateString("vi-VN")}
-                      </span>
-                    )}
-                  </div>
-                  <p className="break-words text-[13px]">{req.content}</p>
-                  {isPending &&
-                  canApproveDelay &&
-                  (currentUser?.is_superuser ||
-                    req.author_id !== currentUser?.id) ? (
-                    <div className="mt-2 flex gap-2">
-                      <button
-                        type="button"
-                        disabled={approveDelayMutation.isPending}
-                        className="rounded-md bg-green-600 px-3 py-1 text-[11px] font-bold text-white disabled:opacity-60"
-                        onClick={() =>
-                          approveDelayMutation.mutate({
-                            commentId: req.id,
-                            approval_status: "APPROVED",
-                          })
-                        }
-                      >
-                        Duyệt
-                      </button>
-                      <button
-                        type="button"
-                        disabled={approveDelayMutation.isPending}
-                        className="rounded-md bg-red-600 px-3 py-1 text-[11px] font-bold text-white disabled:opacity-60"
-                        onClick={() =>
-                          approveDelayMutation.mutate({
-                            commentId: req.id,
-                            approval_status: "REJECTED",
-                          })
-                        }
-                      >
-                        Từ chối
-                      </button>
-                    </div>
-                  ) : null}
-                  {isPending &&
-                  canApproveDelay &&
-                  !currentUser?.is_superuser &&
-                  req.author_id === currentUser?.id ? (
-                    <p className="mt-2 text-[10px] text-muted-foreground">
-                      Yêu cầu này do bạn tạo — cần người có quyền khác (không phải
-                      chính bạn) duyệt hoặc từ chối.
-                    </p>
-                  ) : null}
-                </div>
-              )
-            })}
-          </div>
-        )}
-      </section>
-
-      <section className="space-y-2 rounded-xl border bg-white p-4 shadow-sm">
-        <div className="flex items-center justify-between gap-2">
-          <h4 className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
-            Người thực hiện & giao việc
-          </h4>
-          {canManageExtraAssignees ? (
-            <div className="flex gap-2">
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                onClick={() => setExtraAssigneeDialogOpen(true)}
-              >
-                + Thêm người phối hợp
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                onClick={() => setObserverDialogOpen(true)}
-              >
-                + Thêm observer
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                onClick={() => setReassignDialogOpen(true)}
-              >
-                Đổi phụ trách
-              </Button>
-            </div>
-          ) : null}
-        </div>
-        <p className="text-sm">
-          <span className="font-semibold text-primary">Thực hiện:</span>{" "}
-          {task?.assignee_name?.trim() || task?.assignee_id || "—"}
-        </p>
-        <div className="space-y-1">
-          <p className="text-sm text-muted-foreground">
-            <span className="font-semibold">Phối hợp:</span>
-          </p>
-          {extraAssignees.length === 0 ? (
-            <p className="text-xs text-muted-foreground">Chưa có người phối hợp.</p>
-          ) : (
-            <div className="flex flex-wrap gap-2">
-              {extraAssignees.map((row) => (
-                <span
-                  key={row.id}
-                  className="inline-flex items-center gap-2 rounded-full border px-2.5 py-1 text-xs"
-                >
-                  <span>{row.user_name?.trim() || row.user_id}</span>
-                  {canManageExtraAssignees ? (
-                    <button
-                      type="button"
-                      className="font-bold text-destructive"
-                      disabled={removeExtraAssigneeMutation.isPending}
-                      onClick={() => removeExtraAssigneeMutation.mutate(row.user_id)}
-                    >
-                      ×
-                    </button>
-                  ) : null}
-                </span>
-              ))}
-            </div>
-          )}
-        </div>
-        <div className="space-y-1">
-          <p className="text-sm text-muted-foreground">
-            <span className="font-semibold">Observer:</span>
-          </p>
-          {observers.length === 0 ? (
-            <p className="text-xs text-muted-foreground">Chưa có observer.</p>
-          ) : (
-            <div className="flex flex-wrap gap-2">
-              {observers.map((row) => (
-                <span
-                  key={`${row.task_id}-${row.user_id}`}
-                  className="inline-flex items-center gap-2 rounded-full border px-2.5 py-1 text-xs"
-                >
-                  <span>{row.user_name?.trim() || row.user_id}</span>
-                  {canManageExtraAssignees ? (
-                    <button
-                      type="button"
-                      className="font-bold text-destructive"
-                      disabled={removeObserverMutation.isPending}
-                      onClick={() => removeObserverMutation.mutate(row.user_id)}
-                    >
-                      ×
-                    </button>
-                  ) : null}
-                </span>
-              ))}
-            </div>
-          )}
-        </div>
-        <p className="text-sm text-muted-foreground">
-          <span className="font-semibold">Giao bởi:</span>{" "}
-          {task?.assignor_name?.trim() || task?.assignor_id || "—"}
-        </p>
-      </section>
-
-      <section className="space-y-2">
-        <h4 className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
-          Mô tả công việc
-        </h4>
-        <div className="break-words rounded-lg bg-muted p-4 text-sm leading-relaxed">
-          {task?.description || "Chưa có mô tả."}
-        </div>
-      </section>
-
-      {/* Subtask section — only shown on root tasks (level 0 / no parent) */}
-      {!task?.parent_id && (
+      {/* ── Tab: Việc con ── */}
+      {activeTab === "subtasks" && !task?.parent_id && (
       <section className="space-y-3 rounded-xl border bg-white p-4 shadow-sm">
         <div className="flex items-center justify-between gap-2">
-          <h4 className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
+          <h4 className="text-base font-bold text-slate-700">
             Công việc con
           </h4>
           <button
@@ -1365,10 +1210,20 @@ function TaskDetailPage() {
       </section>
       )}
 
-      <section className="space-y-3">
+      {/* Subtask tab fallback for subtasks (cannot have grandchildren) */}
+      {activeTab === "subtasks" && task?.parent_id && (
+        <div className="rounded-xl border border-dashed bg-white p-6 text-center text-sm text-muted-foreground">
+          Đây là công việc con, không thể có công việc con bên trong.
+        </div>
+      )}
+
+      {/* ── Tab: Tiến độ ── */}
+      {activeTab === "progress" && (
+      <div className="space-y-6">
+      <section ref={progressSectionRef} className="space-y-3 scroll-mt-4">
         <div className="flex flex-wrap items-end justify-between gap-2">
-          <h4 className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
-            Tiến độ chung
+          <h4 className="text-base font-bold text-slate-700">
+            Tiến độ
           </h4>
           <p className="text-sm font-bold text-primary">
             {totalProgress}%
@@ -1618,7 +1473,7 @@ function TaskDetailPage() {
       </section>
 
       <section className="space-y-3">
-        <h4 className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
+        <h4 className="text-base font-bold text-slate-700">
           Bằng chứng hoàn thành
         </h4>
 
@@ -1734,14 +1589,18 @@ function TaskDetailPage() {
           </div>
         )}
       </section>
+      </div>
+      )}
 
-      <section className="space-y-3">
-        <h4 className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
-          Thảo luận
+      {/* ── Tab: Bình luận ── */}
+      {activeTab === "comments" && (
+      <section ref={commentsSectionRef} className="space-y-3 scroll-mt-4">
+        <h4 className="text-base font-bold text-slate-700">
+          Bình luận
         </h4>
         <div className="space-y-3 rounded-xl border bg-card p-4">
           {generalComments.length === 0 ? (
-            <p className="text-xs text-muted-foreground">Chưa có tin nhắn nào.</p>
+            <p className="text-sm text-muted-foreground">Chưa có tin nhắn nào.</p>
           ) : (
             <div className="space-y-2">
               {generalComments.map((comment) => (
@@ -1749,7 +1608,7 @@ function TaskDetailPage() {
                   key={comment.id}
                   className="max-w-[90%] rounded-2xl border bg-muted p-3 text-sm"
                 >
-                  <p className="mb-1 text-[10px] font-bold text-muted-foreground">
+                  <p className="mb-1 text-xs font-bold text-muted-foreground">
                     {comment.author_name ?? comment.author_id}
                   </p>
                   <p>{comment.content}</p>
@@ -1759,6 +1618,7 @@ function TaskDetailPage() {
           )}
           <div className="flex items-center gap-2">
             <input
+              ref={commentInputRef}
               value={commentDraft}
               onChange={(eventValue) => setCommentDraft(eventValue.target.value)}
               onKeyDown={(e) => {
@@ -1783,9 +1643,125 @@ function TaskDetailPage() {
           </div>
         </div>
       </section>
+      )}
+
+      {/* ── Tab: Lịch sử (delay requests + audit log) ── */}
+      {activeTab === "history" && (
+      <div className="space-y-6">
+      <section className="space-y-3 rounded-xl border bg-white p-5 shadow-sm">
+        <div className="flex items-center justify-between">
+          <h4 className="text-base font-bold text-slate-700">
+            Yêu cầu gia hạn
+          </h4>
+          {isAssignee && task?.status !== "done" && !hasPendingDelay ? (
+            <button
+              type="button"
+              className="rounded-lg bg-amber-50 px-3 py-1.5 text-xs font-bold text-amber-700 hover:bg-amber-100"
+              onClick={() => setDelayDialogOpen(true)}
+            >
+              + Xin gia hạn
+            </button>
+          ) : null}
+          {isAssignee && task?.status !== "done" && hasPendingDelay ? (
+            <span className="text-[11px] text-muted-foreground">
+              Đang có yêu cầu gia hạn chờ duyệt
+            </span>
+          ) : null}
+        </div>
+
+        {delayRequests.length === 0 ? (
+          <p className="text-sm text-muted-foreground">Chưa có yêu cầu gia hạn.</p>
+        ) : (
+          <div className="space-y-3">
+            {delayRequests.map((req) => {
+              const isPending = req.approval_status === "PENDING"
+              const isApproved = req.approval_status === "APPROVED"
+              return (
+                <div
+                  key={req.id}
+                  className={[
+                    "rounded-lg border p-3 text-sm",
+                    isPending
+                      ? "border-amber-200 bg-amber-50"
+                      : isApproved
+                        ? "border-green-200 bg-green-50"
+                        : "border-red-200 bg-red-50",
+                  ].join(" ")}
+                >
+                  <div className="mb-1.5 flex flex-wrap items-center gap-2">
+                    <span className="text-xs font-bold text-muted-foreground">
+                      {req.author_name ?? req.author_id}
+                    </span>
+                    <span
+                      className={[
+                        "rounded-full px-2 py-0.5 text-[11px] font-black uppercase",
+                        isPending
+                          ? "bg-amber-200 text-amber-800"
+                          : isApproved
+                            ? "bg-green-200 text-green-800"
+                            : "bg-red-200 text-red-800",
+                      ].join(" ")}
+                    >
+                      {isPending ? "Đang chờ" : isApproved ? "Đã duyệt" : "Từ chối"}
+                    </span>
+                    {req.requested_end_time && (
+                      <span className="text-[11px] text-muted-foreground">
+                        → {new Date(req.requested_end_time).toLocaleDateString("vi-VN")}
+                      </span>
+                    )}
+                  </div>
+                  <p className="break-words text-sm">{req.content}</p>
+                  {isPending &&
+                  canApproveDelay &&
+                  (currentUser?.is_superuser ||
+                    req.author_id !== currentUser?.id) ? (
+                    <div className="mt-2 flex gap-2">
+                      <button
+                        type="button"
+                        disabled={approveDelayMutation.isPending}
+                        className="rounded-md bg-green-600 px-3 py-1 text-xs font-bold text-white disabled:opacity-60"
+                        onClick={() =>
+                          approveDelayMutation.mutate({
+                            commentId: req.id,
+                            approval_status: "APPROVED",
+                          })
+                        }
+                      >
+                        Duyệt
+                      </button>
+                      <button
+                        type="button"
+                        disabled={approveDelayMutation.isPending}
+                        className="rounded-md bg-red-600 px-3 py-1 text-xs font-bold text-white disabled:opacity-60"
+                        onClick={() =>
+                          approveDelayMutation.mutate({
+                            commentId: req.id,
+                            approval_status: "REJECTED",
+                          })
+                        }
+                      >
+                        Từ chối
+                      </button>
+                    </div>
+                  ) : null}
+                  {isPending &&
+                  canApproveDelay &&
+                  !currentUser?.is_superuser &&
+                  req.author_id === currentUser?.id ? (
+                    <p className="mt-2 text-[11px] text-muted-foreground">
+                      Yêu cầu này do bạn tạo — cần người có quyền khác (không phải
+                      chính bạn) duyệt hoặc từ chối.
+                    </p>
+                  ) : null}
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </section>
 
       <section className="space-y-3">
-        <h4 className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
+        <h4 className="text-base font-bold text-slate-700">
           Lịch sử
         </h4>
         <div className="space-y-3 rounded-xl border bg-white p-4">
@@ -1842,28 +1818,30 @@ function TaskDetailPage() {
           )}
         </div>
       </section>
+      </div>
+      )}
 
       {/* Delay Request Dialog */}
       <Dialog open={taskEditDialogOpen} onOpenChange={setTaskEditDialogOpen}>
         <DialogContent className="max-w-md" showCloseButton>
           <DialogHeader>
-            <DialogTitle>Sửa thông tin task</DialogTitle>
+            <DialogTitle>Sửa thông tin việc</DialogTitle>
           </DialogHeader>
           <div className="space-y-3">
             <div>
-              <label className="mb-1 block text-xs font-semibold text-muted-foreground">
-                Tên task
+              <label className="mb-1 block text-sm font-semibold text-slate-700">
+                Tên việc
               </label>
               <input
                 type="text"
                 value={taskNameDraft}
                 onChange={(e) => setTaskNameDraft(e.target.value)}
                 className="h-10 w-full rounded-md border px-3 text-sm outline-none"
-                placeholder="Nhập tên task"
+                placeholder="Nhập tên việc"
               />
             </div>
             <div>
-              <label className="mb-1 block text-xs font-semibold text-muted-foreground">
+              <label className="mb-1 block text-sm font-semibold text-slate-700">
                 Mô tả
               </label>
               <textarea
@@ -1875,7 +1853,7 @@ function TaskDetailPage() {
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="mb-1 block text-xs font-semibold text-muted-foreground">
+                <label className="mb-1 block text-sm font-semibold text-slate-700">
                   Ưu tiên
                 </label>
                 <select
@@ -1891,13 +1869,13 @@ function TaskDetailPage() {
                 </select>
               </div>
               <div>
-                <label className="mb-1 block text-xs font-semibold text-muted-foreground">
-                  Loại task
+                <label className="mb-1 block text-sm font-semibold text-slate-700">
+                  Loại công việc
                 </label>
                 <select
                   value={taskModuleTagDraft}
                   onChange={(e) => setTaskModuleTagDraft(e.target.value)}
-                  title="Chọn loại task"
+                  title="Chọn loại công việc"
                   className="h-10 w-full rounded-md border px-2 text-sm"
                 >
                   <option value="">Chưa phân loại</option>
@@ -1912,7 +1890,7 @@ function TaskDetailPage() {
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="mb-1 block text-xs font-semibold text-muted-foreground">
+                <label className="mb-1 block text-sm font-semibold text-slate-700">
                   Bắt đầu
                 </label>
                 <input
@@ -1925,7 +1903,7 @@ function TaskDetailPage() {
                 />
               </div>
               <div>
-                <label className="mb-1 block text-xs font-semibold text-muted-foreground">
+                <label className="mb-1 block text-sm font-semibold text-slate-700">
                   Deadline
                 </label>
                 <input
@@ -1940,8 +1918,8 @@ function TaskDetailPage() {
             </div>
             {canEditDependency && (
               <div>
-                <label className="mb-1 block text-xs font-semibold text-muted-foreground">
-                  Task phụ thuộc phía trước
+                <label className="mb-1 block text-sm font-semibold text-slate-700">
+                  Cần làm xong việc nào trước
                 </label>
                 <div className="flex flex-wrap items-center gap-2">
                   <select
@@ -2017,13 +1995,13 @@ function TaskDetailPage() {
       <Dialog open={delayDialogOpen} onOpenChange={setDelayDialogOpen}>
         <DialogContent className="max-w-md" showCloseButton>
           <DialogHeader>
-            <DialogTitle>Xin gia hạn deadline</DialogTitle>
+            <DialogTitle>Xin gia hạn</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div className="space-y-1.5">
               <label
                 htmlFor="delay-reason"
-                className="text-xs font-semibold text-muted-foreground"
+                className="text-sm font-semibold text-slate-700"
               >
                 Lý do xin gia hạn <span className="text-red-500">*</span>
               </label>
@@ -2038,7 +2016,7 @@ function TaskDetailPage() {
             <div className="space-y-1.5">
               <label
                 htmlFor="delay-date"
-                className="text-xs font-semibold text-muted-foreground"
+                className="text-sm font-semibold text-slate-700"
               >
                 Ngày hoàn thành đề xuất
               </label>
@@ -2091,7 +2069,7 @@ function TaskDetailPage() {
           <div className="space-y-1.5 py-2">
             <label
               htmlFor="reject-note"
-              className="text-xs font-semibold text-muted-foreground"
+              className="text-sm font-semibold text-slate-700"
             >
               Lý do từ chối <span className="text-red-500">*</span>
             </label>
@@ -2174,18 +2152,18 @@ function TaskDetailPage() {
       >
         <DialogContent className="max-w-md" showCloseButton>
           <DialogHeader>
-            <DialogTitle>Thêm người phối hợp</DialogTitle>
+            <DialogTitle>Thêm người làm cùng</DialogTitle>
           </DialogHeader>
           <div className="space-y-2 py-2">
             <label
               htmlFor="extra-assignee-user"
-              className="text-xs font-semibold text-muted-foreground"
+              className="text-sm font-semibold text-slate-700"
             >
               Thành viên dự án
             </label>
             <select
               id="extra-assignee-user"
-              title="Chọn người phối hợp"
+              title="Chọn người làm cùng"
               value={extraAssigneeUserId}
               onChange={(eventValue) =>
                 setExtraAssigneeUserId(eventValue.target.value)
@@ -2230,18 +2208,18 @@ function TaskDetailPage() {
       <Dialog open={observerDialogOpen} onOpenChange={setObserverDialogOpen}>
         <DialogContent className="max-w-md" showCloseButton>
           <DialogHeader>
-            <DialogTitle>Thêm observer</DialogTitle>
+            <DialogTitle>Thêm người theo dõi</DialogTitle>
           </DialogHeader>
           <div className="space-y-2 py-2">
             <label
               htmlFor="observer-user"
-              className="text-xs font-semibold text-muted-foreground"
+              className="text-sm font-semibold text-slate-700"
             >
               Thành viên dự án
             </label>
             <select
               id="observer-user"
-              title="Chọn observer"
+              title="Chọn người theo dõi"
               value={observerUserId}
               onChange={(eventValue) => setObserverUserId(eventValue.target.value)}
               className="h-10 w-full rounded-md border bg-white px-3 text-sm outline-none"
@@ -2281,18 +2259,18 @@ function TaskDetailPage() {
       <Dialog open={reassignDialogOpen} onOpenChange={setReassignDialogOpen}>
         <DialogContent className="max-w-md" showCloseButton>
           <DialogHeader>
-            <DialogTitle>Đổi người phụ trách chính</DialogTitle>
+            <DialogTitle>Đổi người làm chính</DialogTitle>
           </DialogHeader>
           <div className="space-y-2 py-2">
             <label
               htmlFor="reassign-user"
-              className="text-xs font-semibold text-muted-foreground"
+              className="text-sm font-semibold text-slate-700"
             >
-              Người phụ trách mới
+              Người làm chính mới
             </label>
             <select
               id="reassign-user"
-              title="Chọn người phụ trách mới"
+              title="Chọn người làm chính mới"
               value={reassignUserId}
               onChange={(eventValue) => setReassignUserId(eventValue.target.value)}
               className="h-10 w-full rounded-md border bg-white px-3 text-sm outline-none"
@@ -2331,7 +2309,7 @@ function TaskDetailPage() {
           </DialogHeader>
           <div className="space-y-3 py-2">
             <div className="space-y-1">
-              <label className="text-xs font-semibold text-muted-foreground">
+              <label className="text-sm font-semibold text-slate-700">
                 Tên công việc con
               </label>
               <input
@@ -2344,7 +2322,7 @@ function TaskDetailPage() {
             <div className="space-y-1">
               <label
                 htmlFor="subtask-assignee"
-                className="text-xs font-semibold text-muted-foreground"
+                className="text-sm font-semibold text-slate-700"
               >
                 Người thực hiện
               </label>
@@ -2368,7 +2346,7 @@ function TaskDetailPage() {
             <div className="space-y-1">
               <label
                 htmlFor="subtask-start-time"
-                className="text-xs font-semibold text-muted-foreground"
+                className="text-sm font-semibold text-slate-700"
               >
                 Bắt đầu
               </label>
@@ -2386,7 +2364,7 @@ function TaskDetailPage() {
             <div className="space-y-1">
               <label
                 htmlFor="subtask-end-time"
-                className="text-xs font-semibold text-muted-foreground"
+                className="text-sm font-semibold text-slate-700"
               >
                 Kết thúc
               </label>
@@ -2401,7 +2379,7 @@ function TaskDetailPage() {
             </div>
             <div className="flex gap-3">
               <div className="min-w-0 flex-1 space-y-1">
-                <label className="text-xs font-semibold text-muted-foreground">
+                <label className="text-sm font-semibold text-slate-700">
                   Đóng góp bao nhiêu % vào công việc cha?
                   <span className="ml-1 font-normal">(1–100)</span>
                 </label>
@@ -2427,7 +2405,7 @@ function TaskDetailPage() {
               </div>
             </div>
             <div className="space-y-1">
-              <label className="text-xs font-semibold text-muted-foreground">
+              <label className="text-sm font-semibold text-slate-700">
                 Mô tả
               </label>
               <textarea
@@ -2469,13 +2447,13 @@ function TaskDetailPage() {
       <Dialog open={deadlineDialogOpen} onOpenChange={setDeadlineDialogOpen}>
         <DialogContent className="max-w-md" showCloseButton>
           <DialogHeader>
-            <DialogTitle>Cập nhật thời gian task</DialogTitle>
+            <DialogTitle>Đổi thời gian</DialogTitle>
           </DialogHeader>
           <div className="space-y-3 py-2">
             <div className="space-y-1.5">
               <label
                 htmlFor="task-start-update"
-                className="text-xs font-semibold text-muted-foreground"
+                className="text-sm font-semibold text-slate-700"
               >
                 Ngày bắt đầu
               </label>
@@ -2491,7 +2469,7 @@ function TaskDetailPage() {
             <div className="space-y-1.5">
               <label
                 htmlFor="task-deadline-update"
-                className="text-xs font-semibold text-muted-foreground"
+                className="text-sm font-semibold text-slate-700"
               >
                 Deadline
               </label>
