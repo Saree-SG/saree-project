@@ -29,7 +29,7 @@ jobs:
             echo ENVIRONMENT=%ENVIRONMENT%
             echo DOMAIN=%DOMAIN%
             echo STACK_NAME=%STACK_NAME%
-            echo PROJECT_NAME=Saree ERP (dev)
+            echo PROJECT_NAME=Saree ERP dev
             echo DOCKER_IMAGE_BACKEND=saree-backend-dev
             echo DOCKER_IMAGE_FRONTEND=saree-frontend-dev
             echo TAG=latest
