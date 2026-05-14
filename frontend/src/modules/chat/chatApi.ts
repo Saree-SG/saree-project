@@ -11,6 +11,8 @@ export type ChatRoom = {
   room_color: string | null
   created_by: string
   created_at: string
+  last_message_content: string | null
+  last_message_at: string | null
 }
 
 export type ChatMessage = {
@@ -184,6 +186,22 @@ export async function sendRoomMessage(params: {
     { headers: authHeaders() },
   )
   return r.data
+}
+
+export async function fetchChatUnreadCount(): Promise<{ count: number }> {
+  const r = await axios.get<{ count: number }>(
+    `${OpenAPI.BASE}/api/v1/chat/unread-count`,
+    { headers: authHeaders() },
+  )
+  return r.data
+}
+
+export async function markRoomAsRead(roomId: string): Promise<void> {
+  await axios.post(
+    `${OpenAPI.BASE}/api/v1/chat/rooms/${roomId}/mark-read`,
+    {},
+    { headers: authHeaders() },
+  )
 }
 
 export async function uploadRoomAttachment(params: {

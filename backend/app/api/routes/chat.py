@@ -19,6 +19,7 @@ from app.models.chat import (
     ChatRoomCreate,
     ChatRoomPublic,
     ChatRoomUpdate,
+    ChatUnreadCountPublic,
 )
 from app.repositories.chat_repository import ChatRepository
 from app.repositories.user_repository import UserRepository
@@ -74,9 +75,10 @@ async def list_my_rooms(
     session: AsyncSessionDep,
     current_user: CurrentUser,
 ) -> list[ChatRoomPublic]:
-    """List rooms the current user belongs to."""
+    """List rooms the current user belongs to, sorted by last message."""
     repo = ChatRepository(session)
-    return list(await repo.list_rooms_for_user(current_user.id))  # type: ignore[return-value]
+    rooms_data = await repo.list_rooms_for_user(current_user.id)
+    return [ChatRoomPublic(**d) for d in rooms_data]
 
 
 @router.get("/chat/rooms/{room_id}", response_model=ChatRoomPublic)
@@ -144,6 +146,29 @@ async def delete_room(
     for mem in mem_result.scalars().all():
         await session.delete(mem)
     await session.delete(room)
+
+
+@router.get("/chat/unread-count", response_model=ChatUnreadCountPublic)
+async def get_unread_count(
+    session: AsyncSessionDep,
+    current_user: CurrentUser,
+) -> ChatUnreadCountPublic:
+    """Return total unread message count across all rooms."""
+    repo = ChatRepository(session)
+    count = await repo.get_total_unread_count(current_user.id)
+    return ChatUnreadCountPublic(count=count)
+
+
+@router.post("/chat/rooms/{room_id}/mark-read", status_code=status.HTTP_204_NO_CONTENT)
+async def mark_room_read(
+    room_id: uuid.UUID,
+    session: AsyncSessionDep,
+    current_user: CurrentUser,
+) -> None:
+    """Mark all messages in a room as read for the current user."""
+    repo = ChatRepository(session)
+    await repo.require_active_member(room_id, current_user.id)
+    await repo.mark_room_as_read(room_id, current_user.id)
 
 
 # ---------------------------------------------------------------------------

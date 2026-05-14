@@ -10,6 +10,8 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database.repository import BaseRepository
+from sqlalchemy import func
+
 from app.models.chat import (
     ChatAttachment,
     ChatMember,
@@ -59,8 +61,9 @@ class ChatRepository(BaseRepository[ChatRoom]):
             raise HTTPException(404, "Chat room not found")
         return room
 
-    async def list_rooms_for_user(self, user_id: uuid.UUID) -> Sequence[ChatRoom]:
-        """Return rooms the user is an active member of."""
+    async def list_rooms_for_user(self, user_id: uuid.UUID) -> list[dict]:
+        """Return rooms the user is an active member of, with last message info."""
+        from sqlalchemy import and_
         room_ids_stmt = select(ChatMember.room_id).where(
             ChatMember.user_id == user_id,
             ChatMember.left_at.is_(None),
@@ -72,7 +75,43 @@ class ChatRepository(BaseRepository[ChatRoom]):
         rooms_result = await self._execute(
             select(ChatRoom).where(ChatRoom.id.in_(room_ids))  # type: ignore[arg-type]
         )
-        return rooms_result.scalars().all()
+        rooms = rooms_result.scalars().all()
+
+        # Fetch last message per room in one query per room (simple approach)
+        last_msg_map: dict = {}
+        for room_id in room_ids:
+            last_result = await self._execute(
+                select(ChatMessage)
+                .where(ChatMessage.room_id == room_id)
+                .order_by(ChatMessage.created_at.desc())  # type: ignore[attr-defined]
+                .limit(1)
+            )
+            last_msg = last_result.scalars().first()
+            if last_msg:
+                last_msg_map[room_id] = last_msg
+
+        out = []
+        for room in rooms:
+            d = {
+                "id": room.id,
+                "company_id": room.company_id,
+                "room_type": room.room_type,
+                "name": room.name,
+                "room_color": room.room_color,
+                "created_by": room.created_by,
+                "created_at": room.created_at,
+                "last_message_content": None,
+                "last_message_at": None,
+            }
+            lm = last_msg_map.get(room.id)
+            if lm:
+                d["last_message_content"] = lm.content if lm.message_type != "file" else "📎 Tệp đính kèm"
+                d["last_message_at"] = lm.created_at
+            out.append(d)
+
+        # Sort by last message time descending (rooms with no messages go to bottom)
+        out.sort(key=lambda x: x["last_message_at"] or x["created_at"], reverse=True)
+        return out
 
     async def create_room(self, data: dict) -> ChatRoom:
         """Insert a new chat room."""
@@ -143,6 +182,42 @@ class ChatRepository(BaseRepository[ChatRoom]):
             )
         )
         return result.scalars().all()
+
+    async def mark_room_as_read(self, room_id: uuid.UUID, user_id: uuid.UUID) -> None:
+        """Update last_read_at for the user in this room to now."""
+        from app.models.chat import utcnow
+        m = await self.get_member(room_id, user_id)
+        if m and m.left_at is None:
+            m.last_read_at = utcnow()
+            self._session.add(m)
+            await self._session.flush()
+
+    async def get_total_unread_count(self, user_id: uuid.UUID) -> int:
+        """Return total unread message count across all rooms for a user."""
+        # Get active memberships
+        mem_result = await self._execute(
+            select(ChatMember).where(
+                ChatMember.user_id == user_id,
+                ChatMember.left_at.is_(None),
+            )
+        )
+        members = mem_result.scalars().all()
+        if not members:
+            return 0
+
+        total = 0
+        for m in members:
+            stmt = select(func.count()).select_from(ChatMessage).where(
+                ChatMessage.room_id == m.room_id,
+                ChatMessage.sender_id != user_id,
+            )
+            if m.last_read_at is not None:
+                stmt = stmt.where(ChatMessage.created_at > m.last_read_at)
+            else:
+                stmt = stmt.where(ChatMessage.created_at > m.joined_at)
+            result = await self._execute(stmt)
+            total += result.scalar() or 0
+        return total
 
     # ------------------------------------------------------------------
     # Messages
