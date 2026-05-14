@@ -84,6 +84,9 @@ class ChatMember(SQLModel, table=True):
     left_at: datetime | None = Field(
         default=None, sa_type=DateTime(timezone=True)  # type: ignore
     )
+    last_read_at: datetime | None = Field(
+        default=None, sa_type=DateTime(timezone=True)  # type: ignore
+    )
 
 
 class ChatMessage(SQLModel, table=True):
@@ -127,6 +130,8 @@ class ChatRoomPublic(SQLModel):
     room_color: str | None
     created_by: uuid.UUID
     created_at: datetime
+    last_message_content: str | None = None
+    last_message_at: datetime | None = None
 
 
 class ChatMemberPublic(SQLModel):
@@ -155,6 +160,12 @@ class ChatMessagePublic(SQLModel):
     message_type: str
     content: str | None
     created_at: datetime
+
+
+class ChatUnreadCountPublic(SQLModel):
+    """Total unread message count across all rooms."""
+
+    count: int
 
 
 class ChatAttachmentPublic(SQLModel):

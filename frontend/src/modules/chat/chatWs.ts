@@ -16,6 +16,7 @@ export type ChatWsEvent =
         id: string
         room_id: string
         sender_id: string
+        sender_name: string
         message_type: string
         content: string | null
         created_at: string | null

@@ -1,0 +1,36 @@
+name: Deploy Tunnel
+
+on:
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: [self-hosted]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Ensure traefik-public network
+        shell: cmd
+        run: |
+          docker network inspect traefik-public >NUL 2>&1 || docker network create traefik-public
+
+      - name: Write .env
+        shell: cmd
+        run: |
+          (
+            echo CLOUDFLARE_TUNNEL_TOKEN=%CLOUDFLARE_TUNNEL_TOKEN%
+          ) > .env.tunnel
+        env:
+          CLOUDFLARE_TUNNEL_TOKEN: ${{ secrets.CLOUDFLARE_TUNNEL_TOKEN }}
+
+      - name: Docker Compose up
+        shell: cmd
+        run: |
+          docker compose --env-file .env.tunnel -f compose.tunnel.yml -p saree-tunnel up -d --pull always
+
+      - name: Check tunnel status
+        shell: cmd
+        run: |
+          docker logs saree-tunnel-cloudflared-1 --tail 20

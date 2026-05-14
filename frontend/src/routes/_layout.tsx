@@ -6,6 +6,9 @@ import {
 } from "@tanstack/react-router"
 import { useEffect, useRef } from "react"
 import { useQueryClient } from "@tanstack/react-query"
+import { toast } from "sonner"
+import { listMyChatRooms } from "@/modules/chat/chatApi"
+import { subscribeRoom } from "@/modules/chat/chatWs"
 
 import { Footer } from "@/components/Common/Footer"
 import { MobileAppHeader } from "@/components/Layout/MobileAppHeader"
@@ -43,8 +46,6 @@ function Layout() {
   const { showSuccessToast, showErrorToast } = useCustomToast()
   const showSuccessToastRef = useRef(showSuccessToast)
   const showErrorToastRef = useRef(showErrorToast)
-  // Track pathname in a ref so the WS closure always reads the latest value
-  // without needing pathname in the effect's dependency array.
   const pathnameRef = useRef(pathname)
 
   useEffect(() => {
@@ -173,13 +174,56 @@ function Layout() {
     }
   }, [currentUser?.id, queryClient])
 
+  useEffect(() => {
+    if (!currentUser?.id) return
+    let active = true
+    const cleanups: Array<() => void> = []
+
+    async function subscribeAllRooms() {
+      try {
+        const rooms = await listMyChatRooms()
+        if (!active) return
+        for (const room of rooms) {
+          const unsub = subscribeRoom(room.id, (evt) => {
+            if (evt.type !== "message.new") return
+            const msg = evt.message
+            // Skip own messages
+            if (msg.sender_id === currentUser?.id) return
+            // Skip when user is on the chat page (they see messages directly)
+            if (window.location.pathname.startsWith("/chat")) return
+            // Show toast: sender name + truncated content
+            const senderName = msg.sender_name || "Chat"
+            const content = msg.content
+              ? msg.content.length > 60 ? msg.content.slice(0, 60) + "…" : msg.content
+              : "📎 Tệp đính kèm"
+            toast(senderName, {
+              description: content,
+              id: `chat-msg-${msg.room_id}`,
+              duration: 4000,
+            })
+            void queryClient.invalidateQueries({ queryKey: ["chat", "unread-count"] })
+          })
+          cleanups.push(unsub)
+        }
+      } catch {
+        // ignore
+      }
+    }
+
+    void subscribeAllRooms()
+
+    return () => {
+      active = false
+      for (const cleanup of cleanups) cleanup()
+    }
+  }, [currentUser?.id, queryClient])
+
   if (isChatRoute) {
     return (
       <SidebarProvider>
         <AppSidebar />
-        <SidebarInset className="flex min-h-svh flex-col">
-          <MobileAppHeader />
-          <main className="flex min-h-0 flex-1 flex-col overflow-hidden pt-[calc(3.5rem+env(safe-area-inset-top,0px))] pb-[calc(3.5rem+env(safe-area-inset-bottom,0px))] md:h-dvh md:min-h-0 md:pt-0 md:pb-0">
+        <SidebarInset className="flex h-dvh min-h-0 flex-col overflow-hidden">
+          <main className="flex min-h-0 flex-1 flex-col overflow-hidden pt-[env(safe-area-inset-top,0px)] pb-[calc(3.5rem+env(safe-area-inset-bottom,0px))] md:pt-0 md:pb-0">
             <Outlet />
           </main>
           <MobileBottomNav />

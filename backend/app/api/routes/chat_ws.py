@@ -200,6 +200,7 @@ async def chat_ws(
                             "id": str(m.id),
                             "room_id": str(m.room_id),
                             "sender_id": str(m.sender_id),
+                            "sender_name": current_user.full_name or current_user.email or str(m.sender_id),
                             "message_type": m.message_type,
                             "content": m.content,
                             "created_at": m.created_at.isoformat() if m.created_at else None,

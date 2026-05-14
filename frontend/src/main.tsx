@@ -88,7 +88,7 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
     <ThemeProvider defaultTheme="light" storageKey="vite-ui-theme">
       <QueryClientProvider client={queryClient}>
         <RouterProvider router={router} />
-        <Toaster richColors closeButton />
+        <Toaster richColors closeButton position="top-center" />
       </QueryClientProvider>
     </ThemeProvider>
   </StrictMode>,
