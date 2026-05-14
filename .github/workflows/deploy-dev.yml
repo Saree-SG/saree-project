@@ -10,7 +10,7 @@ jobs:
 
     env:
       STACK_NAME: saree-dev
-      DOMAIN: dev.erp.sareeref.vn
+      DOMAIN: sareeref.vn
       ENVIRONMENT: staging
 
     steps:
@@ -41,10 +41,10 @@ jobs:
             echo POSTGRES_PASSWORD=%POSTGRES_PASSWORD%
             echo FIRST_SUPERUSER=%FIRST_SUPERUSER%
             echo FIRST_SUPERUSER_PASSWORD=%FIRST_SUPERUSER_PASSWORD%
-            echo FRONTEND_HOST=https://dashboard.%DOMAIN%
-            echo BACKEND_CORS_ORIGINS=https://dashboard.%DOMAIN%
-            echo PUBLIC_BASE_URL=https://api.%DOMAIN%
-            echo VITE_API_URL=https://api.%DOMAIN%
+            echo FRONTEND_HOST=https://dev-dashboard.%DOMAIN%
+            echo BACKEND_CORS_ORIGINS=https://dev-dashboard.%DOMAIN%
+            echo PUBLIC_BASE_URL=https://dev-api.%DOMAIN%
+            echo VITE_API_URL=https://dev-api.%DOMAIN%
             echo SMTP_HOST=
             echo SMTP_USER=
             echo SMTP_PASSWORD=
