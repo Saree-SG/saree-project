@@ -16,19 +16,12 @@ jobs:
         run: |
           docker network inspect traefik-public >NUL 2>&1 || docker network create traefik-public
 
-      - name: Write .env
-        shell: cmd
-        run: |
-          (
-            echo CLOUDFLARE_TUNNEL_TOKEN=%CLOUDFLARE_TUNNEL_TOKEN%
-          ) > .env.tunnel
-        env:
-          CLOUDFLARE_TUNNEL_TOKEN: ${{ secrets.CLOUDFLARE_TUNNEL_TOKEN }}
-
       - name: Docker Compose up
         shell: cmd
+        env:
+          CLOUDFLARE_TUNNEL_TOKEN: ${{ secrets.CLOUDFLARE_TUNNEL_TOKEN }}
         run: |
-          docker compose --env-file .env.tunnel -f compose.tunnel.yml -p saree-tunnel up -d --pull always
+          docker compose -f compose.tunnel.yml -p saree-tunnel up -d --pull always
 
       - name: Check tunnel status
         shell: cmd
