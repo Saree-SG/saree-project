@@ -25,29 +25,10 @@ jobs:
         env:
           CLOUDFLARE_TUNNEL_TOKEN: ${{ secrets.CLOUDFLARE_TUNNEL_TOKEN }}
 
-      - name: Debug secrets
-        shell: cmd
-        run: |
-          echo TRAEFIK_EMAIL=%TRAEFIK_EMAIL%
-          echo FIRST_SUPERUSER=%FIRST_SUPERUSER%
-          echo TUNNEL_TOKEN_LENGTH=%CLOUDFLARE_TUNNEL_TOKEN:~0,10%...
-        env:
-          TRAEFIK_EMAIL: ${{ secrets.TRAEFIK_EMAIL }}
-          FIRST_SUPERUSER: ${{ secrets.FIRST_SUPERUSER }}
-          CLOUDFLARE_TUNNEL_TOKEN: ${{ secrets.CLOUDFLARE_TUNNEL_TOKEN }}
-
-      - name: Debug .env.tunnel
-        shell: cmd
-        run: |
-          echo --- .env.tunnel content ---
-          type .env.tunnel
-          echo --- token length check ---
-          powershell -Command "(Get-Content .env.tunnel | Where-Object { $_ -match 'CLOUDFLARE_TUNNEL_TOKEN' }).Length"
-
       - name: Docker Compose up
         shell: cmd
         run: |
-          docker compose --env-file .env.tunnel -f compose.tunnel.yml -p saree-tunnel up -d --pull always
+          docker compose --env-file .env.tunnel -f compose.tunnel.yml -p saree-tunnel up -d --pull missing
 
       - name: Check tunnel status
         shell: cmd
