@@ -25,6 +25,14 @@ jobs:
         env:
           CLOUDFLARE_TUNNEL_TOKEN: ${{ secrets.CLOUDFLARE_TUNNEL_TOKEN }}
 
+      - name: Debug .env.tunnel
+        shell: cmd
+        run: |
+          echo --- .env.tunnel content ---
+          type .env.tunnel
+          echo --- token length check ---
+          powershell -Command "(Get-Content .env.tunnel | Where-Object { $_ -match 'CLOUDFLARE_TUNNEL_TOKEN' }).Length"
+
       - name: Docker Compose up
         shell: cmd
         run: |
