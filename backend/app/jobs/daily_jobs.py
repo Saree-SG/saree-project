@@ -137,11 +137,11 @@ def _build_excel_report() -> bytes:
 
     with Session(sync_engine) as session:
         from sqlalchemy import select as sa_select  # noqa: PLC0415
+        from sqlmodel import select as sm_select  # noqa: PLC0415
         from app.models.org import Company  # noqa: PLC0415
-        from app.models.project import Project  # noqa: PLC0415
 
-        # Load all companies (multi-tenant support)
-        companies = session.exec(sa_select(Company)).all()
+        # Load all companies — use sqlmodel select so exec() returns model instances
+        companies = session.exec(sm_select(Company)).all()
         if not companies:
             return b""
 
