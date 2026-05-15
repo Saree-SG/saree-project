@@ -1,0 +1,109 @@
+HƯỚNG DẪN SETUP REMOTE ACCESS VÀO SERVER WINDOWS
+==================================================
+
+MỤC TIÊU: SSH từ máy Mac/Linux vào server Windows qua Tailscale
+
+
+== BƯỚC 1: CÀI OPENSSH SERVER TRÊN WINDOWS ==
+
+Mở PowerShell as Administrator, chạy lần lượt:
+
+  Add-WindowsCapability -Online -Name OpenSSH.Server~~~~0.0.1.0
+  Start-Service sshd
+  Set-Service -Name sshd -StartupType Automatic
+
+Kiểm tra đã chạy chưa:
+  Get-Service sshd
+
+
+== BƯỚC 2: CÀI TAILSCALE TRÊN WINDOWS ==
+
+1. Tải tại: https://tailscale.com/download/windows
+2. Cài đặt bình thường (Next → Next → Finish)
+3. Đăng nhập Tailscale bằng Google/GitHub account
+4. Lấy Tailscale IP của máy Windows:
+   tailscale ip
+   → Ghi lại IP dạng 100.x.x.x
+
+
+== BƯỚC 3: CÀI TAILSCALE TRÊN MÁY CLIENT (MAC/LINUX) ==
+
+Mac:
+  - Tải tại: https://tailscale.com/download/mac
+  - Hoặc: brew install tailscale
+  - Đăng nhập CÙNG account với server
+
+Linux:
+  curl -fsSL https://tailscale.com/install.sh | sh
+  sudo tailscale up
+
+
+== BƯỚC 4: SETUP SSH KEY (KHÔNG CẦN NHẬP PASSWORD MỖI LẦN) ==
+
+Trên máy CLIENT (Mac), tạo SSH key nếu chưa có:
+  ssh-keygen -t ed25519
+  (Enter liên tục để dùng mặc định)
+
+Lấy public key:
+  cat ~/.ssh/id_ed25519.pub
+  → Copy toàn bộ dòng bắt đầu bằng "ssh-ed25519 AAAA..."
+
+Trên server WINDOWS (PowerShell as Admin):
+  mkdir C:\Users\vntua\.ssh
+  New-Item -Path C:\Users\vntua\.ssh\authorized_keys -ItemType File -Force
+  notepad C:\Users\vntua\.ssh\authorized_keys
+  → Paste public key vào → Save
+
+Fix permission (bắt buộc, OpenSSH Windows yêu cầu):
+  icacls C:\Users\vntua\.ssh /inheritance:r /grant "vntua:(OI)(CI)F"
+  icacls C:\Users\vntua\.ssh\authorized_keys /inheritance:r /grant "vntua:F"
+
+
+== BƯỚC 5: SETUP DOCKER DESKTOP ĐỂ DÙNG QUA SSH ==
+
+Trên server, mở Docker Desktop:
+  Settings (⚙️) → General → tick "Expose daemon on tcp://localhost:2375 without TLS"
+  → Apply & Restart
+
+Thêm vĩnh viễn vào PowerShell profile trên server:
+  Add-Content $PROFILE "`n`$env:DOCKER_HOST='tcp://localhost:2375'"
+
+
+== CÁCH SỬ DỤNG HÀNG NGÀY ==
+
+SSH vào server (từ Mac):
+  ssh vntua@100.98.112.59 -t powershell
+
+Nếu chưa setup SSH key (nhập password Windows):
+  ssh vntua@100.98.112.59 -t powershell
+  → Nhập password Windows account (KHÔNG phải PIN)
+
+Sau khi vào PowerShell server, dùng Docker:
+  $env:DOCKER_HOST="tcp://localhost:2375"   ← chỉ cần lần đầu nếu chưa add vào profile
+  docker ps
+  docker logs saree-dev-backend-1 -f
+  docker exec -it saree-dev-backend-1 bash
+
+
+== ĐIỀU KIỆN PHẢI ĐÁP ỨNG MỖI LẦN SSH ==
+
+  1. Tailscale đang chạy trên CẢ HAI máy
+  2. Docker Desktop đang MỞ trên server (không chỉ chạy nền)
+  3. Server Windows không bị sleep/hibernate
+
+
+== THÔNG TIN KẾT NỐI ==
+
+  Server Tailscale IP : 100.98.112.59
+  Username            : vntua
+  SSH command         : ssh vntua@100.98.112.59 -t powershell
+
+
+
+  Cách chạy mai
+
+  Dev:
+  docker exec saree-dev-backend-1 python -m app.scripts.seed_customer
+
+  Prod:
+  docker exec saree-prod-backend-1 python -m app.scripts.seed_customer
