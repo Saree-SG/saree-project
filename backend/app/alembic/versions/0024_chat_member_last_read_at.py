@@ -17,10 +17,16 @@ depends_on = None
 
 
 def upgrade() -> None:
-    op.add_column(
-        "chatmember",
-        sa.Column("last_read_at", sa.DateTime(timezone=True), nullable=True),
-    )
+    conn = op.get_bind()
+    result = conn.execute(sa.text(
+        "SELECT column_name FROM information_schema.columns "
+        "WHERE table_name='chatmember' AND column_name='last_read_at'"
+    ))
+    if not result.fetchone():
+        op.add_column(
+            "chatmember",
+            sa.Column("last_read_at", sa.DateTime(timezone=True), nullable=True),
+        )
 
 
 def downgrade() -> None:
