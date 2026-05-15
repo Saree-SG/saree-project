@@ -10,7 +10,7 @@ jobs:
 
     env:
       STACK_NAME: saree-prod
-      DOMAIN: erp.sareeref.vn
+      DOMAIN: sareeref.vn
       ENVIRONMENT: production
 
     steps:
