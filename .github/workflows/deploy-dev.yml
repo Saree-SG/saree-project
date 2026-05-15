@@ -45,10 +45,11 @@ jobs:
             echo BACKEND_CORS_ORIGINS=https://dev-dashboard.%DOMAIN%
             echo PUBLIC_BASE_URL=https://dev-api.%DOMAIN%
             echo VITE_API_URL=https://dev-api.%DOMAIN%
-            echo SMTP_HOST=
-            echo SMTP_USER=
-            echo SMTP_PASSWORD=
-            echo EMAILS_FROM_EMAIL=
+            echo SMTP_HOST=%SMTP_HOST%
+            echo SMTP_USER=%SMTP_USER%
+            echo SMTP_PASSWORD=%SMTP_PASSWORD%
+            echo EMAILS_FROM_EMAIL=%SMTP_USER%
+            echo REPORT_RECIPIENTS=%REPORT_RECIPIENTS%
             echo SENTRY_DSN=
           ) > .env
         env:
@@ -56,6 +57,10 @@ jobs:
           POSTGRES_PASSWORD: ${{ secrets.DEV_POSTGRES_PASSWORD }}
           FIRST_SUPERUSER: ${{ secrets.FIRST_SUPERUSER }}
           FIRST_SUPERUSER_PASSWORD: ${{ secrets.DEV_FIRST_SUPERUSER_PASSWORD }}
+          SMTP_HOST: ${{ secrets.SMTP_HOST }}
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+          REPORT_RECIPIENTS: ${{ secrets.REPORT_RECIPIENTS }}
 
       - name: Debug .env
         shell: cmd

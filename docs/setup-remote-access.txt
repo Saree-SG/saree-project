@@ -107,3 +107,43 @@ Sau khi vào PowerShell server, dùng Docker:
 
   Prod:
   docker exec saree-prod-backend-1 python -m app.scripts.seed_customer
+  Tất cả 3 thứ đều setup được qua Windows Task Scheduler hoặc Windows Services.
+
+  Tailscale và Docker Desktop đã có sẵn tùy chọn auto-start, chỉ cần bật. run.cmd cần cấu
+  hình thêm.
+
+  Bước 1: Tailscale — auto start
+
+  Tailscale mặc định đã chạy cùng Windows. Kiểm tra:
+  Get-Service Tailscale
+  Nếu StartType không phải Automatic:
+  Set-Service Tailscale -StartupType Automatic
+
+  Bước 2: Docker Desktop — auto start
+
+  Mở Docker Desktop → Settings → General → tick "Start Docker Desktop when you sign in" →
+  Apply.
+
+  Bước 3: GitHub Actions Runner — chạy như Windows Service
+
+  Đây là cách chuẩn nhất. Vào thư mục runner trên server (PowerShell as Admin):
+
+  cd C:\Users\vntua\actions-runner
+  .\svc.cmd install
+  .\svc.cmd start
+
+  Sau đó runner chạy như Windows Service, auto start cùng máy, không cần mở run.cmd tay nữa.
+
+  Kiểm tra:
+  .\svc.cmd status
+  # hoặc
+  Get-Service actions.runner.*
+  
+  Thứ tự boot khi restart máy
+
+  1. Windows khởi động
+  2. Tailscale service start tự động
+  3. Docker Desktop start tự động
+  4. GitHub Actions Runner service start tự động → sẵn sàng nhận job
+
+  Bạn thử chạy .\svc.cmd install trên server trước — cái đó là quan trọng nhất.

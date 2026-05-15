@@ -3,10 +3,11 @@ Celery application singleton.
 
 Broker and result backend are both Redis (REDIS_URL from settings).
 Beat schedule is configured here:
-  - outbox_dispatcher: runs every 30 seconds to relay pending outbox events
-  - cascade_worker:    runs every 60 seconds to process pending cascade requests
-  - daily_db_backup:  runs once per day at 02:00 UTC
-  - daily_summary:    runs once per day at 07:00 UTC
+  - outbox_dispatcher:  runs every 30 seconds to relay pending outbox events
+  - cascade_worker:     runs every 60 seconds to process pending cascade requests
+  - daily_db_backup:   runs once per day at 02:00 UTC
+  - daily_summary:     runs once per day at 07:00 UTC
+  - weekly_excel:      runs every Monday at 08:00 UTC — Excel report emailed to directors
 """
 
 from __future__ import annotations
@@ -53,6 +54,10 @@ celery_app.conf.update(
         "daily-summary": {
             "task": "app.jobs.daily_jobs.send_daily_summary",
             "schedule": crontab(hour=7, minute=0),
+        },
+        "weekly-excel-report": {
+            "task": "app.jobs.daily_jobs.send_weekly_excel",
+            "schedule": crontab(hour=8, minute=0, day_of_week=1),  # Monday 08:00 UTC = 15:00 ICT
         },
         "delay-expiry": {
             "task": "app.jobs.delay_expiry_job.expire_pending_delay_requests",

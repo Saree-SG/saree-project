@@ -109,6 +109,8 @@ class Settings(BaseSettings):
         return bool(self.SMTP_HOST and self.EMAILS_FROM_EMAIL)
 
     EMAIL_TEST_USER: EmailStr = "test@example.com"
+    # Comma-separated list of emails to receive weekly Excel report
+    REPORT_RECIPIENTS: str = "vntuananhbui@gmail.com"
     FIRST_SUPERUSER: EmailStr
     FIRST_SUPERUSER_PASSWORD: str
 

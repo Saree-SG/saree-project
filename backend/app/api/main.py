@@ -5,6 +5,7 @@ from app.api.routes import (
     chat_ws,
     contracts,
     dashboard,
+    export,
     login,
     notifications,
     private,
@@ -34,6 +35,7 @@ api_router.include_router(dashboard.router)
 api_router.include_router(notifications.router)
 api_router.include_router(quotations.router)
 api_router.include_router(contracts.router)
+api_router.include_router(export.router)
 
 if settings.ENVIRONMENT == "local":
     api_router.include_router(private.router)
