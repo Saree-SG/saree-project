@@ -17,11 +17,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Ensure traefik-public network
-        shell: cmd
-        run: |
-          docker network inspect traefik-public >NUL 2>&1 || docker network create traefik-public
-
       - name: Write .env
         shell: cmd
         run: |
