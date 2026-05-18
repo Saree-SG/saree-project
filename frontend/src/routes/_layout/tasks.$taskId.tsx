@@ -1134,10 +1134,10 @@ function TaskDetailPage() {
             Tiến độ
           </TabsTrigger>
           <TabsTrigger value="comments" className="py-2 text-sm font-semibold">
-            Bình luận
+            Thảo luận
           </TabsTrigger>
           <TabsTrigger value="subtasks" className="py-2 text-sm font-semibold">
-            Việc con
+            Phụ Trợ
           </TabsTrigger>
           <TabsTrigger value="history" className="py-2 text-sm font-semibold">
             Lịch sử

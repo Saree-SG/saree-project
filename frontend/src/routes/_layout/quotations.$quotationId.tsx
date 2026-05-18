@@ -1,10 +1,14 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { createFileRoute, Link, redirect, useNavigate } from "@tanstack/react-router"
 import {
+  AlertCircle,
   AlignLeft,
   ArrowLeft,
   Bold,
+  Clock,
+  FileText,
   Heading2,
+  Info,
   Italic,
   List,
   ListOrdered,
@@ -66,7 +70,7 @@ import { hasPermission } from "@/utils/accountAccess"
 import { resolveBackendMediaUrl } from "@/utils/mediaUrl"
 import { listCompanyRoles, type CompanyRole } from "@/modules/rbac/rbacApi"
 
-type QuotationTab = "overview" | "negotiations" | "attachments" | "history"
+type QuotationTab = "negotiations" | "attachments" | "history"
 type QuotationHistoryStepFilter = QuotationStage | typeof QUOTATION_CREATE_STEP
 
 interface WorkflowPayload {
@@ -477,7 +481,6 @@ export const Route = createFileRoute("/_layout/quotations/$quotationId")({
   validateSearch: (search: Record<string, unknown>) => {
     const tabRaw = search.tab
     const allowedTabs: QuotationTab[] = [
-      "overview",
       "negotiations",
       "attachments",
       "history",
@@ -1124,7 +1127,7 @@ function QuotationDetailPage() {
   const statusConfig = STATUS_CONFIG[quotation.status]
 
   return (
-    <div className="flex flex-col gap-4 p-6">
+    <div className="flex flex-col gap-4 p-4 md:p-6 max-w-3xl mx-auto">
       <div className="flex items-start justify-between gap-3">
         <div className="space-y-1">
           <Link to="/quotations" className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
@@ -1150,84 +1153,46 @@ function QuotationDetailPage() {
         onStepClick={handleStageStepClick}
       />
 
+      {quotation.current_stage !== "S9_CLOSED" && (
+        <QuotationNextStepsGuide stage={quotation.current_stage} />
+      )}
+
       {latestRejectForCurrentStage ? (
-        <div className="rounded-lg border border-amber-300/70 bg-amber-50/60 p-4">
-          <p className="text-xs font-semibold uppercase tracking-wide text-amber-800">
-            {getRejectRequestTitleByStage(quotation.current_stage)}
-          </p>
-          <p className="mt-1 text-xs text-amber-800/90">
-            {latestRejectForCurrentStage.actor_name ?? "Người duyệt"} ·{" "}
-            {new Date(latestRejectForCurrentStage.created_at).toLocaleString("vi-VN")}
-          </p>
-          <div
-            className="mt-2 max-h-56 overflow-auto rounded-md border border-amber-200 bg-background/80 p-3 text-sm"
-            dangerouslySetInnerHTML={{
-              __html: renderLightMarkdown(latestRejectForCurrentStage.note ?? ""),
-            }}
-          />
+        <div className="rounded-lg border-2 border-amber-400 bg-amber-50 p-4 space-y-3">
+          <div className="flex items-start gap-2.5">
+            <AlertCircle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+            <div>
+              <p className="font-semibold text-sm text-amber-900">
+                {getRejectRequestTitleByStage(quotation.current_stage)}
+              </p>
+              <p className="text-xs text-amber-700 mt-0.5">
+                {latestRejectForCurrentStage.actor_name ?? "Người duyệt"} ·{" "}
+                {new Date(latestRejectForCurrentStage.created_at).toLocaleString("vi-VN")}
+              </p>
+            </div>
+          </div>
+          {latestRejectForCurrentStage.note && (
+            <div
+              className="text-sm text-amber-900/90 leading-relaxed pl-7"
+              dangerouslySetInnerHTML={{
+                __html: renderLightMarkdown(latestRejectForCurrentStage.note),
+              }}
+            />
+          )}
         </div>
       ) : null}
 
       {(quotation.current_stage === "S2_DIRECTOR_APPROVE_SURVEY" ||
         quotation.current_stage === "S4_DIRECTOR_APPROVE_DESIGN" ||
         quotation.current_stage === "S7_DIRECTOR_APPROVE_QUOTE") && (
-        <div className="rounded-lg border bg-card p-4">
-          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            Nội dung nộp chờ duyệt
-          </p>
-          {historyQuery.isLoading ? (
-            <p className="mt-2 text-sm text-muted-foreground">
-              Đang tải nội dung...
-            </p>
-          ) : latestSubmittedForCurrentStage?.note ? (
-            <div className="mt-2 space-y-2">
-              <p className="text-xs text-muted-foreground">
-                {latestSubmittedForCurrentStage.actor_name ?? "Người dùng"} ·{" "}
-                {new Date(
-                  latestSubmittedForCurrentStage.created_at,
-                ).toLocaleString("vi-VN")}
-              </p>
-              <div
-                className="max-h-56 overflow-auto rounded-md border bg-muted/20 p-3 text-sm"
-                dangerouslySetInnerHTML={{
-                  __html: renderLightMarkdown(latestSubmittedForCurrentStage.note),
-                }}
-              />
-              <div className="rounded-md border p-3">
-                <p className="text-xs font-medium text-muted-foreground">
-                  File đính kèm cùng giai đoạn
-                </p>
-                {attachmentsQuery.isLoading ? (
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    Đang tải file...
-                  </p>
-                ) : attachmentsForCurrentStage.length ? (
-                  <div className="mt-2 space-y-1">
-                    {attachmentsForCurrentStage.map((file) => (
-                      <button
-                        key={file.id}
-                        type="button"
-                        className="block max-w-full truncate text-left text-xs text-primary underline"
-                        title={file.file_name}
-                        onClick={() => handleViewAttachment(file.file_url, file.file_name, file.file_type)}
-                      >
-                        {file.file_name}
-                      </button>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    Chưa có file đính kèm ở giai đoạn này.
-                  </p>
-                )}
-              </div>
-            </div>
-          ) : (
-            <p className="mt-2 text-sm text-muted-foreground">
-              Chưa có nội dung nộp ở bước hiện tại.
-            </p>
-          )}
-        </div>
+        <PendingReviewCard
+          stage={quotation.current_stage}
+          isLoading={historyQuery.isLoading}
+          submission={latestSubmittedForCurrentStage ?? null}
+          attachments={attachmentsForCurrentStage}
+          attachmentsLoading={attachmentsQuery.isLoading}
+          onViewAttachment={handleViewAttachment}
+        />
       )}
 
       <QuotationActionsPanel
@@ -1236,6 +1201,103 @@ function QuotationDetailPage() {
         busy={workflowMutation.isPending}
         onAction={handleOpenAction}
       />
+
+      {/* Outcome banner */}
+      {quotation.outcome === "won" && (
+        <div className="rounded-lg border border-green-300 bg-green-50 px-4 py-3 text-sm font-medium text-green-800">
+          Hợp đồng thắng
+          {quotation.won_project_id ? (
+            <Link
+              to="/projects/$projectId"
+              params={{ projectId: quotation.won_project_id }}
+              className="ml-2 underline"
+            >
+              Xem dự án
+            </Link>
+          ) : null}
+        </div>
+      )}
+      {quotation.outcome === "lost" && (
+        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+          <span className="font-medium">Hồ sơ thua —</span>{" "}
+          {LOST_REASON_LABELS[quotation.lost_reason_category ?? ""] ?? quotation.lost_reason_category ?? "Không rõ lý do"}
+          {quotation.lost_reason_detail ? (
+            <p className="mt-1 text-xs">{quotation.lost_reason_detail}</p>
+          ) : null}
+        </div>
+      )}
+
+      {/* Thông tin khách hàng */}
+      <div className="rounded-lg border bg-card p-4 space-y-3">
+        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Khách hàng</p>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <Field label="Tên công ty" value={quotation.client_company_name} />
+          <Field label="Hạng mục thiết bị" value={quotation.equipment_category} />
+          <Field label="Người liên hệ" value={quotation.client_contact_name} />
+          <Field label="Điện thoại" value={quotation.client_contact_phone} />
+          <Field label="Email" value={quotation.client_contact_email} />
+          <Field label="Địa chỉ" value={quotation.client_address} />
+        </div>
+      </div>
+
+      {/* Phụ trách */}
+      <div className="rounded-lg border bg-card p-4 space-y-3">
+        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Phụ trách</p>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <Field label="Kinh doanh" value={quotation.sales_owner_name} />
+          <Field label="Kỹ thuật" value={quotation.technical_owner_name} />
+          <Field label="Vật tư" value={quotation.procurement_owner_name} />
+        </div>
+      </div>
+
+      {/* Tài chính */}
+      <div className="rounded-lg border bg-card p-4 space-y-3">
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Tài chính</p>
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            className="h-7 w-7 shrink-0"
+            onClick={() => setPriceVisible((prev) => !prev)}
+            aria-pressed={priceVisible}
+            aria-label={priceVisible ? "Ẩn số tiền" : "Hiện số tiền"}
+            title={priceVisible ? "Ẩn giá" : "Hiện giá"}
+          >
+            {priceVisible ? (
+              <EyeOff className="h-3.5 w-3.5" aria-hidden />
+            ) : (
+              <Eye className="h-3.5 w-3.5" aria-hidden />
+            )}
+          </Button>
+        </div>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <Field
+            label="Tổng giá trị hợp đồng"
+            value={priceVisible ? formatVnd(quotation.total_contract_value) : "••••••"}
+          />
+          <Field label="Đồng tiền" value={quotation.currency} />
+        </div>
+      </div>
+
+      {/* Mốc thời gian */}
+      <div className="rounded-lg border bg-card p-4 space-y-3">
+        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Thời gian</p>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <Field label="Ngày tạo" value={formatDate(quotation.created_at)} />
+          <Field label="Ngày khảo sát" value={formatDate(quotation.site_survey_date)} />
+          <Field label="Hiệu lực báo giá đến" value={formatDate(quotation.valid_until)} />
+          <Field label="Hạn phản hồi KH" value={formatDate(quotation.client_response_deadline)} />
+          <Field label="Ngày gửi KH" value={formatDate(quotation.sent_to_client_at)} />
+        </div>
+      </div>
+
+      {quotation.notes ? (
+        <div className="rounded-lg border bg-card p-4">
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">Ghi chú</p>
+          <p className="text-sm whitespace-pre-wrap text-muted-foreground">{quotation.notes}</p>
+        </div>
+      ) : null}
 
       <Tabs
         value={search.tab}
@@ -1249,110 +1311,10 @@ function QuotationDetailPage() {
         }}
       >
         <TabsList className="w-full justify-start overflow-x-auto">
-          <TabsTrigger value="overview">Tổng quan</TabsTrigger>
           <TabsTrigger value="negotiations">Trao đổi với khách</TabsTrigger>
           <TabsTrigger value="attachments">Tài liệu</TabsTrigger>
           <TabsTrigger value="history">Lịch sử</TabsTrigger>
         </TabsList>
-
-        <TabsContent value="overview" className="space-y-3">
-          {/* Outcome banner */}
-          {quotation.outcome === "won" && (
-            <div className="rounded-lg border border-green-300 bg-green-50 px-4 py-3 text-sm font-medium text-green-800">
-              Hợp đồng thắng
-              {quotation.won_project_id ? (
-                <Link
-                  to="/projects/$projectId"
-                  params={{ projectId: quotation.won_project_id }}
-                  className="ml-2 underline"
-                >
-                  Xem dự án
-                </Link>
-              ) : null}
-            </div>
-          )}
-          {quotation.outcome === "lost" && (
-            <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
-              <span className="font-medium">Hồ sơ thua —</span>{" "}
-              {LOST_REASON_LABELS[quotation.lost_reason_category ?? ""] ?? quotation.lost_reason_category ?? "Không rõ lý do"}
-              {quotation.lost_reason_detail ? (
-                <p className="mt-1 text-xs">{quotation.lost_reason_detail}</p>
-              ) : null}
-            </div>
-          )}
-
-          {/* Thông tin khách hàng */}
-          <div className="rounded-lg border bg-card p-4 space-y-3">
-            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Khách hàng</p>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <Field label="Tên công ty" value={quotation.client_company_name} />
-              <Field label="Hạng mục thiết bị" value={quotation.equipment_category} />
-              <Field label="Người liên hệ" value={quotation.client_contact_name} />
-              <Field label="Điện thoại" value={quotation.client_contact_phone} />
-              <Field label="Email" value={quotation.client_contact_email} />
-              <Field label="Địa chỉ" value={quotation.client_address} />
-            </div>
-          </div>
-
-          {/* Phụ trách */}
-          <div className="rounded-lg border bg-card p-4 space-y-3">
-            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Phụ trách</p>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-              <Field label="Kinh doanh" value={quotation.sales_owner_name} />
-              <Field label="Kỹ thuật" value={quotation.technical_owner_name} />
-              <Field label="Vật tư" value={quotation.procurement_owner_name} />
-            </div>
-          </div>
-
-          {/* Tài chính */}
-          <div className="rounded-lg border bg-card p-4 space-y-3">
-            <div className="flex items-center justify-between gap-3">
-              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Tài chính</p>
-              <Button
-                type="button"
-                variant="outline"
-                size="icon"
-                className="h-7 w-7 shrink-0"
-                onClick={() => setPriceVisible((prev) => !prev)}
-                aria-pressed={priceVisible}
-                aria-label={priceVisible ? "Ẩn số tiền" : "Hiện số tiền"}
-                title={priceVisible ? "Ẩn giá" : "Hiện giá"}
-              >
-                {priceVisible ? (
-                  <EyeOff className="h-3.5 w-3.5" aria-hidden />
-                ) : (
-                  <Eye className="h-3.5 w-3.5" aria-hidden />
-                )}
-              </Button>
-            </div>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <Field
-                label="Tổng giá trị hợp đồng"
-                value={priceVisible ? formatVnd(quotation.total_contract_value) : "••••••"}
-              />
-              <Field label="Đồng tiền" value={quotation.currency} />
-            </div>
-          </div>
-
-          {/* Mốc thời gian */}
-          <div className="rounded-lg border bg-card p-4 space-y-3">
-            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Thời gian</p>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <Field label="Ngày tạo" value={formatDate(quotation.created_at)} />
-              <Field label="Ngày khảo sát" value={formatDate(quotation.site_survey_date)} />
-              <Field label="Hiệu lực báo giá đến" value={formatDate(quotation.valid_until)} />
-              <Field label="Hạn phản hồi KH" value={formatDate(quotation.client_response_deadline)} />
-              <Field label="Ngày gửi KH" value={formatDate(quotation.sent_to_client_at)} />
-            </div>
-          </div>
-
-          {quotation.notes ? (
-            <div className="rounded-lg border bg-card p-4">
-              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">Ghi chú</p>
-              <p className="text-sm whitespace-pre-wrap text-muted-foreground">{quotation.notes}</p>
-            </div>
-          ) : null}
-        </TabsContent>
 
         <TabsContent value="negotiations" className="space-y-3">
           {/* Add log form — show for users who can view quotation */}
@@ -1917,6 +1879,228 @@ function QuotationDetailPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// QuotationNextStepsGuide — context-aware guidance per workflow stage
+// ---------------------------------------------------------------------------
+
+type QuotationStep = { label: string; detail?: string; urgent?: boolean }
+type QuotationNextStepsConfig = { title: string; color: string; steps: QuotationStep[] }
+
+const QUOTATION_NEXT_STEPS: Record<QuotationStage, QuotationNextStepsConfig> = {
+  S1_SALES_COLLECT: {
+    title: "Bước khảo sát — Kinh doanh thu thập thông tin",
+    color: "border-blue-200 bg-blue-50",
+    steps: [
+      { label: "Liên hệ khách hàng, xác nhận người phụ trách và địa chỉ khảo sát" },
+      { label: "Ghi nhận thông tin liên hệ đầy đủ: họ tên, chức vụ, số điện thoại" },
+      { label: "Đính kèm file biên bản khảo sát, hình ảnh hiện trường (nếu có)" },
+      { label: 'Bấm "Nộp khảo sát" khi đã thu thập đủ thông tin', urgent: true },
+    ],
+  },
+  S2_DIRECTOR_APPROVE_SURVEY: {
+    title: "Chờ Giám đốc duyệt khảo sát",
+    color: "border-violet-200 bg-violet-50",
+    steps: [
+      { label: "Giám đốc xem xét thông tin khảo sát và file đính kèm" },
+      { label: 'Nếu đầy đủ: bấm "Duyệt khảo sát" để chuyển sang giai đoạn thiết kế', urgent: true },
+      { label: 'Nếu cần bổ sung: bấm "Yêu cầu sửa khảo sát" để trả về Kinh doanh' },
+    ],
+  },
+  S3_TECH_DESIGN: {
+    title: "Kỹ thuật lên thiết kế",
+    color: "border-cyan-200 bg-cyan-50",
+    steps: [
+      { label: "Phòng Kỹ thuật nghiên cứu yêu cầu từ biên bản khảo sát" },
+      { label: "Lập bản vẽ kỹ thuật, tính toán thông số và lựa chọn thiết bị phù hợp" },
+      { label: "Đính kèm file bản vẽ (DWG, PDF) khi hoàn thành" },
+      { label: 'Bấm "Nộp thiết kế" để trình Giám đốc phê duyệt', urgent: true },
+    ],
+  },
+  S4_DIRECTOR_APPROVE_DESIGN: {
+    title: "Chờ Giám đốc duyệt thiết kế",
+    color: "border-violet-200 bg-violet-50",
+    steps: [
+      { label: "Giám đốc kiểm tra bản vẽ kỹ thuật và thông số thiết bị" },
+      { label: 'Nếu ổn: bấm "Duyệt thiết kế" để chuyển sang bộ phận Vật tư định giá', urgent: true },
+      { label: 'Nếu cần điều chỉnh: bấm "Yêu cầu sửa thiết kế" để trả về Kỹ thuật' },
+    ],
+  },
+  S5_PROCUREMENT_PRICING: {
+    title: "Vật tư định giá",
+    color: "border-orange-200 bg-orange-50",
+    steps: [
+      { label: "Phòng Vật tư tra cứu giá từ nhà cung cấp theo danh sách thiết bị trong bản vẽ" },
+      {
+        label: "Khảo sát ≥3 nhà cung cấp cho từng hạng mục thiết bị chính",
+        detail: "Lưu lại báo giá nhà cung cấp để đính kèm làm chứng từ",
+      },
+      { label: "Điền tổng giá trị vật tư vào form định giá" },
+      { label: 'Bấm "Xác nhận định giá" và nhập tổng giá trị hợp đồng để chuyển sang Kinh doanh hoàn thiện hồ sơ', urgent: true },
+    ],
+  },
+  S6_SALES_FINALIZE: {
+    title: "Kinh doanh hoàn thiện hồ sơ chào giá",
+    color: "border-blue-200 bg-blue-50",
+    steps: [
+      { label: "Kinh doanh nhận giá từ Vật tư, điều chỉnh tỷ lệ lợi nhuận và điều khoản thương mại" },
+      { label: "Soạn file báo giá chính thức (Excel/PDF) theo mẫu công ty" },
+      { label: "Đính kèm file báo giá hoàn chỉnh vào hồ sơ" },
+      { label: 'Bấm "Hoàn thiện báo giá" để trình Giám đốc phê duyệt lần cuối', urgent: true },
+    ],
+  },
+  S7_DIRECTOR_APPROVE_QUOTE: {
+    title: "Chờ Giám đốc duyệt báo giá cuối",
+    color: "border-violet-200 bg-violet-50",
+    steps: [
+      { label: "Giám đốc kiểm tra file báo giá, giá trị hợp đồng và các điều khoản" },
+      { label: 'Nếu ổn: bấm "Duyệt báo giá cuối" để cho phép gửi khách hàng', urgent: true },
+      { label: 'Nếu cần điều chỉnh: bấm "Yêu cầu sửa báo giá" để trả về Kinh doanh' },
+    ],
+  },
+  S8_SENT_TO_CLIENT: {
+    title: "Đã gửi báo giá — chờ phản hồi khách hàng",
+    color: "border-teal-200 bg-teal-50",
+    steps: [
+      { label: "Ghi nhận lại mỗi lần liên hệ với khách hàng trong tab Trao đổi với khách" },
+      { label: "Theo dõi hạn phản hồi; nhắc khách hàng trước 2–3 ngày nếu chưa có phản hồi" },
+      {
+        label: 'Nếu khách hàng đồng ý: bấm "Đóng hồ sơ thắng" — hệ thống sẽ tự tạo hợp đồng',
+        urgent: true,
+      },
+      { label: 'Nếu khách hàng yêu cầu điều chỉnh giá: bấm "Trình thương lượng lên Giám đốc"' },
+      { label: 'Nếu không thành công: bấm "Đóng hồ sơ thua" và ghi rõ lý do' },
+    ],
+  },
+  S8B_NEGOTIATION_REVIEW: {
+    title: "Chờ Giám đốc duyệt đề xuất thương lượng",
+    color: "border-amber-200 bg-amber-50",
+    steps: [
+      { label: "Giám đốc xem xét đề xuất điều chỉnh giá từ Kinh doanh" },
+      { label: 'Nếu chấp thuận: bấm "Đồng ý điều chỉnh giá" — Kinh doanh tiếp tục đàm phán', urgent: true },
+      { label: 'Nếu chưa phù hợp: bấm "Tiếp tục trao đổi thêm" để trả về Kinh doanh thương lượng lại' },
+    ],
+  },
+  S9_CLOSED: {
+    title: "Hồ sơ đã kết thúc",
+    color: "border-slate-200 bg-slate-50",
+    steps: [],
+  },
+}
+
+// ---------------------------------------------------------------------------
+// PendingReviewCard — hiển thị nội dung đã nộp đang chờ BGĐ duyệt
+// ---------------------------------------------------------------------------
+
+const PENDING_REVIEW_LABELS: Partial<Record<QuotationStage, { subject: string; submitter: string }>> = {
+  S2_DIRECTOR_APPROVE_SURVEY:    { subject: "Hồ sơ khảo sát",    submitter: "Kinh doanh" },
+  S4_DIRECTOR_APPROVE_DESIGN:    { subject: "Hồ sơ thiết kế",     submitter: "Kỹ thuật" },
+  S7_DIRECTOR_APPROVE_QUOTE:     { subject: "Hồ sơ chào giá",     submitter: "Kinh doanh" },
+}
+
+function PendingReviewCard({
+  stage,
+  isLoading,
+  submission,
+  attachments,
+  attachmentsLoading,
+  onViewAttachment,
+}: {
+  stage: QuotationStage
+  isLoading: boolean
+  submission: { actor_name: string | null; created_at: string; note: string | null } | null
+  attachments: QuotationAttachmentPublic[]
+  attachmentsLoading: boolean
+  onViewAttachment: (url: string, name: string, type: string | null) => void
+}) {
+  const meta = PENDING_REVIEW_LABELS[stage]
+  if (!meta) return null
+
+  return (
+    <div className="rounded-lg border border-violet-200 bg-violet-50/40 p-4 space-y-3">
+      <div className="flex items-center gap-2.5">
+        <Clock className="w-4 h-4 text-violet-500 shrink-0" />
+        <div>
+          <p className="font-semibold text-sm text-violet-900">
+            {meta.subject} đang chờ BGĐ phê duyệt
+          </p>
+          {submission && (
+            <p className="text-xs text-violet-600 mt-0.5">
+              Nộp bởi {submission.actor_name ?? meta.submitter} ·{" "}
+              {new Date(submission.created_at).toLocaleString("vi-VN")}
+            </p>
+          )}
+        </div>
+      </div>
+
+      {isLoading ? (
+        <p className="text-sm text-muted-foreground pl-6">Đang tải...</p>
+      ) : submission?.note ? (
+        <div
+          className="text-sm text-foreground/80 leading-relaxed pl-6"
+          dangerouslySetInnerHTML={{ __html: renderLightMarkdown(submission.note) }}
+        />
+      ) : null}
+
+      {/* File đính kèm */}
+      <div className="pl-6">
+        {attachmentsLoading ? (
+          <p className="text-xs text-muted-foreground">Đang tải file...</p>
+        ) : attachments.length > 0 ? (
+          <ul className="space-y-1.5">
+            {attachments.map((file) => (
+              <li key={file.id}>
+                <button
+                  type="button"
+                  className="flex items-center gap-2 text-left text-xs text-violet-700 hover:text-violet-900 hover:underline"
+                  onClick={() => onViewAttachment(file.file_url, file.file_name, file.file_type)}
+                >
+                  <FileText className="w-3.5 h-3.5 shrink-0" />
+                  <span className="truncate max-w-xs">{file.file_name}</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="text-xs text-muted-foreground">Chưa có file đính kèm.</p>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function QuotationNextStepsGuide({ stage }: { stage: QuotationStage }) {
+  const config = QUOTATION_NEXT_STEPS[stage]
+  if (!config.steps.length) return null
+
+  return (
+    <div className={`rounded-lg border p-4 space-y-3 ${config.color}`}>
+      <div className="flex items-center gap-2">
+        <Info className="w-4 h-4 text-muted-foreground shrink-0" />
+        <h2 className="font-semibold text-sm">{config.title}</h2>
+      </div>
+      <ol className="space-y-2.5">
+        {config.steps.map((step, i) => (
+          <li key={i} className="flex gap-2.5">
+            <span
+              className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[11px] font-bold ${
+                step.urgent ? "bg-amber-500 text-white" : "bg-muted text-muted-foreground"
+              }`}
+            >
+              {i + 1}
+            </span>
+            <div className="space-y-0.5">
+              <p className={`text-sm ${step.urgent ? "font-medium" : ""}`}>{step.label}</p>
+              {step.detail && (
+                <p className="text-xs text-muted-foreground">{step.detail}</p>
+              )}
+            </div>
+          </li>
+        ))}
+      </ol>
     </div>
   )
 }

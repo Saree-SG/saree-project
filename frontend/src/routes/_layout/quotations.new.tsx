@@ -97,7 +97,7 @@ function NewQuotationPage() {
       navigate({
         to: "/quotations/$quotationId",
         params: { quotationId: data.id },
-        search: { tab: "overview" },
+        search: { tab: "history" },
       })
     },
     onError: () => {
