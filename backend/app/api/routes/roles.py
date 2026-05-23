@@ -390,6 +390,7 @@ async def list_company_members(
                 role_display_name=role.display_name,
                 role_level=role.level,
                 is_primary=row.is_primary,
+                department_id=user.department_id,
             )
         )
     return members

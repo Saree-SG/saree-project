@@ -272,6 +272,7 @@ class CompanyMemberPublic(SQLModel):
     role_display_name: str
     role_level: int
     is_primary: bool
+    department_id: uuid.UUID | None = None
 
 
 class CompanyMemberRoleUpdateRequest(SQLModel):

@@ -26,6 +26,7 @@ export type CompanyMember = {
   role_display_name: string
   role_level: number
   is_primary: boolean
+  department_id: string | null
 }
 
 export type CompanyRole = {

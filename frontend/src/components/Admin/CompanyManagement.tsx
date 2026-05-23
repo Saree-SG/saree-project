@@ -446,6 +446,7 @@ const CompanyManagement = () => {
                               <UserDepartmentAssign
                                 companyId={editingCompany.id}
                                 userId={member.user_id}
+                                currentDepartmentId={member.department_id}
                               />
                             ) : null}
                           </TableCell>
