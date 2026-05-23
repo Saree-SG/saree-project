@@ -15,6 +15,7 @@ export type QuotationStage =
   | "S1_SALES_COLLECT"
   | "S2_DIRECTOR_APPROVE_SURVEY"
   | "S3_TECH_DESIGN"
+  | "S3B_BOC_TACH"
   | "S4_DIRECTOR_APPROVE_DESIGN"
   | "S5_PROCUREMENT_PRICING"
   | "S6_SALES_FINALIZE"
@@ -73,6 +74,7 @@ export interface QuotationPublic {
   lost_reason_category: LostReasonCategory | null
   lost_reason_detail: string | null
   won_project_id: string | null
+  color: string | null
   created_at: string
   updated_at: string
 }
@@ -122,6 +124,7 @@ export interface QuotationUpdate {
   client_response_deadline?: string | null
   technical_owner_id?: string | null
   procurement_owner_id?: string | null
+  color?: string | null
 }
 
 // ---------------------------------------------------------------------------
@@ -231,9 +234,14 @@ export interface QuotationSubmitSurveyRequest {
 export interface QuotationApproveRequest {
   action: "approve" | "reject"
   note?: string | null
+  target_stage?: QuotationStage | null
 }
 
 export interface QuotationSubmitDesignRequest {
+  note?: string | null
+}
+
+export interface QuotationSubmitBocTachRequest {
   note?: string | null
 }
 
@@ -303,6 +311,24 @@ export interface QuotationLostReasonRow {
   lost_reason_category: string
   count: number
   percentage: number
+}
+
+// ---------------------------------------------------------------------------
+// Approval Participants (co-approver / delegate) — A3 feature
+// ---------------------------------------------------------------------------
+
+export type ApprovalParticipantRole = "co_approver" | "delegate" | "primary"
+
+export interface ApprovalParticipant {
+  id: string
+  quotation_id: string
+  stage: string
+  user_id: string
+  user_name: string | null
+  role: ApprovalParticipantRole
+  has_approved: boolean
+  approved_at: string | null
+  created_at: string
 }
 
 // ---------------------------------------------------------------------------

@@ -6,7 +6,7 @@ import uuid
 from collections.abc import Sequence
 
 from fastapi import HTTPException
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
@@ -56,7 +56,14 @@ class ProjectRepository(BaseRepository[Project]):
             )
             member_result = await self._execute(member_ids_stmt)
             member_project_ids = member_result.scalars().all()
-            stmt = stmt.where(Project.id.in_(member_project_ids))  # type: ignore[arg-type]
+            # Also include projects created by this user (e.g. internal projects
+            # where they may not have been added as a formal member yet)
+            stmt = stmt.where(
+                or_(
+                    Project.id.in_(member_project_ids),  # type: ignore[arg-type]
+                    Project.created_by == user_id,
+                )
+            )
 
         if status_filter:
             stmt = stmt.where(Project.status == status_filter)

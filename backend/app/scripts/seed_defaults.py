@@ -88,7 +88,8 @@ ALL_PERMISSIONS = [
     {"code": "QUOTATION_DELETE",          "module": "quotation", "action": "delete", "scope": "global",   "description": "Xóa hồ sơ báo giá (soft delete)"},
     {"code": "QUOTATION_SUBMIT_SURVEY",   "module": "quotation", "action": "update", "scope": "assigned", "description": "Kinh Doanh nộp thông tin khảo sát (S1→S2)"},
     {"code": "QUOTATION_APPROVE_SURVEY",  "module": "quotation", "action": "approve","scope": "global",   "description": "BGĐ duyệt/từ chối thông tin khảo sát (S2)"},
-    {"code": "QUOTATION_DESIGN",          "module": "quotation", "action": "update", "scope": "assigned", "description": "Kỹ Thuật thiết kế và nộp phương án (S3→S4)"},
+    {"code": "QUOTATION_DESIGN",          "module": "quotation", "action": "update", "scope": "assigned", "description": "Kỹ Thuật thiết kế và nộp phương án (S3→S3B)"},
+    {"code": "QUOTATION_BOC_TACH",        "module": "quotation", "action": "update", "scope": "assigned", "description": "Kỹ Thuật bóc tách khối lượng và nộp BGĐ duyệt (S3B→S4)"},
     {"code": "QUOTATION_APPROVE_DESIGN",  "module": "quotation", "action": "approve","scope": "global",   "description": "BGĐ duyệt/từ chối phương án thiết kế (S4)"},
     {"code": "QUOTATION_FILL_PRICE",      "module": "quotation", "action": "update", "scope": "assigned", "description": "Vật Tư điền đơn giá hạng mục (S5→S6)"},
     {"code": "QUOTATION_FINALIZE",        "module": "quotation", "action": "update", "scope": "assigned", "description": "Kinh Doanh nhập hệ số giá, hoàn thiện (S6→S7)"},
@@ -147,7 +148,7 @@ _SALES_QUOTATION_PERMS: list[str] = [
 ]
 
 _ENGINEER_QUOTATION_PERMS: list[str] = [
-    "QUOTATION_VIEW", "QUOTATION_DESIGN",
+    "QUOTATION_VIEW", "QUOTATION_DESIGN", "QUOTATION_BOC_TACH",
 ]
 
 _MATERIALS_QUOTATION_PERMS: list[str] = [

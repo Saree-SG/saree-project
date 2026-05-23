@@ -421,12 +421,14 @@ function QuotationsPage() {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-8"></TableHead>
                 <TableHead className="w-32">Mã HĐ</TableHead>
                 <TableHead>Tên dự án</TableHead>
                 <TableHead>Khách hàng</TableHead>
                 <TableHead className="w-36">Hạng mục</TableHead>
                 <TableHead className="w-36">Trạng thái</TableHead>
                 <TableHead className="w-44">Giai đoạn</TableHead>
+                <TableHead className="w-28">Hạn phản hồi</TableHead>
                 <TableHead className="w-38 text-right">
                   <div className="inline-flex w-full items-center justify-end gap-1.5">
                     <span>Giá bán</span>
@@ -458,6 +460,15 @@ function QuotationsPage() {
                   key={q.id}
                   className="cursor-pointer hover:bg-muted/40 transition-colors"
                 >
+                  <TableCell>
+                    {q.color ? (
+                      <span
+                        className="inline-block h-3 w-3 rounded-full ring-1 ring-black/10"
+                        style={{ backgroundColor: q.color }}
+                        title={q.color}
+                      />
+                    ) : null}
+                  </TableCell>
                   <TableCell className="font-mono text-xs">
                     <Link
                       to="/quotations/$quotationId"
@@ -491,6 +502,21 @@ function QuotationsPage() {
                   </TableCell>
                   <TableCell>
                     <StageBadge stage={q.current_stage} />
+                  </TableCell>
+                  <TableCell className="text-xs text-muted-foreground">
+                    {q.client_response_deadline ? (
+                      <span
+                        className={
+                          new Date(q.client_response_deadline).getTime() < Date.now()
+                            ? "text-red-600 font-semibold"
+                            : ""
+                        }
+                      >
+                        {formatDate(q.client_response_deadline)}
+                      </span>
+                    ) : (
+                      <span>—</span>
+                    )}
                   </TableCell>
                   <TableCell className="text-right text-sm font-medium tabular-nums">
                     {priceVisible

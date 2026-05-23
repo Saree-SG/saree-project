@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+import asyncio
 import uuid
 from datetime import date, datetime, timedelta, timezone
 
 from fastapi import HTTPException, UploadFile
+from loguru import logger
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -30,6 +32,7 @@ from app.models.user import User
 from app.repositories.contract_repository import ContractRepository
 from app.repositories.quotation_repository import QuotationRepository
 from app.repositories.user_repository import UserRepository
+from app.services.push_service import send_push_to_user
 from app.shared.storage import LocalStorage
 
 
@@ -439,16 +442,22 @@ class ContractService:
         entity_id: uuid.UUID,
         entity_type: str = "contract",
     ) -> None:
-        notif = Notification(
-            user_id=user_id,
-            type=notif_type,
-            title=title,
-            body=body,
-            entity_type=entity_type,
-            entity_id=entity_id,
-        )
-        self._session.add(notif)
-        await self._session.flush()
+        try:
+            notif = Notification(
+                user_id=user_id,
+                type=notif_type,
+                title=title,
+                body=body,
+                entity_type=entity_type,
+                entity_id=entity_id,
+            )
+            self._session.add(notif)
+            await self._session.flush()
+            asyncio.create_task(
+                send_push_to_user(self._session, user_id, title, body, entity_type, entity_id)
+            )
+        except Exception:
+            logger.exception("Failed to persist notification user_id={} type={}", user_id, notif_type)
 
 
 # ---------------------------------------------------------------------------

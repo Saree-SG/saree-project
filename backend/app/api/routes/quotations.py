@@ -12,11 +12,14 @@ from datetime import date
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlmodel import SQLModel
 
 from app.api.deps import AsyncSessionDep
 from app.core.config import settings
 from app.models.quotation import (
     QuotationApproveRequest,
+    QuotationApprovalParticipantCreate,
+    QuotationApprovalParticipantPublic,
     QuotationAttachmentCreate,
     QuotationAttachmentPublic,
     QuotationByClientRow,
@@ -32,6 +35,7 @@ from app.models.quotation import (
     QuotationReportSummary,
     QuotationSendToClientRequest,
     QuotationStageTransitionPublic,
+    QuotationSubmitBocTachRequest,
     QuotationSubmitDesignRequest,
     QuotationSubmitNegotiationRequest,
     QuotationSubmitPricingRequest,
@@ -196,8 +200,19 @@ async def submit_design(
     session: AsyncSessionDep,
     current_user: User = Depends(require_permission("QUOTATION_DESIGN")),
 ) -> QuotationPublic:
-    """S3 → S4: Kỹ Thuật nộp phương án thiết kế, chờ BGĐ duyệt."""
+    """S3 → S3B: Kỹ Thuật nộp phương án thiết kế, chuyển sang bóc tách khối lượng."""
     return await _svc(session).submit_design(quotation_id, body, current_user)
+
+
+@router.post("/{quotation_id}/submit-boc-tach", response_model=QuotationPublic)
+async def submit_boc_tach(
+    quotation_id: uuid.UUID,
+    body: QuotationSubmitBocTachRequest,
+    session: AsyncSessionDep,
+    current_user: User = Depends(require_permission("QUOTATION_BOC_TACH")),
+) -> QuotationPublic:
+    """S3B → S4: Kỹ Thuật hoàn thành bóc tách khối lượng, nộp BGĐ duyệt."""
+    return await _svc(session).submit_boc_tach(quotation_id, body, current_user)
 
 
 @router.post("/{quotation_id}/approve-design", response_model=QuotationPublic)
@@ -286,6 +301,73 @@ async def close_quotation(
 ) -> QuotationPublic:
     """S8 → S9: Đóng hồ sơ (won → tạo Project / lost → lưu lý do)."""
     return await _svc(session).close_quotation(quotation_id, body, current_user)
+
+
+# ---------------------------------------------------------------------------
+# Approval participants (co-approver / delegate) — A3 feature
+# ---------------------------------------------------------------------------
+
+class _ParticipantApproveRequest(SQLModel):
+    note: str | None = None
+
+
+@router.get(
+    "/{quotation_id}/approval-participants",
+    response_model=list[QuotationApprovalParticipantPublic],
+)
+async def list_approval_participants(
+    quotation_id: uuid.UUID,
+    session: AsyncSessionDep,
+    current_user: User = Depends(require_any_permission("QUOTATION_VIEW", "QUOTATION_VIEW_ALL")),
+) -> list[QuotationApprovalParticipantPublic]:
+    """Danh sách người duyệt (co-duyệt / ủy quyền) cho giai đoạn hiện tại."""
+    return await _svc(session).list_approval_participants(quotation_id)
+
+
+@router.post(
+    "/{quotation_id}/approval-participants",
+    response_model=QuotationApprovalParticipantPublic,
+    status_code=status.HTTP_201_CREATED,
+)
+async def add_approval_participant(
+    quotation_id: uuid.UUID,
+    body: QuotationApprovalParticipantCreate,
+    session: AsyncSessionDep,
+    current_user: User = Depends(require_any_permission(
+        "QUOTATION_APPROVE_SURVEY", "QUOTATION_APPROVE_DESIGN",
+        "QUOTATION_APPROVE_FINAL", "QUOTATION_APPROVE_NEGOTIATION",
+    )),
+) -> QuotationApprovalParticipantPublic:
+    """Giám đốc thêm người co-duyệt hoặc ủy quyền cho giai đoạn hiện tại."""
+    return await _svc(session).add_approval_participant(quotation_id, body, current_user)
+
+
+@router.delete(
+    "/{quotation_id}/approval-participants/{participant_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+async def remove_approval_participant(
+    quotation_id: uuid.UUID,
+    participant_id: uuid.UUID,
+    session: AsyncSessionDep,
+    current_user: User = Depends(require_any_permission(
+        "QUOTATION_APPROVE_SURVEY", "QUOTATION_APPROVE_DESIGN",
+        "QUOTATION_APPROVE_FINAL", "QUOTATION_APPROVE_NEGOTIATION",
+    )),
+) -> None:
+    """Giám đốc xóa người co-duyệt hoặc ủy quyền."""
+    await _svc(session).remove_approval_participant(quotation_id, participant_id)
+
+
+@router.post("/{quotation_id}/participant-approve", response_model=QuotationPublic)
+async def participant_approve(
+    quotation_id: uuid.UUID,
+    body: _ParticipantApproveRequest,
+    session: AsyncSessionDep,
+    current_user: User = Depends(require_any_permission("QUOTATION_VIEW", "QUOTATION_VIEW_ALL")),
+) -> QuotationPublic:
+    """Co-duyệt hoặc người được ủy quyền xác nhận duyệt."""
+    return await _svc(session).participant_approve(quotation_id, body.note, current_user)
 
 
 # ---------------------------------------------------------------------------

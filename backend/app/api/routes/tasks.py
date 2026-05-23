@@ -89,17 +89,17 @@ async def create_child_task(
     session: AsyncSessionDep,
     current_user: User = Depends(require_permission("TASK_CREATE")),
 ) -> TaskPublic:
-    """Create a subtask (level 1) under a root task. Sub-subtasks are not allowed."""
+    """Create a child task up to level 4 (5 levels: Hạng mục → Công việc → Đầu việc → Bước → Chi tiết)."""
     svc = _svc(session)
     parent = await svc._task_repo.get_or_404(parent_id)
-    if parent.level >= 1:
+    if parent.level >= 4:
         raise HTTPException(
             422,
-            "Không thể tạo công việc con của subtask. Hệ thống chỉ hỗ trợ 2 cấp: Task → Subtask.",
+            "Đã đạt giới hạn 5 tầng (Hạng mục → Công việc → Đầu việc → Bước → Chi tiết).",
         )
     body.project_id = parent.project_id
     body.parent_id = parent_id
-    return await svc.create_task(body, level=1, current_user=current_user)
+    return await svc.create_task(body, level=parent.level + 1, current_user=current_user)
 
 
 # ---------------------------------------------------------------------------

@@ -8,6 +8,7 @@ export interface StageConfig {
   label: string
   shortLabel: string
   filterLabel?: string
+  description?: string
   ownerRole: "sales" | "director" | "technical" | "procurement" | "done"
   // Tailwind color classes
   badgeBg: string
@@ -49,6 +50,16 @@ export const STAGE_CONFIG: Record<QuotationStage, StageConfig> = {
     stepBg: "bg-cyan-600",
     stepText: "text-white",
   },
+  S3B_BOC_TACH: {
+    label: "Bóc tách khối lượng",
+    shortLabel: "Bóc tách",
+    ownerRole: "technical",
+    badgeBg: "bg-sky-100",
+    badgeText: "text-sky-700",
+    dotColor: "bg-sky-500",
+    stepBg: "bg-sky-600",
+    stepText: "text-white",
+  },
   S4_DIRECTOR_APPROVE_DESIGN: {
     label: "Giám đốc duyệt thiết kế",
     shortLabel: "Duyệt Thiết kế",
@@ -62,6 +73,7 @@ export const STAGE_CONFIG: Record<QuotationStage, StageConfig> = {
   S5_PROCUREMENT_PRICING: {
     label: "Vật tư định giá",
     shortLabel: "Định giá vật tư",
+    description: "Vật tư phải định giá xong trước khi Kinh doanh mới làm bước tiếp theo (S6).",
     ownerRole: "procurement",
     badgeBg: "bg-orange-100",
     badgeText: "text-orange-700",
@@ -72,6 +84,7 @@ export const STAGE_CONFIG: Record<QuotationStage, StageConfig> = {
   S6_SALES_FINALIZE: {
     label: "Kinh doanh điều chỉnh chào giá",
     shortLabel: "Hồ sơ chào giá",
+    description: "Bước này chỉ thực hiện được sau khi Vật tư (S5) đã hoàn thành định giá.",
     ownerRole: "sales",
     badgeBg: "bg-blue-100",
     badgeText: "text-blue-700",
@@ -125,6 +138,7 @@ export const STAGE_ORDER: QuotationStage[] = [
   "S1_SALES_COLLECT",
   "S2_DIRECTOR_APPROVE_SURVEY",
   "S3_TECH_DESIGN",
+  "S3B_BOC_TACH",
   "S4_DIRECTOR_APPROVE_DESIGN",
   "S5_PROCUREMENT_PRICING",
   "S6_SALES_FINALIZE",
@@ -132,6 +146,14 @@ export const STAGE_ORDER: QuotationStage[] = [
   "S8_SENT_TO_CLIENT",
   "S8B_NEGOTIATION_REVIEW",
   "S9_CLOSED",
+]
+
+// Stages where director can reject back to any earlier stage
+export const DIRECTOR_REJECT_STAGES: QuotationStage[] = [
+  "S2_DIRECTOR_APPROVE_SURVEY",
+  "S4_DIRECTOR_APPROVE_DESIGN",
+  "S7_DIRECTOR_APPROVE_QUOTE",
+  "S8B_NEGOTIATION_REVIEW",
 ]
 
 export function getStageIndex(stage: QuotationStage): number {

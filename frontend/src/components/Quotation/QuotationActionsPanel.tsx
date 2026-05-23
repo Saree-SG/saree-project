@@ -7,6 +7,7 @@ export type QuotationActionId =
   | "approve_survey"
   | "reject_survey"
   | "submit_design"
+  | "submit_boc_tach"
   | "approve_design"
   | "reject_design"
   | "submit_pricing"
@@ -45,6 +46,9 @@ function getAvailableActions(
   }
   if (stage === "S3_TECH_DESIGN" && canDo(permissions, "QUOTATION_DESIGN")) {
     return ["submit_design"]
+  }
+  if (stage === "S3B_BOC_TACH" && canDo(permissions, "QUOTATION_BOC_TACH")) {
+    return ["submit_boc_tach"]
   }
   if (stage === "S4_DIRECTOR_APPROVE_DESIGN" && canDo(permissions, "QUOTATION_APPROVE_DESIGN")) {
     return ["approve_design", "reject_design"]
@@ -87,7 +91,8 @@ function actionLabel(actionId: QuotationActionId): string {
   if (actionId === "approve_survey") return "Duyệt khảo sát"
   if (actionId === "reject_survey") return "Yêu cầu bổ sung"
   if (actionId === "submit_design") return "Nộp thiết kế"
-  if (actionId === "approve_design") return "Duyệt thiết kế"
+  if (actionId === "submit_boc_tach") return "Hoàn thành bóc tách"
+  if (actionId === "approve_design") return "Duyệt thiết kế & bóc tách"
   if (actionId === "reject_design") return "Yêu cầu điều chỉnh"
   if (actionId === "submit_pricing") return "Xác nhận định giá"
   if (actionId === "finalize") return "Hoàn thiện báo giá"
@@ -98,7 +103,7 @@ function actionLabel(actionId: QuotationActionId): string {
   if (actionId === "approve_negotiation") return "Đồng ý điều chỉnh"
   if (actionId === "reject_negotiation") return "Tiếp tục trao đổi thêm"
   if (actionId === "close_won") return "Thắng hợp đồng"
-  return "Đóng hồ sơ (thua)"
+  return "Đóng hồ sơ"
 }
 
 function isDestructiveAction(actionId: QuotationActionId): boolean {
@@ -114,8 +119,9 @@ function isDestructiveAction(actionId: QuotationActionId): boolean {
 function actionHint(stage: QuotationPublic["current_stage"]): string {
   if (stage === "S1_SALES_COLLECT") return "Điền đầy đủ thông tin khảo sát, đính kèm tài liệu nếu có, rồi nộp cho Giám đốc duyệt."
   if (stage === "S2_DIRECTOR_APPROVE_SURVEY") return "Xem lại nội dung khảo sát. Duyệt để chuyển sang Kỹ thuật, hoặc yêu cầu bổ sung nếu thông tin chưa đủ."
-  if (stage === "S3_TECH_DESIGN") return "Upload file thiết kế (tab Tài liệu), sau đó nộp cho Giám đốc duyệt."
-  if (stage === "S4_DIRECTOR_APPROVE_DESIGN") return "Xem lại file thiết kế. Duyệt để chuyển sang bước báo đơn giá, hoặc yêu cầu điều chỉnh."
+  if (stage === "S3_TECH_DESIGN") return "Upload file thiết kế (tab Tài liệu), sau đó nộp để chuyển sang bước bóc tách khối lượng."
+  if (stage === "S3B_BOC_TACH") return "Thực hiện bóc tách khối lượng dựa trên thiết kế, sau đó hoàn thành để nộp Giám đốc duyệt."
+  if (stage === "S4_DIRECTOR_APPROVE_DESIGN") return "Xem lại file thiết kế & bóc tách. Duyệt để chuyển sang bước báo đơn giá, hoặc yêu cầu điều chỉnh."
   if (stage === "S5_PROCUREMENT_PRICING") return "Upload file Excel đã điền giá (tab Tài liệu), nhập tổng giá trị hợp đồng, rồi xác nhận."
   if (stage === "S6_SALES_FINALIZE") return "Upload file hợp đồng chào giá (tab Tài liệu), rồi hoàn thiện để Giám đốc duyệt."
   if (stage === "S7_DIRECTOR_APPROVE_QUOTE") return "Xem xét báo giá tổng thể. Duyệt để gửi khách hàng, hoặc yêu cầu điều chỉnh."

@@ -65,6 +65,10 @@ class Task(TaskBase, table=True):
     linked_entity_type: str | None = Field(default=None, max_length=50)
     linked_entity_id: uuid.UUID | None = Field(default=None)
 
+    # Color label and performance coefficient
+    color: str | None = Field(default=None, max_length=30)
+    performance_coefficient: float | None = None
+
     # Soft delete
     is_deleted: bool = False
     deleted_at: datetime | None = None
@@ -163,6 +167,8 @@ class TaskUpdate(SQLModel):
     module_tag: str | None = None
     linked_entity_type: str | None = None
     linked_entity_id: uuid.UUID | None = None
+    color: str | None = None
+    performance_coefficient: float | None = None
 
 
 class TaskStatusUpdate(SQLModel):
@@ -201,6 +207,8 @@ class TaskPublic(TaskBase):
     blocked_by: list[BlockerInfo] = []   # unfinished FS predecessors
     extra_assignees: list["TaskAssigneePublic"] = []  # co-workers beyond primary assignee
     observers: list["TaskObserverPublic"] = []  # watch-only users
+    color: str | None = None
+    performance_coefficient: float | None = None
 
 
 class TasksPublic(SQLModel):
@@ -323,7 +331,7 @@ class TaskReassignRequest(SQLModel):
 class TaskCommentBase(SQLModel):
     content: str = Field(sa_type=Text)
     comment_type: str = Field(default="general", max_length=50)
-    # general | progress_report | delay_justification | proof_rejection
+    # general | progress_report | delay_justification | proof_rejection | defect_note
 
 
 class TaskComment(TaskCommentBase, table=True):
@@ -508,3 +516,109 @@ class AuditLogPublic(SQLModel):
     old_value: Any | None
     new_value: Any | None
     created_at: datetime
+
+
+# ---------------------------------------------------------------------------
+# TaskProfile — reusable task tree template
+# ---------------------------------------------------------------------------
+class TaskProfile(SQLModel, table=True):
+    """Global reusable task tree template. Saved from an existing task subtree."""
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    name: str = Field(max_length=300)
+    description: str | None = Field(default=None, sa_type=Text)
+    created_by: uuid.UUID = Field(foreign_key="user.id", index=True)
+    company_id: uuid.UUID | None = Field(default=None, foreign_key="company.id", index=True)
+    created_at: datetime = Field(
+        default_factory=_utcnow, sa_type=DateTime(timezone=True)  # type: ignore
+    )
+    updated_at: datetime = Field(
+        default_factory=_utcnow, sa_type=DateTime(timezone=True)  # type: ignore
+    )
+
+    items: list["TaskProfileItem"] = Relationship(
+        back_populates="profile",
+        sa_relationship_kwargs={"cascade": "all, delete-orphan"},
+    )
+
+
+class TaskProfileItem(SQLModel, table=True):
+    """One node in a TaskProfile tree."""
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    profile_id: uuid.UUID = Field(foreign_key="taskprofile.id", index=True)
+    parent_item_id: uuid.UUID | None = Field(default=None, foreign_key="taskprofileitem.id", index=True)
+    name: str = Field(max_length=500)
+    level: int = Field(default=0)        # 0–4 matching task levels
+    duration_days: int = Field(default=1)
+    order_index: int = Field(default=0)
+    description: str | None = Field(default=None, sa_type=Text)
+    module_tag: str | None = Field(default=None, max_length=50)
+    color: str | None = Field(default=None, max_length=30)
+
+    profile: TaskProfile = Relationship(back_populates="items")
+
+
+# Schemas
+class TaskProfileItemPublic(SQLModel):
+    id: uuid.UUID
+    profile_id: uuid.UUID
+    parent_item_id: uuid.UUID | None
+    name: str
+    level: int
+    duration_days: int
+    order_index: int
+    description: str | None
+    module_tag: str | None
+    color: str | None
+
+
+class TaskProfilePublic(SQLModel):
+    id: uuid.UUID
+    name: str
+    description: str | None
+    created_by: uuid.UUID
+    created_by_name: str | None = None
+    company_id: uuid.UUID | None = None
+    created_at: datetime
+    items: list[TaskProfileItemPublic] = []
+
+
+class TaskProfileCreate(SQLModel):
+    name: str
+    description: str | None = None
+    company_id: uuid.UUID | None = None
+
+
+class TaskProfileUpdate(SQLModel):
+    name: str | None = None
+    description: str | None = None
+
+
+class TaskProfileItemCreate(SQLModel):
+    parent_item_id: uuid.UUID | None = None
+    name: str
+    duration_days: int = 1
+    order_index: int = 0
+    description: str | None = None
+    module_tag: str | None = None
+    color: str | None = None
+
+
+class TaskProfileItemUpdate(SQLModel):
+    name: str | None = None
+    duration_days: int | None = None
+    order_index: int | None = None
+    description: str | None = None
+    module_tag: str | None = None
+    color: str | None = None
+
+
+class ApplyProfileRequest(SQLModel):
+    project_id: uuid.UUID
+    parent_task_id: uuid.UUID | None = None
+    assignee_id: uuid.UUID
+
+
+class SaveAsProfileRequest(SQLModel):
+    name: str
+    description: str | None = None
+    company_id: uuid.UUID | None = None

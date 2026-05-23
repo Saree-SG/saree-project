@@ -50,7 +50,7 @@ export function Main({ items }: MainProps) {
                   <RouterLink to={item.path} onClick={handleMenuClick}>
                     {/* Icon with badge overlay — visible in both collapsed and expanded mode */}
                     <span className="relative shrink-0">
-                      <item.icon />
+                      <item.icon className="size-4" />
                       {unreadCount > 0 && (
                         <span className="absolute -right-1.5 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-0.5 text-[9px] font-bold leading-none text-white ring-1 ring-background">
                           {unreadCount > 99 ? "99+" : unreadCount}

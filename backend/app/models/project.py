@@ -24,6 +24,8 @@ class ProjectBase(SQLModel):
     end_date: date
     status: str = Field(default="planning", max_length=30)
     # planning | active | on_hold | completed | cancelled
+    project_type: str = Field(default="client", max_length=20)
+    # client | internal
 
 
 class Project(ProjectBase, table=True):
@@ -51,6 +53,8 @@ class Project(ProjectBase, table=True):
 
 class ProjectCreate(ProjectBase):
     department_id: uuid.UUID | None = None
+    company_id: uuid.UUID | None = None
+    pm_id: uuid.UUID | None = None
 
 
 class ProjectUpdate(SQLModel):
@@ -60,6 +64,7 @@ class ProjectUpdate(SQLModel):
     end_date: date | None = None
     status: str | None = None
     pm_id: uuid.UUID | None = None
+    project_type: str | None = None
 
 
 class ProjectPublic(ProjectBase):

@@ -12,6 +12,7 @@ from app.api.routes import (
     projects,
     quotations,
     roles,
+    task_profiles,
     task_ws,
     tasks,
     users,
@@ -31,6 +32,7 @@ api_router.include_router(task_ws.router)
 
 api_router.include_router(projects.router)
 api_router.include_router(tasks.router)
+api_router.include_router(task_profiles.router)
 api_router.include_router(dashboard.router)
 api_router.include_router(notifications.router)
 api_router.include_router(quotations.router)

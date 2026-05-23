@@ -169,10 +169,12 @@ class ProjectService:
         self, body: ProjectCreate, current_user: User
     ) -> ProjectPublic:
         """Create project, auto-create linked chat room, and add creator as member."""
+        company_id = body.company_id or current_user.company_id
+        pm_id = body.pm_id or current_user.id
         project = await self._project_repo.create_project({
-            **body.model_dump(),
-            "company_id": current_user.company_id,
-            "pm_id": current_user.id,
+            **body.model_dump(exclude={"company_id", "pm_id"}),
+            "company_id": company_id,
+            "pm_id": pm_id,
             "created_by": current_user.id,
             "is_deleted": False,
         })

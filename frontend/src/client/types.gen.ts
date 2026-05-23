@@ -230,6 +230,7 @@ export type ProjectCreate = {
     end_date: string;
     status?: string;
     department_id?: (string | null);
+    project_type?: (string | null);
 };
 
 /**
@@ -251,6 +252,7 @@ export type ProjectPublic = {
     start_date: string;
     end_date: string;
     status?: string;
+    project_type?: string;
     id: string;
     company_id: string;
     department_id: (string | null);
@@ -271,6 +273,7 @@ export type ProjectUpdate = {
     end_date?: (string | null);
     status?: (string | null);
     pm_id?: (string | null);
+    project_type?: (string | null);
 };
 
 export type RefreshTokenRequest = {
@@ -472,6 +475,8 @@ export type TaskPublic = {
     module_tag?: (string | null);
     linked_entity_type?: (string | null);
     linked_entity_id?: (string | null);
+    color?: (string | null);
+    performance_coefficient?: (number | null);
     blocked_by?: Array<BlockerInfo>;
 };
 

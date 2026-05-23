@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { createFileRoute, Link, redirect, useNavigate } from "@tanstack/react-router"
-import { useEffect, useMemo, useState } from "react"
+import { ChevronDown, ChevronRight, BookTemplate, Plus, MoreHorizontal, BookmarkPlus, Layers } from "lucide-react"
+import { useEffect, useMemo, useRef, useState } from "react"
 
 import { ProjectGantt } from "@/components/Gantt/ProjectGantt"
 import { DelayWarnings } from "@/components/Project/DelayWarnings"
@@ -38,8 +39,15 @@ import {
 import useCustomToast from "@/hooks/useCustomToast"
 import { clearSession } from "@/modules/auth/tokenStore"
 import { createProjectChatRoom } from "@/modules/chat/chatApi"
+import {
+  applyProfile,
+  listProfiles,
+  listProfilesByCompany,
+  saveTaskAsProfile,
+  type TaskProfile,
+} from "@/modules/taskProfile/taskProfileApi"
 import { addDependency } from "@/modules/gantt/ganttApi"
-import { listCompanyMembers, readMyPermissions } from "@/modules/rbac/rbacApi"
+import { listCompanyMembers, listCompanyRoles, readMyPermissions, type CompanyRole } from "@/modules/rbac/rbacApi"
 import { handleError } from "@/utils"
 import { hasPermission } from "@/utils/accountAccess"
 
@@ -152,6 +160,17 @@ function getOverdueDays(endTime: string): number {
   return Math.max(1, Math.floor(diffMs / (24 * 60 * 60 * 1000)))
 }
 
+function addWorkingDays(startDateStr: string, days: number): string {
+  const date = new Date(`${startDateStr}T12:00:00`)
+  let added = 0
+  while (added < days) {
+    date.setDate(date.getDate() + 1)
+    const dow = date.getDay()
+    if (dow !== 0 && dow !== 6) added++
+  }
+  return date.toISOString().slice(0, 10)
+}
+
 function ProjectTaskDashboardPage() {
   const { projectId } = Route.useParams()
   const queryClient = useQueryClient()
@@ -165,6 +184,7 @@ function ProjectTaskDashboardPage() {
   const [projectCodeDraft, setProjectCodeDraft] = useState("")
   const [projectStatusDraft, setProjectStatusDraft] = useState("planning")
   const [projectEndDateDraft, setProjectEndDateDraft] = useState("")
+  const [projectTypeDraft, setProjectTypeDraft] = useState("client")
   const [memberEmailDraft, setMemberEmailDraft] = useState("")
   const [memberSelectedUserId, setMemberSelectedUserId] = useState<string>("")
   const [memberPickerOpen, setMemberPickerOpen] = useState(false)
@@ -175,8 +195,30 @@ function ProjectTaskDashboardPage() {
   const [taskAssigneePickerOpen, setTaskAssigneePickerOpen] = useState(false)
   const [taskStartDateDraft, setTaskStartDateDraft] = useState("")
   const [taskEndDateDraft, setTaskEndDateDraft] = useState("")
+  const [taskWorkingDays, setTaskWorkingDays] = useState("")
   const [taskDependencyDraft, setTaskDependencyDraft] = useState("none")
+  const [selectedProfileId, setSelectedProfileId] = useState("")
   const [showOverdueOnly, setShowOverdueOnly] = useState(false)
+  const [productionSetupOpen, setProductionSetupOpen] = useState(false)
+  const [selectedRoleIds, setSelectedRoleIds] = useState<string[]>([])
+  const [taskView, setTaskView] = useState<"list" | "table" | "gantt" | "tree">("list")
+  // Tree view expand/collapse state
+  const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set())
+  // Profile manager
+  const [profileManagerOpen, setProfileManagerOpen] = useState(false)
+  const [applyProfileOpen, setApplyProfileOpen] = useState(false)
+  const [applyTargetProfileId, setApplyTargetProfileId] = useState("")
+  const [applyAssigneeId, setApplyAssigneeId] = useState("")
+  const [applyAssigneeEmail, setApplyAssigneeEmail] = useState("")
+  const [applyAssigneePickerOpen, setApplyAssigneePickerOpen] = useState(false)
+  const [applyParentTaskId, setApplyParentTaskId] = useState<string>("")
+  // Save as profile
+  const [saveAsProfileTaskId, setSaveAsProfileTaskId] = useState<string | null>(null)
+  const [saveAsProfileName, setSaveAsProfileName] = useState("")
+  const [saveAsProfileDesc, setSaveAsProfileDesc] = useState("")
+  // Tree node context menu
+  const [treeMenuTaskId, setTreeMenuTaskId] = useState<string | null>(null)
+  const treeMenuRef = useRef<HTMLDivElement>(null)
 
   const projectQuery = useQuery({
     queryKey: ["project-dashboard", "project", projectId],
@@ -224,6 +266,56 @@ function ProjectTaskDashboardPage() {
     queryFn: async () => listCompanyMembers(projectQuery.data?.company_id ?? ""),
   })
 
+  const companyRolesQuery = useQuery({
+    queryKey: ["project-dashboard", "company-roles", projectQuery.data?.company_id],
+    enabled: Boolean(projectQuery.data?.company_id) && productionSetupOpen,
+    queryFn: () => listCompanyRoles(projectQuery.data!.company_id),
+  })
+
+  const profilesQuery = useQuery({
+    queryKey: ["task-profiles", projectQuery.data?.company_id],
+    queryFn: () =>
+      projectQuery.data?.company_id
+        ? listProfilesByCompany(projectQuery.data.company_id)
+        : listProfiles(),
+    enabled: Boolean(projectQuery.data),
+  })
+
+  const applyProfileMutation = useMutation({
+    mutationFn: () =>
+      applyProfile(applyTargetProfileId, {
+        project_id: projectId,
+        parent_task_id: applyParentTaskId || null,
+        assignee_id: applyAssigneeId,
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["project-dashboard", "tasks", projectId] })
+      setApplyProfileOpen(false)
+      setApplyTargetProfileId("")
+      setApplyAssigneeId("")
+      setApplyAssigneeEmail("")
+      setApplyParentTaskId("")
+      showSuccessToast("Áp dụng mẫu thành công!")
+    },
+    onError: handleError.bind(showErrorToast),
+  })
+
+  const saveAsProfileMutation = useMutation({
+    mutationFn: () =>
+      saveTaskAsProfile(saveAsProfileTaskId!, {
+        name: saveAsProfileName.trim(),
+        description: saveAsProfileDesc.trim() || undefined,
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["task-profiles"] })
+      setSaveAsProfileTaskId(null)
+      setSaveAsProfileName("")
+      setSaveAsProfileDesc("")
+      showSuccessToast("Đã lưu mẫu công việc!")
+    },
+    onError: handleError.bind(showErrorToast),
+  })
+
   // Role catalog is not required for member add anymore (role auto-resolved from company membership)
 
   const stats = projectStatsQuery.data?.[0]
@@ -236,6 +328,7 @@ function ProjectTaskDashboardPage() {
     setProjectCodeDraft(project.code)
     setProjectStatusDraft(project.status || "planning")
     setProjectEndDateDraft(project.end_date || "")
+    setProjectTypeDraft((project as any).project_type || "client")
   }, [editOpen, projectQuery.data])
 
   useEffect(() => {
@@ -252,7 +345,9 @@ function ProjectTaskDashboardPage() {
     setTaskAssigneeSelectedUserId("")
     setTaskStartDateDraft(toISODate(now))
     setTaskEndDateDraft(toISODate(end))
+    setTaskWorkingDays("")
     setTaskDependencyDraft("none")
+    setSelectedProfileId("")
   }, [taskOpen])
 
   const updateProjectMutation = useMutation({
@@ -263,6 +358,7 @@ function ProjectTaskDashboardPage() {
           name: projectNameDraft.trim() || null,
           status: projectStatusDraft || null,
           end_date: projectEndDateDraft || null,
+          project_type: projectTypeDraft || null,
         },
       })
     },
@@ -300,6 +396,39 @@ function ProjectTaskDashboardPage() {
       await queryClient.invalidateQueries({
         queryKey: ["dashboard", "project-stats"],
       })
+    },
+    onError: handleError.bind(showErrorToast),
+  })
+
+  const activateWithMembersMutation = useMutation({
+    mutationFn: async () => {
+      // 1. Update project status to in_progress
+      await ProjectsService.updateProject({
+        projectId,
+        requestBody: { status: "in_progress" },
+      })
+      // 2. Add members by selected roles (find users with those roles from company members)
+      const companyUsers = companyUsersQuery.data ?? []
+      const alreadyMemberIds = new Set((membersQuery.data ?? []).map((m) => m.user_id))
+      const usersToAdd = companyUsers.filter(
+        (u) => selectedRoleIds.includes(u.role_id ?? "") && !alreadyMemberIds.has(u.user_id),
+      )
+      for (const user of usersToAdd) {
+        await ProjectsService.addMember({
+          projectId,
+          userId: user.user_id,
+          roleId: user.role_id ?? "",
+        })
+      }
+    },
+    onSuccess: async () => {
+      showSuccessToast("Dự án đã chuyển sang thực hiện")
+      setProductionSetupOpen(false)
+      setSelectedRoleIds([])
+      await queryClient.invalidateQueries({ queryKey: ["project-dashboard", "project", projectId] })
+      await queryClient.invalidateQueries({ queryKey: ["project-dashboard", "members", projectId] })
+      await queryClient.invalidateQueries({ queryKey: ["dashboard", "projects-catalog"] })
+      await queryClient.invalidateQueries({ queryKey: ["dashboard", "project-stats"] })
     },
     onError: handleError.bind(showErrorToast),
   })
@@ -400,10 +529,7 @@ function ProjectTaskDashboardPage() {
 
   const createTaskMutation = useMutation({
     mutationFn: async () => {
-      const name = taskNameDraft.trim()
-      if (!name) {
-        throw new Error("Nhập tên task")
-      }
+      // Resolve assignee
       const assigneeKeyword = taskAssigneeEmailDraft.trim()
       const assigneeKeywordLower = assigneeKeyword.toLowerCase()
       if (!assigneeKeyword) {
@@ -438,6 +564,21 @@ function ProjectTaskDashboardPage() {
       if (!assignee) {
         throw new Error("Không tìm thấy nhân viên phù hợp")
       }
+      const assigneeId = assignee.user_id
+
+      // If a profile is selected, apply it instead of creating a single task
+      if (selectedProfileId) {
+        return applyProfile(selectedProfileId, {
+          project_id: projectId,
+          parent_task_id: null,
+          assignee_id: assigneeId,
+        })
+      }
+
+      const name = taskNameDraft.trim()
+      if (!name) {
+        throw new Error("Nhập tên hạng mục")
+      }
       const start = taskStartDateDraft.trim()
       const end = taskEndDateDraft.trim()
       if (!start || !end) {
@@ -451,7 +592,7 @@ function ProjectTaskDashboardPage() {
         priority: "medium",
         start_time: `${start}T00:00:00Z`,
         end_time: `${end}T23:59:59Z`,
-        assignee_id: assignee.user_id,
+        assignee_id: assigneeId,
       }
       const createdTask = await TasksService.createRootTask({
         projectId,
@@ -611,6 +752,23 @@ function ProjectTaskDashboardPage() {
         </div>
         <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
           <span>{projectQuery.data?.code}</span>
+          {(projectQuery.data as any)?.project_type && (
+            <>
+              <span>·</span>
+              <span
+                className={[
+                  "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium",
+                  (projectQuery.data as any).project_type === "internal"
+                    ? "bg-purple-100 text-purple-700"
+                    : "bg-blue-100 text-blue-700",
+                ].join(" ")}
+              >
+                {(projectQuery.data as any).project_type === "internal"
+                  ? "Dự án nội bộ"
+                  : "Dự án khách hàng"}
+              </span>
+            </>
+          )}
           {projectQuery.data?.start_date && (
             <>
               <span>·</span>
@@ -653,8 +811,14 @@ function ProjectTaskDashboardPage() {
           >
             <Select
               value={projectQuery.data?.status ?? ""}
-              onValueChange={(val) => quickUpdateStatusMutation.mutate(val)}
-              disabled={quickUpdateStatusMutation.isPending || !projectQuery.data}
+              onValueChange={(val) => {
+                if (val === "in_progress") {
+                  setProductionSetupOpen(true)
+                } else {
+                  quickUpdateStatusMutation.mutate(val)
+                }
+              }}
+              disabled={quickUpdateStatusMutation.isPending || activateWithMembersMutation.isPending || !projectQuery.data}
             >
               <SelectTrigger
                 className={[
@@ -716,9 +880,114 @@ function ProjectTaskDashboardPage() {
 
       <section className="space-y-3">
         <div className="flex items-center justify-between gap-3">
-          <h2 className="text-sm font-bold">Gantt công việc</h2>
+          <h2 className="text-sm font-bold">Công việc</h2>
+          <div className="flex items-center gap-2">
+            <div className="flex rounded-lg border bg-slate-50 p-0.5 text-xs font-semibold">
+              {(["list", "table", "tree", "gantt"] as const).map((v) => (
+                <button
+                  key={v}
+                  type="button"
+                  onClick={() => setTaskView(v)}
+                  className={[
+                    "rounded-md px-3 py-1 transition-colors",
+                    taskView === v
+                      ? "bg-white shadow text-slate-800"
+                      : "text-slate-500 hover:text-slate-700",
+                  ].join(" ")}
+                >
+                  {v === "list" ? "Danh sách" : v === "table" ? "Bảng" : v === "tree" ? "Cây" : "Gantt"}
+                </button>
+              ))}
+            </div>
+            <button
+              type="button"
+              onClick={() => setProfileManagerOpen(true)}
+              title="Mẫu công việc"
+              className="flex items-center gap-1.5 rounded-lg border bg-slate-50 px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-100 transition-colors"
+            >
+              <BookTemplate className="h-3.5 w-3.5" />
+              Mẫu
+            </button>
+          </div>
         </div>
-        <ProjectGantt projectId={projectId} />
+        {taskView === "gantt" && <ProjectGantt projectId={projectId} />}
+        {taskView === "tree" && (
+          <TaskTreeView
+            tasks={tasksQuery.data ?? []}
+            expandedNodes={expandedNodes}
+            setExpandedNodes={setExpandedNodes}
+            treeMenuTaskId={treeMenuTaskId}
+            setTreeMenuTaskId={setTreeMenuTaskId}
+            treeMenuRef={treeMenuRef}
+            onSaveAsProfile={(taskId, taskName) => {
+              setSaveAsProfileTaskId(taskId)
+              setSaveAsProfileName(taskName)
+            }}
+            navigate={navigate}
+            projectId={projectId}
+          />
+        )}
+        {taskView === "table" && (
+          <div className="overflow-x-auto rounded-xl border bg-white shadow-sm">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b bg-slate-50 text-left text-xs font-semibold text-slate-600">
+                  <th className="px-4 py-2.5">Tên công việc</th>
+                  <th className="px-4 py-2.5">Người thực hiện</th>
+                  <th className="px-4 py-2.5">Bắt đầu</th>
+                  <th className="px-4 py-2.5">Kết thúc</th>
+                  <th className="px-4 py-2.5">Trạng thái</th>
+                  <th className="px-4 py-2.5">Tiến độ</th>
+                </tr>
+              </thead>
+              <tbody>
+                {detailedTasks.map((task) => (
+                  <tr
+                    key={task.id}
+                    className={[
+                      "border-b last:border-b-0 cursor-pointer hover:bg-slate-50",
+                      task.isOverdue ? "bg-red-50" : task.isDueSoon ? "bg-amber-50" : "",
+                    ].join(" ")}
+                    onClick={() => navigate({ to: "/tasks/$taskId", params: { taskId: task.id } })}
+                  >
+                    <td className="max-w-[220px] truncate px-4 py-2.5 font-medium">
+                      {task.color && (
+                        <span
+                          className="mr-1.5 inline-block h-2 w-2 rounded-full align-middle"
+                          style={{ background: task.color }}
+                        />
+                      )}
+                      {task.name}
+                    </td>
+                    <td className="px-4 py-2.5 text-xs text-muted-foreground">{task.assigneeName}</td>
+                    <td className="px-4 py-2.5 text-xs text-muted-foreground">
+                      {new Date(task.start_time).toLocaleDateString("vi-VN")}
+                    </td>
+                    <td className={["px-4 py-2.5 text-xs font-medium", task.isOverdue ? "text-red-600" : task.isDueSoon ? "text-amber-600" : "text-muted-foreground"].join(" ")}>
+                      {new Date(task.end_time).toLocaleDateString("vi-VN")}
+                      {task.isOverdue && <span className="ml-1 text-[10px]">(trễ {task.overdueDays}n)</span>}
+                    </td>
+                    <td className="px-4 py-2.5">
+                      <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-700">
+                        {statusLabel(task.status)}
+                      </span>
+                    </td>
+                    <td className="px-4 py-2.5 text-xs font-semibold text-primary">
+                      {task.reportedProgress}%
+                    </td>
+                  </tr>
+                ))}
+                {detailedTasks.length === 0 && (
+                  <tr>
+                    <td colSpan={6} className="px-4 py-8 text-center text-sm text-muted-foreground">
+                      Chưa có công việc nào.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        )}
       </section>
 
       <section className="space-y-3">
@@ -753,10 +1022,8 @@ function ProjectTaskDashboardPage() {
         </div>
       </section>
 
+      {taskView === "list" && (
       <section className="space-y-3">
-        <div className="flex items-center justify-between gap-3">
-          <h2 className="text-sm font-bold">Danh sách công việc</h2>
-        </div>
         <div className="space-y-3">
           {detailedTasks.map((task) => (
             <Link
@@ -837,15 +1104,18 @@ function ProjectTaskDashboardPage() {
           ))}
         </div>
       </section>
+      )}
 
       <PermissionGuard permission="TASK_CREATE">
-        <Button
-          type="button"
-          className="w-full"
-          onClick={() => setTaskOpen(true)}
-        >
-          + Tạo công việc mới
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            type="button"
+            className="flex-1"
+            onClick={() => setTaskOpen(true)}
+          >
+            + Tạo Hạng mục
+          </Button>
+        </div>
       </PermissionGuard>
 
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
@@ -899,6 +1169,23 @@ function ProjectTaskDashboardPage() {
                 value={projectEndDateDraft}
                 onChange={(e) => setProjectEndDateDraft(e.target.value)}
               />
+            </div>
+            <div className="space-y-1">
+              <p className="text-xs font-semibold text-muted-foreground">
+                Loại dự án
+              </p>
+              <Select
+                value={projectTypeDraft}
+                onValueChange={setProjectTypeDraft}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Chọn loại dự án" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="client">Dự án khách hàng</SelectItem>
+                  <SelectItem value="internal">Dự án nội bộ</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </div>
           <DialogFooter>
@@ -998,20 +1285,59 @@ function ProjectTaskDashboardPage() {
       <Dialog open={taskOpen} onOpenChange={setTaskOpen}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>Tạo task trong dự án</DialogTitle>
+            <DialogTitle>Tạo Hạng mục mới</DialogTitle>
           </DialogHeader>
           <div className="space-y-3">
+            {/* ── Chọn từ mẫu ── */}
+            <div className="rounded-lg border bg-slate-50 p-3 space-y-2">
+              <p className="text-xs font-semibold text-muted-foreground">Chọn từ mẫu (tuỳ chọn)</p>
+              <Select
+                value={selectedProfileId || "_none"}
+                onValueChange={(v) => setSelectedProfileId(v === "_none" ? "" : v)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="-- Không dùng mẫu --" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="_none">-- Không dùng mẫu --</SelectItem>
+                  {(profilesQuery.data ?? []).map((profile: TaskProfile) => (
+                    <SelectItem key={profile.id} value={profile.id}>
+                      {profile.name} ({profile.items.length} mục)
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {selectedProfileId && (() => {
+                const profile = (profilesQuery.data ?? []).find((p: TaskProfile) => p.id === selectedProfileId)
+                return profile ? (
+                  <p className="text-xs text-blue-600">
+                    Sẽ tạo {profile.items.length} công việc con theo mẫu
+                  </p>
+                ) : null
+              })()}
+            </div>
+
+            {/* ── Divider ── */}
+            <div className="flex items-center gap-2">
+              <div className="flex-1 border-t" />
+              <span className="text-xs text-muted-foreground">hoặc điền thủ công</span>
+              <div className="flex-1 border-t" />
+            </div>
+
             <div className="space-y-1">
-              <p className="text-xs font-semibold text-muted-foreground">Tên task</p>
+              <p className="text-xs font-semibold text-muted-foreground">
+                Tên hạng mục
+              </p>
               <Input
                 value={taskNameDraft}
                 onChange={(e) => setTaskNameDraft(e.target.value)}
-                placeholder="VD: Khảo sát hiện trường"
+                placeholder="VD: Hạng mục điện, Hệ thống lạnh..."
+                disabled={Boolean(selectedProfileId)}
               />
             </div>
             <div className="space-y-1">
               <p className="text-xs font-semibold text-muted-foreground">
-                Người thực hiện (email)
+                Người thực hiện
               </p>
               <Input
                 value={taskAssigneeEmailDraft}
@@ -1059,55 +1385,78 @@ function ProjectTaskDashboardPage() {
                 </div>
               ) : null}
             </div>
-            <div className="grid grid-cols-2 gap-2">
-              <div className="space-y-1">
-                <p className="text-xs font-semibold text-muted-foreground">Bắt đầu</p>
-                <Input
-                  type="date"
-                  value={taskStartDateDraft}
-                  onChange={(e) => setTaskStartDateDraft(e.target.value)}
-                />
-              </div>
-              <div className="space-y-1">
-                <p className="text-xs font-semibold text-muted-foreground">Deadline</p>
-                <Input
-                  type="date"
-                  value={taskEndDateDraft}
-                  onChange={(e) => setTaskEndDateDraft(e.target.value)}
-                />
-              </div>
-            </div>
-            <div className="space-y-1">
-              <p className="text-xs font-semibold text-muted-foreground">
-                Mô tả (tuỳ chọn)
-              </p>
-              <Input
-                value={taskDescriptionDraft}
-                onChange={(e) => setTaskDescriptionDraft(e.target.value)}
-                placeholder="Mô tả ngắn..."
-              />
-            </div>
-            <div className="space-y-1">
-              <p className="text-xs font-semibold text-muted-foreground">
-                Task phụ thuộc trước (tuỳ chọn)
-              </p>
-              <Select
-                value={taskDependencyDraft}
-                onValueChange={setTaskDependencyDraft}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Chọn task cần hoàn thành trước" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">Không chọn</SelectItem>
-                  {taskDependencyCandidates.map((item) => (
-                    <SelectItem key={item.id} value={item.id}>
-                      {item.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            {!selectedProfileId && (
+              <>
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="space-y-1">
+                    <p className="text-xs font-semibold text-muted-foreground">Bắt đầu</p>
+                    <Input
+                      type="date"
+                      value={taskStartDateDraft}
+                      onChange={(e) => {
+                        setTaskStartDateDraft(e.target.value)
+                        const days = parseInt(taskWorkingDays, 10)
+                        if (e.target.value && !Number.isNaN(days) && days > 0) {
+                          setTaskEndDateDraft(addWorkingDays(e.target.value, days))
+                        }
+                      }}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-xs font-semibold text-muted-foreground">Số ngày làm việc</p>
+                    <Input
+                      type="number"
+                      min={1}
+                      placeholder="VD: 5"
+                      value={taskWorkingDays}
+                      onChange={(e) => {
+                        setTaskWorkingDays(e.target.value)
+                        const days = parseInt(e.target.value, 10)
+                        if (taskStartDateDraft && !Number.isNaN(days) && days > 0) {
+                          setTaskEndDateDraft(addWorkingDays(taskStartDateDraft, days))
+                        }
+                      }}
+                    />
+                    {taskEndDateDraft && (
+                      <p className="text-[11px] text-muted-foreground">
+                        Deadline: {new Date(`${taskEndDateDraft}T12:00:00`).toLocaleDateString("vi-VN")}
+                      </p>
+                    )}
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-xs font-semibold text-muted-foreground">
+                    Mô tả (tuỳ chọn)
+                  </p>
+                  <Input
+                    value={taskDescriptionDraft}
+                    onChange={(e) => setTaskDescriptionDraft(e.target.value)}
+                    placeholder="Mô tả ngắn..."
+                  />
+                </div>
+                <div className="space-y-1">
+                  <p className="text-xs font-semibold text-muted-foreground">
+                    Task phụ thuộc trước (tuỳ chọn)
+                  </p>
+                  <Select
+                    value={taskDependencyDraft}
+                    onValueChange={setTaskDependencyDraft}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Chọn task cần hoàn thành trước" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Không chọn</SelectItem>
+                      {taskDependencyCandidates.map((item) => (
+                        <SelectItem key={item.id} value={item.id}>
+                          {item.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </>
+            )}
           </div>
           <DialogFooter>
             <Button
@@ -1121,11 +1470,465 @@ function ProjectTaskDashboardPage() {
               loading={createTaskMutation.isPending}
               onClick={() => createTaskMutation.mutate()}
             >
-              Tạo task
+              Tạo Hạng mục
             </LoadingButton>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* ── Profile Manager Dialog ── */}
+      <Dialog open={profileManagerOpen} onOpenChange={setProfileManagerOpen}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <BookTemplate className="h-4 w-4 text-blue-600" />
+              Mẫu công việc
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 py-1">
+            {profilesQuery.isLoading ? (
+              <p className="py-6 text-center text-sm text-muted-foreground">Đang tải...</p>
+            ) : (profilesQuery.data ?? []).length === 0 ? (
+              <div className="py-10 text-center">
+                <Layers className="mx-auto mb-2 h-10 w-10 text-slate-300" />
+                <p className="text-sm font-medium text-slate-500">Chưa có mẫu nào</p>
+                <p className="mt-1 text-xs text-muted-foreground">Chuyển sang tab "Cây", nhấn ⋯ trên Hạng mục → "Lưu làm mẫu"</p>
+              </div>
+            ) : (
+              <div className="grid gap-3">
+                {(profilesQuery.data ?? []).map((profile: TaskProfile) => {
+                  const rootCount = profile.items.filter(i => i.level === 0).length
+                  const totalCount = profile.items.length
+                  return (
+                    <div key={profile.id} className="rounded-xl border bg-slate-50 p-4 hover:bg-white transition-colors">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0 flex-1">
+                          <p className="font-semibold text-slate-800">{profile.name}</p>
+                          {profile.description && (
+                            <p className="mt-0.5 text-xs text-muted-foreground">{profile.description}</p>
+                          )}
+                          <div className="mt-2 flex flex-wrap gap-2">
+                            <span className="rounded-full bg-blue-100 px-2.5 py-0.5 text-[11px] font-semibold text-blue-700">
+                              {rootCount} hạng mục gốc
+                            </span>
+                            <span className="rounded-full bg-slate-200 px-2.5 py-0.5 text-[11px] font-semibold text-slate-600">
+                              {totalCount} mục tổng
+                            </span>
+                          </div>
+                          {/* Preview tree */}
+                          <div className="mt-3 rounded-lg border bg-white p-3 text-xs text-slate-600 space-y-1 max-h-36 overflow-y-auto">
+                            {profile.items.slice(0, 12).map((item) => (
+                              <div key={item.id} style={{ paddingLeft: `${item.level * 16}px` }} className="flex items-center gap-1.5">
+                                <span className={LEVEL_CONFIG[item.level]?.dot ?? "h-1.5 w-1.5 rounded-full bg-slate-300"} />
+                                <span className="truncate">{item.name}</span>
+                                <span className="ml-auto shrink-0 text-[10px] text-slate-400">{item.duration_days}n</span>
+                              </div>
+                            ))}
+                            {profile.items.length > 12 && (
+                              <p className="text-[10px] text-muted-foreground pl-2">...và {profile.items.length - 12} mục nữa</p>
+                            )}
+                          </div>
+                          <p className="mt-2 text-[11px] text-muted-foreground">
+                            Tạo bởi {profile.created_by_name ?? "—"} • {new Date(profile.created_at).toLocaleDateString("vi-VN")}
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setApplyTargetProfileId(profile.id)
+                            setProfileManagerOpen(false)
+                            setApplyProfileOpen(true)
+                          }}
+                          className="shrink-0 rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-blue-700 transition-colors"
+                        >
+                          Áp dụng
+                        </button>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setProfileManagerOpen(false)}>Đóng</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Apply Profile Dialog ── */}
+      <Dialog open={applyProfileOpen} onOpenChange={(open) => { setApplyProfileOpen(open); if (!open) { setApplyAssigneeId(""); setApplyAssigneeEmail(""); setApplyParentTaskId("") } }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Áp dụng mẫu vào dự án</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 py-1">
+            <div className="space-y-1">
+              <p className="text-xs font-semibold text-muted-foreground">Gắn vào hạng mục (tuỳ chọn)</p>
+              <Select value={applyParentTaskId || "_root"} onValueChange={v => setApplyParentTaskId(v === "_root" ? "" : v)}>
+                <SelectTrigger className="text-sm">
+                  <SelectValue placeholder="Tạo ở gốc (Hạng mục mới)" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="_root">Tạo ở gốc dự án</SelectItem>
+                  {(tasksQuery.data ?? []).filter(t => t.level === 0).map(t => (
+                    <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1">
+              <p className="text-xs font-semibold text-muted-foreground">Người thực hiện mặc định</p>
+              <Input
+                value={applyAssigneeEmail}
+                placeholder="Gõ tên hoặc email..."
+                onFocus={() => setApplyAssigneePickerOpen(true)}
+                onBlur={() => setTimeout(() => setApplyAssigneePickerOpen(false), 120)}
+                onChange={e => { setApplyAssigneeEmail(e.target.value); setApplyAssigneeId("") }}
+              />
+              {applyAssigneePickerOpen && (
+                <div className="max-h-40 overflow-auto rounded-md border bg-white shadow-md z-50">
+                  {memberCandidates.filter(u =>
+                    !applyAssigneeEmail || u.full_name?.toLowerCase().includes(applyAssigneeEmail.toLowerCase()) || u.email.toLowerCase().includes(applyAssigneeEmail.toLowerCase())
+                  ).map(u => (
+                    <button
+                      key={u.user_id}
+                      type="button"
+                      className="flex w-full items-center justify-between px-3 py-2 text-xs hover:bg-slate-50"
+                      onMouseDown={e => e.preventDefault()}
+                      onClick={() => { setApplyAssigneeId(u.user_id); setApplyAssigneeEmail(u.full_name ?? u.email); setApplyAssigneePickerOpen(false) }}
+                    >
+                      <span className="font-medium">{u.full_name ?? "N/A"}</span>
+                      <span className="text-muted-foreground">{u.email}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setApplyProfileOpen(false)}>Hủy</Button>
+            <LoadingButton
+              loading={applyProfileMutation.isPending}
+              disabled={!applyAssigneeId}
+              onClick={() => applyProfileMutation.mutate()}
+            >
+              Áp dụng
+            </LoadingButton>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Save as Profile Dialog ── */}
+      <Dialog open={!!saveAsProfileTaskId} onOpenChange={open => { if (!open) { setSaveAsProfileTaskId(null); setSaveAsProfileName(""); setSaveAsProfileDesc("") } }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <BookmarkPlus className="h-4 w-4 text-blue-600" />
+              Lưu làm mẫu công việc
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 py-1">
+            <div className="space-y-1">
+              <p className="text-xs font-semibold text-muted-foreground">Tên mẫu</p>
+              <Input
+                value={saveAsProfileName}
+                onChange={e => setSaveAsProfileName(e.target.value)}
+                placeholder="VD: Lắp đặt hệ thống lạnh cơ bản"
+              />
+            </div>
+            <div className="space-y-1">
+              <p className="text-xs font-semibold text-muted-foreground">Mô tả (tuỳ chọn)</p>
+              <Input
+                value={saveAsProfileDesc}
+                onChange={e => setSaveAsProfileDesc(e.target.value)}
+                placeholder="Mô tả ngắn về mẫu này..."
+              />
+            </div>
+            <p className="rounded-lg bg-blue-50 px-3 py-2 text-[11px] text-blue-700">
+              Toàn bộ cây công việc con sẽ được lưu vào mẫu, kèm số ngày thực hiện của mỗi mục.
+            </p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setSaveAsProfileTaskId(null)}>Hủy</Button>
+            <LoadingButton
+              loading={saveAsProfileMutation.isPending}
+              disabled={!saveAsProfileName.trim()}
+              onClick={() => saveAsProfileMutation.mutate()}
+            >
+              Lưu mẫu
+            </LoadingButton>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Dialog: Thiết lập nhân sự khi chuyển sang thực hiện ── */}
+      <Dialog open={productionSetupOpen} onOpenChange={(open) => { setProductionSetupOpen(open); if (!open) setSelectedRoleIds([]) }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Chuyển sang Đang thực hiện</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-1">
+            <p className="text-sm text-muted-foreground">
+              Chọn các <span className="font-semibold text-foreground">bộ phận / vai trò</span> sẽ tham gia dự án này. Hệ thống sẽ tự thêm các thành viên tương ứng vào dự án.
+            </p>
+            {companyRolesQuery.isLoading ? (
+              <p className="text-xs text-muted-foreground">Đang tải danh sách vai trò...</p>
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                {(companyRolesQuery.data ?? [])
+                  .filter((r: CompanyRole) => r.level > 1)
+                  .map((role: CompanyRole) => {
+                    const checked = selectedRoleIds.includes(role.id)
+                    return (
+                      <label
+                        key={role.id}
+                        className={[
+                          "flex cursor-pointer items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-medium transition-colors",
+                          checked
+                            ? "border-primary bg-primary/10 text-primary"
+                            : "border-border text-muted-foreground hover:border-primary/50",
+                        ].join(" ")}
+                      >
+                        <input
+                          type="checkbox"
+                          className="sr-only"
+                          checked={checked}
+                          onChange={() =>
+                            setSelectedRoleIds((prev) =>
+                              checked ? prev.filter((id) => id !== role.id) : [...prev, role.id],
+                            )
+                          }
+                        />
+                        {role.display_name}
+                      </label>
+                    )
+                  })}
+                {(companyRolesQuery.data ?? []).filter((r: CompanyRole) => r.level > 1).length === 0 && (
+                  <p className="text-xs text-muted-foreground">Không có vai trò nào.</p>
+                )}
+              </div>
+            )}
+            <p className="text-[11px] text-muted-foreground">
+              BGĐ và Quản lý dự án đã được thêm tự động. Bạn có thể bỏ qua và thêm thủ công sau.
+            </p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setProductionSetupOpen(false); setSelectedRoleIds([]) }}>
+              Bỏ qua
+            </Button>
+            <LoadingButton
+              loading={activateWithMembersMutation.isPending}
+              onClick={() => activateWithMembersMutation.mutate()}
+            >
+              Bắt đầu thực hiện
+            </LoadingButton>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Task Tree View
+// ---------------------------------------------------------------------------
+
+const LEVEL_CONFIG: Record<number, { label: string; badge: string; dot: string; indent: string }> = {
+  0: { label: "Hạng mục", badge: "bg-blue-100 text-blue-700 border-blue-200", dot: "inline-block h-2 w-2 rounded-full bg-blue-600", indent: "" },
+  1: { label: "Công việc", badge: "bg-cyan-100 text-cyan-700 border-cyan-200", dot: "inline-block h-2 w-2 rounded-full bg-cyan-500", indent: "ml-5" },
+  2: { label: "Đầu việc", badge: "bg-teal-100 text-teal-700 border-teal-200", dot: "inline-block h-1.5 w-1.5 rounded-full bg-teal-500", indent: "ml-10" },
+  3: { label: "Bước", badge: "bg-slate-100 text-slate-600 border-slate-200", dot: "inline-block h-1.5 w-1.5 rounded-full bg-slate-400", indent: "ml-16" },
+  4: { label: "Chi tiết", badge: "bg-slate-50 text-slate-500 border-slate-200", dot: "inline-block h-1 w-1 rounded-full bg-slate-300", indent: "ml-20" },
+}
+
+const STATUS_CONFIG: Record<string, { label: string; cls: string }> = {
+  todo: { label: "Chờ", cls: "bg-slate-100 text-slate-500" },
+  in_progress: { label: "Đang làm", cls: "bg-blue-100 text-blue-600" },
+  review: { label: "Xem xét", cls: "bg-amber-100 text-amber-600" },
+  done: { label: "Xong", cls: "bg-green-100 text-green-600" },
+}
+
+interface TaskTreeViewProps {
+  tasks: TaskPublic[]
+  expandedNodes: Set<string>
+  setExpandedNodes: React.Dispatch<React.SetStateAction<Set<string>>>
+  treeMenuTaskId: string | null
+  setTreeMenuTaskId: (id: string | null) => void
+  treeMenuRef: React.RefObject<HTMLDivElement | null>
+  onSaveAsProfile: (taskId: string, taskName: string) => void
+  navigate: ReturnType<typeof useNavigate>
+  projectId: string
+}
+
+function TaskTreeView({
+  tasks,
+  expandedNodes,
+  setExpandedNodes,
+  treeMenuTaskId,
+  setTreeMenuTaskId,
+  treeMenuRef,
+  onSaveAsProfile,
+  navigate,
+}: TaskTreeViewProps) {
+
+  const childrenMap = useMemo(() => {
+    const m = new Map<string | null, TaskPublic[]>()
+    for (const t of tasks) {
+      const key = t.parent_id ?? null
+      if (!m.has(key)) m.set(key, [])
+      m.get(key)!.push(t)
+    }
+    // Sort each group by start_time
+    for (const [, arr] of m) arr.sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime())
+    return m
+  }, [tasks])
+
+  const roots = childrenMap.get(null) ?? []
+
+  function toggleExpand(id: string) {
+    setExpandedNodes(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  function renderNode(task: TaskPublic): React.ReactNode {
+    const cfg = LEVEL_CONFIG[task.level] ?? LEVEL_CONFIG[4]
+    const children = childrenMap.get(task.id) ?? []
+    const hasChildren = children.length > 0
+    const expanded = expandedNodes.has(task.id)
+    const status = STATUS_CONFIG[task.status] ?? STATUS_CONFIG.todo
+    const durationDays = Math.max(1, Math.round((new Date(task.end_time).getTime() - new Date(task.start_time).getTime()) / 86400000))
+
+    return (
+      <div key={task.id}>
+        <div
+          className={[
+            "group flex items-center gap-2 rounded-lg px-3 py-2 hover:bg-slate-50 transition-colors",
+            cfg.indent,
+          ].join(" ")}
+        >
+          {/* Expand toggle */}
+          <button
+            type="button"
+            className="shrink-0 w-5 h-5 flex items-center justify-center text-slate-400"
+            onClick={() => hasChildren && toggleExpand(task.id)}
+          >
+            {hasChildren ? (
+              expanded ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />
+            ) : (
+              <span className={cfg.dot} />
+            )}
+          </button>
+
+          {/* Color dot if set */}
+          {task.color && (
+            <span className="shrink-0 h-2.5 w-2.5 rounded-full" style={{ background: task.color }} />
+          )}
+
+          {/* Level badge */}
+          <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-bold ${cfg.badge}`}>
+            {cfg.label}
+          </span>
+
+          {/* Task name — clickable */}
+          <button
+            type="button"
+            className="min-w-0 flex-1 text-left text-sm font-medium text-slate-800 truncate hover:text-blue-600"
+            onClick={() => navigate({ to: "/tasks/$taskId", params: { taskId: task.id } })}
+          >
+            {task.name}
+          </button>
+
+          {/* Duration */}
+          <span className="shrink-0 text-[11px] text-slate-400 hidden sm:block">{durationDays}n</span>
+
+          {/* Assignee avatar */}
+          {task.assignee_name && (
+            <span
+              title={task.assignee_name}
+              className="shrink-0 inline-flex h-6 w-6 items-center justify-center rounded-full bg-primary text-[9px] font-bold text-white"
+            >
+              {task.assignee_name.split(" ").map((w: string) => w[0]).slice(-2).join("").toUpperCase()}
+            </span>
+          )}
+
+          {/* Status chip */}
+          <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold ${status.cls}`}>
+            {status.label}
+          </span>
+
+          {/* Context menu */}
+          <div className="relative shrink-0">
+            <button
+              type="button"
+              className="rounded p-1 text-slate-300 opacity-0 group-hover:opacity-100 hover:bg-slate-200 hover:text-slate-600 transition-all"
+              onClick={e => { e.stopPropagation(); setTreeMenuTaskId(treeMenuTaskId === task.id ? null : task.id) }}
+            >
+              <MoreHorizontal className="h-3.5 w-3.5" />
+            </button>
+            {treeMenuTaskId === task.id && (
+              <div
+                ref={treeMenuRef}
+                className="absolute right-0 top-6 z-50 min-w-[160px] rounded-xl border bg-white shadow-lg py-1"
+              >
+                <button
+                  type="button"
+                  className="flex w-full items-center gap-2 px-3 py-2 text-xs hover:bg-slate-50"
+                  onClick={() => { navigate({ to: "/tasks/$taskId", params: { taskId: task.id } }); setTreeMenuTaskId(null) }}
+                >
+                  <Plus className="h-3.5 w-3.5" /> Xem chi tiết
+                </button>
+                {task.level === 0 && (
+                  <button
+                    type="button"
+                    className="flex w-full items-center gap-2 px-3 py-2 text-xs text-blue-600 hover:bg-blue-50"
+                    onClick={() => { onSaveAsProfile(task.id, task.name); setTreeMenuTaskId(null) }}
+                  >
+                    <BookmarkPlus className="h-3.5 w-3.5" /> Lưu làm mẫu
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Children */}
+        {hasChildren && expanded && (
+          <div className="border-l border-slate-100 ml-5">
+            {children.map(child => renderNode(child))}
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  if (tasks.length === 0) {
+    return (
+      <div className="rounded-xl border bg-white p-10 text-center shadow-sm">
+        <Layers className="mx-auto mb-3 h-12 w-12 text-slate-200" />
+        <p className="text-sm font-medium text-slate-500">Chưa có công việc nào</p>
+        <p className="mt-1 text-xs text-muted-foreground">Tạo Hạng mục đầu tiên để bắt đầu</p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="rounded-xl border bg-white shadow-sm divide-y divide-slate-50">
+      {/* Legend */}
+      <div className="flex flex-wrap gap-2 px-4 py-2 bg-slate-50 rounded-t-xl border-b">
+        {Object.entries(LEVEL_CONFIG).map(([lvl, cfg]) => (
+          <span key={lvl} className={`rounded-full border px-2.5 py-0.5 text-[10px] font-bold ${cfg.badge}`}>
+            {cfg.label}
+          </span>
+        ))}
+      </div>
+      <div className="p-2">
+        {roots.map(root => renderNode(root))}
+      </div>
     </div>
   )
 }

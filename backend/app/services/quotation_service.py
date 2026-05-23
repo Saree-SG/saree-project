@@ -7,6 +7,7 @@ Notification dispatch, AuditLog writing, and Project creation on win.
 
 from __future__ import annotations
 
+import asyncio
 import uuid
 from datetime import date, datetime, timezone
 from typing import Any
@@ -17,11 +18,18 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.notification import Notification
 from app.models.project import Project
+from sqlmodel import select
+
 from app.models.quotation import (
     ACTION_LABELS,
+    DIRECTOR_REJECT_STAGES,
     STAGE_LABELS,
+    STAGE_ORDER,
     STAGE_TRANSITIONS,
     Quotation,
+    QuotationApprovalParticipant,
+    QuotationApprovalParticipantCreate,
+    QuotationApprovalParticipantPublic,
     QuotationAttachment,
     QuotationAttachmentCreate,
     QuotationAttachmentPublic,
@@ -51,6 +59,7 @@ from app.models.user import User
 from app.repositories.audit_repository import AuditRepository
 from app.repositories.quotation_repository import QuotationRepository
 from app.repositories.user_repository import UserRepository
+from app.services.push_service import send_push_to_user
 from app.shared.permission import has_permission
 
 
@@ -143,15 +152,22 @@ class QuotationService:
         body: str,
         entity_id: uuid.UUID,
     ) -> None:
-        notif = Notification(
-            user_id=user_id,
-            type=notif_type,
-            title=title,
-            body=body,
-            entity_type="quotation",
-            entity_id=entity_id,
-        )
-        self._session.add(notif)
+        try:
+            notif = Notification(
+                user_id=user_id,
+                type=notif_type,
+                title=title,
+                body=body,
+                entity_type="quotation",
+                entity_id=entity_id,
+            )
+            self._session.add(notif)
+            await self._session.flush()
+            asyncio.create_task(
+                send_push_to_user(self._session, user_id, title, body, "quotation", entity_id)
+            )
+        except Exception:
+            logger.exception("Failed to persist notification user_id={} type={}", user_id, notif_type)
 
     async def _require_stage(self, quotation: Quotation, *stages: str) -> None:
         if quotation.current_stage not in stages:
@@ -161,6 +177,26 @@ class QuotationService:
                 detail=f"Hồ sơ đang ở giai đoạn '{STAGE_LABELS.get(quotation.current_stage)}', "
                        f"cần ở '{expected}' để thực hiện thao tác này.",
             )
+
+    def _resolve_reject_stage(
+        self,
+        current_stage: str,
+        default_stage: str,
+        target_stage: str | None,
+    ) -> str:
+        """Validate and return the stage to reject back to.
+        target_stage must be before current_stage in STAGE_ORDER.
+        Falls back to default_stage if not provided.
+        """
+        if not target_stage:
+            return default_stage
+        if target_stage not in STAGE_LABELS:
+            raise HTTPException(422, f"Giai đoạn '{target_stage}' không hợp lệ.")
+        current_idx = STAGE_ORDER.index(current_stage) if current_stage in STAGE_ORDER else -1
+        target_idx = STAGE_ORDER.index(target_stage) if target_stage in STAGE_ORDER else -1
+        if target_idx >= current_idx:
+            raise HTTPException(422, "Chỉ có thể quay về giai đoạn trước đó.")
+        return target_stage
 
     async def _require_permission_check(
         self,
@@ -200,6 +236,322 @@ class QuotationService:
             "created_by": actor_id,
             "reason": reason,
         })
+
+    # ------------------------------------------------------------------
+    # Approval participant helpers
+    # ------------------------------------------------------------------
+
+    DIRECTOR_STAGES = {
+        "S2_DIRECTOR_APPROVE_SURVEY",
+        "S4_DIRECTOR_APPROVE_DESIGN",
+        "S7_DIRECTOR_APPROVE_QUOTE",
+        "S8B_NEGOTIATION_REVIEW",
+    }
+
+    async def _get_participants(
+        self,
+        quotation_id: uuid.UUID,
+        stage: str,
+        role: str | None = None,
+    ) -> list[QuotationApprovalParticipant]:
+        stmt = select(QuotationApprovalParticipant).where(
+            QuotationApprovalParticipant.quotation_id == quotation_id,
+            QuotationApprovalParticipant.stage == stage,
+        )
+        if role:
+            stmt = stmt.where(QuotationApprovalParticipant.role == role)
+        result = await self._session.execute(stmt)
+        return list(result.scalars().all())
+
+    async def _check_delegate_block(
+        self,
+        quotation_id: uuid.UUID,
+        stage: str,
+    ) -> None:
+        """Raise 403 if a delegate has been assigned for this stage."""
+        delegates = await self._get_participants(quotation_id, stage, role="delegate")
+        if delegates:
+            raise HTTPException(403, "Bạn đã ủy quyền cho người khác duyệt bước này.")
+
+    async def _handle_co_approver_flow(
+        self,
+        quotation_id: uuid.UUID,
+        stage: str,
+        current_user: User,
+    ) -> bool:
+        """
+        If co_approvers exist, record director's primary approval and check if all approved.
+        Returns True if the stage should advance (all approved or no co_approvers),
+        False if we should wait.
+        """
+        co_approvers = await self._get_participants(quotation_id, stage, role="co_approver")
+        if not co_approvers:
+            return True  # No co-approver → advance normally
+
+        # Upsert director's "primary" approval record
+        existing_primary = await self._get_participants(quotation_id, stage, role="primary")
+        if not existing_primary:
+            self._session.add(QuotationApprovalParticipant(
+                quotation_id=quotation_id,
+                stage=stage,
+                user_id=current_user.id,
+                role="primary",
+                has_approved=True,
+                approved_at=_utcnow(),
+                created_at=_utcnow(),
+            ))
+            await self._session.flush()
+
+        # Check if all co_approvers have approved
+        all_approved = all(c.has_approved for c in co_approvers)
+        return all_approved
+
+    async def list_approval_participants(
+        self,
+        quotation_id: uuid.UUID,
+    ) -> list[QuotationApprovalParticipantPublic]:
+        q = await self._repo.get_or_404(quotation_id)
+        participants = await self._get_participants(quotation_id, q.current_stage)
+        result = []
+        for p in participants:
+            user = await self._user_repo.get_by_id(p.user_id)
+            pub = QuotationApprovalParticipantPublic(
+                id=p.id,
+                quotation_id=p.quotation_id,
+                stage=p.stage,
+                user_id=p.user_id,
+                user_name=user.full_name if user else None,
+                role=p.role,
+                has_approved=p.has_approved,
+                approved_at=p.approved_at,
+                created_at=p.created_at,
+            )
+            result.append(pub)
+        return result
+
+    async def add_approval_participant(
+        self,
+        quotation_id: uuid.UUID,
+        body: QuotationApprovalParticipantCreate,
+        current_user: User,
+    ) -> QuotationApprovalParticipantPublic:
+        q = await self._repo.get_or_404(quotation_id)
+        if q.current_stage not in self.DIRECTOR_STAGES:
+            raise HTTPException(422, "Chỉ có thể thêm người duyệt ở giai đoạn Giám đốc duyệt.")
+
+        if body.role not in ("co_approver", "delegate"):
+            raise HTTPException(422, "role phải là 'co_approver' hoặc 'delegate'.")
+
+        # Validate user exists and is in same company
+        target_user = await self._user_repo.get_by_id(body.user_id)
+        if not target_user:
+            raise HTTPException(404, "Không tìm thấy người dùng.")
+
+        stage = q.current_stage
+        existing = await self._get_participants(quotation_id, stage)
+
+        if body.role == "delegate":
+            # Remove any existing delegate
+            for p in existing:
+                if p.role == "delegate":
+                    await self._session.delete(p)
+            # Cannot have both delegate and co_approver
+            co_approvers = [p for p in existing if p.role == "co_approver"]
+            if co_approvers:
+                raise HTTPException(422, "Không thể ủy quyền khi đã có người co-duyệt. Hãy xóa người co-duyệt trước.")
+        elif body.role == "co_approver":
+            # Cannot have both co_approver and delegate
+            delegates = [p for p in existing if p.role == "delegate"]
+            if delegates:
+                raise HTTPException(422, "Không thể thêm co-duyệt khi đã có người được ủy quyền. Hãy xóa ủy quyền trước.")
+            # Prevent duplicate
+            if any(p.user_id == body.user_id for p in existing if p.role == "co_approver"):
+                raise HTTPException(422, "Người này đã có trong danh sách co-duyệt.")
+
+        await self._session.flush()
+
+        participant = QuotationApprovalParticipant(
+            quotation_id=quotation_id,
+            stage=stage,
+            user_id=body.user_id,
+            role=body.role,
+            has_approved=False,
+            created_at=_utcnow(),
+        )
+        self._session.add(participant)
+        await self._session.flush()
+
+        return QuotationApprovalParticipantPublic(
+            id=participant.id,
+            quotation_id=participant.quotation_id,
+            stage=participant.stage,
+            user_id=participant.user_id,
+            user_name=target_user.full_name,
+            role=participant.role,
+            has_approved=participant.has_approved,
+            approved_at=participant.approved_at,
+            created_at=participant.created_at,
+        )
+
+    _STAGE_NEXT: dict[str, str] = {
+        "S2_DIRECTOR_APPROVE_SURVEY": "S3_TECH_DESIGN",
+        "S4_DIRECTOR_APPROVE_DESIGN": "S5_PROCUREMENT_PRICING",
+        "S7_DIRECTOR_APPROVE_QUOTE": "S8_SENT_TO_CLIENT",
+        "S8B_NEGOTIATION_REVIEW": "S6_SALES_FINALIZE",
+    }
+
+    async def remove_approval_participant(
+        self,
+        quotation_id: uuid.UUID,
+        participant_id: uuid.UUID,
+    ) -> None:
+        stmt = select(QuotationApprovalParticipant).where(
+            QuotationApprovalParticipant.id == participant_id,
+            QuotationApprovalParticipant.quotation_id == quotation_id,
+        )
+        result = await self._session.execute(stmt)
+        p = result.scalars().first()
+        if not p:
+            raise HTTPException(404, "Không tìm thấy người duyệt.")
+        if p.role == "primary":
+            raise HTTPException(422, "Không thể xóa bản ghi duyệt chính.")
+
+        removed_role = p.role
+        removed_stage = p.stage
+        await self._session.delete(p)
+        await self._session.flush()
+
+        # Auto-advance if director already approved and no co_approvers remain
+        if removed_role == "co_approver":
+            q = await self._repo.get_or_404(quotation_id)
+            if q.current_stage == removed_stage:
+                primary_stmt = select(QuotationApprovalParticipant).where(
+                    QuotationApprovalParticipant.quotation_id == quotation_id,
+                    QuotationApprovalParticipant.stage == removed_stage,
+                    QuotationApprovalParticipant.role == "primary",
+                    QuotationApprovalParticipant.has_approved == True,  # noqa: E712
+                )
+                primary_result = await self._session.execute(primary_stmt)
+                director_approved = primary_result.scalars().first() is not None
+
+                remaining_stmt = select(QuotationApprovalParticipant).where(
+                    QuotationApprovalParticipant.quotation_id == quotation_id,
+                    QuotationApprovalParticipant.stage == removed_stage,
+                    QuotationApprovalParticipant.role == "co_approver",
+                )
+                remaining_result = await self._session.execute(remaining_stmt)
+                has_remaining = remaining_result.scalars().first() is not None
+
+                if director_approved and not has_remaining:
+                    next_stage = self._STAGE_NEXT.get(removed_stage)
+                    if next_stage:
+                        q.current_stage = next_stage
+                        self._session.add(q)
+
+    async def participant_approve(
+        self,
+        quotation_id: uuid.UUID,
+        note: str | None,
+        current_user: User,
+    ) -> "QuotationPublic":
+        """Co-approver or delegate calls this to record their approval."""
+        q = await self._repo.get_or_404(quotation_id)
+        if q.current_stage not in self.DIRECTOR_STAGES:
+            raise HTTPException(422, "Hồ sơ không ở giai đoạn cần duyệt.")
+
+        stage = q.current_stage
+        # Find participant record for current user
+        stmt = select(QuotationApprovalParticipant).where(
+            QuotationApprovalParticipant.quotation_id == quotation_id,
+            QuotationApprovalParticipant.stage == stage,
+            QuotationApprovalParticipant.user_id == current_user.id,
+            QuotationApprovalParticipant.role.in_(["co_approver", "delegate"]),
+        )
+        result = await self._session.execute(stmt)
+        participant = result.scalars().first()
+        if not participant:
+            raise HTTPException(403, "Bạn không phải người được ủy quyền hoặc co-duyệt cho bước này.")
+
+        if participant.has_approved:
+            raise HTTPException(422, "Bạn đã xác nhận duyệt rồi.")
+
+        participant.has_approved = True
+        participant.approved_at = _utcnow()
+        self._session.add(participant)
+        await self._session.flush()
+
+        # Determine whether to advance stage
+        should_advance = False
+        if participant.role == "delegate":
+            should_advance = True
+        elif participant.role == "co_approver":
+            # Check if director (primary) has also approved
+            primary_list = await self._get_participants(quotation_id, stage, role="primary")
+            director_approved = bool(primary_list and primary_list[0].has_approved)
+            should_advance = director_approved
+
+        if not should_advance:
+            return await _enrich_quotation(q, self._user_repo)
+
+        # Advance the stage (reuse per-stage logic inline)
+        old_stage = q.current_stage
+        if stage == "S2_DIRECTOR_APPROVE_SURVEY":
+            q.current_stage = "S3_TECH_DESIGN"
+            q.status = "active"
+            action_label = "approve_survey"
+            notify_user = q.technical_owner_id or q.sales_owner_id
+            notify_title = f"[{q.quote_number}] Phòng Kỹ Thuật cần thiết kế"
+            notify_body = f"Đã duyệt khảo sát. Hồ sơ '{q.project_name}' chờ thiết kế."
+        elif stage == "S4_DIRECTOR_APPROVE_DESIGN":
+            q.current_stage = "S5_PROCUREMENT_PRICING"
+            q.status = "active"
+            action_label = "approve_design"
+            notify_user = q.procurement_owner_id or q.sales_owner_id
+            notify_title = f"[{q.quote_number}] Phòng Vật Tư cần báo đơn giá"
+            notify_body = f"Đã duyệt thiết kế. Hồ sơ '{q.project_name}' chờ báo đơn giá."
+        elif stage == "S7_DIRECTOR_APPROVE_QUOTE":
+            q.current_stage = "S8_SENT_TO_CLIENT"
+            q.status = "active"
+            action_label = "approve_final"
+            notify_user = q.sales_owner_id
+            notify_title = f"[{q.quote_number}] Chào giá đã được duyệt"
+            notify_body = f"Đã phê duyệt chào giá '{q.project_name}'. Có thể gửi cho khách hàng."
+            await self._snapshot(q, current_user.id, "initial_approval")
+        elif stage == "S8B_NEGOTIATION_REVIEW":
+            await self._snapshot(q, current_user.id, "negotiation_approved")
+            q.current_stage = "S6_SALES_FINALIZE"
+            q.status = "active"
+            action_label = "approve_negotiation"
+            notify_user = q.sales_owner_id
+            notify_title = f"[{q.quote_number}] Đồng ý điều chỉnh giá"
+            notify_body = f"Hồ sơ '{q.project_name}' quay lại hoàn thiện bảng giá mới."
+        else:
+            return await _enrich_quotation(q, self._user_repo)
+
+        q.updated_at = _utcnow()
+        await self._repo.save(q)
+        await self._repo.add_transition({
+            "quotation_id": q.id,
+            "from_stage": old_stage,
+            "to_stage": q.current_stage,
+            "actor_id": current_user.id,
+            "action": action_label,
+            "note": note,
+        })
+        await self._audit.write(
+            actor_id=current_user.id,
+            action=f"quotation.participant_{action_label}",
+            entity_type="quotation",
+            entity_id=q.id,
+        )
+        await self._notify(
+            user_id=notify_user,
+            notif_type="quotation_stage_changed",
+            title=notify_title,
+            body=notify_body,
+            entity_id=q.id,
+        )
+        return await _enrich_quotation(q, self._user_repo)
 
     # ------------------------------------------------------------------
     # CRUD
@@ -421,6 +773,12 @@ class QuotationService:
         q = await self._repo.get_or_404(quotation_id)
         await self._require_stage(q, "S2_DIRECTOR_APPROVE_SURVEY")
 
+        if body.action == "approve":
+            await self._check_delegate_block(quotation_id, "S2_DIRECTOR_APPROVE_SURVEY")
+            should_advance = await self._handle_co_approver_flow(quotation_id, "S2_DIRECTOR_APPROVE_SURVEY", current_user)
+            if not should_advance:
+                return await _enrich_quotation(q, self._user_repo)
+
         old_stage = q.current_stage
         if body.action == "approve":
             q.current_stage = "S3_TECH_DESIGN"
@@ -432,7 +790,7 @@ class QuotationService:
         else:
             if not body.note:
                 raise HTTPException(422, "Phải điền lý do khi từ chối phê duyệt.")
-            q.current_stage = "S1_SALES_COLLECT"
+            q.current_stage = self._resolve_reject_stage("S2_DIRECTOR_APPROVE_SURVEY", "S1_SALES_COLLECT", body.target_stage)
             q.status = "active"
             action_label = "reject_survey"
             notify_user = q.sales_owner_id
@@ -472,7 +830,7 @@ class QuotationService:
         body: QuotationSubmitDesignRequest,
         current_user: User,
     ) -> QuotationPublic:
-        """S3 → S4: KT nộp thiết kế, chờ BGĐ duyệt phương án."""
+        """S3 → S3B: KT nộp thiết kế, chuyển sang bóc tách khối lượng."""
         q = await self._repo.get_or_404(quotation_id)
         await self._require_stage(q, "S3_TECH_DESIGN")
 
@@ -484,8 +842,8 @@ class QuotationService:
             )
 
         old_stage = q.current_stage
-        q.current_stage = "S4_DIRECTOR_APPROVE_DESIGN"
-        q.status = "in_review"
+        q.current_stage = "S3B_BOC_TACH"
+        q.status = "active"
         q.updated_at = _utcnow()
         await self._repo.save(q)
 
@@ -506,10 +864,51 @@ class QuotationService:
             new_value={"stage": q.current_stage},
         )
         await self._notify(
+            user_id=q.technical_owner_id or q.sales_owner_id,
+            notif_type="quotation_stage_changed",
+            title=f"[{q.quote_number}] Thiết kế xong — cần bóc tách khối lượng",
+            body=f"Hồ sơ '{q.project_name}' chuyển sang bước bóc tách khối lượng.",
+            entity_id=q.id,
+        )
+        return await _enrich_quotation(q, self._user_repo)
+
+    async def submit_boc_tach(
+        self,
+        quotation_id: uuid.UUID,
+        body,  # QuotationSubmitBocTachRequest
+        current_user: User,
+    ) -> QuotationPublic:
+        """S3B → S4: KT hoàn thành bóc tách khối lượng, nộp BGĐ duyệt thiết kế."""
+        q = await self._repo.get_or_404(quotation_id)
+        await self._require_stage(q, "S3B_BOC_TACH")
+
+        old_stage = q.current_stage
+        q.current_stage = "S4_DIRECTOR_APPROVE_DESIGN"
+        q.status = "in_review"
+        q.updated_at = _utcnow()
+        await self._repo.save(q)
+
+        await self._repo.add_transition({
+            "quotation_id": q.id,
+            "from_stage": old_stage,
+            "to_stage": q.current_stage,
+            "actor_id": current_user.id,
+            "action": "submit_boc_tach",
+            "note": body.note,
+        })
+        await self._audit.write(
+            actor_id=current_user.id,
+            action="quotation.boc_tach_submitted",
+            entity_type="quotation",
+            entity_id=q.id,
+            old_value={"stage": old_stage},
+            new_value={"stage": q.current_stage},
+        )
+        await self._notify(
             user_id=q.sales_owner_id,
             notif_type="quotation_stage_changed",
-            title=f"[{q.quote_number}] Chờ BGĐ duyệt phương án thiết kế",
-            body=f"KT đã nộp thiết kế cho '{q.project_name}'. Chờ Ban Giám Đốc phê duyệt.",
+            title=f"[{q.quote_number}] Chờ BGĐ duyệt thiết kế & bóc tách",
+            body=f"KT đã hoàn thành bóc tách khối lượng '{q.project_name}'. Chờ Ban Giám Đốc phê duyệt.",
             entity_id=q.id,
         )
         return await _enrich_quotation(q, self._user_repo)
@@ -524,6 +923,12 @@ class QuotationService:
         q = await self._repo.get_or_404(quotation_id)
         await self._require_stage(q, "S4_DIRECTOR_APPROVE_DESIGN")
 
+        if body.action == "approve":
+            await self._check_delegate_block(quotation_id, "S4_DIRECTOR_APPROVE_DESIGN")
+            should_advance = await self._handle_co_approver_flow(quotation_id, "S4_DIRECTOR_APPROVE_DESIGN", current_user)
+            if not should_advance:
+                return await _enrich_quotation(q, self._user_repo)
+
         old_stage = q.current_stage
         if body.action == "approve":
             q.current_stage = "S5_PROCUREMENT_PRICING"
@@ -535,7 +940,7 @@ class QuotationService:
         else:
             if not body.note:
                 raise HTTPException(422, "Phải điền lý do khi từ chối phê duyệt.")
-            q.current_stage = "S3_TECH_DESIGN"
+            q.current_stage = self._resolve_reject_stage("S4_DIRECTOR_APPROVE_DESIGN", "S3B_BOC_TACH", body.target_stage)
             q.status = "active"
             action_label = "reject_design"
             notify_user = q.technical_owner_id or q.sales_owner_id
@@ -668,6 +1073,12 @@ class QuotationService:
         q = await self._repo.get_or_404(quotation_id)
         await self._require_stage(q, "S7_DIRECTOR_APPROVE_QUOTE")
 
+        if body.action == "approve":
+            await self._check_delegate_block(quotation_id, "S7_DIRECTOR_APPROVE_QUOTE")
+            should_advance = await self._handle_co_approver_flow(quotation_id, "S7_DIRECTOR_APPROVE_QUOTE", current_user)
+            if not should_advance:
+                return await _enrich_quotation(q, self._user_repo)
+
         old_stage = q.current_stage
         if body.action == "approve":
             q.current_stage = "S8_SENT_TO_CLIENT"
@@ -679,7 +1090,7 @@ class QuotationService:
         else:
             if not body.note:
                 raise HTTPException(422, "Phải điền lý do khi từ chối phê duyệt.")
-            q.current_stage = "S6_SALES_FINALIZE"
+            q.current_stage = self._resolve_reject_stage("S7_DIRECTOR_APPROVE_QUOTE", "S6_SALES_FINALIZE", body.target_stage)
             q.status = "active"
             action_label = "reject_final"
             notify_title = f"[{q.quote_number}] Giám đốc yêu cầu chỉnh lại chào giá"
@@ -807,6 +1218,12 @@ class QuotationService:
         q = await self._repo.get_or_404(quotation_id)
         await self._require_stage(q, "S8B_NEGOTIATION_REVIEW")
 
+        if body.action == "approve":
+            await self._check_delegate_block(quotation_id, "S8B_NEGOTIATION_REVIEW")
+            should_advance = await self._handle_co_approver_flow(quotation_id, "S8B_NEGOTIATION_REVIEW", current_user)
+            if not should_advance:
+                return await _enrich_quotation(q, self._user_repo)
+
         old_stage = q.current_stage
         if body.action == "approve":
             await self._snapshot(q, current_user.id, "negotiation_approved")
@@ -818,7 +1235,7 @@ class QuotationService:
         else:
             if not body.note:
                 raise HTTPException(422, "Phải điền lý do khi không đồng ý.")
-            q.current_stage = "S8_SENT_TO_CLIENT"
+            q.current_stage = self._resolve_reject_stage("S8B_NEGOTIATION_REVIEW", "S8_SENT_TO_CLIENT", body.target_stage)
             q.status = "sent"
             action_label = "reject_negotiation"
             notify_title = f"[{q.quote_number}] Giám đốc chưa đồng ý điều chỉnh giá"

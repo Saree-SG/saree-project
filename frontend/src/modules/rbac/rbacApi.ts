@@ -50,6 +50,24 @@ function authHeaders() {
   }
 }
 
+export type Company = {
+  id: string
+  name: string
+  slug: string
+  is_active: boolean
+}
+
+/**
+ * List companies the current user belongs to.
+ */
+export async function listMyCompanies(): Promise<Company[]> {
+  const response = await axios.get<Company[]>(
+    `${OpenAPI.BASE}/api/v1/roles/my-companies`,
+    { headers: authHeaders() },
+  )
+  return response.data
+}
+
 /**
  * Read all effective permission codes of current user.
  */

@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query"
 import { createFileRoute, Link } from "@tanstack/react-router"
-import { useMemo } from "react"
+import { useMemo, useState } from "react"
 
 import { type TaskPublic, TasksService } from "@/client"
 import { listContracts } from "@/modules/contract/contractApi"
@@ -32,6 +32,8 @@ type MyDashboardPayload = {
   due_soon?: MyTaskItem[]
   today?: MyTaskItem[]
   ongoing?: MyTaskItem[]
+  projects?: { project_id: string; project_name: string; company_id: string }[]
+  companies?: { company_id: string; company_name: string }[]
 }
 
 type UrgencyBucket = "urgent" | "today" | "ongoing"
@@ -259,20 +261,48 @@ function MyTasksPage() {
   const pendingContracts = pendingContractsQuery.data?.data ?? []
 
   const data = dashboardQuery.data
+  const [filterProjectId, setFilterProjectId] = useState("")
+
+  const allItems = useMemo<MyTaskItem[]>(() => [
+    ...(data?.overdue_critical ?? []),
+    ...(data?.overdue_local ?? []),
+    ...(data?.due_soon ?? []),
+    ...(data?.today ?? []),
+    ...(data?.ongoing ?? []),
+  ], [data])
+
+  const filteredItems = useMemo(() =>
+    filterProjectId ? allItems.filter((r) => r.project_id === filterProjectId) : allItems,
+  [allItems, filterProjectId])
 
   const grouped = useMemo(() => {
-    const urgent: MyTaskItem[] = [
-      ...(data?.overdue_critical ?? []),
-      ...(data?.overdue_local ?? []),
-      ...(data?.due_soon ?? []),
-    ]
-    const today = data?.today ?? []
-    const ongoing = data?.ongoing ?? []
+    const urgent: MyTaskItem[] = filteredItems.filter((r) => {
+      const cs = r.task.computed_status ?? r.task.status
+      return cs === "overdue_critical" || cs === "overdue_local" || cs === "due_soon"
+    })
+    const today: MyTaskItem[] = filteredItems.filter((r) => {
+      const cs = r.task.computed_status ?? r.task.status
+      if (cs === "overdue_critical" || cs === "overdue_local" || cs === "due_soon") return false
+      const now = new Date()
+      const start = new Date(r.task.start_time)
+      const end = new Date(r.task.end_time)
+      return start.toDateString() === now.toDateString() || end.toDateString() === now.toDateString()
+    })
+    const ongoing: MyTaskItem[] = filteredItems.filter((r) => {
+      const cs = r.task.computed_status ?? r.task.status
+      if (cs === "overdue_critical" || cs === "overdue_local" || cs === "due_soon") return false
+      const now = new Date()
+      const start = new Date(r.task.start_time)
+      const end = new Date(r.task.end_time)
+      if (start.toDateString() === now.toDateString() || end.toDateString() === now.toDateString()) return false
+      return true
+    })
     return { urgent, today, ongoing }
-  }, [data])
+  }, [filteredItems])
 
-  const totalAll = grouped.urgent.length + grouped.today.length + grouped.ongoing.length
+  const totalAll = filteredItems.length
   const urgentCount = grouped.urgent.length
+  const projects = data?.projects ?? []
 
   return (
     <div className="mx-auto w-full max-w-2xl space-y-4 px-2 pb-24 pt-3 sm:px-4">
@@ -285,6 +315,21 @@ function MyTasksPage() {
               : "Chưa có công việc nào"}
           </p>
         </div>
+        {projects.length > 1 && (
+          <select
+            title="Lọc theo dự án"
+            value={filterProjectId}
+            onChange={(e) => setFilterProjectId(e.target.value)}
+            className="h-8 rounded-md border bg-background px-2 text-xs"
+          >
+            <option value="">Tất cả dự án</option>
+            {projects.map((p) => (
+              <option key={p.project_id} value={p.project_id}>
+                {p.project_name}
+              </option>
+            ))}
+          </select>
+        )}
       </div>
 
       {pendingQuotations.length > 0 && (

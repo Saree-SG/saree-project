@@ -102,6 +102,9 @@ async def chat_ws(
                 data: dict[str, Any] = await asyncio.wait_for(
                     websocket.receive_json(), timeout=RECV_TIMEOUT_S
                 )
+            except (WebSocketDisconnect, RuntimeError):
+                # Client disconnected cleanly or mid-flight
+                return
             except asyncio.TimeoutError:
                 if awaiting_pong:
                     # Second strike — peer is gone.

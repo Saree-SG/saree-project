@@ -31,6 +31,7 @@ STAGE_LABELS: Dict[str, str] = {
     "S1_SALES_COLLECT": "Tiếp nhận & Khảo sát",
     "S2_DIRECTOR_APPROVE_SURVEY": "Giám đốc duyệt khảo sát",
     "S3_TECH_DESIGN": "Kỹ thuật lên thiết kế",
+    "S3B_BOC_TACH": "Bóc tách khối lượng",
     "S4_DIRECTOR_APPROVE_DESIGN": "Giám đốc duyệt thiết kế",
     "S5_PROCUREMENT_PRICING": "Vật tư báo đơn giá",
     "S6_SALES_FINALIZE": "Kinh doanh hoàn thiện chào giá",
@@ -42,6 +43,14 @@ STAGE_LABELS: Dict[str, str] = {
 
 STAGE_ORDER: List[str] = list(STAGE_LABELS.keys())
 
+# Stages that directors can reject back to any earlier stage
+DIRECTOR_REJECT_STAGES: List[str] = [
+    "S2_DIRECTOR_APPROVE_SURVEY",
+    "S4_DIRECTOR_APPROVE_DESIGN",
+    "S7_DIRECTOR_APPROVE_QUOTE",
+    "S8B_NEGOTIATION_REVIEW",
+]
+
 # stage → list of (next_stage, required_permission, action_label)
 STAGE_TRANSITIONS: Dict[str, List[tuple]] = {
     "S1_SALES_COLLECT": [
@@ -52,11 +61,14 @@ STAGE_TRANSITIONS: Dict[str, List[tuple]] = {
         ("S1_SALES_COLLECT", "QUOTATION_APPROVE_SURVEY", "reject"),
     ],
     "S3_TECH_DESIGN": [
-        ("S4_DIRECTOR_APPROVE_DESIGN", "QUOTATION_DESIGN", "submit"),
+        ("S3B_BOC_TACH", "QUOTATION_DESIGN", "submit"),
+    ],
+    "S3B_BOC_TACH": [
+        ("S4_DIRECTOR_APPROVE_DESIGN", "QUOTATION_BOC_TACH", "submit"),
     ],
     "S4_DIRECTOR_APPROVE_DESIGN": [
         ("S5_PROCUREMENT_PRICING", "QUOTATION_APPROVE_DESIGN", "approve"),
-        ("S3_TECH_DESIGN", "QUOTATION_APPROVE_DESIGN", "reject"),
+        ("S3B_BOC_TACH", "QUOTATION_APPROVE_DESIGN", "reject"),
     ],
     "S5_PROCUREMENT_PRICING": [
         ("S6_SALES_FINALIZE", "QUOTATION_FILL_PRICE", "submit"),
@@ -86,7 +98,8 @@ ACTION_LABELS: Dict[str, str] = {
     "approve_survey": "Giám đốc đã duyệt khảo sát",
     "reject_survey": "Giám đốc yêu cầu bổ sung khảo sát",
     "submit_design": "Kỹ thuật đã nộp file thiết kế",
-    "approve_design": "Giám đốc đã duyệt thiết kế",
+    "submit_boc_tach": "Kỹ thuật đã hoàn thành bóc tách khối lượng",
+    "approve_design": "Giám đốc đã duyệt thiết kế & bóc tách",
     "reject_design": "Giám đốc yêu cầu chỉnh lại thiết kế",
     "submit_pricing": "Vật tư đã nộp bảng đơn giá",
     "finalize": "Kinh doanh đã hoàn thiện hợp đồng chào giá",
@@ -272,6 +285,7 @@ class QuotationBase(SQLModel):
     equipment_category: Optional[str] = Field(default=None, max_length=100)
     notes: Optional[str] = Field(default=None, sa_type=Text)
     survey_note: Optional[str] = Field(default=None, sa_type=Text)
+    color: Optional[str] = Field(default=None, max_length=30)
 
 
 class Quotation(QuotationBase, table=True):
@@ -367,6 +381,7 @@ class QuotationUpdate(SQLModel):
     client_response_deadline: Optional[date] = None
     technical_owner_id: Optional[uuid.UUID] = None
     procurement_owner_id: Optional[uuid.UUID] = None
+    color: Optional[str] = None
 
 
 class QuotationPublic(QuotationBase):
@@ -435,8 +450,16 @@ class QuotationSubmitSurveyRequest(SQLModel):
 
 
 class QuotationApproveRequest(SQLModel):
-    """BGĐ approve or reject a stage (S2, S4, S7)."""
+    """BGĐ approve or reject a stage (S2, S4, S7, S8B).
+    When action=reject, target_stage overrides the default reject destination.
+    """
     action: Literal["approve", "reject"]
+    note: Optional[str] = None
+    target_stage: Optional[str] = None  # override reject destination
+
+
+class QuotationSubmitBocTachRequest(SQLModel):
+    """S3B: KT hoàn thành bóc tách khối lượng → S4."""
     note: Optional[str] = None
 
 
@@ -477,6 +500,40 @@ class QuotationCloseRequest(SQLModel):
     note: Optional[str] = None
     # Thêm role ngoài level 1&2 vào dự án khi won (optional)
     extra_role_ids: Optional[List[uuid.UUID]] = None
+
+
+# ---------------------------------------------------------------------------
+# QuotationApprovalParticipant — co-approver / delegate for director stages
+# ---------------------------------------------------------------------------
+
+class QuotationApprovalParticipant(SQLModel, table=True):
+    """Tracks additional approvers (co_approver / delegate / primary) for director stages."""
+
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    quotation_id: uuid.UUID = Field(foreign_key="quotation.id", index=True)
+    stage: str = Field(max_length=50)        # which stage this applies to
+    user_id: uuid.UUID = Field(foreign_key="user.id", index=True)
+    role: str = Field(max_length=20)         # "co_approver" | "delegate" | "primary"
+    has_approved: bool = Field(default=False)
+    approved_at: Optional[datetime] = Field(default=None, sa_type=DateTime(timezone=True))
+    created_at: datetime = Field(default_factory=_utcnow, sa_type=DateTime(timezone=True))  # type: ignore
+
+
+class QuotationApprovalParticipantPublic(SQLModel):
+    id: uuid.UUID
+    quotation_id: uuid.UUID
+    stage: str
+    user_id: uuid.UUID
+    user_name: Optional[str] = None
+    role: str
+    has_approved: bool
+    approved_at: Optional[datetime]
+    created_at: datetime
+
+
+class QuotationApprovalParticipantCreate(SQLModel):
+    user_id: uuid.UUID
+    role: str  # "co_approver" | "delegate"
 
 
 # ---------------------------------------------------------------------------

@@ -55,7 +55,7 @@ import { clearSession } from "@/modules/auth/tokenStore"
 import { getMyPendingQuotations } from "@/modules/quotation/quotationApi"
 import { STAGE_CONFIG } from "@/modules/quotation/stageConfig"
 
-import { listCompanyMembers, readMyPermissions } from "@/modules/rbac/rbacApi"
+import { listCompanyMembers, listMyCompanies, readMyPermissions } from "@/modules/rbac/rbacApi"
 import { canAccessDashboard } from "@/utils/accountAccess"
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -239,6 +239,14 @@ function Dashboard() {
   const [departmentFilter, setDepartmentFilter] = useState<string>("")
   const [createProjectOpen, setCreateProjectOpen] = useState(false)
   const [projectNameDraft, setProjectNameDraft] = useState("")
+  const [projectDescriptionDraft, setProjectDescriptionDraft] = useState("")
+  const [projectTypeDraft, setProjectTypeDraft] = useState<"client" | "internal">("client")
+  const [projectStartDateDraft, setProjectStartDateDraft] = useState("")
+  const [projectEndDateDraft, setProjectEndDateDraft] = useState("")
+  const [selectedCompanyId, setSelectedCompanyId] = useState<string>("")
+  const [projectPmId, setProjectPmId] = useState<string>("")
+  const [projectPmKeyword, setProjectPmKeyword] = useState("")
+  const [projectPmPickerOpen, setProjectPmPickerOpen] = useState(false)
   const [projectStatsKeyword, setProjectStatsKeyword] = useState("")
   const [projectWarningFilter, setProjectWarningFilter] = useState<"all" | ProjectWarning["severity"]>("all")
   const [projectMemberKeyword, setProjectMemberKeyword] = useState("")
@@ -381,10 +389,16 @@ function Dashboard() {
     refetchInterval: 60_000,
   })
 
+  const myCompaniesQuery = useQuery({
+    queryKey: ["my-companies"],
+    queryFn: listMyCompanies,
+    enabled: createProjectOpen,
+  })
+
   const createProjectMutation = useMutation({
-    mutationFn: async (payload: ProjectCreate) => {
+    mutationFn: async (payload: ProjectCreate & { company_id?: string | null; pm_id?: string | null }) => {
       const project = (await ProjectsService.createProject({
-        requestBody: payload,
+        requestBody: payload as ProjectCreate,
       })) as ProjectPublic
       for (const userId of selectedMemberIds) {
         const assignments = await RolesService.listUserCompanyRoles({ userId })
@@ -535,6 +549,18 @@ function Dashboard() {
       })
       .slice(0, 15)
   }, [projectMemberKeyword, usersQuery.data, meQuery.data?.id])
+
+  const pmCandidates = useMemo(() => {
+    const keyword = projectPmKeyword.trim().toLowerCase()
+    const rows = usersQuery.data ?? []
+    if (!keyword) return rows.slice(0, 15)
+    return rows
+      .filter((r) => {
+        const name = (r.full_name ?? "").toLowerCase()
+        return name.includes(keyword) || r.email.toLowerCase().includes(keyword)
+      })
+      .slice(0, 15)
+  }, [projectPmKeyword, usersQuery.data])
 
   // ── Render ──────────────────────────────────────────────────────────────────
 
@@ -1102,12 +1128,33 @@ function Dashboard() {
       </div>
 
       {/* ── Create Project Dialog ────────────────────────────────────────────── */}
-      <Dialog open={createProjectOpen} onOpenChange={setCreateProjectOpen}>
+      <Dialog open={createProjectOpen} onOpenChange={(open) => {
+        setCreateProjectOpen(open)
+        if (!open) { setProjectNameDraft(""); setProjectDescriptionDraft(""); setProjectTypeDraft("client"); setProjectStartDateDraft(""); setProjectEndDateDraft(""); setSelectedCompanyId(""); setSelectedMemberIds([]); setProjectPmId(""); setProjectPmKeyword("") }
+      }}>
         <DialogContent className="max-w-xl">
           <DialogHeader>
             <DialogTitle>Tạo dự án mới</DialogTitle>
           </DialogHeader>
           <div className="space-y-3">
+            {(myCompaniesQuery.data?.length ?? 0) > 1 && (
+              <div className="space-y-1">
+                <p className="text-xs font-semibold text-muted-foreground">
+                  Công ty <span className="text-destructive">*</span>
+                </p>
+                <select
+                  title="Chọn công ty"
+                  value={selectedCompanyId}
+                  onChange={(e) => setSelectedCompanyId(e.target.value)}
+                  className="h-9 w-full rounded-md border bg-background px-3 text-sm"
+                >
+                  <option value="">-- Chọn công ty --</option>
+                  {myCompaniesQuery.data?.map((c) => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
+                  ))}
+                </select>
+              </div>
+            )}
             <div className="space-y-1">
               <p className="text-xs font-semibold text-muted-foreground">
                 Tên dự án
@@ -1120,7 +1167,74 @@ function Dashboard() {
             </div>
             <div className="space-y-1">
               <p className="text-xs font-semibold text-muted-foreground">
-                Chọn nhân viên tham gia (tuỳ chọn)
+                Mô tả (tuỳ chọn)
+              </p>
+              <Input
+                value={projectDescriptionDraft}
+                onChange={(e) => setProjectDescriptionDraft(e.target.value)}
+                placeholder="Mô tả ngắn về dự án..."
+              />
+            </div>
+            <div className="space-y-1">
+              <p className="text-xs font-semibold text-muted-foreground">Loại dự án</p>
+              <select
+                title="Loại dự án"
+                value={projectTypeDraft}
+                onChange={(e) => setProjectTypeDraft(e.target.value as "client" | "internal")}
+                className="h-9 w-full rounded-md border bg-background px-3 text-sm"
+              >
+                <option value="client">Dự án khách hàng</option>
+                <option value="internal">Dự án nội bộ</option>
+              </select>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div className="space-y-1">
+                <p className="text-xs font-semibold text-muted-foreground">Ngày bắt đầu</p>
+                <Input type="date" value={projectStartDateDraft} onChange={(e) => setProjectStartDateDraft(e.target.value)} />
+              </div>
+              <div className="space-y-1">
+                <p className="text-xs font-semibold text-muted-foreground">Ngày kết thúc</p>
+                <Input type="date" value={projectEndDateDraft} onChange={(e) => setProjectEndDateDraft(e.target.value)} />
+              </div>
+            </div>
+            <div className="space-y-1">
+              <p className="text-xs font-semibold text-muted-foreground">
+                Người quản lý dự án (PM) (tuỳ chọn)
+              </p>
+              <Input
+                value={projectPmKeyword}
+                onFocus={() => setProjectPmPickerOpen(true)}
+                onBlur={() => { setTimeout(() => setProjectPmPickerOpen(false), 120) }}
+                onChange={(e) => { setProjectPmKeyword(e.target.value); setProjectPmId("") }}
+                placeholder="Gõ tên hoặc email PM..."
+              />
+              {projectPmPickerOpen ? (
+                <div className="max-h-48 overflow-auto rounded-md border">
+                  {pmCandidates.length === 0 ? (
+                    <p className="p-2 text-xs text-muted-foreground">Không có nhân viên phù hợp.</p>
+                  ) : (
+                    pmCandidates.map((user) => (
+                      <button
+                        key={user.id}
+                        type="button"
+                        className={["flex w-full items-center justify-between px-3 py-2 text-left text-xs hover:bg-muted", projectPmId === user.id ? "bg-muted" : ""].join(" ")}
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => { setProjectPmId(user.id); setProjectPmKeyword(user.full_name || user.email); setProjectPmPickerOpen(false) }}
+                      >
+                        <span className="font-medium">{user.full_name || "N/A"}</span>
+                        <span className="text-muted-foreground">{user.email}</span>
+                      </button>
+                    ))
+                  )}
+                </div>
+              ) : null}
+              {projectPmId && (
+                <p className="text-xs text-muted-foreground">PM: {projectPmKeyword}</p>
+              )}
+            </div>
+            <div className="space-y-1">
+              <p className="text-xs font-semibold text-muted-foreground">
+                Thêm nhân sự (tuỳ chọn)
               </p>
               <Input
                 value={projectMemberKeyword}
@@ -1181,20 +1295,25 @@ function Dashboard() {
               onClick={() => {
                 const title = projectNameDraft.trim()
                 if (!title) return
+                const companies = myCompaniesQuery.data ?? []
+                if (companies.length > 1 && !selectedCompanyId) return
                 const today = new Date()
-                const end = new Date(today)
-                end.setDate(today.getDate() + 30)
                 const pad = (n: number) => String(n).padStart(2, "0")
                 const toISODate = (d: Date) =>
                   `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
+                const defaultEnd = new Date(today)
+                defaultEnd.setDate(today.getDate() + 30)
                 createProjectMutation.mutate({
                   name: title,
                   code: `PRJ-${today.getFullYear()}${pad(today.getMonth() + 1)}${pad(today.getDate())}`,
-                  description: null,
-                  start_date: toISODate(today),
-                  end_date: toISODate(end),
+                  description: projectDescriptionDraft.trim() || null,
+                  start_date: projectStartDateDraft || toISODate(today),
+                  end_date: projectEndDateDraft || toISODate(defaultEnd),
                   status: "planning",
                   department_id: null,
+                  company_id: selectedCompanyId || null,
+                  project_type: projectTypeDraft,
+                  pm_id: projectPmId || null,
                 })
               }}
             >

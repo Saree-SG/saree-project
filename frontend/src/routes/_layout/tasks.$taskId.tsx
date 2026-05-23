@@ -165,6 +165,9 @@ function TaskDetailPage() {
   const [reassignDialogOpen, setReassignDialogOpen] = useState(false)
   const [reassignUserId, setReassignUserId] = useState("")
   const [activeTab, setActiveTab] = useState<"progress" | "comments" | "subtasks" | "history">("progress")
+  const [perfCoeffDraft, setPerfCoeffDraft] = useState("")
+  const [defectNoteDialogOpen, setDefectNoteDialogOpen] = useState(false)
+  const [defectNoteDraft, setDefectNoteDraft] = useState("")
 
   useEffect(() => {
     setProgressReportPhotoFailed({})
@@ -415,6 +418,23 @@ function TaskDetailPage() {
     onError: handleError.bind(showErrorToast),
   })
 
+  const addDefectNoteMutation = useMutation({
+    mutationFn: () =>
+      TasksService.addComment({
+        taskId,
+        requestBody: { content: defectNoteDraft, comment_type: "defect_note" },
+      }),
+    onSuccess: async () => {
+      showSuccessToast("Đã ghi nhận lỗi")
+      setDefectNoteDraft("")
+      setDefectNoteDialogOpen(false)
+      await queryClient.invalidateQueries({
+        queryKey: ["task-detail", "comments", taskId],
+      })
+    },
+    onError: handleError.bind(showErrorToast),
+  })
+
   const addProofMutation = useMutation({
     mutationFn: () =>
       TasksService.uploadProof({
@@ -552,6 +572,7 @@ function TaskDetailPage() {
       if (!startTime || !endTime) {
         throw new Error("Thời gian task không hợp lệ")
       }
+      const parsedCoeff = perfCoeffDraft.trim() ? parseFloat(perfCoeffDraft) : undefined
       return TasksService.updateTask({
         taskId,
         requestBody: {
@@ -561,6 +582,7 @@ function TaskDetailPage() {
           start_time: startTime,
           end_time: endTime,
           module_tag: taskModuleTagDraft || null,
+          ...(parsedCoeff !== undefined && !isNaN(parsedCoeff) ? { performance_coefficient: parsedCoeff } : {}),
         } as any,
       })
     },
@@ -665,6 +687,7 @@ function TaskDetailPage() {
     setTaskPriorityDraft(task?.priority ?? "medium")
     setTaskStartDraft(toLocalDateTimeInputValue(task?.start_time))
     setTaskDeadlineDraft(toLocalDateTimeInputValue(task?.end_time))
+    setPerfCoeffDraft((task as any)?.performance_coefficient != null ? String((task as any).performance_coefficient) : "")
   }, [task])
 
   // Self-progress = sum of direct reports on this task (0–100, independent of children)
@@ -689,6 +712,7 @@ function TaskDetailPage() {
     [commentsQuery.data],
   )
 
+
   const hasPendingDelay = useMemo(
     () =>
       (commentsQuery.data ?? []).some(
@@ -706,6 +730,8 @@ function TaskDetailPage() {
     "PROOF_APPROVE",
   )
   const canEditTask = (myPermissionsQuery.data ?? []).includes("TASK_UPDATE")
+  const canEditPerfCoeff =
+    Boolean(currentUser?.is_superuser) || canEditTask
   const canUpdateTaskDeadline =
     canEditTask &&
     Boolean(
@@ -963,7 +989,14 @@ function TaskDetailPage() {
             )}
 
             {/* Title */}
-            <h1 className="text-xl font-extrabold leading-snug text-slate-900">
+            <h1 className="flex items-center gap-2 text-xl font-extrabold leading-snug text-slate-900">
+              {(task as any).color ? (
+                <span
+                  className="inline-block h-3.5 w-3.5 shrink-0 rounded-full ring-1 ring-black/10"
+                  style={{ backgroundColor: (task as any).color }}
+                  title={(task as any).color}
+                />
+              ) : null}
               {task.name}
             </h1>
 
@@ -1036,7 +1069,7 @@ function TaskDetailPage() {
                   }, 80)
                 }}
               >
-                💬 Bình luận
+                💬 Thảo luận
               </button>
               <button
                 type="button"
@@ -1592,28 +1625,63 @@ function TaskDetailPage() {
       </div>
       )}
 
-      {/* ── Tab: Bình luận ── */}
+      {/* ── Tab: Thảo luận ── */}
       {activeTab === "comments" && (
       <section ref={commentsSectionRef} className="space-y-3 scroll-mt-4">
-        <h4 className="text-base font-bold text-slate-700">
-          Bình luận
-        </h4>
+        <div className="flex items-center justify-between">
+          <h4 className="text-base font-bold text-slate-700">
+            Thảo luận
+          </h4>
+          {task?.status === "done" && canEditTask && (
+            <button
+              type="button"
+              className="rounded-lg bg-red-50 px-3 py-1.5 text-xs font-bold text-red-700 hover:bg-red-100 ring-1 ring-red-200"
+              onClick={() => setDefectNoteDialogOpen(true)}
+            >
+              ⚠ Ghi nhận lỗi
+            </button>
+          )}
+        </div>
         <div className="space-y-3 rounded-xl border bg-card p-4">
           {generalComments.length === 0 ? (
             <p className="text-sm text-muted-foreground">Chưa có tin nhắn nào.</p>
           ) : (
             <div className="space-y-2">
-              {generalComments.map((comment) => (
-                <div
-                  key={comment.id}
-                  className="max-w-[90%] rounded-2xl border bg-muted p-3 text-sm"
-                >
-                  <p className="mb-1 text-xs font-bold text-muted-foreground">
-                    {comment.author_name ?? comment.author_id}
-                  </p>
-                  <p>{comment.content}</p>
-                </div>
-              ))}
+              {generalComments.map((comment) => {
+                const isDefect = comment.comment_type === "defect_note"
+                return (
+                  <div
+                    key={comment.id}
+                    className={[
+                      "max-w-[90%] rounded-2xl border p-3 text-sm",
+                      isDefect
+                        ? "border-red-200 bg-red-50"
+                        : "bg-muted",
+                    ].join(" ")}
+                  >
+                    <div className="mb-1 flex items-baseline gap-2">
+                      {isDefect && (
+                        <span className="rounded-full bg-red-200 px-1.5 py-0.5 text-[10px] font-black uppercase text-red-800">
+                          Lỗi
+                        </span>
+                      )}
+                      <span className={["text-xs font-bold", isDefect ? "text-red-700" : "text-muted-foreground"].join(" ")}>
+                        {comment.author_name ?? comment.author_id}
+                      </span>
+                      <span className="text-[10px] text-slate-400">
+                        {new Date(comment.created_at).toLocaleString("vi-VN", {
+                          day: "2-digit",
+                          month: "2-digit",
+                          year: "numeric",
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
+                      </span>
+                    </div>
+                    <p className={isDefect ? "text-red-800" : ""}>{comment.content}</p>
+                  </div>
+                )
+              })}
             </div>
           )}
           <div className="flex items-center gap-2">
@@ -1916,6 +1984,22 @@ function TaskDetailPage() {
                 />
               </div>
             </div>
+            {canEditPerfCoeff && (
+              <div>
+                <label className="mb-1 block text-sm font-semibold text-slate-700">
+                  Hệ số nhân viên
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={perfCoeffDraft}
+                  onChange={(e) => setPerfCoeffDraft(e.target.value)}
+                  className="h-10 w-full rounded-md border px-3 text-sm outline-none"
+                  placeholder="VD: 1.0, 1.5, 2.0"
+                />
+              </div>
+            )}
             {canEditDependency && (
               <div>
                 <label className="mb-1 block text-sm font-semibold text-slate-700">
@@ -2497,6 +2581,46 @@ function TaskDetailPage() {
               onClick={() => updateDeadlineMutation.mutate()}
             >
               Cập nhật
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Defect Note Dialog */}
+      <Dialog open={defectNoteDialogOpen} onOpenChange={setDefectNoteDialogOpen}>
+        <DialogContent className="max-w-md" showCloseButton>
+          <DialogHeader>
+            <DialogTitle>Ghi nhận lỗi</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <p className="text-sm text-muted-foreground">
+              Ghi nhận lỗi hoặc vấn đề phát hiện sau khi công việc hoàn thành.
+            </p>
+            <textarea
+              value={defectNoteDraft}
+              onChange={(e) => setDefectNoteDraft(e.target.value)}
+              placeholder="Mô tả lỗi hoặc vấn đề..."
+              className="min-h-[100px] w-full rounded-md border p-3 text-sm outline-none focus:ring-2 focus:ring-red-300"
+            />
+          </div>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setDefectNoteDialogOpen(false)
+                setDefectNoteDraft("")
+              }}
+            >
+              Huỷ
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              disabled={!defectNoteDraft.trim() || addDefectNoteMutation.isPending}
+              onClick={() => addDefectNoteMutation.mutate()}
+            >
+              Ghi nhận lỗi
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -16,8 +16,12 @@ import {
   Eye,
   EyeOff,
   Paperclip,
+  Plus,
   Strikethrough,
+  Trash2,
   Underline,
+  UserCheck,
+  Users,
 } from "lucide-react"
 import { useEffect, useMemo, useRef, useState } from "react"
 
@@ -40,6 +44,7 @@ import useCustomToast from "@/hooks/useCustomToast"
 import { clearSession } from "@/modules/auth/tokenStore"
 import { listContracts } from "@/modules/contract/contractApi"
 import {
+  addApprovalParticipant,
   addNegotiationLog,
   approveDesign,
   approveFinal,
@@ -48,10 +53,14 @@ import {
   closeQuotation,
   finalizeQuotation,
   getQuotation,
+  listApprovalParticipants,
   listAttachments,
   listHistory,
   listNegotiations,
+  participantApprove,
+  removeApprovalParticipant,
   sendToClient,
+  submitBocTach,
   submitDesign,
   submitNegotiation,
   submitPricing,
@@ -60,15 +69,19 @@ import {
 } from "@/modules/quotation/quotationApi"
 import {
   CONTACT_METHOD_LABELS,
+  DIRECTOR_REJECT_STAGES,
   getStageFilterLabel,
   LOST_REASON_LABELS,
   STAGE_CONFIG,
+  STAGE_ORDER,
   STATUS_CONFIG,
 } from "@/modules/quotation/stageConfig"
-import type { QuotationAttachmentPublic, QuotationStage, QuotationStageTransitionPublic } from "@/modules/quotation/quotationTypes"
+import type { ApprovalParticipant, QuotationAttachmentPublic, QuotationStage, QuotationStageTransitionPublic } from "@/modules/quotation/quotationTypes"
+import { listCompanyMembers } from "@/modules/rbac/rbacApi"
+import type { CompanyMember } from "@/modules/rbac/rbacApi"
+import { RolesService } from "@/client"
 import { hasPermission } from "@/utils/accountAccess"
 import { resolveBackendMediaUrl } from "@/utils/mediaUrl"
-import { listCompanyRoles, type CompanyRole } from "@/modules/rbac/rbacApi"
 
 type QuotationTab = "negotiations" | "attachments" | "history"
 type QuotationHistoryStepFilter = QuotationStage | typeof QUOTATION_CREATE_STEP
@@ -87,6 +100,7 @@ interface WorkflowPayload {
   lostReasonCategory?: "price" | "design" | "marketing" | "other"
   lostReasonDetail?: string
   extraRoleIds?: string[]
+  targetStage?: QuotationStage
 }
 
 /**
@@ -539,6 +553,7 @@ function QuotationDetailPage() {
 
   const [dialogOpen, setDialogOpen] = useState(false)
   const [selectedAction, setSelectedAction] = useState<QuotationActionId | null>(null)
+  const [targetRejectStage, setTargetRejectStage] = useState<QuotationStage | null>(null)
   const [noteTitle, setNoteTitle] = useState("")
   const [noteBodyHtml, setNoteBodyHtml] = useState("")
   const [uploadingAttachment, setUploadingAttachment] = useState(false)
@@ -559,10 +574,17 @@ function QuotationDetailPage() {
   const [surveyEndDate, setSurveyEndDate] = useState("")
   const [lostReasonCategory, setLostReasonCategory] = useState<"price" | "design" | "marketing" | "other">("price")
   const [lostReasonDetail, setLostReasonDetail] = useState("")
-  const [extraRoleIds, setExtraRoleIds] = useState<string[]>([])
   const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null)
   const [imagePreviewName, setImagePreviewName] = useState("")
   const [priceVisible, setPriceVisible] = useState(false)
+  // Approval participants (A3)
+  const [showAddParticipant, setShowAddParticipant] = useState(false)
+  const [participantUserId, setParticipantUserId] = useState("")
+  const [participantRole, setParticipantRole] = useState<"co_approver" | "delegate">("co_approver")
+  const [participantNote, setParticipantNote] = useState("")
+  const [participantSearch, setParticipantSearch] = useState("")
+  const [confirmRemoveParticipantId, setConfirmRemoveParticipantId] = useState<string | null>(null)
+
   // Add negotiation log state (Negotiations tab, S8)
   const [addLogOpen, setAddLogOpen] = useState(false)
   const [logDate, setLogDate] = useState(() => new Date().toISOString().slice(0, 10))
@@ -601,10 +623,75 @@ function QuotationDetailPage() {
     enabled: true,
   })
 
-  const companyRolesQuery = useQuery({
-    queryKey: ["company-roles", quotationQuery.data?.company_id],
-    queryFn: () => listCompanyRoles(quotationQuery.data!.company_id),
-    enabled: !!quotationQuery.data?.company_id && selectedAction === "close_won",
+  // Approval participants (A3) — only for director stages
+  const isDirectorStage = quotationQuery.data
+    ? (["S2_DIRECTOR_APPROVE_SURVEY", "S4_DIRECTOR_APPROVE_DESIGN", "S7_DIRECTOR_APPROVE_QUOTE", "S8B_NEGOTIATION_REVIEW"] as string[]).includes(quotationQuery.data.current_stage)
+    : false
+
+  const approvalParticipantsQuery = useQuery({
+    queryKey: ["quotation", quotationId, "approval-participants"],
+    queryFn: () => listApprovalParticipants(quotationId),
+    enabled: isDirectorStage,
+  })
+
+  const profileQuery = useQuery({
+    queryKey: ["profile", "me"],
+    queryFn: () => RolesService.myAccountProfile(),
+  })
+  const primaryMembership = useMemo(
+    () =>
+      profileQuery.data?.memberships.find((m) => m.is_primary) ??
+      profileQuery.data?.memberships[0],
+    [profileQuery.data?.memberships],
+  )
+  const currentUserId = profileQuery.data?.user_id
+
+  const companyMembersQuery = useQuery({
+    queryKey: ["company-members", primaryMembership?.company_id],
+    queryFn: () => listCompanyMembers(primaryMembership!.company_id),
+    enabled: isDirectorStage && Boolean(primaryMembership?.company_id) && showAddParticipant,
+  })
+
+  const addParticipantMutation = useMutation({
+    mutationFn: (body: { user_id: string; role: string }) =>
+      addApprovalParticipant(quotationId, body),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["quotation", quotationId, "approval-participants"] })
+      setShowAddParticipant(false)
+      setParticipantUserId("")
+      setParticipantRole("co_approver")
+    },
+    onError: (err: unknown) => {
+      const e = err as { response?: { data?: { detail?: string } } }
+      showErrorToast(e?.response?.data?.detail ?? "Không thể thêm người duyệt")
+    },
+  })
+
+  const removeParticipantMutation = useMutation({
+    mutationFn: (participantId: string) =>
+      removeApprovalParticipant(quotationId, participantId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["quotation", quotationId, "approval-participants"] })
+    },
+    onError: (err: unknown) => {
+      const e = err as { response?: { data?: { detail?: string } } }
+      showErrorToast(e?.response?.data?.detail ?? "Không thể xóa người duyệt")
+    },
+  })
+
+  const participantApproveMutation = useMutation({
+    mutationFn: (note?: string) => participantApprove(quotationId, { note }),
+    onSuccess: (data) => {
+      queryClient.setQueryData(["quotation", quotationId], data)
+      queryClient.invalidateQueries({ queryKey: ["quotation", quotationId, "approval-participants"] })
+      queryClient.invalidateQueries({ queryKey: ["quotation", quotationId, "history"] })
+      showSuccessToast("Đã xác nhận duyệt thành công")
+      setParticipantNote("")
+    },
+    onError: (err: unknown) => {
+      const e = err as { response?: { data?: { detail?: string } } }
+      showErrorToast(e?.response?.data?.detail ?? "Không thể xác nhận duyệt")
+    },
   })
 
   const workflowMutation = useMutation({
@@ -632,10 +719,16 @@ function QuotationDetailPage() {
         return approveSurvey(quotationId, {
           action: "reject",
           note: payload.note || undefined,
+          target_stage: payload.targetStage || undefined,
         })
       }
       if (actionId === "submit_design") {
         return submitDesign(quotationId, {
+          note: payload.note || undefined,
+        })
+      }
+      if (actionId === "submit_boc_tach") {
+        return submitBocTach(quotationId, {
           note: payload.note || undefined,
         })
       }
@@ -649,6 +742,7 @@ function QuotationDetailPage() {
         return approveDesign(quotationId, {
           action: "reject",
           note: payload.note || undefined,
+          target_stage: payload.targetStage || undefined,
         })
       }
       if (actionId === "submit_pricing") {
@@ -672,6 +766,7 @@ function QuotationDetailPage() {
         return approveFinal(quotationId, {
           action: "reject",
           note: payload.note || undefined,
+          target_stage: payload.targetStage || undefined,
         })
       }
       if (actionId === "send_to_client") {
@@ -689,7 +784,7 @@ function QuotationDetailPage() {
         return approveNegotiation(quotationId, { action: "approve", note: payload.note || undefined })
       }
       if (actionId === "reject_negotiation") {
-        return approveNegotiation(quotationId, { action: "reject", note: payload.note || undefined })
+        return approveNegotiation(quotationId, { action: "reject", note: payload.note || undefined, target_stage: payload.targetStage || undefined })
       }
       if (actionId === "close_won") {
         return closeQuotation(quotationId, {
@@ -764,6 +859,7 @@ function QuotationDetailPage() {
     if (selectedAction === "approve_survey") return "Duyệt khảo sát"
     if (selectedAction === "reject_survey") return "Yêu cầu sửa khảo sát"
     if (selectedAction === "submit_design") return "Nộp thiết kế"
+    if (selectedAction === "submit_boc_tach") return "Hoàn thành bóc tách"
     if (selectedAction === "approve_design") return "Duyệt thiết kế"
     if (selectedAction === "reject_design") return "Yêu cầu sửa thiết kế"
     if (selectedAction === "submit_pricing") return "Xác nhận định giá"
@@ -970,8 +1066,8 @@ function QuotationDetailPage() {
     setSurveyEndDate("")
     setLostReasonCategory("price")
     setLostReasonDetail("")
-    setExtraRoleIds([])
     setDialogUploadedAttachments([])
+    setTargetRejectStage(null)
   }
 
   function handleOpenAction(actionId: QuotationActionId) {
@@ -1042,7 +1138,8 @@ function QuotationDetailPage() {
         clientResponseDeadline: clientResponseDeadline || undefined,
         lostReasonCategory: requiresLostReason ? lostReasonCategory : undefined,
         lostReasonDetail: lostReasonDetail.trim() || undefined,
-        extraRoleIds: selectedAction === "close_won" ? extraRoleIds : undefined,
+        extraRoleIds: undefined,
+        targetStage: targetRejectStage || undefined,
       },
     })
   }
@@ -1122,7 +1219,7 @@ function QuotationDetailPage() {
     )
   }
 
-  const quotation = quotationQuery.data
+  const quotation = quotationQuery.data!
   const stageConfig = STAGE_CONFIG[quotation.current_stage]
   const statusConfig = STATUS_CONFIG[quotation.status]
 
@@ -1201,6 +1298,288 @@ function QuotationDetailPage() {
         busy={workflowMutation.isPending}
         onAction={handleOpenAction}
       />
+
+      {/* A3: Approval Participants Panel — shown for director stages */}
+      {isDirectorStage && (() => {
+        const participants: ApprovalParticipant[] = approvalParticipantsQuery.data ?? []
+        const isDirector =
+          hasPermission(permissions, "QUOTATION_APPROVE_SURVEY") ||
+          hasPermission(permissions, "QUOTATION_APPROVE_DESIGN") ||
+          hasPermission(permissions, "QUOTATION_APPROVE_FINAL") ||
+          hasPermission(permissions, "QUOTATION_APPROVE_NEGOTIATION")
+        const myParticipant = participants.find(
+          (p) => p.user_id === currentUserId && (p.role === "co_approver" || p.role === "delegate"),
+        )
+        const delegate = participants.find((p) => p.role === "delegate")
+        const coApprovers = participants.filter((p) => p.role === "co_approver")
+        const primaryRecord = participants.find((p) => p.role === "primary")
+
+        // Filtered member list for search
+        const searchLower = participantSearch.trim().toLowerCase()
+        const filteredMembers = (companyMembersQuery.data ?? []).filter((m: CompanyMember) => {
+          if (m.user_id === currentUserId) return false
+          if (participants.some((p) => p.user_id === m.user_id && p.role !== "primary")) return false
+          if (!searchLower) return true
+          return (
+            (m.full_name ?? "").toLowerCase().includes(searchLower) ||
+            m.email.toLowerCase().includes(searchLower) ||
+            m.role_display_name.toLowerCase().includes(searchLower)
+          )
+        })
+
+        function initials(name: string | null | undefined) {
+          if (!name) return "?"
+          return name.split(" ").map((w) => w[0]).slice(-2).join("").toUpperCase()
+        }
+
+        return (
+          <div className="rounded-xl border bg-white shadow-sm overflow-hidden">
+            {/* Header */}
+            <div className="flex items-center justify-between gap-2 px-4 py-3 border-b bg-slate-50">
+              <div className="flex items-center gap-2">
+                <Users className="h-4 w-4 text-slate-500" />
+                <span className="text-sm font-semibold text-slate-700">Người duyệt</span>
+                <span className="rounded-full bg-slate-200 px-2 py-0.5 text-[10px] font-bold text-slate-600">
+                  {1 + participants.filter((p) => p.role !== "primary").length}
+                </span>
+              </div>
+              {isDirector && !showAddParticipant && (
+                <button
+                  type="button"
+                  className="flex items-center gap-1 rounded-md border bg-white px-2.5 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50 shadow-sm"
+                  onClick={() => { setShowAddParticipant(true); setParticipantUserId(""); setParticipantSearch("") }}
+                >
+                  <Plus className="h-3.5 w-3.5" /> Thêm người
+                </button>
+              )}
+            </div>
+
+            {/* Participant list */}
+            <div className="divide-y">
+              {/* Director row */}
+              {isDirector && (
+                <div className="flex items-center gap-3 px-4 py-3">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-violet-100 text-xs font-bold text-violet-700">
+                    {initials(profileQuery.data?.full_name)}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-semibold text-slate-800">
+                      {profileQuery.data?.full_name ?? "Giám đốc"}{" "}
+                      <span className="text-xs font-normal text-slate-400">(bạn)</span>
+                    </p>
+                    <p className="text-xs text-slate-400">Ban Giám Đốc</p>
+                  </div>
+                  <div className="shrink-0">
+                    {delegate ? (
+                      <span className="rounded-full bg-orange-100 px-2.5 py-1 text-[11px] font-semibold text-orange-600">
+                        Đã ủy quyền
+                      </span>
+                    ) : primaryRecord?.has_approved ? (
+                      <span className="flex items-center gap-1 rounded-full bg-green-100 px-2.5 py-1 text-[11px] font-semibold text-green-700">
+                        <UserCheck className="h-3 w-3" /> Đã duyệt
+                      </span>
+                    ) : (
+                      <span className="rounded-full bg-blue-50 px-2.5 py-1 text-[11px] font-semibold text-blue-600">
+                        Chờ duyệt
+                      </span>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Added participants */}
+              {participants.filter((p) => p.role !== "primary").map((p) => (
+                <div key={p.id} className="flex items-center gap-3 px-4 py-3">
+                  <div className={[
+                    "flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-bold",
+                    p.role === "delegate" ? "bg-orange-100 text-orange-700" : "bg-blue-100 text-blue-700",
+                  ].join(" ")}>
+                    {initials(p.user_name)}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <p className="truncate text-sm font-semibold text-slate-800">
+                        {p.user_name ?? p.user_id}
+                      </p>
+                      <span className={[
+                        "shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold",
+                        p.role === "delegate"
+                          ? "bg-orange-100 text-orange-600"
+                          : "bg-blue-100 text-blue-600",
+                      ].join(" ")}>
+                        {p.role === "delegate" ? "Ủy quyền" : "Co-duyệt"}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="flex shrink-0 items-center gap-2">
+                    {p.has_approved ? (
+                      <span className="flex items-center gap-1 rounded-full bg-green-100 px-2.5 py-1 text-[11px] font-semibold text-green-700">
+                        <UserCheck className="h-3 w-3" /> Đã duyệt
+                      </span>
+                    ) : (
+                      <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-semibold text-slate-500">
+                        Chờ duyệt
+                      </span>
+                    )}
+                    {isDirector && (
+                      <button
+                        type="button"
+                        title="Xóa"
+                        className="rounded-md p-1 text-slate-400 hover:bg-red-50 hover:text-red-500"
+                        onClick={() => setConfirmRemoveParticipantId(p.id)}
+                        disabled={removeParticipantMutation.isPending}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Notice banners */}
+            {isDirector && delegate && (
+              <div className="mx-4 mb-3 rounded-lg border border-orange-200 bg-orange-50 px-3 py-2 text-xs text-orange-700">
+                Bạn đã ủy quyền — <strong>{delegate.user_name}</strong> sẽ duyệt thay bạn.
+              </div>
+            )}
+            {isDirector && coApprovers.length > 0 && !primaryRecord && (
+              <div className="mx-4 mb-3 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-700">
+                Nhấn nút <strong>Duyệt</strong> để xác nhận phần của bạn. Bước sẽ chuyển khi tất cả đã xác nhận.
+              </div>
+            )}
+
+            {/* Add participant form */}
+            {showAddParticipant && (
+              <div className="border-t bg-slate-50 px-4 py-4 space-y-3">
+                <p className="text-xs font-semibold text-slate-600">Thêm người duyệt</p>
+
+                {/* Role selector — 2 card buttons */}
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setParticipantRole("co_approver")}
+                    className={[
+                      "rounded-lg border p-3 text-left transition-colors",
+                      participantRole === "co_approver"
+                        ? "border-blue-400 bg-blue-50 ring-1 ring-blue-400"
+                        : "border-slate-200 bg-white hover:border-blue-300",
+                    ].join(" ")}
+                  >
+                    <p className="text-xs font-semibold text-slate-700">Cùng duyệt</p>
+                    <p className="mt-0.5 text-[10px] text-slate-400">Tất cả phải duyệt mới qua</p>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setParticipantRole("delegate")}
+                    className={[
+                      "rounded-lg border p-3 text-left transition-colors",
+                      participantRole === "delegate"
+                        ? "border-orange-400 bg-orange-50 ring-1 ring-orange-400"
+                        : "border-slate-200 bg-white hover:border-orange-300",
+                    ].join(" ")}
+                  >
+                    <p className="text-xs font-semibold text-slate-700">Ủy quyền</p>
+                    <p className="mt-0.5 text-[10px] text-slate-400">Người này duyệt thay bạn</p>
+                  </button>
+                </div>
+
+                {/* Search input */}
+                <div className="space-y-1">
+                  <Input
+                    placeholder="Tìm theo tên, email, bộ phận..."
+                    value={participantSearch}
+                    onChange={(e) => { setParticipantSearch(e.target.value); setParticipantUserId("") }}
+                    className="bg-white text-sm"
+                  />
+                </div>
+
+                {/* User list */}
+                <div className="max-h-52 overflow-y-auto rounded-lg border bg-white divide-y">
+                  {companyMembersQuery.isLoading ? (
+                    <p className="p-3 text-xs text-muted-foreground">Đang tải...</p>
+                  ) : filteredMembers.length === 0 ? (
+                    <p className="p-3 text-xs text-muted-foreground">Không tìm thấy nhân viên phù hợp.</p>
+                  ) : filteredMembers.map((m: CompanyMember) => {
+                    const selected = participantUserId === m.user_id
+                    return (
+                      <button
+                        key={m.user_id}
+                        type="button"
+                        className={[
+                          "flex w-full items-center gap-3 px-3 py-2.5 text-left transition-colors",
+                          selected ? "bg-primary/10" : "hover:bg-slate-50",
+                        ].join(" ")}
+                        onClick={() => setParticipantUserId(selected ? "" : m.user_id)}
+                      >
+                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-200 text-xs font-bold text-slate-600">
+                          {(m.full_name ?? m.email).split(" ").map((w: string) => w[0]).slice(-2).join("").toUpperCase()}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-medium text-slate-800">
+                            {m.full_name ?? "—"}
+                          </p>
+                          <p className="truncate text-[11px] text-slate-400">
+                            {m.role_display_name} · {m.email}
+                          </p>
+                        </div>
+                        {selected && (
+                          <UserCheck className="h-4 w-4 shrink-0 text-primary" />
+                        )}
+                      </button>
+                    )
+                  })}
+                </div>
+
+                {/* Actions */}
+                <div className="flex gap-2 pt-1">
+                  <Button
+                    type="button"
+                    size="sm"
+                    disabled={!participantUserId || addParticipantMutation.isPending}
+                    onClick={() => addParticipantMutation.mutate({ user_id: participantUserId, role: participantRole })}
+                  >
+                    {addParticipantMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : null}
+                    Xác nhận
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => { setShowAddParticipant(false); setParticipantUserId(""); setParticipantSearch("") }}
+                  >
+                    Hủy
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {/* Participant approve button */}
+            {myParticipant && !myParticipant.has_approved && (
+              <div className="border-t bg-blue-50 px-4 py-4 space-y-2">
+                <p className="text-sm font-semibold text-blue-800">
+                  {myParticipant.role === "delegate" ? "Bạn được ủy quyền duyệt bước này" : "Bạn được mời co-duyệt bước này"}
+                </p>
+                <Input
+                  placeholder="Ghi chú (tuỳ chọn)"
+                  value={participantNote}
+                  onChange={(e) => setParticipantNote(e.target.value)}
+                  className="bg-white"
+                />
+                <Button
+                  type="button"
+                  size="sm"
+                  disabled={participantApproveMutation.isPending}
+                  onClick={() => participantApproveMutation.mutate(participantNote || undefined)}
+                >
+                  {participantApproveMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null}
+                  {myParticipant.role === "delegate" ? "Duyệt (được ủy quyền)" : "Xác nhận co-duyệt"}
+                </Button>
+              </div>
+            )}
+          </div>
+        )
+      })()}
 
       {/* Outcome banner */}
       {quotation.outcome === "won" && (
@@ -1643,48 +2022,9 @@ function QuotationDetailPage() {
             ) : null}
 
             {selectedAction === "close_won" ? (
-              <div className="space-y-2">
-                <p className="text-xs font-medium text-muted-foreground">
-                  Thêm role vào dự án{" "}
-                  <span className="text-muted-foreground/60">(ngoài BGĐ & Quản lý đã được thêm tự động)</span>
-                </p>
-                {companyRolesQuery.isLoading ? (
-                  <p className="text-xs text-muted-foreground">Đang tải danh sách role...</p>
-                ) : (
-                  <div className="flex flex-wrap gap-2">
-                    {(companyRolesQuery.data ?? [])
-                      .filter((r: CompanyRole) => r.level > 2)
-                      .map((role: CompanyRole) => {
-                        const checked = extraRoleIds.includes(role.id)
-                        return (
-                          <label
-                            key={role.id}
-                            className={`flex cursor-pointer items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs transition-colors ${
-                              checked
-                                ? "border-primary bg-primary/10 text-primary"
-                                : "border-border text-muted-foreground hover:border-primary/50"
-                            }`}
-                          >
-                            <input
-                              type="checkbox"
-                              className="sr-only"
-                              checked={checked}
-                              onChange={() =>
-                                setExtraRoleIds((prev) =>
-                                  checked ? prev.filter((id) => id !== role.id) : [...prev, role.id],
-                                )
-                              }
-                            />
-                            {role.display_name}
-                          </label>
-                        )
-                      })}
-                    {(companyRolesQuery.data ?? []).filter((r: CompanyRole) => r.level > 2).length === 0 && (
-                      <p className="text-xs text-muted-foreground">Không có role nào khác.</p>
-                    )}
-                  </div>
-                )}
-              </div>
+              <p className="text-xs text-muted-foreground rounded-lg border bg-blue-50 px-3 py-2">
+                💡 Sau khi thắng hợp đồng, vào dự án và chuyển trạng thái sang <span className="font-semibold">"Đang thực hiện"</span> để thiết lập nhân sự tham gia.
+              </p>
             ) : null}
 
             {requiresLostReason ? (
@@ -1713,6 +2053,26 @@ function QuotationDetailPage() {
                   />
                 </div>
               </>
+            ) : null}
+
+            {/* Target stage selector — shown for director reject actions */}
+            {(selectedAction === "reject_survey" || selectedAction === "reject_design" || selectedAction === "reject_final" || selectedAction === "reject_negotiation") && DIRECTOR_REJECT_STAGES.includes(quotation.current_stage) ? (
+              <div className="space-y-1">
+                <p className="text-xs font-medium text-muted-foreground">Quay về giai đoạn</p>
+                <select
+                  title="Chọn giai đoạn muốn quay về"
+                  value={targetRejectStage ?? ""}
+                  onChange={(e) => setTargetRejectStage((e.target.value as QuotationStage) || null)}
+                  className="h-9 w-full rounded-md border bg-background px-3 text-sm"
+                >
+                  <option value="">Mặc định (giai đoạn liền trước)</option>
+                  {STAGE_ORDER.slice(0, STAGE_ORDER.indexOf(quotation.current_stage)).map((stage) => (
+                    <option key={stage} value={stage}>
+                      {STAGE_CONFIG[stage].label}
+                    </option>
+                  ))}
+                </select>
+              </div>
             ) : null}
 
             {/* Note body — contentEditable, NO dangerouslySetInnerHTML to avoid cursor-flip */}
@@ -1879,6 +2239,36 @@ function QuotationDetailPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Confirm remove participant */}
+      <Dialog
+        open={!!confirmRemoveParticipantId}
+        onOpenChange={(open) => { if (!open) setConfirmRemoveParticipantId(null) }}
+      >
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Xác nhận xóa người duyệt</DialogTitle>
+            <DialogDescription>
+              Bạn có chắc muốn xóa người này khỏi danh sách duyệt không? Hành động này không thể hoàn tác.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setConfirmRemoveParticipantId(null)}>Hủy</Button>
+            <Button
+              variant="destructive"
+              disabled={removeParticipantMutation.isPending}
+              onClick={() => {
+                if (confirmRemoveParticipantId) {
+                  removeParticipantMutation.mutate(confirmRemoveParticipantId)
+                  setConfirmRemoveParticipantId(null)
+                }
+              }}
+            >
+              Xóa
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
@@ -1917,7 +2307,17 @@ const QUOTATION_NEXT_STEPS: Record<QuotationStage, QuotationNextStepsConfig> = {
       { label: "Phòng Kỹ thuật nghiên cứu yêu cầu từ biên bản khảo sát" },
       { label: "Lập bản vẽ kỹ thuật, tính toán thông số và lựa chọn thiết bị phù hợp" },
       { label: "Đính kèm file bản vẽ (DWG, PDF) khi hoàn thành" },
-      { label: 'Bấm "Nộp thiết kế" để trình Giám đốc phê duyệt', urgent: true },
+      { label: 'Bấm "Nộp thiết kế" để chuyển sang bước bóc tách khối lượng', urgent: true },
+    ],
+  },
+  S3B_BOC_TACH: {
+    title: "Bóc tách khối lượng",
+    color: "border-sky-200 bg-sky-50",
+    steps: [
+      { label: "Dựa trên bản vẽ thiết kế, liệt kê chi tiết từng hạng mục vật tư và số lượng" },
+      { label: "Kiểm tra đầy đủ: thiết bị chính, phụ kiện, vật tư lắp đặt, đường ống, điện" },
+      { label: "Đính kèm file bảng bóc tách (Excel) vào tab Tài liệu" },
+      { label: 'Bấm "Hoàn thành bóc tách" để trình Giám đốc duyệt thiết kế', urgent: true },
     ],
   },
   S4_DIRECTOR_APPROVE_DESIGN: {
@@ -1940,12 +2340,14 @@ const QUOTATION_NEXT_STEPS: Record<QuotationStage, QuotationNextStepsConfig> = {
       },
       { label: "Điền tổng giá trị vật tư vào form định giá" },
       { label: 'Bấm "Xác nhận định giá" và nhập tổng giá trị hợp đồng để chuyển sang Kinh doanh hoàn thiện hồ sơ', urgent: true },
+      { label: "⚠️ Bộ phận Vật tư phải hoàn thành bước này trước — Kinh doanh không thể làm S6 nếu S5 chưa xong." },
     ],
   },
   S6_SALES_FINALIZE: {
     title: "Kinh doanh hoàn thiện hồ sơ chào giá",
     color: "border-blue-200 bg-blue-50",
     steps: [
+      { label: "⚠️ Lưu ý: Bước này chỉ thực hiện được sau khi Vật tư (S5) đã hoàn thành định giá.", urgent: true },
       { label: "Kinh doanh nhận giá từ Vật tư, điều chỉnh tỷ lệ lợi nhuận và điều khoản thương mại" },
       { label: "Soạn file báo giá chính thức (Excel/PDF) theo mẫu công ty" },
       { label: "Đính kèm file báo giá hoàn chỉnh vào hồ sơ" },

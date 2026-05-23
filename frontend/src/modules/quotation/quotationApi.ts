@@ -4,6 +4,7 @@ import { OpenAPI } from "@/client"
 import { getAccessToken } from "@/modules/auth/tokenStore"
 
 import type {
+  ApprovalParticipant,
   QuotationApproveRequest,
   QuotationAttachmentCreate,
   QuotationAttachmentPublic,
@@ -21,6 +22,7 @@ import type {
   QuotationReportSummary,
   QuotationSendToClientRequest,
   QuotationStageTransitionPublic,
+  QuotationSubmitBocTachRequest,
   QuotationSubmitDesignRequest,
   QuotationSubmitNegotiationRequest,
   QuotationSubmitPricingRequest,
@@ -151,6 +153,18 @@ export async function submitDesign(
 ): Promise<QuotationPublic> {
   const res = await axios.post<QuotationPublic>(
     `${BASE()}/quotations/${id}/submit-design`,
+    body,
+    { headers: authHeaders() },
+  )
+  return res.data
+}
+
+export async function submitBocTach(
+  id: string,
+  body: QuotationSubmitBocTachRequest,
+): Promise<QuotationPublic> {
+  const res = await axios.post<QuotationPublic>(
+    `${BASE()}/quotations/${id}/submit-boc-tach`,
     body,
     { headers: authHeaders() },
   )
@@ -441,6 +455,54 @@ export async function reportLostAnalysis(params?: {
 
   const res = await axios.get<QuotationLostReasonRow[]>(
     `${BASE()}/quotations/reports/lost-analysis${query.toString() ? `?${query}` : ""}`,
+    { headers: authHeaders() },
+  )
+  return res.data
+}
+
+// ---------------------------------------------------------------------------
+// Approval participants (co-approver / delegate) — A3 feature
+// ---------------------------------------------------------------------------
+
+export async function listApprovalParticipants(
+  quotationId: string,
+): Promise<ApprovalParticipant[]> {
+  const res = await axios.get<ApprovalParticipant[]>(
+    `${BASE()}/quotations/${quotationId}/approval-participants`,
+    { headers: authHeaders() },
+  )
+  return res.data
+}
+
+export async function addApprovalParticipant(
+  quotationId: string,
+  body: { user_id: string; role: string },
+): Promise<ApprovalParticipant> {
+  const res = await axios.post<ApprovalParticipant>(
+    `${BASE()}/quotations/${quotationId}/approval-participants`,
+    body,
+    { headers: authHeaders() },
+  )
+  return res.data
+}
+
+export async function removeApprovalParticipant(
+  quotationId: string,
+  participantId: string,
+): Promise<void> {
+  await axios.delete(
+    `${BASE()}/quotations/${quotationId}/approval-participants/${participantId}`,
+    { headers: authHeaders() },
+  )
+}
+
+export async function participantApprove(
+  quotationId: string,
+  body: { note?: string },
+): Promise<QuotationPublic> {
+  const res = await axios.post<QuotationPublic>(
+    `${BASE()}/quotations/${quotationId}/participant-approve`,
+    body,
     { headers: authHeaders() },
   )
   return res.data

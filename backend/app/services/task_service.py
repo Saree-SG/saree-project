@@ -211,19 +211,17 @@ async def _rollup_completion_pct(
     cache: dict[uuid.UUID, float] | None = None,
 ) -> float:
     """
-    Compute task completion % (0.0–100.0). Max 2 levels: Task → Subtask.
+    Compute task completion % (0.0–100.0). Fully recursive — supports N-level tree.
 
     Formula (WBS Weighted Progress Aggregation):
         Total_Progress(task) = (Self_Progress × W_report/100)
-                             + Σ(subtask_self_progress_i × W_i/100)
+                             + Σ(child_total_progress_i × W_i/100)
 
     Where:
-        - Self_Progress     = sum of direct reports on this task (0–100)
-        - W_report          = 100 - Σ(subtask.progress_weight)
-        - W_i               = subtask.progress_weight (0 if unset)
-        - subtask completion = its own direct reports sum (no deeper recursion)
-
-    Since subtasks cannot have children, their completion is simply sum_progress.
+        - Self_Progress = sum of direct progress reports on this task (0–100)
+        - W_i           = child.progress_weight (defaults to 0 if unset)
+        - W_report      = max(0, 100 - Σ W_i)
+        - child_total_progress_i = recursively computed (handles all 5 levels)
     """
     if cache is not None and task_id in cache:
         return cache[task_id]
@@ -235,17 +233,15 @@ async def _rollup_completion_pct(
     children = await repo.get_children(task_id)
 
     if not children:
-        # Leaf task (subtask or task with no subtasks): completion = direct reports only
+        # Leaf node: completion = direct reports only
         result = min(100.0, float(await repo.sum_progress(task_id)))
     else:
-        # Root task: weighted sum of subtask completions + weighted direct reports
         child_weights_total = 0.0
         child_contribution = 0.0
         for child in children:
-            # Subtask completion = its own direct reports, capped at 100
-            child_self = min(100.0, float(await repo.sum_progress(child.id)))
+            child_pct = await _rollup_completion_pct(repo, child.id, cache)
             w_i = float(child.progress_weight or 0)
-            child_contribution += w_i * child_self / 100.0
+            child_contribution += w_i * child_pct / 100.0
             child_weights_total += w_i
 
         w_report = max(0.0, 100.0 - child_weights_total)
@@ -760,6 +756,10 @@ class TaskService:
 
         is_assignee = await self._task_repo.is_assignee(task_id, current_user.id)
         is_assignor = task.assignor_id == current_user.id
+
+        # Block any transition out of "done" — task is immutable once completed
+        if old_status == "done":
+            raise HTTPException(422, "Công việc đã hoàn thành, không thể thay đổi trạng thái.")
 
         # "review" → "done" or "review" → "in_progress": only assignor (or superuser) can decide.
         if old_status == "review" and body.status in ("done", "in_progress"):
@@ -1410,20 +1410,25 @@ class TaskService:
                         actor_id=current_user.id,
                         policy_stop=True,
                     )
-            if task.parent_id:
-                parent = await self._task_repo.get_by_id(task.parent_id)
-                if parent is not None and not parent.is_deleted:
-                    p_old = _naive_utc(parent.end_time)
-                    if p_old < new_end:
-                        await self._task_repo.update_fields(parent, {"end_time": new_end})
-                        await self._audit_repo.write(
-                            actor_id=current_user.id,
-                            action="task.deadline_cascaded_to_parent",
-                            entity_type="task",
-                            entity_id=parent.id,
-                            old_value={"end_time": str(p_old)},
-                            new_value={"end_time": str(new_end)},
-                        )
+            # Cascade deadline up through all ancestors (supports 5-level tree)
+            ancestor_id = task.parent_id
+            while ancestor_id is not None:
+                ancestor = await self._task_repo.get_by_id(ancestor_id)
+                if ancestor is None or ancestor.is_deleted:
+                    break
+                p_old = _naive_utc(ancestor.end_time)
+                if p_old >= new_end:
+                    break  # ancestor already covers the new deadline — stop cascade
+                await self._task_repo.update_fields(ancestor, {"end_time": new_end})
+                await self._audit_repo.write(
+                    actor_id=current_user.id,
+                    action="task.deadline_cascaded_to_parent",
+                    entity_type="task",
+                    entity_id=ancestor.id,
+                    old_value={"end_time": str(p_old)},
+                    new_value={"end_time": str(new_end)},
+                )
+                ancestor_id = ancestor.parent_id
             if project.end_date < new_end.date():
                 old_pd = project.end_date
                 project.end_date = new_end.date()
@@ -1703,6 +1708,21 @@ class TaskService:
         if task.status == "done":
             raise HTTPException(422, "Task is already completed")
 
+        # Check dependency blockers before allowing progress (same as update_task_status)
+        if task.status == "todo":
+            waiting_links = await self._task_repo.list_waiting_for_links(task_id)
+            blockers = []
+            for link in waiting_links:
+                blocker = await self._task_repo.get_by_id(link.blocking_task_id)
+                if blocker and blocker.status != "done":
+                    blockers.append(blocker.name)
+            if blockers:
+                names = ", ".join(f'"{n}"' for n in blockers)
+                raise HTTPException(
+                    422,
+                    f"Công việc đang bị chặn bởi: {names}. Vui lòng hoàn thành các công việc trước đó.",
+                )
+
         photo = body.photo_url.strip()
         if not photo:
             raise HTTPException(422, "photo_url is required")
@@ -1732,8 +1752,9 @@ class TaskService:
 
         # Auto-transition: use weighted combined total
         combined_after = await _rollup_completion_pct(self._task_repo, task_id)
-        if combined_after >= 100.0 and task.status != "done":
-            await self._task_repo.set_status(task, "done")
+        if combined_after >= 100.0 and task.status not in ("review", "done"):
+            # Move to review so assignor can verify — do NOT skip review step
+            await self._task_repo.set_status(task, "review")
         elif task.status == "todo":
             await self._task_repo.set_status(task, "in_progress")
 

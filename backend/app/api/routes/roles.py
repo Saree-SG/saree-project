@@ -13,6 +13,7 @@ from app.api.deps import AsyncSessionDep, CurrentUser
 from app.models.org import (
     AccountMembershipPublic,
     AccountProfilePublic,
+    Company,
     CompanyCreate,
     CompanyMemberPublic,
     CompanyMemberRoleUpdateRequest,
@@ -334,6 +335,26 @@ async def list_companies(
         CompanyPublic(id=c.id, name=c.name, slug=c.slug, is_active=c.is_active)
         for c in companies
     ]
+
+
+@router.get("/my-companies", response_model=list[CompanyPublic])
+async def list_my_companies(
+    session: AsyncSessionDep,
+    current_user: CurrentUser,
+) -> list[CompanyPublic]:
+    """List companies the current user belongs to (via UserCompanyRole)."""
+    result = await session.execute(
+        select(UserCompanyRole.company_id)
+        .where(UserCompanyRole.user_id == current_user.id)
+        .distinct()
+    )
+    company_ids = result.scalars().all()
+    companies = []
+    for cid in company_ids:
+        c = await session.get(Company, cid)
+        if c and c.is_active:
+            companies.append(CompanyPublic(id=c.id, name=c.name, slug=c.slug, is_active=c.is_active))
+    return companies
 
 
 @router.get("/companies/{company_id}/members", response_model=list[CompanyMemberPublic])
