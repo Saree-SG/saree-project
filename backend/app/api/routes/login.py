@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import HTMLResponse
 from fastapi.security import OAuth2PasswordRequestForm
 
@@ -17,6 +17,7 @@ from app.api.deps import (
 from app.core.auth.security import decode_token
 from app.core.auth.session_service import get_session_service
 from app.models import (
+    LoginHistory,
     LogoutRequest,
     Message,
     NewPassword,
@@ -37,23 +38,77 @@ router = APIRouter(tags=["login"])
 logger = logging.getLogger(__name__)
 
 
+def _client_ip(request: Request) -> str | None:
+    """Best-effort client IP extraction respecting X-Forwarded-For."""
+    xff = request.headers.get("x-forwarded-for")
+    if xff:
+        return xff.split(",")[0].strip() or None
+    return request.client.host if request.client else None
+
+
+def _client_ua(request: Request) -> str | None:
+    """Read User-Agent header capped to 512 chars."""
+    ua = request.headers.get("user-agent")
+    return ua[:512] if ua else None
+
+
 @router.post("/login/access-token")
 async def login_access_token(
     session: AsyncSessionDep,
+    request: Request,
     form_data: Annotated[OAuth2PasswordRequestForm, Depends()],
 ) -> Token:
     """OAuth2 token login — returns access + refresh token pair."""
+    ip = _client_ip(request)
+    ua = _client_ua(request)
     user = await UserService(session).authenticate(form_data.username, form_data.password)
     if not user:
+        session.add(
+            LoginHistory(
+                user_id=None,
+                email=form_data.username[:255],
+                success=False,
+                ip_address=ip,
+                user_agent=ua,
+            )
+        )
+        await session.commit()
         raise HTTPException(status_code=400, detail="Incorrect email or password")
     if not user.is_active:
+        session.add(
+            LoginHistory(
+                user_id=user.id,
+                email=user.email,
+                success=False,
+                ip_address=ip,
+                user_agent=ua,
+            )
+        )
+        await session.commit()
         raise HTTPException(status_code=400, detail="Inactive user")
+    token = get_session_service().issue_login_tokens(
+        str(user.id),
+        ip_address=ip,
+        user_agent=ua,
+    )
+    session.add(
+        LoginHistory(
+            user_id=user.id,
+            email=user.email,
+            success=True,
+            session_id=token.session_id,
+            ip_address=ip,
+            user_agent=ua,
+        )
+    )
+    await session.commit()
     logger.info(
-        "login issued username=%s user_id=%s",
+        "login issued username=%s user_id=%s sid=%s",
         form_data.username,
         user.id,
+        token.session_id,
     )
-    return get_session_service().issue_login_tokens(str(user.id))
+    return token
 
 
 @router.post("/login/test-token", response_model=UserPublic)

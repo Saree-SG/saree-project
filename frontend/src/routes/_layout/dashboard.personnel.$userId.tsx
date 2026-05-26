@@ -2,20 +2,21 @@ import { useQuery } from "@tanstack/react-query"
 import { createFileRoute, Link } from "@tanstack/react-router"
 import axios from "axios"
 import { ArrowLeft, CalendarRange, Loader2 } from "lucide-react"
+import { useMemo, useState } from "react"
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts"
 
 import { OpenAPI } from "@/client"
+import GanttToolbar from "@/components/Gantt/GanttToolbar"
+import GanttView from "@/components/Gantt/GanttView"
+import { toGanttLink, toGanttRow } from "@/components/Gantt/transformers"
+import type {
+  GanttFilter,
+  GanttGroupBy,
+  GanttScale,
+} from "@/components/Gantt/types"
 import { Button } from "@/components/ui/button"
+import { fetchUserGantt } from "@/modules/gantt/ganttApi"
 import { getAccessToken } from "@/modules/auth/tokenStore"
-
-type PersonnelTask = {
-  id: string
-  name: string
-  status: string
-  start_time: string | null
-  end_time: string | null
-  project_name?: string | null
-}
 
 type PersonnelWeeklyRow = {
   period: string
@@ -39,43 +40,6 @@ function authHeaders() {
   return { Authorization: `Bearer ${getAccessToken() || ""}` }
 }
 
-/**
- * Convert ISO date string to short vi-VN label.
- */
-function formatShortDate(value: string | null): string {
-  if (!value) return "—"
-  return new Date(value).toLocaleDateString("vi-VN", {
-    day: "2-digit",
-    month: "2-digit",
-  })
-}
-
-/**
- * Build compact gantt range percentages for a task list.
- */
-function computeTaskRanges(tasks: PersonnelTask[]) {
-  const times = tasks
-    .flatMap((task) => [task.start_time, task.end_time])
-    .filter(Boolean)
-    .map((value) => new Date(value as string).getTime())
-  const minTime = Math.min(...times)
-  const maxTime = Math.max(...times)
-  const span = Math.max(maxTime - minTime, 1)
-  return tasks.map((task) => {
-    const start = task.start_time ? new Date(task.start_time).getTime() : minTime
-    const end = task.end_time ? new Date(task.end_time).getTime() : start
-    const left = ((start - minTime) / span) * 100
-    const width = Math.max(((end - start) / span) * 100, 2)
-    const isOverdue = task.status !== "completed" && end < Date.now()
-    return {
-      ...task,
-      left,
-      width,
-      isOverdue,
-    }
-  })
-}
-
 export const Route = createFileRoute("/_layout/dashboard/personnel/$userId")({
   component: DashboardPersonnelPage,
   head: () => ({ meta: [{ title: "Dashboard nhân sự" }] }),
@@ -95,16 +59,32 @@ function DashboardPersonnelPage() {
       ).data,
   })
 
-  const tasksQuery = useQuery({
-    queryKey: ["dashboard", "personnel-tasks", userId],
-    queryFn: async () =>
-      (
-        await axios.get<PersonnelTask[]>(
-          `${OpenAPI.BASE}/api/v1/dashboard/users/${userId}/tasks`,
-          { headers: authHeaders() },
-        )
-      ).data,
+  const ganttQuery = useQuery({
+    queryKey: ["gantt", "user", userId],
+    queryFn: () => fetchUserGantt(userId),
   })
+
+  const [scale, setScale] = useState<GanttScale>("day")
+  const [groupBy, setGroupBy] = useState<GanttGroupBy>("project")
+  const [filter, setFilter] = useState<GanttFilter>({})
+  const [scrollToToday, setScrollToToday] = useState(0)
+
+  const rows = useMemo(
+    () =>
+      (ganttQuery.data?.tasks ?? []).map((t) => {
+        const r = toGanttRow(t)
+        return {
+          ...r,
+          project_id: t.project_id,
+          project_name: (t as any).project_name ?? null,
+        }
+      }),
+    [ganttQuery.data?.tasks],
+  )
+  const links = useMemo(
+    () => (ganttQuery.data?.dependencies ?? []).map(toGanttLink),
+    [ganttQuery.data?.dependencies],
+  )
 
   const weeklyStatsQuery = useQuery({
     queryKey: ["dashboard", "personnel-weekly-stats", userId],
@@ -118,9 +98,8 @@ function DashboardPersonnelPage() {
   })
 
   const userStats = (leaderboardQuery.data ?? []).find((row) => row.user_id === userId)
-  const taskRanges = computeTaskRanges(tasksQuery.data ?? [])
 
-  if (tasksQuery.isLoading || weeklyStatsQuery.isLoading || leaderboardQuery.isLoading) {
+  if (ganttQuery.isLoading || weeklyStatsQuery.isLoading || leaderboardQuery.isLoading) {
     return (
       <div className="flex h-64 items-center justify-center">
         <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
@@ -170,34 +149,35 @@ function DashboardPersonnelPage() {
       </div>
 
       <section className="rounded-xl border bg-card p-4">
-        <div className="mb-4 flex items-center gap-2">
-          <CalendarRange className="h-4 w-4 text-muted-foreground" />
-          <h2 className="text-sm font-bold">Gantt công việc (compact)</h2>
+        <div className="mb-4 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <CalendarRange className="h-4 w-4 text-muted-foreground" />
+            <h2 className="text-sm font-bold">Gantt công việc</h2>
+          </div>
+          <GanttToolbar
+            rows={rows}
+            scale={scale}
+            onScaleChange={setScale}
+            groupBy={groupBy}
+            onGroupByChange={setGroupBy}
+            filter={filter}
+            onFilterChange={setFilter}
+            onScrollToToday={() => setScrollToToday((n) => n + 1)}
+            enableProjectGroup
+          />
         </div>
-        {!taskRanges.length ? (
+        {rows.length === 0 ? (
           <p className="text-sm text-muted-foreground">Chưa có task để hiển thị.</p>
         ) : (
-          <div className="space-y-2">
-            {taskRanges.map((task) => (
-              <div key={task.id} className="grid grid-cols-[240px_1fr] items-center gap-3">
-                <div className="min-w-0">
-                  <p className="truncate text-xs font-medium">{task.name}</p>
-                  <p className="truncate text-[11px] text-muted-foreground">
-                    {task.project_name ?? "—"} · {formatShortDate(task.start_time)} -{" "}
-                    {formatShortDate(task.end_time)}
-                  </p>
-                </div>
-                <div className="relative h-5 rounded-md bg-muted">
-                  <div
-                    className={`absolute top-1/2 h-2 -translate-y-1/2 rounded ${
-                      task.isOverdue ? "bg-red-500" : "bg-blue-500"
-                    }`}
-                    style={{ left: `${task.left}%`, width: `${task.width}%` }}
-                  />
-                </div>
-              </div>
-            ))}
-          </div>
+          <GanttView
+            rows={rows}
+            links={links}
+            scale={scale}
+            groupBy={groupBy}
+            filter={filter}
+            scrollToToday={scrollToToday}
+            readOnly
+          />
         )}
       </section>
 

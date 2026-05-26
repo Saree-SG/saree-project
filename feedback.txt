@@ -1,0 +1,30 @@
+Thêm người duyệt cho từng giai đoạn, giám đốc thêm vào
+
+Chỗ khảo sát có thể thêm người, và phải gửi 2 bản mới có thể pass qua. Giám đốc có thể yêu cầu bổ sung với người đc chọn
+
+Thêm màu và deadline cho công việc , báo giá
+Nhập chung vào công việc của tôi ở các báo 
+giá, thêm filter vào công việc của tôi
+Định giá vật tư > dự toán
+
+Thiết kế > bóc tách khối lượng > dự toán (không duyệt), không duyệt có thể quay về bất kì phase nào ( cần option)
+Mỗi bước cần có người handle
+
+Ghi nhận đã gửi khách ở chờ khách 4 option: đổi thành Bổ sung, Thương Lượng, xoá chữ thua đi
+Dự án nội bộ ( dự án đặc biệt)
+
+
+Tạo profile task ( tự add sẵn khoảng 10 task)
+
+Deadline nên để số ngày làm thay vì chọn ngày
+Nen có 1 group công việc thêm vào
+Dự án > hạng mục > task
+
+Đổi bình luận thành thảo luận
+
+Tạo yêu cầu cung cấp
+Bình luận cần thêm thời gian, có thể tag người vào
+
+Bảng lưu danh sách công việc + thời gian
+Task cần có thêm chỗ để sửa lỗi để lhi hoàn thành mà hư thì cần note lại
+Hệ số cho nhân viên

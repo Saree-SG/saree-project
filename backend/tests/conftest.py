@@ -121,8 +121,19 @@ def test_engine():
 def _init_test_db(test_engine) -> None:
     """Initialize seed data once per test session."""
 
+    from app.scripts.seed_defaults import seed as seed_defaults
     with Session(test_engine) as session:
         init_db(session)
+        # Seed a bootstrap company + permissions/roles so permission checks work in tests
+        from app.models.org import Company
+        from sqlmodel import select as _select
+        bootstrap = session.exec(_select(Company).where(Company.slug == "__test_bootstrap__")).first()
+        if bootstrap is None:
+            bootstrap = Company(name="Bootstrap", slug="__test_bootstrap__")
+            session.add(bootstrap)
+            session.commit()
+            session.refresh(bootstrap)
+        seed_defaults(session, bootstrap.id)
 
 
 @pytest.fixture(scope="function")

@@ -334,12 +334,22 @@ async def _enrich(
     ]
     merged_linked_entities = _merge_legacy_linked_entity(task, linked_entities_public)
 
+    dept_id = assignee.department_id if assignee else None
+    dept_name: str | None = None
+    if dept_id is not None:
+        from app.models.org import Department
+
+        dept = await session.get(Department, dept_id)
+        dept_name = dept.name if dept else None
+
     return TaskPublic(
         **task.model_dump(),
         computed_status=computed,
         reported_progress_total=reported,
         assignee_name=_display_name(assignee),
         assignor_name=_display_name(assignor),
+        assignee_department_id=dept_id,
+        assignee_department_name=dept_name,
         blocked_by=blocked_by,
         extra_assignees=extra_assignees,
         observers=observers,

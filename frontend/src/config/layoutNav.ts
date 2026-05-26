@@ -1,6 +1,7 @@
 import type { LucideIcon } from "lucide-react"
 import {
   Building2,
+  CalendarRange,
   ClipboardList,
   FileSignature,
   FileText,
@@ -49,6 +50,13 @@ export function buildLayoutNavItems(
       title: "Dự án",
       path: "/projects",
       matchPrefix: true,
+    })
+  }
+  if (showManagement) {
+    items.push({
+      icon: CalendarRange,
+      title: "Gantt tổng",
+      path: "/gantt",
     })
   }
   if (canAccessQuotations) {

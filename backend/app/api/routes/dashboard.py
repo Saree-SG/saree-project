@@ -15,7 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import AsyncSessionDep, CurrentUser
 from app.models.project import Project
-from app.models.task import Task, TaskProgressReport
+from app.models.task import Task, TaskDependency, TaskProgressReport
 from app.models.user import User
 from app.services.task_service import compute_task_status
 from app.shared.permission import require_any_permission
@@ -476,6 +476,232 @@ async def user_tasks(
         }
         for t in tasks
     ]
+
+
+@router.get("/gantt")
+async def company_gantt(
+    session: AsyncSessionDep,
+    current_user: CurrentUser,
+    project_id: uuid.UUID | None = Query(default=None),
+    department_id: uuid.UUID | None = Query(default=None),
+    assignee_id: uuid.UUID | None = Query(default=None),
+    start_date: datetime | None = Query(default=None),
+    end_date: datetime | None = Query(default=None),
+) -> dict[str, Any]:
+    """Company-wide Gantt across multiple projects with filters."""
+    project_ids = await _project_ids_scope(
+        session, current_user, project_id, department_id
+    )
+    if not project_ids:
+        return {"tasks": [], "dependencies": []}
+
+    stmt = select(Task).where(
+        Task.project_id.in_(project_ids),  # type: ignore[arg-type]
+        Task.is_deleted == False,  # noqa: E712
+    )
+    if assignee_id is not None:
+        stmt = stmt.where(Task.assignee_id == assignee_id)
+    if start_date is not None:
+        stmt = stmt.where(Task.end_time >= start_date)
+    if end_date is not None:
+        stmt = stmt.where(Task.start_time <= end_date)
+    stmt = stmt.order_by(Task.start_time)
+    tasks = (await session.execute(stmt)).scalars().all()
+    if not tasks:
+        return {"tasks": [], "dependencies": []}
+
+    task_ids = [t.id for t in tasks]
+    project_ids_of_tasks = list({t.project_id for t in tasks})
+    proj_names = {
+        r.id: r.name
+        for r in (
+            await session.execute(
+                select(Project.id, Project.name).where(
+                    Project.id.in_(project_ids_of_tasks)  # type: ignore[arg-type]
+                )
+            )
+        ).all()
+    }
+
+    assignee_ids = list({t.assignee_id for t in tasks if t.assignee_id})
+    user_rows = (
+        await session.execute(
+            select(User.id, User.full_name, User.email, User.department_id).where(
+                User.id.in_(assignee_ids)  # type: ignore[arg-type]
+            )
+        )
+    ).all() if assignee_ids else []
+    user_lookup = {
+        r.id: {
+            "name": r.full_name or r.email,
+            "department_id": r.department_id,
+        }
+        for r in user_rows
+    }
+
+    progress_map: dict[uuid.UUID, int] = {}
+    try:
+        rows = (
+            await session.execute(
+                select(
+                    TaskProgressReport.task_id,
+                    func.max(TaskProgressReport.progress_percent),
+                )
+                .where(TaskProgressReport.task_id.in_(task_ids))  # type: ignore[arg-type]
+                .group_by(TaskProgressReport.task_id)
+            )
+        ).all()
+        for tid, pct in rows:
+            progress_map[tid] = int(pct or 0)
+    except Exception:
+        pass
+
+    deps = (
+        await session.execute(
+            select(TaskDependency).where(
+                TaskDependency.blocking_task_id.in_(task_ids),  # type: ignore[arg-type]
+                TaskDependency.dependent_task_id.in_(task_ids),  # type: ignore[arg-type]
+            )
+        )
+    ).scalars().all()
+
+    return {
+        "tasks": [
+            {
+                "id": str(t.id),
+                "project_id": str(t.project_id),
+                "project_name": proj_names.get(t.project_id),
+                "parent_id": str(t.parent_id) if t.parent_id else None,
+                "level": t.level,
+                "name": t.name,
+                "start_time": t.start_time.isoformat() if t.start_time else None,
+                "end_time": t.end_time.isoformat() if t.end_time else None,
+                "status": t.status,
+                "computed_status": compute_task_status(t, None),
+                "is_on_critical_path": bool(getattr(t, "is_on_critical_path", False)),
+                "reported_progress_total": progress_map.get(t.id, 0),
+                "assignee_id": str(t.assignee_id) if t.assignee_id else None,
+                "assignee_name": (
+                    user_lookup.get(t.assignee_id, {}).get("name")
+                    if t.assignee_id
+                    else None
+                ),
+                "assignor_name": None,
+            }
+            for t in tasks
+        ],
+        "dependencies": [
+            {
+                "id": str(d.id),
+                "blocking_task_id": str(d.blocking_task_id),
+                "dependent_task_id": str(d.dependent_task_id),
+                "dependency_type": d.dependency_type,
+                "lag_hours": d.lag_hours,
+            }
+            for d in deps
+        ],
+    }
+
+
+@router.get("/users/{user_id}/gantt")
+async def user_gantt(
+    user_id: uuid.UUID,
+    session: AsyncSessionDep,
+    current_user: CurrentUser,
+) -> dict[str, Any]:
+    """Gantt view of tasks assigned to a user across all visible projects."""
+    project_ids = await _project_ids_scope(session, current_user)
+    if not project_ids:
+        return {"tasks": [], "dependencies": []}
+
+    tasks = (
+        await session.execute(
+            select(Task)
+            .where(
+                Task.assignee_id == user_id,
+                Task.project_id.in_(project_ids),  # type: ignore[arg-type]
+                Task.is_deleted == False,  # noqa: E712
+            )
+            .order_by(Task.start_time)
+        )
+    ).scalars().all()
+    if not tasks:
+        return {"tasks": [], "dependencies": []}
+
+    task_ids = [t.id for t in tasks]
+    project_ids_of_tasks = list({t.project_id for t in tasks})
+    proj_names = {
+        r.id: r.name
+        for r in (
+            await session.execute(
+                select(Project.id, Project.name).where(
+                    Project.id.in_(project_ids_of_tasks)  # type: ignore[arg-type]
+                )
+            )
+        ).all()
+    }
+
+    # Progress per task (sum of latest report) — simplified: use reported_progress_total if column exists; fallback 0.
+    # Many task rows have it pre-computed.
+    progress_map: dict[uuid.UUID, int] = {}
+    try:
+        rows = (
+            await session.execute(
+                select(
+                    TaskProgressReport.task_id,
+                    func.max(TaskProgressReport.progress_percent),
+                )
+                .where(TaskProgressReport.task_id.in_(task_ids))  # type: ignore[arg-type]
+                .group_by(TaskProgressReport.task_id)
+            )
+        ).all()
+        for tid, pct in rows:
+            progress_map[tid] = int(pct or 0)
+    except Exception:
+        pass
+
+    # Dependencies only between user's own tasks
+    deps = (
+        await session.execute(
+            select(TaskDependency).where(
+                TaskDependency.blocking_task_id.in_(task_ids),  # type: ignore[arg-type]
+                TaskDependency.dependent_task_id.in_(task_ids),  # type: ignore[arg-type]
+            )
+        )
+    ).scalars().all()
+
+    return {
+        "tasks": [
+            {
+                "id": str(t.id),
+                "project_id": str(t.project_id),
+                "project_name": proj_names.get(t.project_id),
+                "parent_id": str(t.parent_id) if t.parent_id else None,
+                "level": t.level,
+                "name": t.name,
+                "start_time": t.start_time.isoformat() if t.start_time else None,
+                "end_time": t.end_time.isoformat() if t.end_time else None,
+                "status": t.status,
+                "computed_status": compute_task_status(t, None),
+                "is_on_critical_path": bool(getattr(t, "is_on_critical_path", False)),
+                "reported_progress_total": progress_map.get(t.id, 0),
+                "assignee_id": str(t.assignee_id) if t.assignee_id else None,
+                "assignee_name": None,  # not needed — page already knows the user
+                "assignor_name": None,
+            }
+            for t in tasks
+        ],
+        "dependencies": [
+            {
+                "id": str(d.id),
+                "blocking_task_id": str(d.blocking_task_id),
+                "dependent_task_id": str(d.dependent_task_id),
+                "dependency_type": d.dependency_type,
+                "lag_hours": d.lag_hours,
+            }
+            for d in deps
+        ],
+    }
 
 
 @router.get("/users/{user_id}/weekly-stats")

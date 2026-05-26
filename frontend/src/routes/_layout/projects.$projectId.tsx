@@ -3,7 +3,7 @@ import { createFileRoute, Link, redirect, useNavigate } from "@tanstack/react-ro
 import { ChevronDown, ChevronRight, BookTemplate, Plus, MoreHorizontal, BookmarkPlus, Layers } from "lucide-react"
 import { useEffect, useMemo, useRef, useState } from "react"
 
-import { ProjectGantt } from "@/components/Gantt/ProjectGantt"
+import ProjectGantt from "@/components/Gantt/ProjectGanttV2"
 import { DelayWarnings } from "@/components/Project/DelayWarnings"
 
 import {

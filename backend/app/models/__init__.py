@@ -131,6 +131,8 @@ from app.models.task import (  # noqa: F401
     TaskUpdate,
 )
 from app.models.user import (  # noqa: F401
+    LoginHistory,
+    LoginHistoryPublic,
     UpdatePassword,
     User,
     UserBase,

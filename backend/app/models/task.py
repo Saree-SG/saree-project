@@ -194,6 +194,8 @@ class TaskPublic(TaskBase):
     assignee_id: uuid.UUID
     assignee_name: str | None = None
     assignor_name: str | None = None
+    assignee_department_id: uuid.UUID | None = None
+    assignee_department_name: str | None = None
     actual_end_time: datetime | None
     is_on_critical_path: bool
     created_at: datetime

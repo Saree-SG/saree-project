@@ -1,26 +1,15 @@
-import { useSuspenseQuery } from "@tanstack/react-query"
-import { createFileRoute, redirect } from "@tanstack/react-router"
-import { Suspense } from "react"
+import { Outlet, createFileRoute, redirect } from "@tanstack/react-router"
+import { Menu } from "lucide-react"
+import { useState } from "react"
 
-import { ApiError, type UserPublic, UsersService } from "@/client"
-import AddUser from "@/components/Admin/AddUser"
-import CompanyManagement from "@/components/Admin/CompanyManagement"
-import CreateCompany from "@/components/Admin/CreateCompany"
-import { columns, type UserTableData } from "@/components/Admin/columns"
-import { DataTable } from "@/components/Common/DataTable"
-import PendingUsers from "@/components/Pending/PendingUsers"
-import useAuth from "@/hooks/useAuth"
+import { ApiError, RolesService, UsersService } from "@/client"
+import AdminSidebar from "@/components/Admin/AdminSidebar"
+import { Button } from "@/components/ui/button"
+import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 import { clearSession } from "@/modules/auth/tokenStore"
 
-function getUsersQueryOptions() {
-  return {
-    queryFn: () => UsersService.readUsers({ skip: 0, limit: 100 }),
-    queryKey: ["users"],
-  }
-}
-
 export const Route = createFileRoute("/_layout/admin")({
-  component: Admin,
+  component: AdminLayout,
   beforeLoad: async () => {
     let user
     try {
@@ -32,58 +21,53 @@ export const Route = createFileRoute("/_layout/admin")({
       }
       throw errorValue
     }
-    if (!user.is_superuser) {
-      throw redirect({
-        to: "/",
-      })
+
+    if (user.is_superuser) {
+      return { isSuperuser: true }
     }
+
+    // Allow board directors (any role with level 1) to access /admin/organization
+    try {
+      const profile = await RolesService.myAccountProfile()
+      const isDirector = profile.memberships.some((m) => m.role_level === 1)
+      if (isDirector) return { isSuperuser: false }
+    } catch {
+      // ignore — fall through to redirect
+    }
+    throw redirect({ to: "/" })
   },
   head: () => ({
-    meta: [
-      {
-        title: "Admin - Saree",
-      },
-    ],
+    meta: [{ title: "Admin - Saree" }],
   }),
 })
 
-function UsersTableContent() {
-  const { user: currentUser } = useAuth()
-  const { data: users } = useSuspenseQuery(getUsersQueryOptions())
+function AdminLayout() {
+  const [mobileOpen, setMobileOpen] = useState(false)
 
-  const tableData: UserTableData[] = users.data.map((user: UserPublic) => ({
-    ...user,
-    isCurrentUser: currentUser?.id === user.id,
-  }))
-
-  return <DataTable columns={columns} data={tableData} />
-}
-
-function UsersTable() {
   return (
-    <Suspense fallback={<PendingUsers />}>
-      <UsersTableContent />
-    </Suspense>
-  )
-}
-
-function Admin() {
-  return (
-    <div className="flex flex-col gap-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Users</h1>
-          <p className="text-muted-foreground">
-            Manage user accounts and permissions
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <CreateCompany />
-          <AddUser />
-        </div>
+    <div className="flex min-h-[calc(100vh-4rem)] flex-col md:flex-row">
+      {/* Mobile top bar */}
+      <div className="flex items-center justify-between border-b bg-muted/30 px-4 py-2 md:hidden">
+        <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
+          <SheetTrigger asChild>
+            <Button variant="ghost" size="sm">
+              <Menu className="h-5 w-5" />
+              <span className="ml-2 font-semibold">Admin</span>
+            </Button>
+          </SheetTrigger>
+          <SheetContent side="left" className="w-64 p-0">
+            <AdminSidebar
+              embedded
+              onNavigate={() => setMobileOpen(false)}
+            />
+          </SheetContent>
+        </Sheet>
       </div>
-      <CompanyManagement />
-      <UsersTable />
+
+      <AdminSidebar />
+      <main className="min-w-0 flex-1 overflow-auto p-4 md:p-6">
+        <Outlet />
+      </main>
     </div>
   )
 }

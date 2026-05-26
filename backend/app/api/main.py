@@ -1,6 +1,8 @@
 from fastapi import APIRouter
 
 from app.api.routes import (
+    admin_stats,
+    admin_users,
     chat,
     chat_ws,
     contracts,
@@ -38,6 +40,8 @@ api_router.include_router(notifications.router)
 api_router.include_router(quotations.router)
 api_router.include_router(contracts.router)
 api_router.include_router(export.router)
+api_router.include_router(admin_stats.router)
+api_router.include_router(admin_users.router)
 
 if settings.ENVIRONMENT == "local":
     api_router.include_router(private.router)

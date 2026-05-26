@@ -1,0 +1,39 @@
+/* Today column highlight (returned by highlightTime) */
+.wx-today-cell {
+  background: rgba(37, 99, 235, 0.08) !important;
+}
+
+/* Weekend shading */
+.wx-weekend {
+  background: rgba(0, 0, 0, 0.03) !important;
+}
+
+/* Critical-path tasks — red */
+.wx-gantt .wx-bar.wx-task.critical,
+.wx-gantt .wx-task.critical .wx-bar {
+  background: #fee2e2 !important;
+  border: 1px solid #dc2626 !important;
+}
+.wx-gantt .wx-bar.wx-task.critical .wx-progress-percent,
+.wx-gantt .wx-task.critical .wx-progress-percent {
+  background: #dc2626 !important;
+}
+
+/* Blocked tasks — amber */
+.wx-gantt .wx-bar.wx-task.blocked,
+.wx-gantt .wx-task.blocked .wx-bar {
+  background: #fef3c7 !important;
+  border: 1px solid #d97706 !important;
+}
+.wx-gantt .wx-bar.wx-task.blocked .wx-progress-percent,
+.wx-gantt .wx-task.blocked .wx-progress-percent {
+  background: #d97706 !important;
+}
+
+/* Brand colors override */
+.wx-gantt {
+  --wx-gantt-task-color: #3b82f6;
+  --wx-gantt-task-fill-color: #2563eb;
+  --wx-gantt-task-border-color: #2563eb;
+  --wx-gantt-bar-border-radius: 4px;
+}

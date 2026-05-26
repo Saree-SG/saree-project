@@ -105,3 +105,34 @@ class UserPublic(UserBase):
 class UsersPublic(SQLModel):
     data: list[UserPublic]
     count: int
+
+
+# ---------------------------------------------------------------------------
+# Login history (admin tracking)
+# ---------------------------------------------------------------------------
+class LoginHistory(SQLModel, table=True):
+    __tablename__ = "loginhistory"
+
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    user_id: uuid.UUID | None = Field(default=None, foreign_key="user.id", index=True)
+    email: str = Field(max_length=255, index=True)
+    login_at: datetime = Field(
+        default_factory=get_datetime_utc,
+        sa_type=DateTime(timezone=True),  # type: ignore
+        index=True,
+    )
+    success: bool = Field(default=True, index=True)
+    session_id: str | None = Field(default=None, max_length=64)
+    ip_address: str | None = Field(default=None, max_length=64)
+    user_agent: str | None = Field(default=None, max_length=512)
+
+
+class LoginHistoryPublic(SQLModel):
+    id: uuid.UUID
+    user_id: uuid.UUID | None
+    email: str
+    login_at: datetime
+    success: bool
+    session_id: str | None
+    ip_address: str | None
+    user_agent: str | None

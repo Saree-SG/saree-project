@@ -95,6 +95,16 @@ class _MemoryKV:
 
         self._data.pop(key, None)
 
+    def scan_iter(self, match: str) -> list[str]:
+        """Return all live keys matching a glob-like prefix pattern."""
+
+        # only supports trailing '*' style matches used here
+        self._evict_expired()
+        if match.endswith("*"):
+            prefix = match[:-1]
+            return [k for k in self._data.keys() if k.startswith(prefix)]
+        return [k for k in self._data.keys() if k == match]
+
 
 class SessionService:
     """Manage auth sessions and refresh token rotation."""
@@ -141,7 +151,12 @@ class SessionService:
             return None
         return json.loads(raw)
 
-    def issue_login_tokens(self, user_id: str) -> Token:
+    def issue_login_tokens(
+        self,
+        user_id: str,
+        ip_address: str | None = None,
+        user_agent: str | None = None,
+    ) -> Token:
         """Create a new session and issue access/refresh token pair."""
 
         session_id = str(uuid4())
@@ -156,9 +171,17 @@ class SessionService:
             session_id=session_id,
         )
         refresh_hash = _sha256(refresh)
+        now_ts = _now_ts()
         self._write_json_ttl(
             self._session_key(session_id),
-            {"uid": user_id, "revoked": False},
+            {
+                "uid": user_id,
+                "revoked": False,
+                "login_at": now_ts,
+                "last_seen_at": now_ts,
+                "ip": ip_address,
+                "ua": user_agent,
+            },
             self._refresh_ttl,
         )
         self._write_json_ttl(
@@ -181,7 +204,58 @@ class SessionService:
         session_state = self._read_json(self._session_key(payload.sid))
         if session_state is None:
             return False
-        return not bool(session_state.get("revoked"))
+        if bool(session_state.get("revoked")):
+            return False
+        # touch last_seen_at — best-effort, ignore failures
+        try:
+            session_state["last_seen_at"] = _now_ts()
+            self._write_json_ttl(
+                self._session_key(payload.sid),
+                session_state,
+                self._refresh_ttl,
+            )
+        except Exception:
+            pass
+        return True
+
+    def list_active_sessions(self) -> list[dict[str, Any]]:
+        """List all non-revoked sessions across the store."""
+
+        keys: list[str] = []
+        try:
+            keys = list(self._kv.scan_iter("sess:*"))  # type: ignore[arg-type]
+        except Exception:
+            return []
+        sessions: list[dict[str, Any]] = []
+        for key in keys:
+            data = self._read_json(key if isinstance(key, str) else key.decode())
+            if data is None or bool(data.get("revoked")):
+                continue
+            sessions.append(
+                {
+                    "session_id": (key if isinstance(key, str) else key.decode()).removeprefix("sess:"),
+                    "user_id": data.get("uid"),
+                    "login_at": data.get("login_at"),
+                    "last_seen_at": data.get("last_seen_at"),
+                    "ip_address": data.get("ip"),
+                    "user_agent": data.get("ua"),
+                }
+            )
+        return sessions
+
+    def revoke_session_by_id(self, session_id: str) -> bool:
+        """Mark a session as revoked. Returns True if session existed."""
+
+        state = self._read_json(self._session_key(session_id))
+        if state is None:
+            return False
+        state["revoked"] = True
+        self._write_json_ttl(
+            self._session_key(session_id),
+            state,
+            self._refresh_ttl,
+        )
+        return True
 
     def rotate_refresh_token(self, refresh_token: str) -> RotateResult:
         """Rotate refresh token with grace-period idempotency."""

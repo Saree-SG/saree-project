@@ -1,5 +1,5 @@
-import { Link as RouterLink } from "@tanstack/react-router"
-import { ChevronsUpDown, LogOut, Settings } from "lucide-react"
+import { useNavigate } from "@tanstack/react-router"
+import { ChevronsUpDown, LogOut, Settings, UserCircle } from "lucide-react"
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import {
@@ -43,6 +43,7 @@ function UserInfo({ fullName, email }: UserInfoProps) {
 export function User({ user }: { user: any }) {
   const { logout } = useAuth()
   const { isMobile, setOpenMobile } = useSidebar()
+  const navigate = useNavigate()
 
   if (!user) return null
 
@@ -53,6 +54,16 @@ export function User({ user }: { user: any }) {
   }
   const handleLogout = async () => {
     await logout()
+  }
+  const goToProfile = () => {
+    handleMenuClick()
+    if (user?.id) {
+      navigate({ to: "/admin/users/$userId", params: { userId: user.id } })
+    }
+  }
+  const goToSettings = () => {
+    handleMenuClick()
+    navigate({ to: "/settings" })
   }
 
   return (
@@ -79,12 +90,16 @@ export function User({ user }: { user: any }) {
               <UserInfo fullName={user?.full_name} email={user?.email} />
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
-            <RouterLink to="/settings" onClick={handleMenuClick}>
-              <DropdownMenuItem>
-                <Settings />
-                User Settings
+            {user?.id ? (
+              <DropdownMenuItem onSelect={goToProfile}>
+                <UserCircle />
+                Hồ sơ của tôi
               </DropdownMenuItem>
-            </RouterLink>
+            ) : null}
+            <DropdownMenuItem onSelect={goToSettings}>
+              <Settings />
+              User Settings
+            </DropdownMenuItem>
             <DropdownMenuItem onClick={handleLogout}>
               <LogOut />
               Log Out

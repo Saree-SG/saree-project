@@ -15,8 +15,11 @@ export type GanttTask = {
   computed_status: string | null
   is_on_critical_path: boolean
   reported_progress_total: number
+  assignee_id?: string | null
   assignee_name: string | null
   assignor_name: string | null
+  assignee_department_id?: string | null
+  assignee_department_name?: string | null
   blocked_by?: Array<{ id: string; name: string; status: string }>
 }
 
@@ -35,6 +38,38 @@ export type GanttData = {
 
 function authHeaders() {
   return { Authorization: `Bearer ${getAccessToken() || ""}` }
+}
+
+export type CompanyGanttFilter = {
+  project_id?: string
+  department_id?: string
+  assignee_id?: string
+  start_date?: string
+  end_date?: string
+}
+
+export async function fetchCompanyGantt(
+  filter?: CompanyGanttFilter,
+): Promise<GanttData> {
+  const qs = new URLSearchParams()
+  if (filter) {
+    for (const [k, v] of Object.entries(filter)) {
+      if (v) qs.set(k, v)
+    }
+  }
+  const r = await axios.get<GanttData>(
+    `${OpenAPI.BASE}/api/v1/dashboard/gantt${qs.toString() ? `?${qs}` : ""}`,
+    { headers: authHeaders() },
+  )
+  return r.data
+}
+
+export async function fetchUserGantt(userId: string): Promise<GanttData> {
+  const r = await axios.get<GanttData>(
+    `${OpenAPI.BASE}/api/v1/dashboard/users/${userId}/gantt`,
+    { headers: authHeaders() },
+  )
+  return r.data
 }
 
 export async function fetchProjectGantt(projectId: string): Promise<GanttData> {
