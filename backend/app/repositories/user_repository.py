@@ -25,6 +25,17 @@ class UserRepository(BaseRepository[User]):
         result = await self._execute(select(User).where(User.email == email))
         return result.scalars().first()
 
+    async def find_by_email_prefix(self, prefix: str) -> list[User]:
+        """Return all users whose email starts with `<prefix>@` (case-insensitive).
+
+        Used to support login by account name (email prefix) without a username column.
+        """
+        like = f"{prefix.lower()}@%"
+        result = await self._execute(
+            select(User).where(func.lower(User.email).like(like))
+        )
+        return list(result.scalars().all())
+
     async def get_or_404(self, user_id: uuid.UUID) -> User:
         """Return user or raise 404."""
         user = await self.get_by_id(user_id)

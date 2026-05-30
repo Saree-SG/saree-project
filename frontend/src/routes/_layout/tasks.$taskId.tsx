@@ -158,6 +158,11 @@ function TaskDetailPage() {
   const [subtaskStartTime, setSubtaskStartTime] = useState("")
   const [subtaskEndTime, setSubtaskEndTime] = useState("")
   const [subtaskWeightDraft, setSubtaskWeightDraft] = useState("")
+  const [subtaskExtraAssigneeIds, setSubtaskExtraAssigneeIds] = useState<string[]>([])
+  const [subtaskAssigneeSearch, setSubtaskAssigneeSearch] = useState("")
+  const [subtaskAssigneePickerOpen, setSubtaskAssigneePickerOpen] = useState(false)
+  const [subtaskExtraSearch, setSubtaskExtraSearch] = useState("")
+  const [subtaskExtraPickerOpen, setSubtaskExtraPickerOpen] = useState(false)
   const [extraAssigneeDialogOpen, setExtraAssigneeDialogOpen] = useState(false)
   const [extraAssigneeUserId, setExtraAssigneeUserId] = useState("")
   const [observerDialogOpen, setObserverDialogOpen] = useState(false)
@@ -655,6 +660,9 @@ function TaskDetailPage() {
           end_time: endIso,
           project_id: projectId,
           assignee_id: subtaskAssigneeId,
+          extra_assignee_ids: subtaskExtraAssigneeIds.filter(
+            (id) => id !== subtaskAssigneeId,
+          ),
           progress_weight: weight,
         },
       })
@@ -665,6 +673,11 @@ function TaskDetailPage() {
       setSubtaskName("")
       setSubtaskDescription("")
       setSubtaskAssigneeId("")
+      setSubtaskAssigneeSearch("")
+      setSubtaskAssigneePickerOpen(false)
+      setSubtaskExtraAssigneeIds([])
+      setSubtaskExtraSearch("")
+      setSubtaskExtraPickerOpen(false)
       setSubtaskStartTime("")
       setSubtaskEndTime("")
       setSubtaskWeightDraft("")
@@ -866,13 +879,23 @@ function TaskDetailPage() {
     <div className="mx-auto w-full max-w-3xl space-y-6 px-2 pb-24 pt-3 sm:px-4">
       <section className="space-y-1 pt-1">
         <div className="flex items-center justify-between">
-          <Link
-            to="/projects/$projectId"
-            params={{ projectId: task?.project_id ?? "" }}
-            className="text-xs text-muted-foreground hover:text-foreground"
-          >
-            ← {projectQuery.data?.name ?? "Quay lại dự án"}
-          </Link>
+          {task?.parent_id ? (
+            <Link
+              to="/tasks/$taskId"
+              params={{ taskId: task.parent_id }}
+              className="text-xs text-muted-foreground hover:text-foreground"
+            >
+              ← {parentTaskQuery.data?.name ?? "Quay lại công việc cha"}
+            </Link>
+          ) : (
+            <Link
+              to="/projects/$projectId"
+              params={{ projectId: task?.project_id ?? "" }}
+              className="text-xs text-muted-foreground hover:text-foreground"
+            >
+              ← {projectQuery.data?.name ?? "Quay lại dự án"}
+            </Link>
+          )}
           {wsConnected ? (
             <span className="flex items-center gap-1 text-[10px] text-green-600">
               <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-green-500" />
@@ -969,10 +992,21 @@ function TaskDetailPage() {
               )}
             </div>
 
-            {/* Parent breadcrumb (subtask) */}
-            {parentBreadcrumbs.length > 0 && (
+            {/* Breadcrumb path: Project / Ancestor / Parent */}
+            {(parentBreadcrumbs.length > 0 || task?.project_id) && (
               <p className="flex flex-wrap items-center gap-x-1 gap-y-0.5 text-xs text-muted-foreground">
-                <span>Việc con của:</span>
+                {task?.project_id && (
+                  <>
+                    <Link
+                      to="/projects/$projectId"
+                      params={{ projectId: task.project_id }}
+                      className="font-semibold text-primary underline-offset-2 hover:underline"
+                    >
+                      {projectQuery.data?.name ?? "Dự án"}
+                    </Link>
+                    {parentBreadcrumbs.length > 0 && <span>/</span>}
+                  </>
+                )}
                 {parentBreadcrumbs.map((item, idx) => (
                   <span key={item.id} className="flex items-center gap-1">
                     <Link
@@ -1179,20 +1213,31 @@ function TaskDetailPage() {
       </Tabs>
 
       {/* ── Tab: Việc con ── */}
-      {activeTab === "subtasks" && !task?.parent_id && (
+      {activeTab === "subtasks" && (
       <section className="space-y-3 rounded-xl border bg-white p-4 shadow-sm">
         <div className="flex items-center justify-between gap-2">
           <h4 className="text-base font-bold text-slate-700">
             Công việc con
           </h4>
-          <button
-            type="button"
-            className="rounded-md bg-primary px-3 py-1.5 text-xs font-bold text-white disabled:opacity-60"
-            disabled={!task?.project_id}
-            onClick={() => setSubtaskDialogOpen(true)}
-          >
-            + Thêm công việc con
-          </button>
+          {(task?.level ?? 0) < 4 ? (
+            <button
+              type="button"
+              className="rounded-md bg-primary px-3 py-1.5 text-xs font-bold text-white disabled:opacity-60"
+              disabled={!task?.project_id || task?.status === "done"}
+              title={
+                task?.status === "done"
+                  ? "Công việc cha đã hoàn thành"
+                  : undefined
+              }
+              onClick={() => setSubtaskDialogOpen(true)}
+            >
+              + Thêm công việc con
+            </button>
+          ) : (
+            <span className="text-xs text-muted-foreground">
+              Đã đạt giới hạn 5 tầng
+            </span>
+          )}
         </div>
         {subtaskRows.length === 0 ? (
           <p className="text-xs text-muted-foreground">
@@ -2404,28 +2449,150 @@ function TaskDetailPage() {
               />
             </div>
             <div className="space-y-1">
-              <label
-                htmlFor="subtask-assignee"
-                className="text-sm font-semibold text-slate-700"
-              >
+              <label className="text-sm font-semibold text-slate-700">
                 Người thực hiện
               </label>
-              <select
-                id="subtask-assignee"
-                title="Chọn người thực hiện"
-                value={subtaskAssigneeId}
-                onChange={(eventValue) =>
-                  setSubtaskAssigneeId(eventValue.target.value)
+              <input
+                value={subtaskAssigneeSearch}
+                onFocus={() => setSubtaskAssigneePickerOpen(true)}
+                onBlur={() =>
+                  setTimeout(() => setSubtaskAssigneePickerOpen(false), 120)
                 }
-                className="h-10 w-full rounded-md border bg-white px-3 text-sm outline-none"
-              >
-                <option value="">Chọn nhân sự</option>
-                {(projectMembersQuery.data ?? []).map((member) => (
-                  <option key={member.user_id} value={member.user_id}>
-                    {member.full_name?.trim() || member.email}
-                  </option>
-                ))}
-              </select>
+                onChange={(e) => {
+                  setSubtaskAssigneeSearch(e.target.value)
+                  setSubtaskAssigneeId("")
+                }}
+                placeholder="Gõ tên hoặc email thành viên..."
+                className="h-10 w-full rounded-md border px-3 text-sm outline-none"
+              />
+              {subtaskAssigneePickerOpen ? (
+                <div className="max-h-48 overflow-auto rounded-md border">
+                  {(() => {
+                    const kw = subtaskAssigneeSearch.trim().toLowerCase()
+                    const pool = projectMembersQuery.data ?? []
+                    const filtered = kw
+                      ? pool.filter(
+                          (m) =>
+                            (m.full_name ?? "").toLowerCase().includes(kw) ||
+                            m.email.toLowerCase().includes(kw),
+                        )
+                      : pool
+                    if (filtered.length === 0) {
+                      return (
+                        <p className="p-2 text-xs text-muted-foreground">
+                          Không có thành viên phù hợp trong dự án.
+                        </p>
+                      )
+                    }
+                    return filtered.slice(0, 12).map((m) => (
+                      <button
+                        key={`subtask-assignee-${m.user_id}`}
+                        type="button"
+                        className={[
+                          "flex w-full items-center justify-between px-2 py-2 text-left text-xs hover:bg-slate-50",
+                          subtaskAssigneeId === m.user_id ? "bg-slate-100" : "",
+                        ].join(" ")}
+                        onMouseDown={(ev) => ev.preventDefault()}
+                        onClick={() => {
+                          setSubtaskAssigneeId(m.user_id)
+                          setSubtaskAssigneeSearch(m.full_name?.trim() || m.email)
+                          setSubtaskAssigneePickerOpen(false)
+                        }}
+                      >
+                        <span className="font-medium">{m.full_name || "N/A"}</span>
+                        <span className="text-muted-foreground">{m.email}</span>
+                      </button>
+                    ))
+                  })()}
+                </div>
+              ) : null}
+            </div>
+            <div className="space-y-1">
+              <label className="text-sm font-semibold text-slate-700">
+                Người cùng thực hiện (tuỳ chọn)
+              </label>
+              {subtaskExtraAssigneeIds.length > 0 && (
+                <div className="mb-1 flex flex-wrap gap-1">
+                  {subtaskExtraAssigneeIds.map((id) => {
+                    const u = (projectMembersQuery.data ?? []).find(
+                      (m) => m.user_id === id,
+                    )
+                    const label = u?.full_name?.trim() || u?.email || id
+                    return (
+                      <span
+                        key={`subtask-extra-${id}`}
+                        className="inline-flex items-center gap-1 rounded-full bg-blue-100 px-2 py-0.5 text-xs text-blue-700"
+                      >
+                        {label}
+                        <button
+                          type="button"
+                          className="text-blue-500 hover:text-blue-700"
+                          onClick={() =>
+                            setSubtaskExtraAssigneeIds((cur) =>
+                              cur.filter((x) => x !== id),
+                            )
+                          }
+                        >
+                          ×
+                        </button>
+                      </span>
+                    )
+                  })}
+                </div>
+              )}
+              <input
+                value={subtaskExtraSearch}
+                onFocus={() => setSubtaskExtraPickerOpen(true)}
+                onBlur={() =>
+                  setTimeout(() => setSubtaskExtraPickerOpen(false), 120)
+                }
+                onChange={(e) => setSubtaskExtraSearch(e.target.value)}
+                placeholder="Gõ tên hoặc email để thêm..."
+                className="h-10 w-full rounded-md border px-3 text-sm outline-none"
+              />
+              {subtaskExtraPickerOpen ? (
+                <div className="max-h-48 overflow-auto rounded-md border">
+                  {(() => {
+                    const kw = subtaskExtraSearch.trim().toLowerCase()
+                    const pool = (projectMembersQuery.data ?? []).filter(
+                      (m) =>
+                        m.user_id !== subtaskAssigneeId &&
+                        !subtaskExtraAssigneeIds.includes(m.user_id),
+                    )
+                    const filtered = kw
+                      ? pool.filter(
+                          (m) =>
+                            (m.full_name ?? "").toLowerCase().includes(kw) ||
+                            m.email.toLowerCase().includes(kw),
+                        )
+                      : pool
+                    if (filtered.length === 0) {
+                      return (
+                        <p className="p-2 text-xs text-muted-foreground">
+                          Không có thành viên phù hợp.
+                        </p>
+                      )
+                    }
+                    return filtered.slice(0, 12).map((m) => (
+                      <button
+                        key={`subtask-extra-${m.user_id}`}
+                        type="button"
+                        className="flex w-full items-center justify-between px-2 py-2 text-left text-xs hover:bg-slate-50"
+                        onMouseDown={(ev) => ev.preventDefault()}
+                        onClick={() => {
+                          setSubtaskExtraAssigneeIds((cur) =>
+                            cur.includes(m.user_id) ? cur : [...cur, m.user_id],
+                          )
+                          setSubtaskExtraSearch("")
+                        }}
+                      >
+                        <span className="font-medium">{m.full_name || "N/A"}</span>
+                        <span className="text-muted-foreground">{m.email}</span>
+                      </button>
+                    ))
+                  })()}
+                </div>
+              ) : null}
             </div>
             <div className="space-y-1">
               <label

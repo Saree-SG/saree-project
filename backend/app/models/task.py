@@ -150,6 +150,7 @@ class TaskCreate(TaskBase):
     project_id: uuid.UUID
     parent_id: uuid.UUID | None = None
     assignee_id: uuid.UUID
+    extra_assignee_ids: list[uuid.UUID] = []  # co-workers added at creation time
     priority: str = "medium"
     progress_weight: int | None = None   # % of parent task this subtask covers
     module_tag: str | None = None
@@ -169,6 +170,7 @@ class TaskUpdate(SQLModel):
     linked_entity_id: uuid.UUID | None = None
     color: str | None = None
     performance_coefficient: float | None = None
+    progress_weight: int | None = None
 
 
 class TaskStatusUpdate(SQLModel):
@@ -618,6 +620,7 @@ class ApplyProfileRequest(SQLModel):
     project_id: uuid.UUID
     parent_task_id: uuid.UUID | None = None
     assignee_id: uuid.UUID
+    extra_assignee_ids: list[uuid.UUID] = []  # extras applied to every created task
 
 
 class SaveAsProfileRequest(SQLModel):

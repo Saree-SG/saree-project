@@ -108,10 +108,25 @@ class UserService:
         user = await self._user_repo.get_or_404(user_id)
         await self._session.delete(user)
 
-    async def authenticate(self, email: str, password: str) -> User | None:
-        """Return user if credentials are valid; constant-time on miss."""
+    async def authenticate(self, identifier: str, password: str) -> User | None:
+        """Return user if credentials are valid; constant-time on miss.
+
+        `identifier` accepts either a full email (contains '@') or an account name
+        (email prefix). For account names, login succeeds only when the prefix maps
+        to exactly one user — ambiguous prefixes are rejected as if the user did
+        not exist (still constant-time).
+        """
         from app.crud import DUMMY_HASH
-        user = await self._user_repo.get_by_email(email)
+
+        ident = (identifier or "").strip()
+        user: User | None = None
+        if "@" in ident:
+            user = await self._user_repo.get_by_email(ident)
+        elif ident:
+            candidates = await self._user_repo.find_by_email_prefix(ident)
+            if len(candidates) == 1:
+                user = candidates[0]
+
         if not user:
             verify_password(password, DUMMY_HASH)
             return None

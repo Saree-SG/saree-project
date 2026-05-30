@@ -18,6 +18,7 @@ import { Route as LayoutIndexRouteImport } from './routes/_layout/index'
 import { Route as LayoutSettingsRouteImport } from './routes/_layout/settings'
 import { Route as LayoutReportsRouteImport } from './routes/_layout/reports'
 import { Route as LayoutItemsRouteImport } from './routes/_layout/items'
+import { Route as LayoutHelpRouteImport } from './routes/_layout/help'
 import { Route as LayoutGanttRouteImport } from './routes/_layout/gantt'
 import { Route as LayoutCompanyRouteImport } from './routes/_layout/company'
 import { Route as LayoutChatRouteImport } from './routes/_layout/chat'
@@ -84,6 +85,11 @@ const LayoutReportsRoute = LayoutReportsRouteImport.update({
 const LayoutItemsRoute = LayoutItemsRouteImport.update({
   id: '/items',
   path: '/items',
+  getParentRoute: () => LayoutRoute,
+} as any)
+const LayoutHelpRoute = LayoutHelpRouteImport.update({
+  id: '/help',
+  path: '/help',
   getParentRoute: () => LayoutRoute,
 } as any)
 const LayoutGanttRoute = LayoutGanttRouteImport.update({
@@ -215,6 +221,7 @@ export interface FileRoutesByFullPath {
   '/chat': typeof LayoutChatRoute
   '/company': typeof LayoutCompanyRoute
   '/gantt': typeof LayoutGanttRoute
+  '/help': typeof LayoutHelpRoute
   '/items': typeof LayoutItemsRoute
   '/reports': typeof LayoutReportsRoute
   '/settings': typeof LayoutSettingsRoute
@@ -246,6 +253,7 @@ export interface FileRoutesByTo {
   '/chat': typeof LayoutChatRoute
   '/company': typeof LayoutCompanyRoute
   '/gantt': typeof LayoutGanttRoute
+  '/help': typeof LayoutHelpRoute
   '/items': typeof LayoutItemsRoute
   '/reports': typeof LayoutReportsRoute
   '/settings': typeof LayoutSettingsRoute
@@ -281,6 +289,7 @@ export interface FileRoutesById {
   '/_layout/chat': typeof LayoutChatRoute
   '/_layout/company': typeof LayoutCompanyRoute
   '/_layout/gantt': typeof LayoutGanttRoute
+  '/_layout/help': typeof LayoutHelpRoute
   '/_layout/items': typeof LayoutItemsRoute
   '/_layout/reports': typeof LayoutReportsRoute
   '/_layout/settings': typeof LayoutSettingsRoute
@@ -317,6 +326,7 @@ export interface FileRouteTypes {
     | '/chat'
     | '/company'
     | '/gantt'
+    | '/help'
     | '/items'
     | '/reports'
     | '/settings'
@@ -348,6 +358,7 @@ export interface FileRouteTypes {
     | '/chat'
     | '/company'
     | '/gantt'
+    | '/help'
     | '/items'
     | '/reports'
     | '/settings'
@@ -382,6 +393,7 @@ export interface FileRouteTypes {
     | '/_layout/chat'
     | '/_layout/company'
     | '/_layout/gantt'
+    | '/_layout/help'
     | '/_layout/items'
     | '/_layout/reports'
     | '/_layout/settings'
@@ -478,6 +490,13 @@ declare module '@tanstack/react-router' {
       path: '/items'
       fullPath: '/items'
       preLoaderRoute: typeof LayoutItemsRouteImport
+      parentRoute: typeof LayoutRoute
+    }
+    '/_layout/help': {
+      id: '/_layout/help'
+      path: '/help'
+      fullPath: '/help'
+      preLoaderRoute: typeof LayoutHelpRouteImport
       parentRoute: typeof LayoutRoute
     }
     '/_layout/gantt': {
@@ -673,6 +692,7 @@ interface LayoutRouteChildren {
   LayoutChatRoute: typeof LayoutChatRoute
   LayoutCompanyRoute: typeof LayoutCompanyRoute
   LayoutGanttRoute: typeof LayoutGanttRoute
+  LayoutHelpRoute: typeof LayoutHelpRoute
   LayoutItemsRoute: typeof LayoutItemsRoute
   LayoutReportsRoute: typeof LayoutReportsRoute
   LayoutSettingsRoute: typeof LayoutSettingsRoute
@@ -696,6 +716,7 @@ const LayoutRouteChildren: LayoutRouteChildren = {
   LayoutChatRoute: LayoutChatRoute,
   LayoutCompanyRoute: LayoutCompanyRoute,
   LayoutGanttRoute: LayoutGanttRoute,
+  LayoutHelpRoute: LayoutHelpRoute,
   LayoutItemsRoute: LayoutItemsRoute,
   LayoutReportsRoute: LayoutReportsRoute,
   LayoutSettingsRoute: LayoutSettingsRoute,

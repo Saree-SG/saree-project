@@ -92,7 +92,7 @@ class ProjectRepository(BaseRepository[Project]):
         """Soft-delete a project."""
         from datetime import datetime, timezone
         project.is_deleted = True
-        project.deleted_at = datetime.now(timezone.utc)
+        project.deleted_at = datetime.now(timezone.utc).replace(tzinfo=None)
         self._session.add(project)
 
     # ------------------------------------------------------------------

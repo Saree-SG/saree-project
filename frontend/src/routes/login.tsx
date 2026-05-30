@@ -24,7 +24,10 @@ import useAuth, { isLoggedIn } from "@/hooks/useAuth"
 import { clearSession } from "@/modules/auth/tokenStore"
 
 const formSchema = z.object({
-  username: z.email(),
+  username: z
+    .string()
+    .min(1, { message: "Vui lòng nhập tài khoản hoặc email" })
+    .max(255),
   password: z
     .string()
     .min(1, { message: "Password is required" })
@@ -121,14 +124,15 @@ function Login() {
                   name="username"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Email của bạn</FormLabel>
+                      <FormLabel>Tài khoản hoặc email</FormLabel>
                       <FormControl>
                         <div className="relative">
                           <Mail className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
                           <Input
                             data-testid="email-input"
-                            placeholder="ten@congty.com"
-                            type="email"
+                            placeholder="vd: anhnv hoặc anhnv@congty.com"
+                            type="text"
+                            autoComplete="username"
                             className="h-11 pl-10"
                             {...field}
                           />

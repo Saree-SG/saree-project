@@ -122,3 +122,48 @@
     cursor: pointer;
   }
 }
+
+.manual-content {
+  line-height: 1.65;
+  color: var(--foreground);
+}
+.manual-content h1 {
+  @apply mt-10 mb-4 text-3xl font-bold scroll-mt-20;
+}
+.manual-content h2 {
+  @apply mt-8 mb-3 text-2xl font-semibold scroll-mt-20;
+}
+.manual-content h3 {
+  @apply mt-6 mb-2 text-xl font-semibold scroll-mt-20;
+}
+.manual-content h4 {
+  @apply mt-4 mb-2 text-lg font-semibold scroll-mt-20;
+}
+.manual-content p {
+  @apply my-3;
+}
+.manual-content ul {
+  @apply list-disc pl-6 my-3 space-y-1;
+}
+.manual-content ol {
+  @apply list-decimal pl-6 my-3 space-y-1;
+}
+.manual-content strong {
+  @apply font-semibold;
+}
+.manual-content a {
+  @apply text-primary underline underline-offset-2;
+}
+.manual-content img {
+  @apply my-4 max-w-full rounded border;
+}
+.manual-content table {
+  @apply my-4 w-full border-collapse text-sm;
+}
+.manual-content th,
+.manual-content td {
+  @apply border px-3 py-2 text-left;
+}
+.manual-content blockquote {
+  @apply my-4 border-l-4 border-muted pl-4 italic text-muted-foreground;
+}

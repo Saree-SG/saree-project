@@ -1,5 +1,5 @@
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router"
-import { ChevronLeft } from "lucide-react"
+import { ChevronLeft, HelpCircle } from "lucide-react"
 
 import { NotificationBell } from "@/components/notifications/NotificationBell"
 import { Button } from "@/components/ui/button"
@@ -159,7 +159,15 @@ export function MobileAppHeader() {
             ))}
           </ol>
         </nav>
-        <div className="shrink-0 pr-1">
+        <div className="flex shrink-0 items-center gap-1 pr-1">
+          <Link
+            to="/help"
+            title="Hướng dẫn sử dụng"
+            aria-label="Hướng dẫn sử dụng"
+            className="inline-flex size-9 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
+          >
+            <HelpCircle className="size-5" />
+          </Link>
           <NotificationBell />
         </div>
       </div>

@@ -520,17 +520,31 @@ class TaskService:
         except TimelineConflict as exc:
             raise HTTPException(422, str(exc)) from exc
 
+        extra_ids = list(dict.fromkeys(body.extra_assignee_ids or []))
+        # Strip raw extras from data passed to repo (column doesn't exist on Task).
+        update_data.pop("extra_assignee_ids", None)
         task = await self._task_repo.create_task(
             body_data=update_data,
             level=level,
             assignor_id=current_user.id,
         )
+        for extra_id in extra_ids:
+            if extra_id == task.assignee_id:
+                continue
+            existing = await self._task_repo.get_extra_assignee(task.id, extra_id)
+            if existing is not None:
+                continue
+            await self._task_repo.add_extra_assignee(task.id, extra_id, current_user.id)
         await self._audit_repo.write(
             actor_id=current_user.id,
             action="task.created",
             entity_type="task",
             entity_id=task.id,
-            new_value={"name": task.name, "assignee_id": str(task.assignee_id)},
+            new_value={
+                "name": task.name,
+                "assignee_id": str(task.assignee_id),
+                "extra_assignee_ids": [str(i) for i in extra_ids],
+            },
         )
         await self._outbox_repo.create_event(
             "task.created",
@@ -549,6 +563,18 @@ class TaskService:
                 user_id=task.assignee_id,
                 notif_type="task_assigned",
                 title=f'Bạn được giao công việc "{task.name}"',
+                body=f"Được giao bởi {actor_name}",
+                entity_type="task",
+                entity_id=task.id,
+            )
+        for extra_id in extra_ids:
+            if extra_id == task.assignee_id or extra_id == current_user.id:
+                continue
+            await self._emit_task_user_ws(extra_id, task.id, "task.assigned", payload)
+            await self._notify(
+                user_id=extra_id,
+                notif_type="task_assigned",
+                title=f'Bạn được giao cùng thực hiện "{task.name}"',
                 body=f"Được giao bởi {actor_name}",
                 entity_type="task",
                 entity_id=task.id,
@@ -709,6 +735,24 @@ class TaskService:
             except TimelineConflict as exc:
                 raise HTTPException(422, str(exc)) from exc
 
+            # Validate against children — shortening parent timeline can orphan child timeline.
+            new_start = _naive_utc(merged["start_time"])
+            new_end = _naive_utc(merged["end_time"])
+            children = await self._task_repo.get_children(task_id)
+            for child in children:
+                c_start = _naive_utc(child.start_time)
+                c_end = _naive_utc(child.end_time)
+                if c_start < new_start:
+                    raise HTTPException(
+                        422,
+                        f'Công việc con "{child.name}" bắt đầu ({c_start.date()}) trước thời điểm mới ({new_start.date()}).',
+                    )
+                if c_end > new_end:
+                    raise HTTPException(
+                        422,
+                        f'Công việc con "{child.name}" kết thúc ({c_end.date()}) sau deadline mới ({new_end.date()}).',
+                    )
+
         old_end = task.end_time
         task = await self._task_repo.update_fields(task, update_data)
 
@@ -761,7 +805,8 @@ class TaskService:
         self, task_id: uuid.UUID, body: TaskStatusUpdate, current_user: User
     ) -> TaskPublic:
         """Update task status; enforce assignee-only rule; emit outbox event."""
-        task = await self._task_repo.get_or_404(task_id)
+        # Lock row to serialize concurrent status updates (e.g. double-click "done").
+        task = await self._task_repo.lock_for_update(task_id)
         old_status = task.status
 
         is_assignee = await self._task_repo.is_assignee(task_id, current_user.id)
@@ -797,6 +842,15 @@ class TaskService:
                 )
 
         if body.status == "done":
+            children = await self._task_repo.get_children(task_id)
+            unfinished = [c for c in children if not c.is_deleted and c.status != "done"]
+            if unfinished:
+                names = ", ".join(f'"{c.name}"' for c in unfinished[:3])
+                more = "" if len(unfinished) <= 3 else f" và {len(unfinished) - 3} công việc khác"
+                raise HTTPException(
+                    422,
+                    f"Không thể hoàn thành khi còn công việc con chưa hoàn thành: {names}{more}.",
+                )
             combined_total = await _rollup_completion_pct(self._task_repo, task_id)
             if combined_total < 100:
                 raise HTTPException(
@@ -1081,17 +1135,33 @@ class TaskService:
     # ------------------------------------------------------------------
 
     async def delete_task(self, task_id: uuid.UUID, current_user: User) -> None:
-        """Soft-delete a task and write audit log — all-or-nothing."""
-        task = await self._task_repo.get_or_404(task_id)
-        # Remove dependency links so other tasks are no longer blocked by this deleted task.
-        await self._task_repo.delete_all_dependencies(task_id)
-        await self._task_repo.soft_delete(task)
-        await self._audit_repo.write(
-            actor_id=current_user.id,
-            action="task.deleted",
-            entity_type="task",
-            entity_id=task.id,
-        )
+        """Soft-delete a task and all descendants (BFS) — keeps tree consistent."""
+        root = await self._task_repo.get_or_404(task_id)
+
+        to_visit: list[uuid.UUID] = [root.id]
+        collected: list[Task] = []
+        seen: set[uuid.UUID] = set()
+        while to_visit:
+            current_id = to_visit.pop()
+            if current_id in seen:
+                continue
+            seen.add(current_id)
+            node = root if current_id == root.id else await self._task_repo.get_by_id(current_id)
+            if node is None or node.is_deleted:
+                continue
+            collected.append(node)
+            children = await self._task_repo.get_children(current_id)
+            to_visit.extend(c.id for c in children if not c.is_deleted)
+
+        for node in collected:
+            await self._task_repo.delete_all_dependencies(node.id)
+            await self._task_repo.soft_delete(node)
+            await self._audit_repo.write(
+                actor_id=current_user.id,
+                action="task.deleted",
+                entity_type="task",
+                entity_id=node.id,
+            )
 
     # ------------------------------------------------------------------
     # Gantt / Critical Path
@@ -1698,10 +1768,16 @@ class TaskService:
         if await self._would_create_cycle(body.blocking_task_id, body.dependent_task_id):
             raise HTTPException(422, "Tạo phụ thuộc này sẽ tạo vòng lặp phụ thuộc")
 
-        await self._task_repo.create_dependency(body.model_dump())
+        dep = await self._task_repo.create_dependency(body.model_dump())
         await self.recalculate_critical_path(task.project_id)
 
-        return {"message": "Dependency added"}
+        return {
+            "id": str(dep.id),
+            "blocking_task_id": str(dep.blocking_task_id),
+            "dependent_task_id": str(dep.dependent_task_id),
+            "dependency_type": dep.dependency_type,
+            "lag_hours": dep.lag_hours,
+        }
 
     # ------------------------------------------------------------------
     # Progress reports

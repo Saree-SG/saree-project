@@ -97,6 +97,11 @@ async def create_child_task(
             422,
             "Đã đạt giới hạn 5 tầng (Hạng mục → Công việc → Đầu việc → Bước → Chi tiết).",
         )
+    if parent.status == "done":
+        raise HTTPException(
+            422,
+            "Không thể thêm công việc con vào công việc cha đã hoàn thành.",
+        )
     body.project_id = parent.project_id
     body.parent_id = parent_id
     return await svc.create_task(body, level=parent.level + 1, current_user=current_user)

@@ -56,6 +56,18 @@ class TaskRepository(BaseRepository[Task]):
             raise HTTPException(status_code=404, detail="Task not found")
         return task
 
+    async def lock_for_update(self, task_id: uuid.UUID) -> Task:
+        """SELECT ... FOR UPDATE on the task row to serialize concurrent writers.
+
+        No-op on SQLite (dialect ignores FOR UPDATE), real lock on Postgres.
+        """
+        stmt = select(Task).where(Task.id == task_id).with_for_update()
+        result = await self._execute(stmt)
+        task = result.scalars().first()
+        if not task or task.is_deleted:
+            raise HTTPException(status_code=404, detail="Task not found")
+        return task
+
     async def list_by_project(
         self,
         project_id: uuid.UUID,

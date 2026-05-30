@@ -1,5 +1,7 @@
 from collections.abc import Generator
 import re
+import shutil
+import pathlib
 
 import pytest
 from fastapi.testclient import TestClient
@@ -183,3 +185,14 @@ def normal_user_token_headers(client: TestClient, db: Session) -> dict[str, str]
     return authentication_token_from_email(
         client=client, email=settings.EMAIL_TEST_USER, db=db
     )
+
+
+@pytest.fixture(scope="session", autouse=True)
+def _cleanup_upload_dirs():
+    """Remove all files written to upload directories during the test session."""
+    yield
+    for rel in ("uploads/task_progress", "uploads/proofs"):
+        p = pathlib.Path(__file__).parent.parent / rel
+        if p.exists():
+            shutil.rmtree(p)
+            p.mkdir(parents=True, exist_ok=True)

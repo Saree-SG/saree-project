@@ -365,6 +365,7 @@ export type TaskCreate = {
     project_id: string;
     parent_id?: (string | null);
     assignee_id: string;
+    extra_assignee_ids?: Array<string>;
     progress_weight?: (number | null);
 };
 

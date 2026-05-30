@@ -39,6 +39,7 @@ import {
 import useCustomToast from "@/hooks/useCustomToast"
 import { clearSession } from "@/modules/auth/tokenStore"
 import { createProjectChatRoom } from "@/modules/chat/chatApi"
+import EditProfileDialog from "@/components/TaskProfile/EditProfileDialog"
 import {
   applyProfile,
   listProfiles,
@@ -193,6 +194,9 @@ function ProjectTaskDashboardPage() {
   const [taskAssigneeEmailDraft, setTaskAssigneeEmailDraft] = useState("")
   const [taskAssigneeSelectedUserId, setTaskAssigneeSelectedUserId] = useState("")
   const [taskAssigneePickerOpen, setTaskAssigneePickerOpen] = useState(false)
+  const [taskExtraAssigneeIds, setTaskExtraAssigneeIds] = useState<string[]>([])
+  const [taskExtraPickerOpen, setTaskExtraPickerOpen] = useState(false)
+  const [taskExtraSearchDraft, setTaskExtraSearchDraft] = useState("")
   const [taskStartDateDraft, setTaskStartDateDraft] = useState("")
   const [taskEndDateDraft, setTaskEndDateDraft] = useState("")
   const [taskWorkingDays, setTaskWorkingDays] = useState("")
@@ -216,6 +220,7 @@ function ProjectTaskDashboardPage() {
   const [saveAsProfileTaskId, setSaveAsProfileTaskId] = useState<string | null>(null)
   const [saveAsProfileName, setSaveAsProfileName] = useState("")
   const [saveAsProfileDesc, setSaveAsProfileDesc] = useState("")
+  const [editingProfileId, setEditingProfileId] = useState<string | null>(null)
   // Tree node context menu
   const [treeMenuTaskId, setTreeMenuTaskId] = useState<string | null>(null)
   const treeMenuRef = useRef<HTMLDivElement>(null)
@@ -305,6 +310,7 @@ function ProjectTaskDashboardPage() {
       saveTaskAsProfile(saveAsProfileTaskId!, {
         name: saveAsProfileName.trim(),
         description: saveAsProfileDesc.trim() || undefined,
+        company_id: projectQuery.data?.company_id ?? undefined,
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["task-profiles"] })
@@ -343,6 +349,9 @@ function ProjectTaskDashboardPage() {
     setTaskDescriptionDraft("")
     setTaskAssigneeEmailDraft("")
     setTaskAssigneeSelectedUserId("")
+    setTaskExtraAssigneeIds([])
+    setTaskExtraSearchDraft("")
+    setTaskExtraPickerOpen(false)
     setTaskStartDateDraft(toISODate(now))
     setTaskEndDateDraft(toISODate(end))
     setTaskWorkingDays("")
@@ -527,6 +536,21 @@ function ProjectTaskDashboardPage() {
       .slice(0, 12)
   }, [companyUsersQuery.data, memberEmailDraft, meQuery.data?.id])
 
+  const taskAssigneeCandidates = useMemo(() => {
+    const keyword = taskAssigneeEmailDraft.trim().toLowerCase()
+    const rows = (membersQuery.data ?? []).filter(
+      (row) => row.user_id !== meQuery.data?.id,
+    )
+    if (!keyword) return rows.slice(0, 12)
+    return rows
+      .filter((row) => {
+        const name = (row.full_name ?? "").toLowerCase()
+        const email = row.email.toLowerCase()
+        return name.includes(keyword) || email.includes(keyword)
+      })
+      .slice(0, 12)
+  }, [membersQuery.data, taskAssigneeEmailDraft, meQuery.data?.id])
+
   const createTaskMutation = useMutation({
     mutationFn: async () => {
       // Resolve assignee
@@ -535,7 +559,7 @@ function ProjectTaskDashboardPage() {
       if (!assigneeKeyword) {
         throw new Error("Nhập tên hoặc email người thực hiện")
       }
-      const candidateUsers = memberCandidates
+      const candidateUsers = taskAssigneeCandidates
       let assignee = candidateUsers.find(
         (row) => row.user_id === taskAssigneeSelectedUserId,
       )
@@ -565,6 +589,7 @@ function ProjectTaskDashboardPage() {
         throw new Error("Không tìm thấy nhân viên phù hợp")
       }
       const assigneeId = assignee.user_id
+      const extraIds = taskExtraAssigneeIds.filter((id) => id !== assigneeId)
 
       // If a profile is selected, apply it instead of creating a single task
       if (selectedProfileId) {
@@ -572,6 +597,7 @@ function ProjectTaskDashboardPage() {
           project_id: projectId,
           parent_task_id: null,
           assignee_id: assigneeId,
+          extra_assignee_ids: extraIds,
         })
       }
 
@@ -593,6 +619,7 @@ function ProjectTaskDashboardPage() {
         start_time: `${start}T00:00:00Z`,
         end_time: `${end}T23:59:59Z`,
         assignee_id: assigneeId,
+        extra_assignee_ids: extraIds,
       }
       const createdTask = await TasksService.createRootTask({
         projectId,
@@ -938,6 +965,7 @@ function ProjectTaskDashboardPage() {
                   <th className="px-4 py-2.5">Kết thúc</th>
                   <th className="px-4 py-2.5">Trạng thái</th>
                   <th className="px-4 py-2.5">Tiến độ</th>
+                  <th className="px-4 py-2.5 w-10"></th>
                 </tr>
               </thead>
               <tbody>
@@ -975,11 +1003,25 @@ function ProjectTaskDashboardPage() {
                     <td className="px-4 py-2.5 text-xs font-semibold text-primary">
                       {task.reportedProgress}%
                     </td>
+                    <td className="px-2 py-2.5 text-right">
+                      <TaskRowActions
+                        taskId={task.id}
+                        taskName={task.name}
+                        taskLevel={task.level ?? 0}
+                        menuOpenId={treeMenuTaskId}
+                        setMenuOpenId={setTreeMenuTaskId}
+                        onSaveAsProfile={(taskId, taskName) => {
+                          setSaveAsProfileTaskId(taskId)
+                          setSaveAsProfileName(taskName)
+                        }}
+                        navigate={navigate}
+                      />
+                    </td>
                   </tr>
                 ))}
                 {detailedTasks.length === 0 && (
                   <tr>
-                    <td colSpan={6} className="px-4 py-8 text-center text-sm text-muted-foreground">
+                    <td colSpan={7} className="px-4 py-8 text-center text-sm text-muted-foreground">
                       Chưa có công việc nào.
                     </td>
                   </tr>
@@ -1077,20 +1119,34 @@ function ProjectTaskDashboardPage() {
                     Hạn: {new Date(task.end_time).toLocaleDateString("vi-VN")}
                   </p>
                 </div>
-                <div className="text-right">
-                  <p className="text-[10px] font-bold text-muted-foreground">
-                    {statusLabel(task.status)}
-                  </p>
-                  {task.isOverdue ? (
-                    <p className="mt-1 rounded bg-red-100 px-2 py-0.5 text-[10px] font-bold text-red-700">
-                      Trễ {task.overdueDays} ngày
+                <div className="flex items-start gap-1 text-right">
+                  <div>
+                    <p className="text-[10px] font-bold text-muted-foreground">
+                      {statusLabel(task.status)}
                     </p>
-                  ) : null}
-                  {task.isDueSoon ? (
-                    <p className="mt-1 rounded bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-700">
-                      Sắp tới hạn
-                    </p>
-                  ) : null}
+                    {task.isOverdue ? (
+                      <p className="mt-1 rounded bg-red-100 px-2 py-0.5 text-[10px] font-bold text-red-700">
+                        Trễ {task.overdueDays} ngày
+                      </p>
+                    ) : null}
+                    {task.isDueSoon ? (
+                      <p className="mt-1 rounded bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-700">
+                        Sắp tới hạn
+                      </p>
+                    ) : null}
+                  </div>
+                  <TaskRowActions
+                    taskId={task.id}
+                    taskName={task.name}
+                    taskLevel={task.level ?? 0}
+                    menuOpenId={treeMenuTaskId}
+                    setMenuOpenId={setTreeMenuTaskId}
+                    onSaveAsProfile={(taskId, taskName) => {
+                      setSaveAsProfileTaskId(taskId)
+                      setSaveAsProfileName(taskName)
+                    }}
+                    navigate={navigate}
+                  />
                 </div>
               </div>
               <div className="space-y-1">
@@ -1353,14 +1409,14 @@ function ProjectTaskDashboardPage() {
               />
               {taskAssigneePickerOpen ? (
                 <div className="max-h-48 overflow-auto rounded-md border">
-                  {memberCandidates.length === 0 ? (
+                  {taskAssigneeCandidates.length === 0 ? (
                     <p className="p-2 text-xs text-muted-foreground">
-                      Không có nhân viên phù hợp.
+                      Không có thành viên trong dự án. Hãy thêm thành viên trước.
                     </p>
                   ) : (
-                    memberCandidates.map((user) => (
+                    taskAssigneeCandidates.map((user) => (
                       <button
-                        key={`task-assignee-${user.user_id}-${user.role_id}`}
+                        key={`task-assignee-${user.user_id}`}
                         type="button"
                         className={[
                           "flex w-full items-center justify-between px-2 py-2 text-left text-xs hover:bg-slate-50",
@@ -1385,6 +1441,98 @@ function ProjectTaskDashboardPage() {
                 </div>
               ) : null}
             </div>
+
+            {/* Người cùng thực hiện (extra assignees) */}
+            <div className="space-y-1">
+              <p className="text-xs font-semibold text-muted-foreground">
+                Người cùng thực hiện (tuỳ chọn)
+              </p>
+              {taskExtraAssigneeIds.length > 0 && (
+                <div className="mb-1 flex flex-wrap gap-1">
+                  {taskExtraAssigneeIds.map((id) => {
+                    const u = (membersQuery.data ?? []).find(
+                      (r) => r.user_id === id,
+                    )
+                    const label = u?.full_name?.trim() || u?.email || id
+                    return (
+                      <span
+                        key={`extra-chip-${id}`}
+                        className="inline-flex items-center gap-1 rounded-full bg-blue-100 px-2 py-0.5 text-xs text-blue-700"
+                      >
+                        {label}
+                        <button
+                          type="button"
+                          className="text-blue-500 hover:text-blue-700"
+                          onClick={() =>
+                            setTaskExtraAssigneeIds((cur) =>
+                              cur.filter((x) => x !== id),
+                            )
+                          }
+                        >
+                          ×
+                        </button>
+                      </span>
+                    )
+                  })}
+                </div>
+              )}
+              <Input
+                value={taskExtraSearchDraft}
+                onFocus={() => setTaskExtraPickerOpen(true)}
+                onBlur={() => {
+                  setTimeout(() => setTaskExtraPickerOpen(false), 120)
+                }}
+                onChange={(e) => setTaskExtraSearchDraft(e.target.value)}
+                placeholder="Gõ tên hoặc email để thêm..."
+              />
+              {taskExtraPickerOpen ? (
+                <div className="max-h-48 overflow-auto rounded-md border">
+                  {(() => {
+                    const kw = taskExtraSearchDraft.trim().toLowerCase()
+                    const pool = (membersQuery.data ?? []).filter(
+                      (r) =>
+                        r.user_id !== meQuery.data?.id &&
+                        r.user_id !== taskAssigneeSelectedUserId &&
+                        !taskExtraAssigneeIds.includes(r.user_id),
+                    )
+                    const filtered = kw
+                      ? pool.filter(
+                          (r) =>
+                            (r.full_name ?? "").toLowerCase().includes(kw) ||
+                            r.email.toLowerCase().includes(kw),
+                        )
+                      : pool
+                    if (filtered.length === 0) {
+                      return (
+                        <p className="p-2 text-xs text-muted-foreground">
+                          Không có nhân viên phù hợp.
+                        </p>
+                      )
+                    }
+                    return filtered.slice(0, 12).map((user) => (
+                      <button
+                        key={`task-extra-${user.user_id}`}
+                        type="button"
+                        className="flex w-full items-center justify-between px-2 py-2 text-left text-xs hover:bg-slate-50"
+                        onMouseDown={(ev) => ev.preventDefault()}
+                        onClick={() => {
+                          setTaskExtraAssigneeIds((cur) =>
+                            cur.includes(user.user_id) ? cur : [...cur, user.user_id],
+                          )
+                          setTaskExtraSearchDraft("")
+                        }}
+                      >
+                        <span className="font-medium">
+                          {user.full_name || "N/A"}
+                        </span>
+                        <span className="text-muted-foreground">{user.email}</span>
+                      </button>
+                    ))
+                  })()}
+                </div>
+              ) : null}
+            </div>
+
             {!selectedProfileId && (
               <>
                 <div className="grid grid-cols-2 gap-2">
@@ -1532,17 +1680,26 @@ function ProjectTaskDashboardPage() {
                             Tạo bởi {profile.created_by_name ?? "—"} • {new Date(profile.created_at).toLocaleDateString("vi-VN")}
                           </p>
                         </div>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setApplyTargetProfileId(profile.id)
-                            setProfileManagerOpen(false)
-                            setApplyProfileOpen(true)
-                          }}
-                          className="shrink-0 rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-blue-700 transition-colors"
-                        >
-                          Áp dụng
-                        </button>
+                        <div className="flex shrink-0 flex-col gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setApplyTargetProfileId(profile.id)
+                              setProfileManagerOpen(false)
+                              setApplyProfileOpen(true)
+                            }}
+                            className="rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-blue-700 transition-colors"
+                          >
+                            Áp dụng
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setEditingProfileId(profile.id)}
+                            className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-100 transition-colors"
+                          >
+                            Sửa
+                          </button>
+                        </div>
                       </div>
                     </div>
                   )
@@ -1555,6 +1712,16 @@ function ProjectTaskDashboardPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <EditProfileDialog
+        open={Boolean(editingProfileId)}
+        onClose={() => setEditingProfileId(null)}
+        profile={
+          (profilesQuery.data ?? []).find(
+            (p: TaskProfile) => p.id === editingProfileId,
+          ) ?? null
+        }
+      />
 
       {/* ── Apply Profile Dialog ── */}
       <Dialog open={applyProfileOpen} onOpenChange={(open) => { setApplyProfileOpen(open); if (!open) { setApplyAssigneeId(""); setApplyAssigneeEmail(""); setApplyParentTaskId("") } }}>
@@ -1747,6 +1914,83 @@ const STATUS_CONFIG: Record<string, { label: string; cls: string }> = {
   in_progress: { label: "Đang làm", cls: "bg-blue-100 text-blue-600" },
   review: { label: "Xem xét", cls: "bg-amber-100 text-amber-600" },
   done: { label: "Xong", cls: "bg-green-100 text-green-600" },
+}
+
+interface TaskRowActionsProps {
+  taskId: string
+  taskName: string
+  taskLevel: number
+  menuOpenId: string | null
+  setMenuOpenId: (id: string | null) => void
+  onSaveAsProfile: (taskId: string, taskName: string) => void
+  navigate: ReturnType<typeof useNavigate>
+  align?: "left" | "right"
+}
+
+function TaskRowActions({
+  taskId,
+  taskName,
+  taskLevel,
+  menuOpenId,
+  setMenuOpenId,
+  onSaveAsProfile,
+  navigate,
+  align = "right",
+}: TaskRowActionsProps) {
+  const open = menuOpenId === taskId
+  const stop = (e: React.MouseEvent | React.KeyboardEvent) => {
+    e.stopPropagation()
+    if ("preventDefault" in e) e.preventDefault()
+  }
+  return (
+    <div className="relative inline-block" onClick={stop}>
+      <button
+        type="button"
+        title="Tác vụ"
+        aria-label="Tác vụ"
+        className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+        onClick={(e) => {
+          stop(e)
+          setMenuOpenId(open ? null : taskId)
+        }}
+      >
+        <MoreHorizontal className="h-4 w-4" />
+      </button>
+      {open && (
+        <div
+          className={[
+            "absolute z-50 mt-1 min-w-[180px] rounded-xl border bg-white py-1 shadow-lg",
+            align === "right" ? "right-0" : "left-0",
+          ].join(" ")}
+        >
+          <button
+            type="button"
+            className="flex w-full items-center gap-2 px-3 py-2 text-xs hover:bg-slate-50"
+            onClick={(e) => {
+              stop(e)
+              navigate({ to: "/tasks/$taskId", params: { taskId } })
+              setMenuOpenId(null)
+            }}
+          >
+            <Plus className="h-3.5 w-3.5" /> Xem chi tiết
+          </button>
+          {taskLevel === 0 && (
+            <button
+              type="button"
+              className="flex w-full items-center gap-2 px-3 py-2 text-xs text-blue-600 hover:bg-blue-50"
+              onClick={(e) => {
+                stop(e)
+                onSaveAsProfile(taskId, taskName)
+                setMenuOpenId(null)
+              }}
+            >
+              <BookmarkPlus className="h-3.5 w-3.5" /> Lưu làm mẫu
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  )
 }
 
 interface TaskTreeViewProps {

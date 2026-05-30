@@ -1,9 +1,11 @@
 import {
   createFileRoute,
+  Link,
   Outlet,
   redirect,
   useRouterState,
 } from "@tanstack/react-router"
+import { HelpCircle } from "lucide-react"
 import { useEffect, useRef } from "react"
 import { useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
@@ -245,6 +247,14 @@ function Layout() {
                 Re-authenticating session...
               </p>
             ) : null}
+            <Link
+              to="/help"
+              title="Hướng dẫn sử dụng"
+              aria-label="Hướng dẫn sử dụng"
+              className="inline-flex size-9 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
+            >
+              <HelpCircle className="size-5" />
+            </Link>
             <NotificationBell />
           </div>
         </header>
