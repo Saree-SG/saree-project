@@ -1,11 +1,14 @@
 import type { LucideIcon } from "lucide-react"
 import {
+  AlertTriangle,
   Building2,
   CalendarRange,
+  ClipboardCheck,
   ClipboardList,
   FileSignature,
   FileText,
   FolderOpen,
+  Gauge,
   LayoutDashboard,
   MessageCircle,
   Settings,
@@ -44,6 +47,17 @@ export function buildLayoutNavItems(
     path: "/tasks",
     matchPrefix: true,
   })
+  items.push({
+    icon: ClipboardCheck,
+    title: "Chấm công",
+    path: "/attendance",
+  })
+  items.push({
+    icon: AlertTriangle,
+    title: "Sự cố",
+    path: "/incidents",
+    matchPrefix: true,
+  })
   if (canAccessProjects) {
     items.push({
       icon: FolderOpen,
@@ -57,6 +71,11 @@ export function buildLayoutNavItems(
       icon: CalendarRange,
       title: "Gantt tổng",
       path: "/gantt",
+    })
+    items.push({
+      icon: Gauge,
+      title: "Năng suất",
+      path: "/productivity",
     })
   }
   if (canAccessQuotations) {

@@ -53,6 +53,8 @@ class Settings(BaseSettings):
     TASK_PROGRESS_UPLOAD_DIR: str = str(_BACKEND_ROOT / "uploads" / "task_progress")
     QUOTATION_UPLOAD_DIR: str = str(_BACKEND_ROOT / "uploads" / "quotation")
     CONTRACT_UPLOAD_DIR: str = str(_BACKEND_ROOT / "uploads" / "contract")
+    ATTENDANCE_UPLOAD_DIR: str = str(_BACKEND_ROOT / "uploads" / "attendance")
+    INCIDENT_UPLOAD_DIR: str = str(_BACKEND_ROOT / "uploads" / "incident")
     PUBLIC_BASE_URL: AnyUrl | None = None
 
     BACKEND_CORS_ORIGINS: Annotated[

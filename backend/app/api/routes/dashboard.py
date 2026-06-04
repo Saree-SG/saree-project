@@ -6,7 +6,7 @@ Full async — no direct DB calls.
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from typing import Any
 
 from fastapi import APIRouter, Depends, Query
@@ -14,6 +14,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import AsyncSessionDep, CurrentUser
+from app.models.attendance import AttendanceRecord
 from app.models.project import Project
 from app.models.task import Task, TaskDependency, TaskProgressReport
 from app.models.user import User
@@ -778,3 +779,120 @@ async def task_calendar(
     )
     rows = rows_result.all()
     return [{"date": str(row.due_date), "count": row.count} for row in rows]
+
+
+def _month_bounds(month: str | None) -> tuple[date, date]:
+    """Return (first_day, last_day) for a 'YYYY-MM' string, defaulting to now."""
+    today = _utcnow().date()
+    if month:
+        try:
+            y, m = (int(x) for x in month.split("-", 1))
+            first = date(y, m, 1)
+        except (ValueError, TypeError):
+            first = today.replace(day=1)
+    else:
+        first = today.replace(day=1)
+    nxt = date(first.year + (first.month // 12), (first.month % 12) + 1, 1)
+    last = date(nxt.year, nxt.month, 1)
+    return first, last  # [first, last) — last is exclusive (first of next month)
+
+
+@router.get("/team-productivity")
+async def team_productivity(
+    session: AsyncSessionDep,
+    current_user: CurrentUser,
+    month: str | None = Query(default=None, description="YYYY-MM, default: current"),
+    project_id: uuid.UUID | None = Query(default=None),
+    department_id: uuid.UUID | None = Query(default=None),
+) -> dict:
+    """Per-person productivity for a month: work hours + task completion.
+
+    Combines attendance work hours (giờ công) with task throughput so leaders
+    can compare effort vs. output — the basis for thi đua / khen thưởng.
+    """
+    project_ids = await _project_ids_scope(
+        session, current_user, project_id, department_id
+    )
+    first, last = _month_bounds(month)
+    if not project_ids:
+        return {"month": first.strftime("%Y-%m"), "rows": []}
+
+    # --- Attendance: work hours + days worked per user ---
+    att_result = await session.execute(
+        select(
+            AttendanceRecord.user_id,
+            func.coalesce(func.sum(AttendanceRecord.work_hours), 0.0).label("hours"),
+            func.count(func.distinct(AttendanceRecord.work_date)).label("days"),
+            func.count(AttendanceRecord.id).label("checkins"),
+        )
+        .where(
+            AttendanceRecord.project_id.in_(project_ids),  # type: ignore[arg-type]
+            AttendanceRecord.work_date >= first,
+            AttendanceRecord.work_date < last,
+        )
+        .group_by(AttendanceRecord.user_id)
+    )
+    att_by_user: dict[str, dict] = {}
+    for row in att_result.all():
+        att_by_user[str(row.user_id)] = {
+            "work_hours": round(float(row.hours or 0.0), 2),
+            "days_worked": int(row.days or 0),
+            "checkins": int(row.checkins or 0),
+        }
+
+    # --- Tasks: completion within month (by actual end / due date) ---
+    now = _utcnow()
+    tasks_result = await session.execute(
+        select(Task).where(
+            Task.project_id.in_(project_ids),  # type: ignore[arg-type]
+            Task.is_deleted == False,  # noqa: E712
+        )
+    )
+    task_stats: dict[str, dict] = {}
+    for t in tasks_result.scalars().all():
+        uid = str(t.assignee_id)
+        s = task_stats.setdefault(uid, {"total": 0, "done": 0, "overdue": 0})
+        s["total"] += 1
+        end_time = _naive_utc(t.end_time)
+        if t.status == "done":
+            s["done"] += 1
+        elif end_time and end_time < now:
+            s["overdue"] += 1
+
+    # --- Merge + resolve user names ---
+    all_uids = set(att_by_user) | set(task_stats)
+    all_uids.discard("None")
+    uuid_ids = [uuid.UUID(u) for u in all_uids]
+    users_by_id: dict[str, User] = {}
+    if uuid_ids:
+        ures = await session.execute(
+            select(User).where(User.id.in_(uuid_ids))  # type: ignore[arg-type]
+        )
+        users_by_id = {str(u.id): u for u in ures.scalars().all()}
+
+    rows = []
+    for uid in all_uids:
+        att = att_by_user.get(uid, {})
+        ts = task_stats.get(uid, {"total": 0, "done": 0, "overdue": 0})
+        u = users_by_id.get(uid)
+        hours = att.get("work_hours", 0.0)
+        done = ts["done"]
+        rows.append(
+            {
+                "user_id": uid,
+                "user_name": (u.full_name or u.email) if u else uid,
+                "work_hours": hours,
+                "days_worked": att.get("days_worked", 0),
+                "tasks_total": ts["total"],
+                "tasks_done": done,
+                "tasks_overdue": ts["overdue"],
+                "completion_pct": round(done / ts["total"] * 100, 1)
+                if ts["total"]
+                else 0.0,
+                # Output per work-hour — simple efficiency proxy.
+                "tasks_per_hour": round(done / hours, 3) if hours > 0 else None,
+            }
+        )
+
+    rows.sort(key=lambda r: (r["work_hours"], r["tasks_done"]), reverse=True)
+    return {"month": first.strftime("%Y-%m"), "rows": rows}

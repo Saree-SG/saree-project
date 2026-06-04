@@ -72,6 +72,26 @@ from app.models.outbox import (  # noqa: F401
     OutboxEventPublic,
 )
 
+# Incident (issue log + knowledge base)
+from app.models.incident import (  # noqa: F401
+    Incident,
+    IncidentAttachment,
+    IncidentAttachmentPublic,
+    IncidentCreate,
+    IncidentPublic,
+    IncidentResolve,
+    IncidentsPublic,
+    IncidentUpdate,
+)
+
+# Attendance
+from app.models.attendance import (  # noqa: F401
+    AttendanceRecord,
+    AttendanceRecordPublic,
+    AttendanceRecordsPublic,
+    SiteLocationUpdate,
+)
+
 # Project
 from app.models.project import (  # noqa: F401
     Project,

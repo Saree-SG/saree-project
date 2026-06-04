@@ -3,11 +3,13 @@ from fastapi import APIRouter
 from app.api.routes import (
     admin_stats,
     admin_users,
+    attendance,
     chat,
     chat_ws,
     contracts,
     dashboard,
     export,
+    incidents,
     login,
     notifications,
     private,
@@ -42,6 +44,8 @@ api_router.include_router(contracts.router)
 api_router.include_router(export.router)
 api_router.include_router(admin_stats.router)
 api_router.include_router(admin_users.router)
+api_router.include_router(attendance.router)
+api_router.include_router(incidents.router)
 
 if settings.ENVIRONMENT == "local":
     api_router.include_router(private.router)

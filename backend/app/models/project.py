@@ -44,6 +44,11 @@ class Project(ProjectBase, table=True):
     is_deleted: bool = Field(default=False)
     deleted_at: datetime | None = None
 
+    # Site location for on-site attendance check-in (GPS verification)
+    site_lat: float | None = None
+    site_lng: float | None = None
+    site_radius_m: int = Field(default=150)   # allowed check-in radius (metres)
+
     # Relationships
     company: "Company" = Relationship(back_populates="projects")  # type: ignore
     members: list["ProjectMemberRole"] = Relationship(back_populates="project")  # type: ignore
@@ -73,6 +78,9 @@ class ProjectPublic(ProjectBase):
     department_id: uuid.UUID | None
     pm_id: uuid.UUID
     chat_room_id: uuid.UUID | None = None
+    site_lat: float | None = None
+    site_lng: float | None = None
+    site_radius_m: int = 150
     created_at: datetime
     updated_at: datetime
 

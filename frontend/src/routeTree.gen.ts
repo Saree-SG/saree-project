@@ -17,15 +17,18 @@ import { Route as LayoutRouteImport } from './routes/_layout'
 import { Route as LayoutIndexRouteImport } from './routes/_layout/index'
 import { Route as LayoutSettingsRouteImport } from './routes/_layout/settings'
 import { Route as LayoutReportsRouteImport } from './routes/_layout/reports'
+import { Route as LayoutProductivityRouteImport } from './routes/_layout/productivity'
 import { Route as LayoutItemsRouteImport } from './routes/_layout/items'
 import { Route as LayoutHelpRouteImport } from './routes/_layout/help'
 import { Route as LayoutGanttRouteImport } from './routes/_layout/gantt'
 import { Route as LayoutCompanyRouteImport } from './routes/_layout/company'
 import { Route as LayoutChatRouteImport } from './routes/_layout/chat'
+import { Route as LayoutAttendanceRouteImport } from './routes/_layout/attendance'
 import { Route as LayoutAdminRouteImport } from './routes/_layout/admin'
 import { Route as LayoutTasksIndexRouteImport } from './routes/_layout/tasks.index'
 import { Route as LayoutQuotationsIndexRouteImport } from './routes/_layout/quotations.index'
 import { Route as LayoutProjectsIndexRouteImport } from './routes/_layout/projects.index'
+import { Route as LayoutIncidentsIndexRouteImport } from './routes/_layout/incidents.index'
 import { Route as LayoutContractsIndexRouteImport } from './routes/_layout/contracts.index'
 import { Route as LayoutAdminIndexRouteImport } from './routes/_layout/admin.index'
 import { Route as LayoutTasksTaskIdRouteImport } from './routes/_layout/tasks.$taskId'
@@ -82,6 +85,11 @@ const LayoutReportsRoute = LayoutReportsRouteImport.update({
   path: '/reports',
   getParentRoute: () => LayoutRoute,
 } as any)
+const LayoutProductivityRoute = LayoutProductivityRouteImport.update({
+  id: '/productivity',
+  path: '/productivity',
+  getParentRoute: () => LayoutRoute,
+} as any)
 const LayoutItemsRoute = LayoutItemsRouteImport.update({
   id: '/items',
   path: '/items',
@@ -107,6 +115,11 @@ const LayoutChatRoute = LayoutChatRouteImport.update({
   path: '/chat',
   getParentRoute: () => LayoutRoute,
 } as any)
+const LayoutAttendanceRoute = LayoutAttendanceRouteImport.update({
+  id: '/attendance',
+  path: '/attendance',
+  getParentRoute: () => LayoutRoute,
+} as any)
 const LayoutAdminRoute = LayoutAdminRouteImport.update({
   id: '/admin',
   path: '/admin',
@@ -125,6 +138,11 @@ const LayoutQuotationsIndexRoute = LayoutQuotationsIndexRouteImport.update({
 const LayoutProjectsIndexRoute = LayoutProjectsIndexRouteImport.update({
   id: '/projects/',
   path: '/projects/',
+  getParentRoute: () => LayoutRoute,
+} as any)
+const LayoutIncidentsIndexRoute = LayoutIncidentsIndexRouteImport.update({
+  id: '/incidents/',
+  path: '/incidents/',
   getParentRoute: () => LayoutRoute,
 } as any)
 const LayoutContractsIndexRoute = LayoutContractsIndexRouteImport.update({
@@ -218,11 +236,13 @@ export interface FileRoutesByFullPath {
   '/reset-password': typeof ResetPasswordRoute
   '/signup': typeof SignupRoute
   '/admin': typeof LayoutAdminRouteWithChildren
+  '/attendance': typeof LayoutAttendanceRoute
   '/chat': typeof LayoutChatRoute
   '/company': typeof LayoutCompanyRoute
   '/gantt': typeof LayoutGanttRoute
   '/help': typeof LayoutHelpRoute
   '/items': typeof LayoutItemsRoute
+  '/productivity': typeof LayoutProductivityRoute
   '/reports': typeof LayoutReportsRoute
   '/settings': typeof LayoutSettingsRoute
   '/admin/activity': typeof LayoutAdminActivityRoute
@@ -238,6 +258,7 @@ export interface FileRoutesByFullPath {
   '/tasks/$taskId': typeof LayoutTasksTaskIdRoute
   '/admin/': typeof LayoutAdminIndexRoute
   '/contracts/': typeof LayoutContractsIndexRoute
+  '/incidents/': typeof LayoutIncidentsIndexRoute
   '/projects/': typeof LayoutProjectsIndexRoute
   '/quotations/': typeof LayoutQuotationsIndexRoute
   '/tasks/': typeof LayoutTasksIndexRoute
@@ -250,11 +271,13 @@ export interface FileRoutesByTo {
   '/recover-password': typeof RecoverPasswordRoute
   '/reset-password': typeof ResetPasswordRoute
   '/signup': typeof SignupRoute
+  '/attendance': typeof LayoutAttendanceRoute
   '/chat': typeof LayoutChatRoute
   '/company': typeof LayoutCompanyRoute
   '/gantt': typeof LayoutGanttRoute
   '/help': typeof LayoutHelpRoute
   '/items': typeof LayoutItemsRoute
+  '/productivity': typeof LayoutProductivityRoute
   '/reports': typeof LayoutReportsRoute
   '/settings': typeof LayoutSettingsRoute
   '/': typeof LayoutIndexRoute
@@ -271,6 +294,7 @@ export interface FileRoutesByTo {
   '/tasks/$taskId': typeof LayoutTasksTaskIdRoute
   '/admin': typeof LayoutAdminIndexRoute
   '/contracts': typeof LayoutContractsIndexRoute
+  '/incidents': typeof LayoutIncidentsIndexRoute
   '/projects': typeof LayoutProjectsIndexRoute
   '/quotations': typeof LayoutQuotationsIndexRoute
   '/tasks': typeof LayoutTasksIndexRoute
@@ -286,11 +310,13 @@ export interface FileRoutesById {
   '/reset-password': typeof ResetPasswordRoute
   '/signup': typeof SignupRoute
   '/_layout/admin': typeof LayoutAdminRouteWithChildren
+  '/_layout/attendance': typeof LayoutAttendanceRoute
   '/_layout/chat': typeof LayoutChatRoute
   '/_layout/company': typeof LayoutCompanyRoute
   '/_layout/gantt': typeof LayoutGanttRoute
   '/_layout/help': typeof LayoutHelpRoute
   '/_layout/items': typeof LayoutItemsRoute
+  '/_layout/productivity': typeof LayoutProductivityRoute
   '/_layout/reports': typeof LayoutReportsRoute
   '/_layout/settings': typeof LayoutSettingsRoute
   '/_layout/': typeof LayoutIndexRoute
@@ -307,6 +333,7 @@ export interface FileRoutesById {
   '/_layout/tasks/$taskId': typeof LayoutTasksTaskIdRoute
   '/_layout/admin/': typeof LayoutAdminIndexRoute
   '/_layout/contracts/': typeof LayoutContractsIndexRoute
+  '/_layout/incidents/': typeof LayoutIncidentsIndexRoute
   '/_layout/projects/': typeof LayoutProjectsIndexRoute
   '/_layout/quotations/': typeof LayoutQuotationsIndexRoute
   '/_layout/tasks/': typeof LayoutTasksIndexRoute
@@ -323,11 +350,13 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/signup'
     | '/admin'
+    | '/attendance'
     | '/chat'
     | '/company'
     | '/gantt'
     | '/help'
     | '/items'
+    | '/productivity'
     | '/reports'
     | '/settings'
     | '/admin/activity'
@@ -343,6 +372,7 @@ export interface FileRouteTypes {
     | '/tasks/$taskId'
     | '/admin/'
     | '/contracts/'
+    | '/incidents/'
     | '/projects/'
     | '/quotations/'
     | '/tasks/'
@@ -355,11 +385,13 @@ export interface FileRouteTypes {
     | '/recover-password'
     | '/reset-password'
     | '/signup'
+    | '/attendance'
     | '/chat'
     | '/company'
     | '/gantt'
     | '/help'
     | '/items'
+    | '/productivity'
     | '/reports'
     | '/settings'
     | '/'
@@ -376,6 +408,7 @@ export interface FileRouteTypes {
     | '/tasks/$taskId'
     | '/admin'
     | '/contracts'
+    | '/incidents'
     | '/projects'
     | '/quotations'
     | '/tasks'
@@ -390,11 +423,13 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/signup'
     | '/_layout/admin'
+    | '/_layout/attendance'
     | '/_layout/chat'
     | '/_layout/company'
     | '/_layout/gantt'
     | '/_layout/help'
     | '/_layout/items'
+    | '/_layout/productivity'
     | '/_layout/reports'
     | '/_layout/settings'
     | '/_layout/'
@@ -411,6 +446,7 @@ export interface FileRouteTypes {
     | '/_layout/tasks/$taskId'
     | '/_layout/admin/'
     | '/_layout/contracts/'
+    | '/_layout/incidents/'
     | '/_layout/projects/'
     | '/_layout/quotations/'
     | '/_layout/tasks/'
@@ -485,6 +521,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LayoutReportsRouteImport
       parentRoute: typeof LayoutRoute
     }
+    '/_layout/productivity': {
+      id: '/_layout/productivity'
+      path: '/productivity'
+      fullPath: '/productivity'
+      preLoaderRoute: typeof LayoutProductivityRouteImport
+      parentRoute: typeof LayoutRoute
+    }
     '/_layout/items': {
       id: '/_layout/items'
       path: '/items'
@@ -520,6 +563,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LayoutChatRouteImport
       parentRoute: typeof LayoutRoute
     }
+    '/_layout/attendance': {
+      id: '/_layout/attendance'
+      path: '/attendance'
+      fullPath: '/attendance'
+      preLoaderRoute: typeof LayoutAttendanceRouteImport
+      parentRoute: typeof LayoutRoute
+    }
     '/_layout/admin': {
       id: '/_layout/admin'
       path: '/admin'
@@ -546,6 +596,13 @@ declare module '@tanstack/react-router' {
       path: '/projects'
       fullPath: '/projects/'
       preLoaderRoute: typeof LayoutProjectsIndexRouteImport
+      parentRoute: typeof LayoutRoute
+    }
+    '/_layout/incidents/': {
+      id: '/_layout/incidents/'
+      path: '/incidents'
+      fullPath: '/incidents/'
+      preLoaderRoute: typeof LayoutIncidentsIndexRouteImport
       parentRoute: typeof LayoutRoute
     }
     '/_layout/contracts/': {
@@ -689,11 +746,13 @@ const LayoutAdminRouteWithChildren = LayoutAdminRoute._addFileChildren(
 
 interface LayoutRouteChildren {
   LayoutAdminRoute: typeof LayoutAdminRouteWithChildren
+  LayoutAttendanceRoute: typeof LayoutAttendanceRoute
   LayoutChatRoute: typeof LayoutChatRoute
   LayoutCompanyRoute: typeof LayoutCompanyRoute
   LayoutGanttRoute: typeof LayoutGanttRoute
   LayoutHelpRoute: typeof LayoutHelpRoute
   LayoutItemsRoute: typeof LayoutItemsRoute
+  LayoutProductivityRoute: typeof LayoutProductivityRoute
   LayoutReportsRoute: typeof LayoutReportsRoute
   LayoutSettingsRoute: typeof LayoutSettingsRoute
   LayoutIndexRoute: typeof LayoutIndexRoute
@@ -705,6 +764,7 @@ interface LayoutRouteChildren {
   LayoutQuotationsReportsRoute: typeof LayoutQuotationsReportsRoute
   LayoutTasksTaskIdRoute: typeof LayoutTasksTaskIdRoute
   LayoutContractsIndexRoute: typeof LayoutContractsIndexRoute
+  LayoutIncidentsIndexRoute: typeof LayoutIncidentsIndexRoute
   LayoutProjectsIndexRoute: typeof LayoutProjectsIndexRoute
   LayoutQuotationsIndexRoute: typeof LayoutQuotationsIndexRoute
   LayoutTasksIndexRoute: typeof LayoutTasksIndexRoute
@@ -713,11 +773,13 @@ interface LayoutRouteChildren {
 
 const LayoutRouteChildren: LayoutRouteChildren = {
   LayoutAdminRoute: LayoutAdminRouteWithChildren,
+  LayoutAttendanceRoute: LayoutAttendanceRoute,
   LayoutChatRoute: LayoutChatRoute,
   LayoutCompanyRoute: LayoutCompanyRoute,
   LayoutGanttRoute: LayoutGanttRoute,
   LayoutHelpRoute: LayoutHelpRoute,
   LayoutItemsRoute: LayoutItemsRoute,
+  LayoutProductivityRoute: LayoutProductivityRoute,
   LayoutReportsRoute: LayoutReportsRoute,
   LayoutSettingsRoute: LayoutSettingsRoute,
   LayoutIndexRoute: LayoutIndexRoute,
@@ -729,6 +791,7 @@ const LayoutRouteChildren: LayoutRouteChildren = {
   LayoutQuotationsReportsRoute: LayoutQuotationsReportsRoute,
   LayoutTasksTaskIdRoute: LayoutTasksTaskIdRoute,
   LayoutContractsIndexRoute: LayoutContractsIndexRoute,
+  LayoutIncidentsIndexRoute: LayoutIncidentsIndexRoute,
   LayoutProjectsIndexRoute: LayoutProjectsIndexRoute,
   LayoutQuotationsIndexRoute: LayoutQuotationsIndexRoute,
   LayoutTasksIndexRoute: LayoutTasksIndexRoute,

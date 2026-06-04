@@ -111,6 +111,17 @@ ALL_PERMISSIONS = [
     {"code": "CONTRACT_CONFIRM_ADVANCE",  "module": "contract", "action": "update", "scope": "assigned", "description": "Xác nhận nhận tạm ứng (signed→advance_received)"},
     {"code": "CONTRACT_START_PRODUCTION", "module": "contract", "action": "approve","scope": "global",   "description": "Chuyển hợp đồng sang sản xuất (advance_received→in_production)"},
     {"code": "CONTRACT_COMPLETE",         "module": "contract", "action": "approve","scope": "global",   "description": "Hoàn thành và đóng hợp đồng (in_production→completed)"},
+
+    # --- Attendance (chấm công tại công trình) ---
+    {"code": "ATTENDANCE_CHECKIN",        "module": "attendance", "action": "create", "scope": "own",     "description": "Chấm công cá nhân tại công trình (check-in/out)"},
+    {"code": "ATTENDANCE_VIEW_TEAM",      "module": "attendance", "action": "read",   "scope": "team",    "description": "Xem chấm công của tổ/dự án"},
+    {"code": "ATTENDANCE_VIEW_ALL",       "module": "attendance", "action": "read",   "scope": "global",  "description": "Xem toàn bộ chấm công hệ thống"},
+    {"code": "ATTENDANCE_CONFIG_SITE",    "module": "attendance", "action": "update", "scope": "assigned","description": "Cấu hình toạ độ và bán kính công trình"},
+
+    # --- Incident (log sự cố thi công + knowledge base) ---
+    {"code": "INCIDENT_CREATE",           "module": "incident", "action": "create", "scope": "assigned", "description": "Ghi nhận sự cố/lỗi thi công"},
+    {"code": "INCIDENT_VIEW",             "module": "incident", "action": "read",   "scope": "assigned", "description": "Xem và tra cứu sự cố (knowledge base)"},
+    {"code": "INCIDENT_RESOLVE",          "module": "incident", "action": "update", "scope": "project",  "description": "Cập nhật nguyên nhân/giải pháp, đóng sự cố"},
 ]
 # fmt: on
 
@@ -123,6 +134,10 @@ _DEPT_HEAD_LIKE_PERMS: list[str] = [
     "PROOF_UPLOAD", "PROOF_APPROVE",
     "REPORT_VIEW_OWN", "REPORT_VIEW_TEAM",
     "USER_VIEW",
+    # Attendance — check in/out + view their team's records
+    "ATTENDANCE_CHECKIN", "ATTENDANCE_VIEW_TEAM", "ATTENDANCE_CONFIG_SITE",
+    # Incident — full handling (report, view, resolve)
+    "INCIDENT_CREATE", "INCIDENT_VIEW", "INCIDENT_RESOLVE",
     # Quotation — base read
     "QUOTATION_VIEW", "QUOTATION_REPORT",
     # Contract — view only
@@ -135,6 +150,10 @@ _WORKER_LIKE_PERMS: list[str] = [
     "COMMENT_ADD", "COMMENT_DELETE_OWN",
     "PROOF_UPLOAD",
     "REPORT_VIEW_OWN",
+    # Attendance — check in/out at the site
+    "ATTENDANCE_CHECKIN",
+    # Incident — report + look up knowledge base
+    "INCIDENT_CREATE", "INCIDENT_VIEW",
     # Quotation — read only
     "QUOTATION_VIEW",
 ]
@@ -172,6 +191,8 @@ ROLE_PERMISSION_MAP: dict[str, list[str]] = {
         "PROOF_UPLOAD", "PROOF_APPROVE",
         "REPORT_VIEW_OWN", "REPORT_VIEW_TEAM", "REPORT_VIEW_ALL",
         "AUDIT_VIEW", "USER_VIEW", "USER_MANAGE",
+        "ATTENDANCE_CHECKIN", "ATTENDANCE_VIEW_TEAM", "ATTENDANCE_VIEW_ALL", "ATTENDANCE_CONFIG_SITE",
+        "INCIDENT_CREATE", "INCIDENT_VIEW", "INCIDENT_RESOLVE",
         *_DIRECTOR_QUOTATION_PERMS,
         "CONTRACT_VIEW_ALL", "CONTRACT_APPROVE", "CONTRACT_START_PRODUCTION", "CONTRACT_COMPLETE", "CONTRACT_DELETE",
     ],

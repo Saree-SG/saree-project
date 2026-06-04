@@ -125,3 +125,19 @@ app.mount(
     StaticFiles(directory=str(quotation_upload_dir)),
     name="quotation-static",
 )
+
+attendance_upload_dir = Path(settings.ATTENDANCE_UPLOAD_DIR).resolve()
+attendance_upload_dir.mkdir(parents=True, exist_ok=True)
+app.mount(
+    "/static/attendance",
+    StaticFiles(directory=str(attendance_upload_dir)),
+    name="attendance-static",
+)
+
+incident_upload_dir = Path(settings.INCIDENT_UPLOAD_DIR).resolve()
+incident_upload_dir.mkdir(parents=True, exist_ok=True)
+app.mount(
+    "/static/incident",
+    StaticFiles(directory=str(incident_upload_dir)),
+    name="incident-static",
+)
