@@ -458,14 +458,39 @@ async def add_progress_report(
     file: UploadFile = File(...),
     progress_percent: int = Form(..., ge=1, le=100),
     note: str | None = Form(default=None),
+    gps_lat: float | None = Form(default=None),
+    gps_lng: float | None = Form(default=None),
+    gps_accuracy_m: float | None = Form(default=None),
+    checkin_skip_reason: str | None = Form(default=None),
 ) -> TaskProgressReportPublic:
     """
     Upload progress photo and create the report atomically in one request.
-    Accepts multipart/form-data: file (image), progress_percent (1-100), note (optional).
+    Accepts multipart/form-data: file (image), progress_percent (1-100), note (optional),
+    optional GPS (gps_lat/gps_lng), and checkin_skip_reason.
+
+    When the task has requires_checkin = True, the submission must include either
+    GPS coordinates OR a checkin_skip_reason (device cannot locate) — the latter
+    flags the report for manager/director review.
     """
     content_type = (file.content_type or "").lower()
     if not content_type.startswith("image/"):
         raise HTTPException(422, "File must be an image")
+
+    svc = _svc(session)
+    task = await svc._task_repo.get_or_404(task_id)
+    has_gps = gps_lat is not None and gps_lng is not None
+    checkin_skipped = False
+    if task.requires_checkin and not has_gps:
+        if not (checkin_skip_reason and checkin_skip_reason.strip()):
+            raise HTTPException(
+                422,
+                "Công việc này yêu cầu check-in vị trí. Nếu thiết bị không định vị "
+                "được, hãy nhập lý do để báo quản lý.",
+            )
+        checkin_skipped = True
+        reason = f"[Không check-in được — {checkin_skip_reason.strip()}]"
+        note = " ".join(filter(None, [note, reason]))
+
     try:
         stored = await _progress_storage.save_upload(file)
     except ValueError as exc:
@@ -475,6 +500,10 @@ async def add_progress_report(
         photo_url=stored.public_url,
         progress_percent=progress_percent,
         note=note,
+        gps_lat=gps_lat,
+        gps_lng=gps_lng,
+        gps_accuracy_m=gps_accuracy_m,
+        checkin_skipped=checkin_skipped,
     )
     return await _svc(session).add_progress_report(task_id, body, current_user)
 

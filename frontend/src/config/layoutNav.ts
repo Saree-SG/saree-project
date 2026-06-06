@@ -10,6 +10,7 @@ import {
   FolderOpen,
   Gauge,
   LayoutDashboard,
+  Trophy,
   MessageCircle,
   Settings,
   Users,
@@ -76,6 +77,11 @@ export function buildLayoutNavItems(
       icon: Gauge,
       title: "Năng suất",
       path: "/productivity",
+    })
+    items.push({
+      icon: Trophy,
+      title: "Năng suất năm",
+      path: "/year-summary",
     })
   }
   if (canAccessQuotations) {

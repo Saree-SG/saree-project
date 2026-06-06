@@ -7,6 +7,7 @@ from datetime import date
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile, status
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlmodel import SQLModel
 
 from app.api.deps import AsyncSessionDep, CurrentUser
 from app.core.config import settings
@@ -85,6 +86,23 @@ async def check_out(
     record = await _svc(session).check_out(
         current_user, record_id, lat, lng, accuracy_m, photo_url
     )
+    return AttendanceRecordPublic.model_validate(record, from_attributes=True)
+
+
+class _AdjustHoursRequest(SQLModel):
+    work_hours: float
+    note: str | None = None
+
+
+@router.patch("/attendance/{record_id}/hours", response_model=AttendanceRecordPublic)
+async def adjust_attendance_hours(
+    record_id: uuid.UUID,
+    body: _AdjustHoursRequest,
+    session: AsyncSessionDep,
+    current_user: User = Depends(require_permission("ATTENDANCE_VIEW_TEAM")),
+) -> AttendanceRecordPublic:
+    """Manager corrects work hours (e.g. confirm hours of a forgotten check-out)."""
+    record = await _svc(session).adjust_hours(record_id, body.work_hours, body.note)
     return AttendanceRecordPublic.model_validate(record, from_attributes=True)
 
 

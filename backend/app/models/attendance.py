@@ -47,7 +47,9 @@ class AttendanceRecord(SQLModel, table=True):
     check_out_valid: bool | None = None
     check_out_photo_url: str | None = Field(default=None, max_length=1000)
 
-    work_hours: float | None = None            # computed at check-out
+    work_hours: float | None = None            # computed at check-out (capped at max shift)
+    is_capped: bool = Field(default=False)      # elapsed exceeded max shift → hours capped
+    is_auto_closed: bool = Field(default=False) # forgot to check out → auto-closed for review
     note: str | None = Field(default=None, sa_type=Text)
 
     created_at: datetime = Field(
@@ -78,6 +80,8 @@ class AttendanceRecordPublic(SQLModel):
     check_out_valid: bool | None
     check_out_photo_url: str | None
     work_hours: float | None
+    is_capped: bool
+    is_auto_closed: bool
     note: str | None
     created_at: datetime
 

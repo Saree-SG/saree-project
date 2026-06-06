@@ -418,6 +418,12 @@ export type TaskProgressReportPublic = {
     photo_url: string;
     progress_percent: number;
     note: (string | null);
+    gps_lat?: (number | null);
+    gps_lng?: (number | null);
+    gps_accuracy_m?: (number | null);
+    checkin_skipped?: boolean;
+    distance_m?: (number | null);
+    location_valid?: (boolean | null);
     created_at: string;
 };
 

@@ -32,6 +32,11 @@ export type TaskWithPeople = TaskPublic & {
   extra_assignees?: TaskExtraAssigneePublic[]
   observers?: TaskObserverPublic[]
   linked_entities?: TaskLinkedEntityPublic[]
+  // Present on backend TaskPublic; not yet in generated client types.
+  requires_checkin?: boolean
+  checkin_lat?: number | null
+  checkin_lng?: number | null
+  checkin_radius_m?: number | null
 }
 
 function authHeaders() {

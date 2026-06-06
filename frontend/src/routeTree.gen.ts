@@ -15,6 +15,7 @@ import { Route as RecoverPasswordRouteImport } from './routes/recover-password'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as LayoutRouteImport } from './routes/_layout'
 import { Route as LayoutIndexRouteImport } from './routes/_layout/index'
+import { Route as LayoutYearSummaryRouteImport } from './routes/_layout/year-summary'
 import { Route as LayoutSettingsRouteImport } from './routes/_layout/settings'
 import { Route as LayoutReportsRouteImport } from './routes/_layout/reports'
 import { Route as LayoutProductivityRouteImport } from './routes/_layout/productivity'
@@ -73,6 +74,11 @@ const LayoutRoute = LayoutRouteImport.update({
 const LayoutIndexRoute = LayoutIndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => LayoutRoute,
+} as any)
+const LayoutYearSummaryRoute = LayoutYearSummaryRouteImport.update({
+  id: '/year-summary',
+  path: '/year-summary',
   getParentRoute: () => LayoutRoute,
 } as any)
 const LayoutSettingsRoute = LayoutSettingsRouteImport.update({
@@ -245,6 +251,7 @@ export interface FileRoutesByFullPath {
   '/productivity': typeof LayoutProductivityRoute
   '/reports': typeof LayoutReportsRoute
   '/settings': typeof LayoutSettingsRoute
+  '/year-summary': typeof LayoutYearSummaryRoute
   '/admin/activity': typeof LayoutAdminActivityRoute
   '/admin/companies': typeof LayoutAdminCompaniesRoute
   '/admin/organization': typeof LayoutAdminOrganizationRoute
@@ -280,6 +287,7 @@ export interface FileRoutesByTo {
   '/productivity': typeof LayoutProductivityRoute
   '/reports': typeof LayoutReportsRoute
   '/settings': typeof LayoutSettingsRoute
+  '/year-summary': typeof LayoutYearSummaryRoute
   '/': typeof LayoutIndexRoute
   '/admin/activity': typeof LayoutAdminActivityRoute
   '/admin/companies': typeof LayoutAdminCompaniesRoute
@@ -319,6 +327,7 @@ export interface FileRoutesById {
   '/_layout/productivity': typeof LayoutProductivityRoute
   '/_layout/reports': typeof LayoutReportsRoute
   '/_layout/settings': typeof LayoutSettingsRoute
+  '/_layout/year-summary': typeof LayoutYearSummaryRoute
   '/_layout/': typeof LayoutIndexRoute
   '/_layout/admin/activity': typeof LayoutAdminActivityRoute
   '/_layout/admin/companies': typeof LayoutAdminCompaniesRoute
@@ -359,6 +368,7 @@ export interface FileRouteTypes {
     | '/productivity'
     | '/reports'
     | '/settings'
+    | '/year-summary'
     | '/admin/activity'
     | '/admin/companies'
     | '/admin/organization'
@@ -394,6 +404,7 @@ export interface FileRouteTypes {
     | '/productivity'
     | '/reports'
     | '/settings'
+    | '/year-summary'
     | '/'
     | '/admin/activity'
     | '/admin/companies'
@@ -432,6 +443,7 @@ export interface FileRouteTypes {
     | '/_layout/productivity'
     | '/_layout/reports'
     | '/_layout/settings'
+    | '/_layout/year-summary'
     | '/_layout/'
     | '/_layout/admin/activity'
     | '/_layout/admin/companies'
@@ -505,6 +517,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof LayoutIndexRouteImport
+      parentRoute: typeof LayoutRoute
+    }
+    '/_layout/year-summary': {
+      id: '/_layout/year-summary'
+      path: '/year-summary'
+      fullPath: '/year-summary'
+      preLoaderRoute: typeof LayoutYearSummaryRouteImport
       parentRoute: typeof LayoutRoute
     }
     '/_layout/settings': {
@@ -755,6 +774,7 @@ interface LayoutRouteChildren {
   LayoutProductivityRoute: typeof LayoutProductivityRoute
   LayoutReportsRoute: typeof LayoutReportsRoute
   LayoutSettingsRoute: typeof LayoutSettingsRoute
+  LayoutYearSummaryRoute: typeof LayoutYearSummaryRoute
   LayoutIndexRoute: typeof LayoutIndexRoute
   LayoutContractsContractIdRoute: typeof LayoutContractsContractIdRoute
   LayoutContractsNewRoute: typeof LayoutContractsNewRoute
@@ -782,6 +802,7 @@ const LayoutRouteChildren: LayoutRouteChildren = {
   LayoutProductivityRoute: LayoutProductivityRoute,
   LayoutReportsRoute: LayoutReportsRoute,
   LayoutSettingsRoute: LayoutSettingsRoute,
+  LayoutYearSummaryRoute: LayoutYearSummaryRoute,
   LayoutIndexRoute: LayoutIndexRoute,
   LayoutContractsContractIdRoute: LayoutContractsContractIdRoute,
   LayoutContractsNewRoute: LayoutContractsNewRoute,

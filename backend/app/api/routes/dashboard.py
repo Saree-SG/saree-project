@@ -6,17 +6,17 @@ Full async — no direct DB calls.
 from __future__ import annotations
 
 import uuid
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from typing import Any
 
 from fastapi import APIRouter, Depends, Query
-from sqlalchemy import func, select
+from sqlalchemy import Integer, cast, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import AsyncSessionDep, CurrentUser
 from app.models.attendance import AttendanceRecord
 from app.models.project import Project
-from app.models.task import Task, TaskDependency, TaskProgressReport
+from app.models.task import Task, TaskDependency, TaskProgressReport, TaskProof
 from app.models.user import User
 from app.services.task_service import compute_task_status
 from app.shared.permission import require_any_permission
@@ -896,3 +896,215 @@ async def team_productivity(
 
     rows.sort(key=lambda r: (r["work_hours"], r["tasks_done"]), reverse=True)
     return {"month": first.strftime("%Y-%m"), "rows": rows}
+
+
+# Composite score weights for the year-end productivity summary. Sum = 1.0.
+# Exposed in the API response so the UI can show the formula transparently.
+_YEAR_SCORE_WEIGHTS = {
+    "completion": 0.40,   # % công việc hoàn thành
+    "on_time": 0.30,      # % hoàn thành đúng hạn
+    "attendance": 0.20,   # chuyên cần (ngày công, chuẩn hoá theo người cao nhất)
+    "quality": 0.10,      # % bằng chứng được duyệt
+}
+
+
+def _year_bounds(year: int | None, from_month: str | None, to_month: str | None) -> tuple[date, date]:
+    """Return [start, end) date range for the summary.
+
+    Defaults to the full calendar year. ``from_month``/``to_month`` ('YYYY-MM')
+    override the start/end if provided (end is inclusive of that whole month).
+    """
+    today = _utcnow().date()
+    y = year or today.year
+    start = date(y, 1, 1)
+    end = date(y + 1, 1, 1)
+    if from_month:
+        fy, fm = (int(x) for x in from_month.split("-", 1))
+        start = date(fy, fm, 1)
+    if to_month:
+        ty, tm = (int(x) for x in to_month.split("-", 1))
+        end = date(ty + (tm // 12), (tm % 12) + 1, 1)
+    return start, end
+
+
+@router.get("/year-summary")
+async def year_summary(
+    session: AsyncSessionDep,
+    current_user: CurrentUser,
+    year: int | None = Query(default=None, description="Năm, mặc định năm hiện tại"),
+    from_month: str | None = Query(default=None, description="YYYY-MM (ghi đè ngày bắt đầu)"),
+    to_month: str | None = Query(default=None, description="YYYY-MM (ghi đè ngày kết thúc)"),
+    project_id: uuid.UUID | None = Query(default=None),
+    department_id: uuid.UUID | None = Query(default=None),
+) -> dict:
+    """Tổng hợp năng suất cả năm theo nhân sự — cơ sở xét thưởng cuối năm.
+
+    Mỗi người gồm: giờ công + ngày công (chấm công), tỷ lệ hoàn thành & đúng hạn
+    (công việc đến hạn trong kỳ), tỷ lệ bằng chứng được duyệt (chất lượng), và
+    một ĐIỂM TỔNG HỢP có trọng số để xếp hạng.
+    """
+    project_ids = await _project_ids_scope(
+        session, current_user, project_id, department_id
+    )
+    start, end = _year_bounds(year, from_month, to_month)
+    start_dt = datetime(start.year, start.month, start.day)
+    end_dt = datetime(end.year, end.month, end.day)
+    label = {
+        "year": (year or _utcnow().year),
+        "from": start.strftime("%Y-%m"),
+        "to": (end - timedelta(days=1)).strftime("%Y-%m"),
+        "weights": _YEAR_SCORE_WEIGHTS,
+    }
+    if not project_ids:
+        return {**label, "rows": []}
+
+    now = _utcnow()
+
+    # --- Attendance: giờ công + ngày công trong kỳ ---
+    att_result = await session.execute(
+        select(
+            AttendanceRecord.user_id,
+            func.coalesce(func.sum(AttendanceRecord.work_hours), 0.0).label("hours"),
+            func.count(func.distinct(AttendanceRecord.work_date)).label("days"),
+        )
+        .where(
+            AttendanceRecord.project_id.in_(project_ids),  # type: ignore[arg-type]
+            AttendanceRecord.work_date >= start,
+            AttendanceRecord.work_date < end,
+        )
+        .group_by(AttendanceRecord.user_id)
+    )
+    att_by_user: dict[str, dict] = {}
+    for row in att_result.all():
+        att_by_user[str(row.user_id)] = {
+            "work_hours": round(float(row.hours or 0.0), 2),
+            "days_worked": int(row.days or 0),
+        }
+
+    # --- Tasks: tính theo deadline (end_time) rơi vào kỳ ---
+    tasks_result = await session.execute(
+        select(Task).where(
+            Task.project_id.in_(project_ids),  # type: ignore[arg-type]
+            Task.is_deleted == False,  # noqa: E712
+            Task.end_time >= start_dt,
+            Task.end_time < end_dt,
+        )
+    )
+    task_stats: dict[str, dict] = {}
+    for t in tasks_result.scalars().all():
+        uid = str(t.assignee_id)
+        s = task_stats.setdefault(
+            uid, {"total": 0, "done": 0, "on_time": 0, "overdue": 0}
+        )
+        s["total"] += 1
+        end_time = _naive_utc(t.end_time)
+        actual_end = _naive_utc(t.actual_end_time)
+        if t.status == "done":
+            s["done"] += 1
+            if actual_end and end_time and actual_end <= end_time:
+                s["on_time"] += 1
+        elif end_time and end_time < now:
+            s["overdue"] += 1
+
+    # --- Quality: bằng chứng được duyệt / đã review trong kỳ ---
+    proof_result = await session.execute(
+        select(
+            TaskProof.uploader_id,
+            func.count(TaskProof.id).label("total"),
+            func.sum(
+                cast(TaskProof.review_status == "approved", Integer)
+            ).label("approved"),
+            func.sum(
+                cast(
+                    TaskProof.review_status.in_(["approved", "rejected"]), Integer
+                )
+            ).label("reviewed"),
+        )
+        .where(
+            TaskProof.uploaded_at >= start_dt,
+            TaskProof.uploaded_at < end_dt,
+        )
+        .group_by(TaskProof.uploader_id)
+    )
+    proof_by_user: dict[str, dict] = {}
+    for row in proof_result.all():
+        proof_by_user[str(row.uploader_id)] = {
+            "proofs_total": int(row.total or 0),
+            "proofs_approved": int(row.approved or 0),
+            "proofs_reviewed": int(row.reviewed or 0),
+        }
+
+    # --- Merge + resolve names ---
+    all_uids = set(att_by_user) | set(task_stats) | set(proof_by_user)
+    all_uids.discard("None")
+    uuid_ids = [uuid.UUID(u) for u in all_uids]
+    users_by_id: dict[str, User] = {}
+    if uuid_ids:
+        ures = await session.execute(
+            select(User).where(User.id.in_(uuid_ids))  # type: ignore[arg-type]
+        )
+        users_by_id = {str(u.id): u for u in ures.scalars().all()}
+
+    max_days = max((a.get("days_worked", 0) for a in att_by_user.values()), default=0)
+
+    rows = []
+    for uid in all_uids:
+        att = att_by_user.get(uid, {})
+        ts = task_stats.get(uid, {"total": 0, "done": 0, "on_time": 0, "overdue": 0})
+        pf = proof_by_user.get(uid, {})
+        u = users_by_id.get(uid)
+
+        total = ts["total"]
+        done = ts["done"]
+        days = att.get("days_worked", 0)
+        reviewed = pf.get("proofs_reviewed", 0)
+        approved = pf.get("proofs_approved", 0)
+
+        completion_pct = round(done / total * 100, 1) if total else 0.0
+        on_time_pct = round(ts["on_time"] / done * 100, 1) if done else 0.0
+        attendance_pct = round(days / max_days * 100, 1) if max_days else 0.0
+        quality_pct = round(approved / reviewed * 100, 1) if reviewed else None
+
+        # Composite score — renormalize weights over the criteria we actually have
+        # (quality is skipped when the person has no reviewed proof).
+        parts = {
+            "completion": completion_pct,
+            "on_time": on_time_pct,
+            "attendance": attendance_pct,
+        }
+        if quality_pct is not None:
+            parts["quality"] = quality_pct
+        wsum = sum(_YEAR_SCORE_WEIGHTS[k] for k in parts)
+        score = (
+            round(
+                sum(parts[k] * _YEAR_SCORE_WEIGHTS[k] for k in parts) / wsum, 1
+            )
+            if wsum
+            else 0.0
+        )
+
+        rows.append(
+            {
+                "user_id": uid,
+                "user_name": (u.full_name or u.email) if u else uid,
+                "job_title": getattr(u, "job_title", None) if u else None,
+                "work_hours": att.get("work_hours", 0.0),
+                "days_worked": days,
+                "tasks_total": total,
+                "tasks_done": done,
+                "tasks_on_time": ts["on_time"],
+                "tasks_overdue": ts["overdue"],
+                "completion_pct": completion_pct,
+                "on_time_pct": on_time_pct,
+                "attendance_pct": attendance_pct,
+                "proofs_total": pf.get("proofs_total", 0),
+                "proofs_approved": approved,
+                "quality_pct": quality_pct,
+                "score": score,
+            }
+        )
+
+    rows.sort(key=lambda r: r["score"], reverse=True)
+    for i, r in enumerate(rows, start=1):
+        r["rank"] = i
+    return {**label, "rows": rows}

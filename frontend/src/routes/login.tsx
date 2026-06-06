@@ -102,9 +102,9 @@ function Login() {
           <div className="w-full max-w-md rounded-2xl border bg-card/85 p-4 shadow-xl backdrop-blur-sm sm:p-8">
             <div className="mb-6 flex flex-col items-center text-center">
               <img
-                src="/assets/saree_image/logo_saree.png"
-                alt="Saree logo"
-                className="h-14 w-auto sm:h-16"
+                src="/assets/saree_image/logo_saree_full.png"
+                alt="Công ty TNHH Điện Lạnh Saigon - Saree"
+                className="h-auto w-full max-w-[380px]"
               />
               <h1 className="mt-4 text-2xl font-bold tracking-tight sm:text-3xl">
                 Đăng nhập

@@ -13,11 +13,21 @@ export async function submitProgressReport(params: {
   file: File
   progressPercent: number
   note?: string
+  gpsLat?: number
+  gpsLng?: number
+  gpsAccuracyM?: number
+  checkinSkipReason?: string
 }): Promise<TaskProgressReportPublic> {
   const form = new FormData()
   form.append("file", params.file)
   form.append("progress_percent", String(params.progressPercent))
   if (params.note) form.append("note", params.note)
+  if (params.gpsLat != null) form.append("gps_lat", String(params.gpsLat))
+  if (params.gpsLng != null) form.append("gps_lng", String(params.gpsLng))
+  if (params.gpsAccuracyM != null)
+    form.append("gps_accuracy_m", String(params.gpsAccuracyM))
+  if (params.checkinSkipReason)
+    form.append("checkin_skip_reason", params.checkinSkipReason)
 
   const token = getAccessToken()
   const r = await axios.post<TaskProgressReportPublic>(

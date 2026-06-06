@@ -23,6 +23,8 @@ export type AttendanceRecord = {
   check_out_valid: boolean | null
   check_out_photo_url: string | null
   work_hours: number | null
+  is_capped: boolean
+  is_auto_closed: boolean
   note: string | null
   created_at: string
 }

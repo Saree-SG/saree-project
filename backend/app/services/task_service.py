@@ -401,10 +401,48 @@ def _comment_to_public(comment: TaskComment, author: User | None) -> TaskComment
 # Progress report serialization helper
 # ---------------------------------------------------------------------------
 
+def _haversine_m(lat1: float, lng1: float, lat2: float, lng2: float) -> float:
+    """Great-circle distance between two lat/lng points, in metres."""
+    import math
+
+    r = 6371000.0  # Earth radius (m)
+    p1, p2 = math.radians(lat1), math.radians(lat2)
+    dphi = math.radians(lat2 - lat1)
+    dlmb = math.radians(lng2 - lng1)
+    a = (
+        math.sin(dphi / 2) ** 2
+        + math.cos(p1) * math.cos(p2) * math.sin(dlmb / 2) ** 2
+    )
+    return 2 * r * math.asin(math.sqrt(a))
+
+
 def _report_to_public(
-    row: TaskProgressReport, reporter: User | None
+    row: TaskProgressReport,
+    reporter: User | None,
+    task: "Task | None" = None,
 ) -> TaskProgressReportPublic:
-    """Serialize a TaskProgressReport with reporter display name."""
+    """Serialize a TaskProgressReport with reporter display name.
+
+    When ``task`` carries a reference check-in point (checkin_lat/lng), compute
+    the distance from this report's GPS and whether it falls within the allowed
+    radius (radius is relaxed by the report's GPS accuracy to avoid false
+    "wrong location" flags on low-accuracy fixes).
+    """
+    distance_m: float | None = None
+    location_valid: bool | None = None
+    if (
+        task is not None
+        and task.checkin_lat is not None
+        and task.checkin_lng is not None
+        and row.gps_lat is not None
+        and row.gps_lng is not None
+    ):
+        distance_m = _haversine_m(
+            task.checkin_lat, task.checkin_lng, row.gps_lat, row.gps_lng
+        )
+        allowed = (task.checkin_radius_m or 150) + (row.gps_accuracy_m or 0)
+        location_valid = distance_m <= allowed
+
     return TaskProgressReportPublic(
         id=row.id,
         task_id=row.task_id,
@@ -413,6 +451,12 @@ def _report_to_public(
         photo_url=row.photo_url,
         progress_percent=row.progress_percent,
         note=row.note,
+        gps_lat=row.gps_lat,
+        gps_lng=row.gps_lng,
+        gps_accuracy_m=row.gps_accuracy_m,
+        checkin_skipped=row.checkin_skipped,
+        distance_m=distance_m,
+        location_valid=location_valid,
         created_at=row.created_at,
     )
 
@@ -1834,7 +1878,23 @@ class TaskService:
             "photo_url": photo,
             "progress_percent": body.progress_percent,
             "note": body.note,
+            "gps_lat": body.gps_lat,
+            "gps_lng": body.gps_lng,
+            "gps_accuracy_m": body.gps_accuracy_m,
+            "checkin_skipped": body.checkin_skipped,
         })
+
+        # Notify the task creator (manager) when a required check-in was skipped.
+        if body.checkin_skipped and task.assignor_id != current_user.id:
+            reporter_name = _display_name(current_user) or "Nhân viên"
+            await self._notify(
+                user_id=task.assignor_id,
+                notif_type="task_checkin_skipped",
+                title=f'Báo cáo không check-in được: "{task.name}"',
+                body=f"{reporter_name} nộp báo cáo nhưng không định vị được. Cần xem xét.",
+                entity_type="task",
+                entity_id=task.id,
+            )
 
         # Auto-transition: use weighted combined total
         combined_after = await _rollup_completion_pct(self._task_repo, task_id)
@@ -1867,18 +1927,18 @@ class TaskService:
                 entity_id=task_id,
             )
 
-        return _report_to_public(report, current_user)
+        return _report_to_public(report, current_user, task)
 
     async def list_progress_reports(
         self, task_id: uuid.UUID
     ) -> list[TaskProgressReportPublic]:
         """List progress reports with reporter display names."""
-        await self._task_repo.get_or_404(task_id)
+        task = await self._task_repo.get_or_404(task_id)
         rows = await self._task_repo.list_progress_reports(task_id)
         reporter_ids = list({r.reporter_id for r in rows})
         reporters = await self._user_repo.list_by_ids(reporter_ids)
         by_id = {u.id: u for u in reporters}
-        return [_report_to_public(r, by_id.get(r.reporter_id)) for r in rows]
+        return [_report_to_public(r, by_id.get(r.reporter_id), task) for r in rows]
 
     # ------------------------------------------------------------------
     # Misc

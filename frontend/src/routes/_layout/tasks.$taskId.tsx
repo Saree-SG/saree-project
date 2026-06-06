@@ -50,6 +50,7 @@ import {
   type TaskWithPeople,
 } from "@/modules/tasks/taskApi"
 import { submitProgressReport } from "@/modules/tasks/taskProgressApi"
+import { useGeolocation } from "@/hooks/useGeolocation"
 import { handleError } from "@/utils"
 import { resolveBackendMediaUrl } from "@/utils/mediaUrl"
 
@@ -117,6 +118,7 @@ function TaskDetailPage() {
   const [commentDraft, setCommentDraft] = useState("")
   const [proofNote, setProofNote] = useState("")
   const [proofUrl, setProofUrl] = useState("")
+  const progressGeo = useGeolocation()
   const progressPhotoInputRef = useRef<HTMLInputElement>(null)
   const progressSectionRef = useRef<HTMLDivElement>(null)
   const commentsSectionRef = useRef<HTMLDivElement>(null)
@@ -148,6 +150,10 @@ function TaskDetailPage() {
   const [taskDeadlineDraft, setTaskDeadlineDraft] = useState("")
   const [taskStartDraft, setTaskStartDraft] = useState("")
   const [taskModuleTagDraft, setTaskModuleTagDraft] = useState("")
+  const [requiresCheckinDraft, setRequiresCheckinDraft] = useState(false)
+  const [checkinLatDraft, setCheckinLatDraft] = useState("")
+  const [checkinLngDraft, setCheckinLngDraft] = useState("")
+  const [checkinRadiusDraft, setCheckinRadiusDraft] = useState("150")
   const [taskNameDraft, setTaskNameDraft] = useState("")
   const [taskDescriptionDraft, setTaskDescriptionDraft] = useState("")
   const [taskPriorityDraft, setTaskPriorityDraft] = useState("medium")
@@ -375,11 +381,30 @@ function TaskDetailPage() {
 
   const addProgressReportMutation = useMutation({
     mutationFn: async (payload: { pct: number; file: File }) => {
+      let gps: { gpsLat?: number; gpsLng?: number; gpsAccuracyM?: number } = {}
+      let checkinSkipReason: string | undefined
+      if (taskQuery.data?.requires_checkin) {
+        try {
+          const fix = await progressGeo.locate()
+          gps = { gpsLat: fix.lat, gpsLng: fix.lng, gpsAccuracyM: fix.accuracy }
+        } catch {
+          // Device couldn't locate — require a reason to report to the manager.
+          const reason = progressNoteInput.trim()
+          if (!reason) {
+            throw new Error(
+              "Không định vị được. Hãy ghi lý do vào ô ghi chú để báo quản lý, rồi gửi lại.",
+            )
+          }
+          checkinSkipReason = reason
+        }
+      }
       return submitProgressReport({
         taskId,
         file: payload.file,
         progressPercent: payload.pct,
         note: progressNoteInput.trim() || undefined,
+        checkinSkipReason,
+        ...gps,
       })
     },
     onSuccess: async () => {
@@ -578,6 +603,17 @@ function TaskDetailPage() {
         throw new Error("Thời gian task không hợp lệ")
       }
       const parsedCoeff = perfCoeffDraft.trim() ? parseFloat(perfCoeffDraft) : undefined
+      const parsedLat = checkinLatDraft.trim() ? parseFloat(checkinLatDraft) : null
+      const parsedLng = checkinLngDraft.trim() ? parseFloat(checkinLngDraft) : null
+      if ((parsedLat === null) !== (parsedLng === null)) {
+        throw new Error("Cần nhập cả vĩ độ và kinh độ cho vị trí check-in")
+      }
+      if (parsedLat !== null && (isNaN(parsedLat) || isNaN(parsedLng as number))) {
+        throw new Error("Toạ độ vị trí check-in không hợp lệ")
+      }
+      const parsedRadius = checkinRadiusDraft.trim()
+        ? parseInt(checkinRadiusDraft, 10)
+        : 150
       return TasksService.updateTask({
         taskId,
         requestBody: {
@@ -587,6 +623,10 @@ function TaskDetailPage() {
           start_time: startTime,
           end_time: endTime,
           module_tag: taskModuleTagDraft || null,
+          requires_checkin: requiresCheckinDraft,
+          checkin_lat: parsedLat,
+          checkin_lng: parsedLng,
+          checkin_radius_m: !isNaN(parsedRadius) ? parsedRadius : 150,
           ...(parsedCoeff !== undefined && !isNaN(parsedCoeff) ? { performance_coefficient: parsedCoeff } : {}),
         } as any,
       })
@@ -695,6 +735,18 @@ function TaskDetailPage() {
 
   useEffect(() => {
     setTaskModuleTagDraft(task?.module_tag ?? "")
+    setRequiresCheckinDraft(Boolean(task?.requires_checkin))
+    setCheckinLatDraft(
+      (task as any)?.checkin_lat != null ? String((task as any).checkin_lat) : "",
+    )
+    setCheckinLngDraft(
+      (task as any)?.checkin_lng != null ? String((task as any).checkin_lng) : "",
+    )
+    setCheckinRadiusDraft(
+      (task as any)?.checkin_radius_m != null
+        ? String((task as any).checkin_radius_m)
+        : "150",
+    )
     setTaskNameDraft(task?.name ?? "")
     setTaskDescriptionDraft(task?.description ?? "")
     setTaskPriorityDraft(task?.priority ?? "medium")
@@ -1400,7 +1452,7 @@ function TaskDetailPage() {
                   <button
                     type="button"
                     title="Bỏ ảnh"
-                    className="h-9 rounded-md border px-3 text-xs font-semibold text-muted-foreground"
+                    className="h-9 rounded-md border border-input bg-transparent px-3 text-xs font-semibold text-muted-foreground"
                     onClick={clearProgressPhotoPick}
                   >
                     Bỏ ảnh
@@ -1440,7 +1492,7 @@ function TaskDetailPage() {
                 }
                 placeholder="30"
                 disabled={task?.status === "done" || selfProgress >= 100}
-                className="h-9 w-full rounded-md border px-3 text-sm outline-none disabled:opacity-60"
+                className="h-9 w-full min-w-0 rounded-md border border-input bg-transparent px-3 text-sm outline-none disabled:opacity-60"
               />
             </div>
           </div>
@@ -1459,9 +1511,19 @@ function TaskDetailPage() {
               }
               placeholder="Mô tả ngắn..."
               disabled={task?.status === "done"}
-              className="h-9 w-full rounded-md border px-3 text-sm outline-none disabled:opacity-60"
+              className="h-9 w-full min-w-0 rounded-md border border-input bg-transparent px-3 text-sm outline-none disabled:opacity-60"
             />
           </div>
+          {task?.requires_checkin && (
+            <div className="flex items-start gap-2 rounded-md bg-amber-50 p-2 text-xs text-amber-800">
+              <span>📍</span>
+              <span>
+                Công việc này yêu cầu <b>check-in vị trí</b> khi gửi báo cáo. Nếu
+                thiết bị không định vị được, hãy ghi lý do vào ô ghi chú — báo cáo
+                sẽ được gửi kèm cờ báo quản lý.
+              </span>
+            </div>
+          )}
           <button
             type="button"
             title="Gửi báo cáo tiến độ"
@@ -1542,6 +1604,41 @@ function TaskDetailPage() {
                   {row.note ? (
                     <p className="mt-1 break-words text-[13px]">{row.note}</p>
                   ) : null}
+                  {row.gps_lat != null && row.gps_lng != null ? (
+                    <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">
+                      <a
+                        href={`https://www.google.com/maps?q=${row.gps_lat},${row.gps_lng}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 break-all text-[12px] font-medium text-blue-600 hover:underline"
+                        title="Mở vị trí trên Google Maps"
+                      >
+                        📍 {row.gps_lat.toFixed(6)}, {row.gps_lng.toFixed(6)}
+                        {row.gps_accuracy_m != null
+                          ? ` (±${Math.round(row.gps_accuracy_m)}m)`
+                          : ""}
+                      </a>
+                      {row.location_valid === true ? (
+                        <span className="rounded-full bg-green-100 px-2 py-0.5 text-[11px] font-bold text-green-700">
+                          ✓ Đúng vị trí
+                          {row.distance_m != null
+                            ? ` · cách ${Math.round(row.distance_m)}m`
+                            : ""}
+                        </span>
+                      ) : row.location_valid === false ? (
+                        <span className="rounded-full bg-red-100 px-2 py-0.5 text-[11px] font-bold text-red-700">
+                          ✗ Sai vị trí
+                          {row.distance_m != null
+                            ? ` · cách ${Math.round(row.distance_m)}m`
+                            : ""}
+                        </span>
+                      ) : null}
+                    </div>
+                  ) : row.checkin_skipped ? (
+                    <p className="mt-1 text-[12px] font-medium text-amber-600">
+                      ⚠️ Không có vị trí (đã bỏ qua check-in)
+                    </p>
+                  ) : null}
                 </div>
               </div>
             )
@@ -1568,7 +1665,7 @@ function TaskDetailPage() {
               value={proofUrl}
               onChange={(eventValue) => setProofUrl(eventValue.target.value)}
               placeholder="URL ảnh bằng chứng..."
-              className="h-10 flex-1 rounded-md border px-3 text-sm outline-none"
+              className="h-10 flex-1 rounded-md border border-input bg-transparent px-3 text-sm outline-none"
             />
             <button
               type="button"
@@ -1934,14 +2031,17 @@ function TaskDetailPage() {
       </div>
       )}
 
-      {/* Delay Request Dialog */}
+      {/* Edit task info Dialog */}
       <Dialog open={taskEditDialogOpen} onOpenChange={setTaskEditDialogOpen}>
-        <DialogContent className="max-w-md" showCloseButton>
+        <DialogContent
+          className="max-h-[90vh] w-full max-w-md overflow-x-hidden overflow-y-auto"
+          showCloseButton
+        >
           <DialogHeader>
             <DialogTitle>Sửa thông tin việc</DialogTitle>
           </DialogHeader>
-          <div className="space-y-3">
-            <div>
+          <div className="min-w-0 space-y-3">
+            <div className="min-w-0">
               <label className="mb-1 block text-sm font-semibold text-slate-700">
                 Tên việc
               </label>
@@ -1949,7 +2049,7 @@ function TaskDetailPage() {
                 type="text"
                 value={taskNameDraft}
                 onChange={(e) => setTaskNameDraft(e.target.value)}
-                className="h-10 w-full rounded-md border px-3 text-sm outline-none"
+                className="h-10 w-full min-w-0 rounded-md border border-input bg-transparent px-3 text-sm outline-none"
                 placeholder="Nhập tên việc"
               />
             </div>
@@ -1960,12 +2060,12 @@ function TaskDetailPage() {
               <textarea
                 value={taskDescriptionDraft}
                 onChange={(e) => setTaskDescriptionDraft(e.target.value)}
-                className="min-h-[84px] w-full rounded-md border px-3 py-2 text-sm outline-none"
+                className="min-h-[84px] w-full min-w-0 rounded-md border border-input bg-transparent px-3 py-2 text-sm outline-none"
                 placeholder="Mô tả ngắn"
               />
             </div>
             <div className="grid grid-cols-2 gap-3">
-              <div>
+              <div className="min-w-0">
                 <label className="mb-1 block text-sm font-semibold text-slate-700">
                   Ưu tiên
                 </label>
@@ -1973,7 +2073,7 @@ function TaskDetailPage() {
                   value={taskPriorityDraft}
                   onChange={(e) => setTaskPriorityDraft(e.target.value)}
                   title="Chọn mức ưu tiên"
-                  className="h-10 w-full rounded-md border px-2 text-sm"
+                  className="h-10 w-full min-w-0 rounded-md border border-input bg-transparent px-2 text-sm"
                 >
                   <option value="low">Thấp</option>
                   <option value="medium">Trung bình</option>
@@ -1981,7 +2081,7 @@ function TaskDetailPage() {
                   <option value="critical">Khẩn cấp</option>
                 </select>
               </div>
-              <div>
+              <div className="min-w-0">
                 <label className="mb-1 block text-sm font-semibold text-slate-700">
                   Loại công việc
                 </label>
@@ -1989,7 +2089,7 @@ function TaskDetailPage() {
                   value={taskModuleTagDraft}
                   onChange={(e) => setTaskModuleTagDraft(e.target.value)}
                   title="Chọn loại công việc"
-                  className="h-10 w-full rounded-md border px-2 text-sm"
+                  className="h-10 w-full min-w-0 rounded-md border border-input bg-transparent px-2 text-sm"
                 >
                   <option value="">Chưa phân loại</option>
                   <option value="engineering">Kỹ thuật</option>
@@ -2001,8 +2101,93 @@ function TaskDetailPage() {
                 </select>
               </div>
             </div>
+            <label className="flex items-start gap-2 rounded-md border border-input p-2.5 text-sm">
+              <input
+                type="checkbox"
+                checked={requiresCheckinDraft}
+                onChange={(e) => setRequiresCheckinDraft(e.target.checked)}
+                className="mt-0.5 shrink-0"
+              />
+              <span className="min-w-0 flex-1">
+                <span className="font-semibold text-slate-700">
+                  Yêu cầu check-in vị trí khi nộp báo cáo
+                </span>
+                <span className="block text-xs text-muted-foreground">
+                  Người thực hiện phải bật GPS khi gửi báo cáo tiến độ. Nếu thiết bị
+                  không định vị được, họ phải ghi lý do để báo quản lý.
+                </span>
+              </span>
+            </label>
+            {requiresCheckinDraft ? (
+              <div className="min-w-0 space-y-2 rounded-md border border-input p-2.5">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-sm font-semibold text-slate-700">
+                    Vị trí check-in chuẩn
+                  </span>
+                  <button
+                    type="button"
+                    className="shrink-0 rounded-md border border-input px-2 py-1 text-xs font-semibold text-blue-600 hover:bg-slate-50"
+                    onClick={() => {
+                      if (!navigator.geolocation) {
+                        showErrorToast("Thiết bị không hỗ trợ định vị")
+                        return
+                      }
+                      navigator.geolocation.getCurrentPosition(
+                        (pos) => {
+                          setCheckinLatDraft(pos.coords.latitude.toFixed(6))
+                          setCheckinLngDraft(pos.coords.longitude.toFixed(6))
+                          showSuccessToast("Đã lấy vị trí hiện tại")
+                        },
+                        () => showErrorToast("Không lấy được vị trí hiện tại"),
+                        { enableHighAccuracy: true, timeout: 10000 },
+                      )
+                    }}
+                  >
+                    📍 Lấy vị trí hiện tại
+                  </button>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <input
+                    type="number"
+                    step="any"
+                    value={checkinLatDraft}
+                    onChange={(e) => setCheckinLatDraft(e.target.value)}
+                    className="h-9 w-full min-w-0 rounded-md border border-input bg-transparent px-2 text-sm outline-none"
+                    placeholder="Vĩ độ (lat)"
+                    aria-label="Vĩ độ vị trí check-in"
+                  />
+                  <input
+                    type="number"
+                    step="any"
+                    value={checkinLngDraft}
+                    onChange={(e) => setCheckinLngDraft(e.target.value)}
+                    className="h-9 w-full min-w-0 rounded-md border border-input bg-transparent px-2 text-sm outline-none"
+                    placeholder="Kinh độ (lng)"
+                    aria-label="Kinh độ vị trí check-in"
+                  />
+                </div>
+                <div className="flex items-center gap-2">
+                  <label className="shrink-0 text-xs text-muted-foreground">
+                    Bán kính cho phép (m)
+                  </label>
+                  <input
+                    type="number"
+                    min="10"
+                    value={checkinRadiusDraft}
+                    onChange={(e) => setCheckinRadiusDraft(e.target.value)}
+                    className="h-9 w-24 min-w-0 rounded-md border border-input bg-transparent px-2 text-sm outline-none"
+                    placeholder="150"
+                    aria-label="Bán kính cho phép"
+                  />
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Báo cáo nộp trong bán kính này (cộng sai số GPS) sẽ được đánh dấu
+                  <b> đúng vị trí</b>. Để trống toạ độ nếu chưa cần kiểm tra.
+                </p>
+              </div>
+            ) : null}
             <div className="grid grid-cols-2 gap-3">
-              <div>
+              <div className="min-w-0">
                 <label className="mb-1 block text-sm font-semibold text-slate-700">
                   Bắt đầu
                 </label>
@@ -2012,10 +2197,10 @@ function TaskDetailPage() {
                   aria-label="Chọn thời gian bắt đầu"
                   value={taskStartDraft}
                   onChange={(e) => setTaskStartDraft(e.target.value)}
-                  className="h-10 w-full rounded-md border px-2 text-sm"
+                  className="h-10 w-full min-w-0 rounded-md border border-input bg-transparent px-2 text-sm"
                 />
               </div>
-              <div>
+              <div className="min-w-0">
                 <label className="mb-1 block text-sm font-semibold text-slate-700">
                   Deadline
                 </label>
@@ -2025,7 +2210,7 @@ function TaskDetailPage() {
                   aria-label="Chọn deadline task"
                   value={taskDeadlineDraft}
                   onChange={(e) => setTaskDeadlineDraft(e.target.value)}
-                  className="h-10 w-full rounded-md border px-2 text-sm"
+                  className="h-10 w-full min-w-0 rounded-md border border-input bg-transparent px-2 text-sm"
                 />
               </div>
             </div>
@@ -2040,7 +2225,7 @@ function TaskDetailPage() {
                   min="0"
                   value={perfCoeffDraft}
                   onChange={(e) => setPerfCoeffDraft(e.target.value)}
-                  className="h-10 w-full rounded-md border px-3 text-sm outline-none"
+                  className="h-10 w-full min-w-0 rounded-md border border-input bg-transparent px-3 text-sm outline-none"
                   placeholder="VD: 1.0, 1.5, 2.0"
                 />
               </div>
@@ -2054,7 +2239,7 @@ function TaskDetailPage() {
                   <select
                     title="Chọn task phụ thuộc"
                     aria-label="Chọn task phụ thuộc"
-                    className="h-9 min-w-[200px] flex-1 rounded-md border px-2 text-sm"
+                    className="h-9 min-w-0 flex-1 rounded-md border border-input bg-transparent px-2 text-sm"
                     value={dependencyDraft}
                     onChange={(e) => setDependencyDraft(e.target.value)}
                   >
@@ -2080,7 +2265,7 @@ function TaskDetailPage() {
                     {dependencyRows.map((row) => (
                       <div
                         key={row.depId}
-                        className="flex items-center justify-between rounded border bg-white px-2 py-1.5 text-sm"
+                        className="flex items-center justify-between rounded border border-input bg-white px-2 py-1.5 text-sm"
                       >
                         <span className="text-slate-700">{row.blockingName}</span>
                         <button
@@ -2154,7 +2339,7 @@ function TaskDetailPage() {
                 type="datetime-local"
                 value={delayEndTime}
                 onChange={(e) => setDelayEndTime(e.target.value)}
-                className="h-10 w-full rounded-md border px-3 text-sm outline-none focus:ring-2 focus:ring-primary/30"
+                className="h-10 w-full min-w-0 rounded-md border border-input bg-transparent px-3 text-sm outline-none focus:ring-2 focus:ring-primary/30"
               />
             </div>
           </div>
@@ -2445,7 +2630,7 @@ function TaskDetailPage() {
                 value={subtaskName}
                 onChange={(eventValue) => setSubtaskName(eventValue.target.value)}
                 placeholder="Ví dụ: Đi dây điện tầng 2"
-                className="h-10 w-full rounded-md border px-3 text-sm outline-none"
+                className="h-10 w-full min-w-0 rounded-md border border-input bg-transparent px-3 text-sm outline-none"
               />
             </div>
             <div className="space-y-1">
@@ -2463,7 +2648,7 @@ function TaskDetailPage() {
                   setSubtaskAssigneeId("")
                 }}
                 placeholder="Gõ tên hoặc email thành viên..."
-                className="h-10 w-full rounded-md border px-3 text-sm outline-none"
+                className="h-10 w-full min-w-0 rounded-md border border-input bg-transparent px-3 text-sm outline-none"
               />
               {subtaskAssigneePickerOpen ? (
                 <div className="max-h-48 overflow-auto rounded-md border">
@@ -2548,7 +2733,7 @@ function TaskDetailPage() {
                 }
                 onChange={(e) => setSubtaskExtraSearch(e.target.value)}
                 placeholder="Gõ tên hoặc email để thêm..."
-                className="h-10 w-full rounded-md border px-3 text-sm outline-none"
+                className="h-10 w-full min-w-0 rounded-md border border-input bg-transparent px-3 text-sm outline-none"
               />
               {subtaskExtraPickerOpen ? (
                 <div className="max-h-48 overflow-auto rounded-md border">
@@ -2609,7 +2794,7 @@ function TaskDetailPage() {
                 onChange={(eventValue) =>
                   setSubtaskStartTime(eventValue.target.value)
                 }
-                className="h-10 w-full rounded-md border px-3 text-sm outline-none"
+                className="h-10 w-full min-w-0 rounded-md border border-input bg-transparent px-3 text-sm outline-none"
               />
             </div>
             <div className="space-y-1">
@@ -2625,7 +2810,7 @@ function TaskDetailPage() {
                 title="Chọn thời gian kết thúc"
                 value={subtaskEndTime}
                 onChange={(eventValue) => setSubtaskEndTime(eventValue.target.value)}
-                className="h-10 w-full rounded-md border px-3 text-sm outline-none"
+                className="h-10 w-full min-w-0 rounded-md border border-input bg-transparent px-3 text-sm outline-none"
               />
             </div>
             <div className="flex gap-3">
@@ -2640,7 +2825,7 @@ function TaskDetailPage() {
                   onChange={(e) => setSubtaskWeightDraft(e.target.value)}
                   placeholder="Ví dụ: 30"
                   className={[
-                    "h-10 w-full rounded-md border px-3 text-sm outline-none",
+                    "h-10 w-full min-w-0 rounded-md border border-input bg-transparent px-3 text-sm outline-none",
                     totalChildWeight + (parseInt(subtaskWeightDraft || "0", 10) || 0) > 100
                       ? "border-red-400"
                       : "",
@@ -2714,7 +2899,7 @@ function TaskDetailPage() {
                 title="Chọn ngày bắt đầu mới cho task"
                 value={taskStartDraft}
                 onChange={(e) => setTaskStartDraft(e.target.value)}
-                className="h-10 w-full rounded-md border px-3 text-sm outline-none"
+                className="h-10 w-full min-w-0 rounded-md border border-input bg-transparent px-3 text-sm outline-none"
               />
             </div>
             <div className="space-y-1.5">
@@ -2730,7 +2915,7 @@ function TaskDetailPage() {
                 title="Chọn deadline mới cho task"
                 value={taskDeadlineDraft}
                 onChange={(e) => setTaskDeadlineDraft(e.target.value)}
-                className="h-10 w-full rounded-md border px-3 text-sm outline-none"
+                className="h-10 w-full min-w-0 rounded-md border border-input bg-transparent px-3 text-sm outline-none"
               />
             </div>
           </div>

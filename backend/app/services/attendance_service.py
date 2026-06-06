@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import math
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from fastapi import HTTPException
 from sqlmodel import select
@@ -31,6 +31,9 @@ from app.models.user import User
 _MAX_ACCURACY_BUFFER_M = 100.0
 # Above this reported accuracy the fix is treated as unreliable (e.g. PC on WiFi/IP).
 _UNRELIABLE_ACCURACY_M = 500.0
+# Maximum length of a single work shift. Hours beyond this are capped and a
+# still-open record older than this is treated as a forgotten check-out.
+MAX_SHIFT_HOURS = 8.0
 
 
 def haversine_m(lat1: float, lng1: float, lat2: float, lng2: float) -> float:
@@ -98,6 +101,64 @@ class AttendanceService:
         )
         return result.scalars().first()
 
+    @staticmethod
+    def _capped_hours(check_in_at: datetime, check_out_at: datetime) -> tuple[float, bool]:
+        """Elapsed hours between two times, capped at MAX_SHIFT_HOURS.
+
+        Returns (hours, is_capped). A negative elapsed (clock skew) clamps to 0.
+        """
+        elapsed = (check_out_at - check_in_at).total_seconds() / 3600.0
+        if elapsed < 0:
+            return 0.0, False
+        if elapsed > MAX_SHIFT_HOURS:
+            return MAX_SHIFT_HOURS, True
+        return round(elapsed, 2), False
+
+    async def _auto_close_if_stale(self, record: AttendanceRecord) -> bool:
+        """Auto-close an open record left over from a forgotten check-out.
+
+        A forgotten check-out is NOT credited any hours — we do not know when the
+        worker actually left, and auto-granting a full shift would be unfair and
+        easy to abuse. The record is closed (so the worker can check in again),
+        but `work_hours` stays NULL and it is flagged for a manager to confirm
+        the real hours via `adjust_hours`. Returns True if it was auto-closed.
+        """
+        now = datetime.now(timezone.utc)
+        elapsed = (now - record.check_in_at).total_seconds() / 3600.0
+        if elapsed <= MAX_SHIFT_HOURS:
+            return False
+        # Nominal close timestamp only; hours intentionally left unset (None).
+        record.check_out_at = record.check_in_at + timedelta(hours=MAX_SHIFT_HOURS)
+        record.work_hours = None
+        record.is_capped = False
+        record.is_auto_closed = True
+        record.note = " ".join(
+            filter(
+                None,
+                [record.note, "[Quên chấm công ra — quản lý cần xác nhận giờ công]"],
+            )
+        )
+        self._session.add(record)
+        await self._session.flush()
+        return True
+
+    async def adjust_hours(
+        self, record_id: uuid.UUID, work_hours: float, note: str | None = None
+    ) -> AttendanceRecord:
+        """Manager correction of work hours (e.g. for a forgotten check-out)."""
+        record = await self._session.get(AttendanceRecord, record_id)
+        if not record:
+            raise HTTPException(404, "Attendance record not found")
+        if work_hours < 0 or work_hours > MAX_SHIFT_HOURS:
+            raise HTTPException(422, f"work_hours phải trong khoảng 0–{MAX_SHIFT_HOURS}")
+        record.work_hours = round(work_hours, 2)
+        record.is_auto_closed = False  # reviewed
+        if note:
+            record.note = " ".join(filter(None, [record.note, note]))
+        self._session.add(record)
+        await self._session.flush()
+        return record
+
     async def check_in(
         self,
         user: User,
@@ -110,10 +171,15 @@ class AttendanceService:
     ) -> AttendanceRecord:
         project = await self._get_project(project_id)
         await self._ensure_member(user, project)
-        if await self._open_record(user.id, project_id):
-            raise HTTPException(
-                409, "You already have an open check-in for this project. Check out first."
-            )
+        open_rec = await self._open_record(user.id, project_id)
+        if open_rec:
+            # Forgotten check-out from a previous shift → auto-close and allow
+            # the new check-in. A genuinely current shift still blocks.
+            if not await self._auto_close_if_stale(open_rec):
+                raise HTTPException(
+                    409,
+                    "Bạn đang có 1 ca chưa chấm công ra. Hãy chấm công ra trước.",
+                )
         now = datetime.now(timezone.utc)
         distance, valid = self._evaluate(project, lat, lng, accuracy_m)
         record = AttendanceRecord(
@@ -161,9 +227,9 @@ class AttendanceService:
         record.check_out_distance_m = distance
         record.check_out_valid = valid
         record.check_out_photo_url = photo_url
-        record.work_hours = round(
-            (now - record.check_in_at).total_seconds() / 3600.0, 2
-        )
+        hours, capped = self._capped_hours(record.check_in_at, now)
+        record.work_hours = hours
+        record.is_capped = capped
         self._session.add(record)
         await self._session.flush()
         return record

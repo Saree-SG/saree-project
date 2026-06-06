@@ -69,6 +69,17 @@ class Task(TaskBase, table=True):
     color: str | None = Field(default=None, max_length=30)
     performance_coefficient: float | None = None
 
+    # If True, the assignee must capture GPS location when submitting a progress
+    # report (proof %). Set/edited by the task creator.
+    requires_checkin: bool = Field(default=False)
+
+    # Reference location for the required check-in. When set, a progress report's
+    # GPS is compared against this point; "valid" if within checkin_radius_m
+    # (plus the report's GPS accuracy). Edited by the task creator.
+    checkin_lat: float | None = None
+    checkin_lng: float | None = None
+    checkin_radius_m: int = Field(default=150)
+
     # Soft delete
     is_deleted: bool = False
     deleted_at: datetime | None = None
@@ -156,6 +167,10 @@ class TaskCreate(TaskBase):
     module_tag: str | None = None
     linked_entity_type: str | None = None
     linked_entity_id: uuid.UUID | None = None
+    requires_checkin: bool = False
+    checkin_lat: float | None = None
+    checkin_lng: float | None = None
+    checkin_radius_m: int | None = None
 
 
 class TaskUpdate(SQLModel):
@@ -171,6 +186,10 @@ class TaskUpdate(SQLModel):
     color: str | None = None
     performance_coefficient: float | None = None
     progress_weight: int | None = None
+    requires_checkin: bool | None = None
+    checkin_lat: float | None = None
+    checkin_lng: float | None = None
+    checkin_radius_m: int | None = None
 
 
 class TaskStatusUpdate(SQLModel):
@@ -204,6 +223,10 @@ class TaskPublic(TaskBase):
     updated_at: datetime
     reported_progress_total: int = 0
     progress_weight: int | None = None   # % of parent this subtask covers
+    requires_checkin: bool = False
+    checkin_lat: float | None = None
+    checkin_lng: float | None = None
+    checkin_radius_m: int = 150
     module_tag: str | None = None
     linked_entity_type: str | None = None
     linked_entity_id: uuid.UUID | None = None
@@ -385,6 +408,13 @@ class TaskProgressReport(SQLModel, table=True):
     photo_url: str = Field(max_length=1000)
     progress_percent: int
     note: str | None = Field(default=None, sa_type=Text)
+    # GPS captured at submission when the task requires check-in
+    gps_lat: float | None = None
+    gps_lng: float | None = None
+    gps_accuracy_m: float | None = None
+    # True when check-in was required but GPS could not be captured; the worker
+    # supplied a reason instead, flagging this report for manager/director review.
+    checkin_skipped: bool = Field(default=False)
     created_at: datetime = Field(
         default_factory=_utcnow, sa_type=DateTime(timezone=True)  # type: ignore
     )
@@ -396,6 +426,10 @@ class TaskProgressReportCreate(SQLModel):
     photo_url: str = Field(max_length=1000)
     progress_percent: int = Field(ge=1, le=100)
     note: str | None = None
+    gps_lat: float | None = None
+    gps_lng: float | None = None
+    gps_accuracy_m: float | None = None
+    checkin_skipped: bool = False
 
 
 class TaskProgressPhotoUploadPublic(SQLModel):
@@ -412,6 +446,15 @@ class TaskProgressReportPublic(SQLModel):
     photo_url: str
     progress_percent: int
     note: str | None
+    gps_lat: float | None = None
+    gps_lng: float | None = None
+    gps_accuracy_m: float | None = None
+    checkin_skipped: bool = False
+    # Distance (metres) from the report's GPS to the task's reference check-in
+    # point, and whether it falls inside the allowed radius. None when either
+    # the task has no reference point or the report has no GPS.
+    distance_m: float | None = None
+    location_valid: bool | None = None
     created_at: datetime
 
 

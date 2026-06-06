@@ -160,6 +160,13 @@ function AttendancePage() {
     ? (projectsById.get(openRecord.project_id) ?? "Công trình")
     : null
 
+  // A shift open longer than the 8h cap means the worker likely forgot to
+  // check out; warn them (the server will cap hours at 8h on check-out).
+  const openHours = openRecord
+    ? (Date.now() - new Date(openRecord.check_in_at).getTime()) / 3_600_000
+    : 0
+  const openStale = openHours > 8
+
   return (
     <div className="mx-auto w-full max-w-2xl space-y-5 p-4 pb-10">
       <div>
@@ -218,6 +225,15 @@ function AttendancePage() {
             </Badge>
           )}
         </div>
+        {openStale && (
+          <div className="mt-3 flex items-start gap-2 rounded-lg bg-amber-100 p-2.5 text-xs text-amber-800 dark:bg-amber-950/60 dark:text-amber-300">
+            <XCircle className="mt-0.5 size-3.5 shrink-0" />
+            <span>
+              Ca này đã mở hơn 8 tiếng — có thể bạn quên chấm công ra. Hãy chấm
+              công ra ngay; giờ công sẽ được giới hạn ở mức 8 tiếng.
+            </span>
+          </div>
+        )}
       </div>
 
       {canConfig && <SiteConfigCard projects={projectsQuery.data ?? []} />}
@@ -365,16 +381,32 @@ function AttendancePage() {
                       {fmtTime(r.check_in_at)} → {fmtTime(r.check_out_at)}
                     </span>
                     <span>· cách ~{Math.round(r.check_in_distance_m)} m</span>
+                    {r.is_auto_closed && (
+                      <span className="text-amber-600">· tự đóng (quên check-out)</span>
+                    )}
                   </div>
                 </div>
                 <div className="flex flex-col items-end gap-1">
                   <span
                     className={`text-sm font-semibold ${
-                      r.work_hours == null ? "text-emerald-600" : ""
+                      r.work_hours == null
+                        ? r.is_auto_closed
+                          ? "text-amber-600"
+                          : "text-emerald-600"
+                        : ""
                     }`}
                   >
-                    {r.work_hours != null ? `${r.work_hours} giờ` : "đang mở"}
+                    {r.work_hours != null
+                      ? `${r.work_hours} giờ`
+                      : r.is_auto_closed
+                        ? "chờ xác nhận"
+                        : "đang mở"}
                   </span>
+                  {r.is_capped && (
+                    <Badge variant="outline" className="h-5 px-1.5 text-[10px]">
+                      giới hạn 8h
+                    </Badge>
+                  )}
                   {r.check_in_valid ? (
                     <Badge variant="secondary" className="h-5 gap-1 px-1.5 text-[10px]">
                       <CheckCircle2 className="size-2.5" /> hợp lệ
