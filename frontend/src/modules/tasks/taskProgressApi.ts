@@ -5,6 +5,55 @@ import { OpenAPI } from "@/client"
 import { getAccessToken } from "@/modules/auth/tokenStore"
 
 /**
+ * Progress report with the review fields the backend now returns. The generated
+ * client type predates the merge of proof → progress report, so we widen it here
+ * until the client is regenerated.
+ */
+export type ProgressReportWithReview = TaskProgressReportPublic & {
+  review_status: "pending" | "approved" | "rejected"
+  reviewer_id?: string | null
+  reviewed_at?: string | null
+  review_note?: string | null
+}
+
+function authHeaders() {
+  const token = getAccessToken()
+  return token ? { Authorization: `Bearer ${token}` } : {}
+}
+
+/** List progress reports for a task, including review status. */
+export async function listProgressReportsWithReview(
+  taskId: string,
+): Promise<ProgressReportWithReview[]> {
+  const r = await axios.get<ProgressReportWithReview[]>(
+    `${OpenAPI.BASE}/api/v1/tasks/${taskId}/progress-reports`,
+    { headers: authHeaders() },
+  )
+  return r.data
+}
+
+/** Approve or reject a progress report (its on-site photo is the evidence). */
+export async function reviewProgressReport(params: {
+  taskId: string
+  reportId: string
+  reviewStatus: "approved" | "rejected"
+  reviewNote?: string
+}): Promise<ProgressReportWithReview> {
+  const r = await axios.patch<ProgressReportWithReview>(
+    `${OpenAPI.BASE}/api/v1/tasks/${params.taskId}/progress-reports/${params.reportId}`,
+    null,
+    {
+      headers: authHeaders(),
+      params: {
+        review_status: params.reviewStatus,
+        review_note: params.reviewNote,
+      },
+    },
+  )
+  return r.data
+}
+
+/**
  * Upload photo and create progress report in a single atomic request.
  * Replaces the old 2-step flow (upload-photo → addProgressReport) to prevent orphaned photos.
  */

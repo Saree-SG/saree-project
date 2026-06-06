@@ -26,6 +26,7 @@ celery_app = Celery(
         "app.jobs.cascade_job",
         "app.jobs.daily_jobs",
         "app.jobs.delay_expiry_job",
+        "app.jobs.notification_escalation_job",
     ],
 )
 
@@ -62,6 +63,10 @@ celery_app.conf.update(
         "delay-expiry": {
             "task": "app.jobs.delay_expiry_job.expire_pending_delay_requests",
             "schedule": crontab(minute=0),  # every hour
+        },
+        "notification-escalation": {
+            "task": "app.jobs.notification_escalation_job.escalate_unread_assignments",
+            "schedule": 300.0,  # every 5 minutes
         },
     },
 )

@@ -32,7 +32,7 @@ from app.models.user import User
 from app.repositories.contract_repository import ContractRepository
 from app.repositories.quotation_repository import QuotationRepository
 from app.repositories.user_repository import UserRepository
-from app.services.push_service import send_push_to_user
+from app.services.push_service import send_push_bg
 from app.shared.storage import LocalStorage
 
 
@@ -454,7 +454,7 @@ class ContractService:
             self._session.add(notif)
             await self._session.flush()
             asyncio.create_task(
-                send_push_to_user(self._session, user_id, title, body, entity_type, entity_id)
+                send_push_bg(user_id, title, body, entity_type, entity_id)
             )
         except Exception:
             logger.exception("Failed to persist notification user_id={} type={}", user_id, notif_type)

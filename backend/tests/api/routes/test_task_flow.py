@@ -638,13 +638,15 @@ class TestProgressAutoTransition:
             headers=wkr_headers,
         )
         assert r.status_code == 201, r.text
+        # Only approved progress moves the task; once 100% is approved it hands
+        # off to 'review' for assignor confirmation — NOT straight to 'done'.
+        _approve_progress(client, task["id"], r.json()["id"], mgr_headers)
 
         r = client.get(f"{API}/tasks/{task['id']}", headers=mgr_headers)
         final_status = r.json()["status"]
-        # BUG GUARD: should be "review", currently is "done"
         assert final_status == "review", (
-            f"Expected status 'review' after 100% progress, got '{final_status}'. "
-            "Auto-transition is bypassing the review/approval step."
+            f"Expected status 'review' after 100% approved progress, got '{final_status}'. "
+            "Auto-transition must stop at review for assignor confirmation."
         )
 
 
@@ -707,6 +709,28 @@ def _post_progress(client: TestClient, task_id: str, pct: int, headers: dict) ->
         files={"file": _fake_img()},
         headers=headers,
     )
+    return r
+
+
+def _approve_progress(client: TestClient, task_id: str, report_id: str, headers: dict) -> dict:
+    """Approve a progress report (needs PROOF_APPROVE). Under the approval-gated
+    flow, only approved reports count toward completion %."""
+    r = client.patch(
+        f"{API}/tasks/{task_id}/progress-reports/{report_id}",
+        params={"review_status": "approved"},
+        headers=headers,
+    )
+    assert r.status_code == 200, r.text
+    return r
+
+
+def _post_progress_approved(
+    client: TestClient, task_id: str, pct: int, wkr_headers: dict, mgr_headers: dict
+) -> dict:
+    """Post a progress report as worker, then approve it as manager."""
+    r = _post_progress(client, task_id, pct, wkr_headers)
+    assert r.status_code == 201, r.text
+    _approve_progress(client, task_id, r.json()["id"], mgr_headers)
     return r
 
 
@@ -794,9 +818,9 @@ class TestProgressRollup:
         client.patch(f"{API}/tasks/{c1['id']}", json={"progress_weight": 50}, headers=mgr_headers)
         client.patch(f"{API}/tasks/{c2['id']}", json={"progress_weight": 50}, headers=mgr_headers)
 
-        # c1 → 100%, c2 → 50%
-        _post_progress(client, c1["id"], 100, wkr_headers)
-        _post_progress(client, c2["id"], 50, wkr_headers)
+        # c1 → 100%, c2 → 50% (approved so they count toward rollup)
+        _post_progress_approved(client, c1["id"], 100, wkr_headers, mgr_headers)
+        _post_progress_approved(client, c2["id"], 50, wkr_headers, mgr_headers)
 
         r = client.get(f"{API}/tasks/{parent['id']}", headers=mgr_headers)
         pct = r.json()["reported_progress_total"]
@@ -810,7 +834,7 @@ class TestProgressRollup:
         mgr, _ = manager_user
         wkr, _ = worker_user
         leaf = create_task(client, mgr_headers, project["id"], str(wkr.id), name="Leaf Only")
-        _post_progress(client, leaf["id"], 60, wkr_headers)
+        _post_progress_approved(client, leaf["id"], 60, wkr_headers, mgr_headers)
         r = client.get(f"{API}/tasks/{leaf['id']}", headers=mgr_headers)
         assert r.json()["reported_progress_total"] == 60
 
@@ -831,8 +855,8 @@ class TestProgressBehavior:
         wkr, _ = worker_user
         task = create_task(client, mgr_headers, project["id"], str(wkr.id), name="Accumulate")
 
-        _post_progress(client, task["id"], 30, wkr_headers)
-        _post_progress(client, task["id"], 40, wkr_headers)
+        _post_progress_approved(client, task["id"], 30, wkr_headers, mgr_headers)
+        _post_progress_approved(client, task["id"], 40, wkr_headers, mgr_headers)
 
         r = client.get(f"{API}/tasks/{task['id']}", headers=mgr_headers)
         assert r.json()["reported_progress_total"] == 70
@@ -865,10 +889,8 @@ class TestProgressBehavior:
         su_h = {"Authorization": f"Bearer {_get_superuser_token(client)}"}
         # Set status step by step using superuser
         client.patch(f"{API}/tasks/{task['id']}/status", json={"status": "in_progress"}, headers=su_h)
-        # We need 100% progress first; use superuser to submit
-        _post_progress(client, task["id"], 100, su_h)
-        # Now approve: review → done
-        client.patch(f"{API}/tasks/{task['id']}/status", json={"status": "review"}, headers=su_h)
+        # 100% progress approved → task auto-moves to review, then confirm done.
+        _post_progress_approved(client, task["id"], 100, su_h, su_h)
         client.patch(f"{API}/tasks/{task['id']}/status", json={"status": "done"}, headers=su_h)
 
         r = client.get(f"{API}/tasks/{task['id']}", headers=mgr_headers)
@@ -910,8 +932,7 @@ class TestBlockerLifecycle:
         # Complete the blocker (superuser path)
         su_h = {"Authorization": f"Bearer {_get_superuser_token(client)}"}
         client.patch(f"{API}/tasks/{blocker['id']}/status", json={"status": "in_progress"}, headers=su_h)
-        _post_progress(client, blocker["id"], 100, su_h)
-        client.patch(f"{API}/tasks/{blocker['id']}/status", json={"status": "review"}, headers=su_h)
+        _post_progress_approved(client, blocker["id"], 100, su_h, su_h)
         client.patch(f"{API}/tasks/{blocker['id']}/status", json={"status": "done"}, headers=su_h)
 
         # Now blocked task should be startable
@@ -1139,8 +1160,7 @@ class TestDelayEdgeCases:
         # Force to done via superuser
         su_h = {"Authorization": f"Bearer {_get_superuser_token(client)}"}
         client.patch(f"{API}/tasks/{task['id']}/status", json={"status": "in_progress"}, headers=su_h)
-        _post_progress(client, task["id"], 100, su_h)
-        client.patch(f"{API}/tasks/{task['id']}/status", json={"status": "review"}, headers=su_h)
+        _post_progress_approved(client, task["id"], 100, su_h, su_h)
         client.patch(f"{API}/tasks/{task['id']}/status", json={"status": "done"}, headers=su_h)
 
         r = client.post(f"{API}/tasks/{task['id']}/comments", json={
@@ -1650,8 +1670,8 @@ class TestTaskPermissionGuards:
         wkr, _ = worker_user
         # Mgr creates task assigned to worker; worker advances to review via 100% progress
         task = create_task(client, mgr_headers, project["id"], str(wkr.id), name="Review Confirm Test")
-        # Add 100% progress to auto-transition to review
-        _post_progress(client, task["id"], 100, wkr_headers)
+        # Add 100% progress + approval to auto-transition to review
+        _post_progress_approved(client, task["id"], 100, wkr_headers, mgr_headers)
 
         # Verify now in review
         r_check = client.get(f"{API}/tasks/{task['id']}", headers=wkr_headers)

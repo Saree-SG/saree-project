@@ -27,8 +27,6 @@ from app.models.task import (
     TaskProgressPhotoUploadPublic,
     TaskProgressReportCreate,
     TaskProgressReportPublic,
-    TaskProofCreate,
-    TaskProofPublic,
     TaskPublic,
     TaskReassignRequest,
     TasksPublic,
@@ -331,49 +329,6 @@ async def approve_delay_request(
     return await _svc(session).approve_delay(task_id, comment_id, body, current_user)
 
 
-# ---------------------------------------------------------------------------
-# Proofs
-# ---------------------------------------------------------------------------
-
-@router.post(
-    "/tasks/{task_id}/proofs",
-    response_model=TaskProofPublic,
-    status_code=status.HTTP_201_CREATED,
-)
-async def upload_proof(
-    task_id: uuid.UUID,
-    body: TaskProofCreate,
-    session: AsyncSessionDep,
-    current_user: User = Depends(require_permission("PROOF_UPLOAD")),
-) -> TaskProofPublic:
-    """Upload proof for task completion."""
-    return await _svc(session).upload_proof(task_id, body, current_user)
-
-
-@router.patch("/tasks/{task_id}/proofs/{proof_id}", response_model=TaskProofPublic)
-async def review_proof(
-    task_id: uuid.UUID,
-    proof_id: uuid.UUID,
-    session: AsyncSessionDep,
-    current_user: User = Depends(require_permission("PROOF_APPROVE")),
-    review_status: str = Query(...),
-    review_note: str | None = Query(default=None),
-) -> TaskProofPublic:
-    """Review a task proof (approved | rejected)."""
-    return await _svc(session).review_proof(
-        task_id, proof_id, review_status, review_note, current_user
-    )
-
-
-@router.get("/tasks/{task_id}/proofs", response_model=list[TaskProofPublic])
-async def list_proofs(
-    task_id: uuid.UUID,
-    session: AsyncSessionDep,
-    _current_user: CurrentUser,
-) -> list[TaskProofPublic]:
-    """List proofs for a task."""
-    return await _svc(session).list_proofs(task_id)
-
 
 @router.post("/tasks/{task_id}/dependencies", status_code=status.HTTP_201_CREATED)
 async def add_dependency(
@@ -519,6 +474,24 @@ async def list_progress_reports(
 ) -> list[TaskProgressReportPublic]:
     """List worker progress submissions for a task."""
     return await _svc(session).list_progress_reports(task_id)
+
+
+@router.patch(
+    "/tasks/{task_id}/progress-reports/{report_id}",
+    response_model=TaskProgressReportPublic,
+)
+async def review_progress_report(
+    task_id: uuid.UUID,
+    report_id: uuid.UUID,
+    session: AsyncSessionDep,
+    current_user: User = Depends(require_permission("PROOF_APPROVE")),
+    review_status: str = Query(...),
+    review_note: str | None = Query(default=None),
+) -> TaskProgressReportPublic:
+    """Approve or reject a progress report (its on-site photo is the evidence)."""
+    return await _svc(session).review_progress_report(
+        task_id, report_id, review_status, review_note, current_user
+    )
 
 
 # ---------------------------------------------------------------------------

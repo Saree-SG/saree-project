@@ -224,7 +224,7 @@ const GanttView = forwardRef<GanttViewHandle, GanttViewProps>(function GanttView
   return (
     <div
       ref={containerRef}
-      className="rounded-md border bg-card"
+      className="gantt-host overflow-hidden rounded-md border bg-card"
       style={{ height: 640 }}
     >
       <Willow>

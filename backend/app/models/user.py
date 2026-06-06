@@ -81,11 +81,6 @@ class User(UserBase, table=True):
         sa_relationship_kwargs={"foreign_keys": "[Task.assignor_id]"},
     )
     comments: list["TaskComment"] = Relationship(back_populates="author", cascade_delete=True)
-    proofs: list["TaskProof"] = Relationship(
-        back_populates="uploader",
-        cascade_delete=True,
-        sa_relationship_kwargs={"foreign_keys": "[TaskProof.uploader_id]"},
-    )
     audit_logs: list["AuditLog"] = Relationship(back_populates="actor", cascade_delete=True)
 
 

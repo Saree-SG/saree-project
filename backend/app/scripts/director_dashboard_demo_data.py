@@ -37,7 +37,6 @@ from app.models.task import (
     TaskComment,
     TaskDependency,
     TaskProgressReport,
-    TaskProof,
 )
 from app.models.user import User, UserCreate
 from app.scripts.seed_defaults import seed as seed_defaults_roles
@@ -413,12 +412,12 @@ def seed_demo_data(session: Session) -> dict[str, Any]:
             session.add(comment)
 
             if task.status == "done":
-                proof = TaskProof(
+                proof = TaskProgressReport(
                     task_id=task.id,
-                    uploader_id=assignee.id,
-                    file_url=f"https://demo.local/proofs/{task.id}.jpg",
-                    file_type="image",
-                    note="Demo completion proof",
+                    reporter_id=assignee.id,
+                    photo_url=f"https://demo.local/proofs/{task.id}.jpg",
+                    progress_percent=100,
+                    note="Demo completion evidence",
                     review_status="approved",
                     reviewer_id=director_user.id,
                     reviewed_at=now,
@@ -507,9 +506,6 @@ def export_demo_data(session: Session, output_path: Path) -> dict[str, Any]:
     task_progress_reports = session.exec(
         select(TaskProgressReport).where(TaskProgressReport.task_id.in_(task_ids))  # type: ignore[arg-type]
     ).all() if task_ids else []
-    task_proofs = session.exec(
-        select(TaskProof).where(TaskProof.task_id.in_(task_ids))  # type: ignore[arg-type]
-    ).all() if task_ids else []
     task_dependencies = session.exec(
         select(TaskDependency).where(
             TaskDependency.blocking_task_id.in_(task_ids)  # type: ignore[arg-type]
@@ -532,7 +528,6 @@ def export_demo_data(session: Session, output_path: Path) -> dict[str, Any]:
         "tasks": [model_to_dict(item) for item in tasks],
         "task_comments": [model_to_dict(item) for item in task_comments],
         "task_progress_reports": [model_to_dict(item) for item in task_progress_reports],
-        "task_proofs": [model_to_dict(item) for item in task_proofs],
         "task_dependencies": [model_to_dict(item) for item in task_dependencies],
         "audit_logs": [model_to_dict(item) for item in audit_logs],
     }
@@ -570,7 +565,6 @@ def import_demo_data(session: Session, input_path: Path) -> dict[str, Any]:
     merge_rows(session, Task, payload.get("tasks", []))
     merge_rows(session, TaskComment, payload.get("task_comments", []))
     merge_rows(session, TaskProgressReport, payload.get("task_progress_reports", []))
-    merge_rows(session, TaskProof, payload.get("task_proofs", []))
     merge_rows(session, TaskDependency, payload.get("task_dependencies", []))
     merge_rows(session, AuditLog, payload.get("audit_logs", []))
     session.commit()

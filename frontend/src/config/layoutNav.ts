@@ -8,9 +8,7 @@ import {
   FileSignature,
   FileText,
   FolderOpen,
-  Gauge,
   LayoutDashboard,
-  Trophy,
   MessageCircle,
   Settings,
   Users,
@@ -73,16 +71,6 @@ export function buildLayoutNavItems(
       title: "Gantt tổng",
       path: "/gantt",
     })
-    items.push({
-      icon: Gauge,
-      title: "Năng suất",
-      path: "/productivity",
-    })
-    items.push({
-      icon: Trophy,
-      title: "Năng suất năm",
-      path: "/year-summary",
-    })
   }
   if (canAccessQuotations) {
     items.push({
@@ -101,8 +89,8 @@ export function buildLayoutNavItems(
     })
   }
   items.push({ icon: MessageCircle, title: "Chat", path: "/chat" })
-  if (showCompanyManagement) {
-    items.push({ icon: Building2, title: "Quản lý công ty", path: "/company" })
+  if (showCompanyManagement || showManagement) {
+    items.push({ icon: Building2, title: "Công ty", path: "/company" })
   }
   if (isSuperuser) {
     items.push({ icon: Users, title: "Admin", path: "/admin" })

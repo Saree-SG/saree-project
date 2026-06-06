@@ -16,7 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.deps import AsyncSessionDep, CurrentUser
 from app.models.attendance import AttendanceRecord
 from app.models.project import Project
-from app.models.task import Task, TaskDependency, TaskProgressReport, TaskProof
+from app.models.task import Task, TaskDependency, TaskProgressReport
 from app.models.user import User
 from app.services.task_service import compute_task_status
 from app.shared.permission import require_any_permission
@@ -1006,29 +1006,32 @@ async def year_summary(
         elif end_time and end_time < now:
             s["overdue"] += 1
 
-    # --- Quality: bằng chứng được duyệt / đã review trong kỳ ---
+    # --- Quality: báo cáo tiến độ (ảnh hiện trường) được duyệt / đã review ---
+    # The on-site progress photo doubles as completion evidence, so quality is
+    # measured from approved vs. reviewed progress reports.
     proof_result = await session.execute(
         select(
-            TaskProof.uploader_id,
-            func.count(TaskProof.id).label("total"),
+            TaskProgressReport.reporter_id,
+            func.count(TaskProgressReport.id).label("total"),
             func.sum(
-                cast(TaskProof.review_status == "approved", Integer)
+                cast(TaskProgressReport.review_status == "approved", Integer)
             ).label("approved"),
             func.sum(
                 cast(
-                    TaskProof.review_status.in_(["approved", "rejected"]), Integer
+                    TaskProgressReport.review_status.in_(["approved", "rejected"]),
+                    Integer,
                 )
             ).label("reviewed"),
         )
         .where(
-            TaskProof.uploaded_at >= start_dt,
-            TaskProof.uploaded_at < end_dt,
+            TaskProgressReport.created_at >= start_dt,
+            TaskProgressReport.created_at < end_dt,
         )
-        .group_by(TaskProof.uploader_id)
+        .group_by(TaskProgressReport.reporter_id)
     )
     proof_by_user: dict[str, dict] = {}
     for row in proof_result.all():
-        proof_by_user[str(row.uploader_id)] = {
+        proof_by_user[str(row.reporter_id)] = {
             "proofs_total": int(row.total or 0),
             "proofs_approved": int(row.approved or 0),
             "proofs_reviewed": int(row.reviewed or 0),

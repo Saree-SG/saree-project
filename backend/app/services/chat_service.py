@@ -12,7 +12,7 @@ from app.models.chat import ChatMember, ChatMessage, ChatRoom
 from app.models.notification import Notification
 from app.repositories.chat_repository import ChatRepository
 from app.repositories.user_repository import UserRepository
-from app.services.push_service import send_push_to_user
+from app.services.push_service import send_push_bg
 
 
 class ChatService:
@@ -143,7 +143,7 @@ class ChatService:
                 )
                 self._session.add(notif)
                 asyncio.create_task(
-                    send_push_to_user(self._session, member.user_id, title, body, "chat", room_id)
+                    send_push_bg(member.user_id, title, body, "chat", room_id)
                 )
         await self._session.flush()
 

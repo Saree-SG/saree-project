@@ -39,8 +39,6 @@ from app.models.task import (
     TaskProgressReport,
     TaskProgressReportCreate,
     TaskProgressReportPublic,
-    TaskProofCreate,
-    TaskProofPublic,
     TaskPublic,
     TaskReassignRequest,
     TasksPublic,
@@ -50,7 +48,7 @@ from app.models.task import (
 import asyncio
 
 from app.models.notification import Notification
-from app.services.push_service import send_push_to_user
+from app.services.push_service import send_push_bg
 from app.models.user import User
 from app.models.project import Project
 from app.repositories.audit_repository import AuditRepository
@@ -219,7 +217,9 @@ async def _rollup_completion_pct(
 
     Where:
         - Self_Progress = sum of direct progress reports on this task (0–100)
-        - W_i           = child.progress_weight (defaults to 0 if unset)
+        - W_i           = child.progress_weight, or — when unset (None) — an equal
+                          share of the unallocated weight: children that left their
+                          weight blank split (100 - Σ explicit weights) evenly.
         - W_report      = max(0, 100 - Σ W_i)
         - child_total_progress_i = recursively computed (handles all 5 levels)
     """
@@ -236,11 +236,28 @@ async def _rollup_completion_pct(
         # Leaf node: completion = direct reports only
         result = min(100.0, float(await repo.sum_progress(task_id)))
     else:
+        # Children that left their weight blank auto-share the unallocated weight.
+        explicit_total = sum(
+            float(c.progress_weight)
+            for c in children
+            if c.progress_weight is not None
+        )
+        auto_children = [c for c in children if c.progress_weight is None]
+        auto_weight = (
+            max(0.0, 100.0 - explicit_total) / len(auto_children)
+            if auto_children
+            else 0.0
+        )
+
         child_weights_total = 0.0
         child_contribution = 0.0
         for child in children:
             child_pct = await _rollup_completion_pct(repo, child.id, cache)
-            w_i = float(child.progress_weight or 0)
+            w_i = (
+                float(child.progress_weight)
+                if child.progress_weight is not None
+                else auto_weight
+            )
             child_contribution += w_i * child_pct / 100.0
             child_weights_total += w_i
 
@@ -457,6 +474,10 @@ def _report_to_public(
         checkin_skipped=row.checkin_skipped,
         distance_m=distance_m,
         location_valid=location_valid,
+        review_status=row.review_status,
+        reviewer_id=row.reviewer_id,
+        reviewed_at=row.reviewed_at,
+        review_note=row.review_note,
         created_at=row.created_at,
     )
 
@@ -527,7 +548,7 @@ class TaskService:
             self._session.add(notif)
             await self._session.flush()
             asyncio.create_task(
-                send_push_to_user(self._session, user_id, title, body, entity_type, entity_id)
+                send_push_bg(user_id, title, body, entity_type, entity_id)
             )
         except Exception:
             logger.exception("Failed to persist notification user_id={} type={}", user_id, notif_type)
@@ -542,6 +563,55 @@ class TaskService:
         targets: set[uuid.UUID] = {task.assignee_id, task.assignor_id}
         for user_id in targets:
             await self._emit_task_user_ws(user_id, task.id, event, data)
+
+    async def _propagate_completion_up(
+        self, task: Task, actor_id: uuid.UUID
+    ) -> None:
+        """Walk up the parent chain after a child's progress changed.
+
+        For each ancestor: recompute its (approved-only) rollup. When it reaches
+        100% it auto-moves to ``review`` and its manager (assignor) is notified to
+        verify; if it had reached review but now drops below 100% (e.g. a child
+        report was rejected) it falls back to ``in_progress``. The walk continues
+        up the whole chain because each ancestor's % feeds its own parent.
+        """
+        parent_id = task.parent_id
+        seen: set[uuid.UUID] = set()
+        while parent_id is not None and parent_id not in seen:
+            seen.add(parent_id)
+            parent = await self._task_repo.get_by_id(parent_id)
+            if parent is None or parent.is_deleted:
+                break
+            if parent.status != "done":
+                pct = await _rollup_completion_pct(self._task_repo, parent.id)
+                if pct >= 100.0 and parent.status != "review":
+                    await self._task_repo.set_status(parent, "review")
+                    await self._audit_repo.write(
+                        actor_id=actor_id,
+                        action="task.auto_review",
+                        entity_type="task",
+                        entity_id=parent.id,
+                        new_value="review",
+                    )
+                    payload = {"task_name": parent.name, "task_id": str(parent.id)}
+                    await self._emit_task_ws(
+                        parent.id, "task.ready_for_review", payload
+                    )
+                    await self._notify_task_participants(
+                        parent, "task.ready_for_review", payload
+                    )
+                    if parent.assignor_id != actor_id:
+                        await self._notify(
+                            user_id=parent.assignor_id,
+                            notif_type="task_ready_for_review",
+                            title=f'"{parent.name}" đã đạt 100% — cần vào kiểm tra (review)',
+                            body="Tất cả công việc con đã hoàn tất, chờ bạn duyệt.",
+                            entity_type="task",
+                            entity_id=parent.id,
+                        )
+                elif parent.status == "review" and pct < 100.0:
+                    await self._task_repo.set_status(parent, "in_progress")
+            parent_id = parent.parent_id
 
     # ------------------------------------------------------------------
     # Create
@@ -567,6 +637,11 @@ class TaskService:
         extra_ids = list(dict.fromkeys(body.extra_assignee_ids or []))
         # Strip raw extras from data passed to repo (column doesn't exist on Task).
         update_data.pop("extra_assignee_ids", None)
+        # checkin_radius_m is optional on input but a NOT-NULL int on Task with a
+        # default — drop None so the model default (150) applies instead of failing
+        # validation.
+        if update_data.get("checkin_radius_m") is None:
+            update_data.pop("checkin_radius_m", None)
         task = await self._task_repo.create_task(
             body_data=update_data,
             level=level,
@@ -1628,133 +1703,6 @@ class TaskService:
         return _comment_to_public(comment, author)
 
     # ------------------------------------------------------------------
-    # Proofs
-    # ------------------------------------------------------------------
-
-    async def upload_proof(
-        self, task_id: uuid.UUID, body: TaskProofCreate, current_user: User
-    ) -> TaskProofPublic:
-        """Upload proof for task; enforce assignee-only."""
-        task = await self._task_repo.get_or_404(task_id)
-        if task.assignee_id != current_user.id and not current_user.is_superuser:
-            raise HTTPException(403, "Only the assignee can upload proof")
-
-        proof = await self._task_repo.create_proof(
-            {"task_id": task_id, "uploader_id": current_user.id, **body.model_dump()}
-        )
-        await self._audit_repo.write(
-            actor_id=current_user.id,
-            action="task.proof_uploaded",
-            entity_type="task",
-            entity_id=task_id,
-            new_value={"file_url": body.file_url},
-        )
-
-        payload = {
-            "actor_id": str(current_user.id),
-            "uploader_name": _display_name(current_user) or "",
-            "task_name": task.name,
-        }
-        await self._emit_task_ws(task_id, "task.proof_uploaded", payload)
-        await self._notify_task_participants(task, "task.proof_uploaded", payload)
-        uploader_name = _display_name(current_user) or "Nhân viên"
-        if task.assignor_id != current_user.id:
-            await self._notify(
-                user_id=task.assignor_id,
-                notif_type="proof_uploaded",
-                title=f'{uploader_name} đã nộp bằng chứng cho "{task.name}"',
-                body="Chờ duyệt bằng chứng",
-                entity_type="task",
-                entity_id=task_id,
-            )
-
-        return TaskProofPublic(**proof.model_dump())
-
-    async def review_proof(
-        self,
-        task_id: uuid.UUID,
-        proof_id: uuid.UUID,
-        review_status: str,
-        review_note: str | None,
-        current_user: User,
-    ) -> TaskProofPublic:
-        """Approve or reject a proof."""
-        proof = await self._task_repo.get_proof_or_404(proof_id, task_id)
-        old_status = proof.review_status
-
-        proof = await self._task_repo.update_proof(
-            proof,
-            {
-                "review_status": review_status,
-                "reviewer_id": current_user.id,
-                "reviewed_at": _utcnow(),
-                "review_note": review_note,
-            },
-        )
-        await self._audit_repo.write(
-            actor_id=current_user.id,
-            action="task.proof_reviewed",
-            entity_type="task",
-            entity_id=task_id,
-            old_value=old_status,
-            new_value=review_status,
-        )
-
-        reviewer_name = _display_name(current_user) or ""
-        task = await self._task_repo.get_or_404(task_id)
-        if review_status == "approved":
-            payload = {
-                "actor_id": str(current_user.id),
-                "reviewer_name": reviewer_name,
-                "task_name": task.name,
-            }
-            await self._emit_task_ws(
-                task_id,
-                "task.proof_approved",
-                payload,
-            )
-            await self._notify_task_participants(task, "task.proof_approved", payload)
-            if proof.uploader_id != current_user.id:
-                await self._notify(
-                    user_id=proof.uploader_id,
-                    notif_type="proof_approved",
-                    title=f'Bằng chứng của "{task.name}" đã được duyệt',
-                    body=f"Duyệt bởi {reviewer_name}",
-                    entity_type="task",
-                    entity_id=task_id,
-                )
-        else:
-            payload = {
-                "actor_id": str(current_user.id),
-                "reviewer_name": reviewer_name,
-                "note": review_note or "",
-                "task_name": task.name,
-            }
-            await self._emit_task_ws(
-                task_id,
-                "task.proof_rejected",
-                payload,
-            )
-            await self._notify_task_participants(task, "task.proof_rejected", payload)
-            if proof.uploader_id != current_user.id:
-                await self._notify(
-                    user_id=proof.uploader_id,
-                    notif_type="proof_rejected",
-                    title=f'Bằng chứng của "{task.name}" bị từ chối',
-                    body=review_note or "",
-                    entity_type="task",
-                    entity_id=task_id,
-                )
-
-        return TaskProofPublic(**proof.model_dump())
-
-    async def list_proofs(self, task_id: uuid.UUID) -> list[TaskProofPublic]:
-        """List proofs for a task."""
-        await self._task_repo.get_or_404(task_id)
-        proofs = await self._task_repo.list_proofs(task_id)
-        return [TaskProofPublic(**p.model_dump()) for p in proofs]
-
-    # ------------------------------------------------------------------
     # Dependencies
     # ------------------------------------------------------------------
 
@@ -1838,6 +1786,26 @@ class TaskService:
         if task.status == "done":
             raise HTTPException(422, "Task is already completed")
 
+        # If children fully allocate the weight (w_report == 0), this task's own
+        # reports would contribute nothing — progress is driven entirely by the
+        # children. Block the submission and point the user to the subtasks.
+        children = await self._task_repo.get_children(task_id)
+        if children:
+            explicit_total = sum(
+                float(c.progress_weight)
+                for c in children
+                if c.progress_weight is not None
+            )
+            has_auto = any(c.progress_weight is None for c in children)
+            # With any auto child, the leftover weight is fully absorbed → 0 left.
+            child_weight_total = 100.0 if has_auto else explicit_total
+            if max(0.0, 100.0 - child_weight_total) <= 0:
+                raise HTTPException(
+                    422,
+                    "Tiến độ của công việc này được tính từ công việc con. "
+                    "Hãy nộp báo cáo ở từng công việc con.",
+                )
+
         # Check dependency blockers before allowing progress (same as update_task_status)
         if task.status == "todo":
             waiting_links = await self._task_repo.list_waiting_for_links(task_id)
@@ -1859,17 +1827,21 @@ class TaskService:
         if body.progress_percent < 1 or body.progress_percent > 100:
             raise HTTPException(422, "progress_percent must be between 1 and 100")
 
-        # Self-progress (direct reports) is capped independently at 100%
-        # W_report weight determines how much this contributes to parent's total
-        current_self = await self._task_repo.sum_progress(task_id)
+        # Self-progress is capped at 100%. Cap against approved + pending reports
+        # so the queue waiting for approval can't promise more than 100%.
+        current_self = await self._task_repo.sum_submitted_progress(task_id)
         if current_self >= 100:
-            raise HTTPException(422, "Tiến độ trực tiếp đã đạt 100%, không thể thêm báo cáo.")
+            raise HTTPException(
+                422,
+                "Tiến độ trực tiếp (gồm cả báo cáo đang chờ duyệt) đã đạt 100%, "
+                "không thể thêm báo cáo.",
+            )
         max_allowed = 100 - current_self
         if body.progress_percent > max_allowed:
             raise HTTPException(
                 422,
                 f"Tổng báo cáo trực tiếp không được vượt quá 100%. "
-                f"Hiện đang {current_self}%, lần này tối đa {max_allowed}%.",
+                f"Hiện đang {current_self}% (gồm cả chờ duyệt), lần này tối đa {max_allowed}%.",
             )
 
         report = await self._task_repo.create_progress_report({
@@ -1896,12 +1868,10 @@ class TaskService:
                 entity_id=task.id,
             )
 
-        # Auto-transition: use weighted combined total
-        combined_after = await _rollup_completion_pct(self._task_repo, task_id)
-        if combined_after >= 100.0 and task.status not in ("review", "done"):
-            # Move to review so assignor can verify — do NOT skip review step
-            await self._task_repo.set_status(task, "review")
-        elif task.status == "todo":
+        # A freshly submitted report is still "pending" and does NOT count toward
+        # completion, so it only signals that work has started. The move to
+        # "review" (100% reached) happens at approval time in review_progress_report.
+        if task.status == "todo":
             await self._task_repo.set_status(task, "in_progress")
 
         actor_name = _display_name(current_user) or "Nhân viên"
@@ -1921,8 +1891,8 @@ class TaskService:
             await self._notify(
                 user_id=task.assignor_id,
                 notif_type="progress_reported",
-                title=f'{actor_name} báo cáo tiến độ +{body.progress_percent}% cho "{task.name}"',
-                body=body.note,
+                title=f'{actor_name} nộp báo cáo +{body.progress_percent}% cho "{task.name}" — chờ duyệt',
+                body=body.note or "Cần duyệt để tính vào tiến độ.",
                 entity_type="task",
                 entity_id=task_id,
             )
@@ -1939,6 +1909,88 @@ class TaskService:
         reporters = await self._user_repo.list_by_ids(reporter_ids)
         by_id = {u.id: u for u in reporters}
         return [_report_to_public(r, by_id.get(r.reporter_id), task) for r in rows]
+
+    async def review_progress_report(
+        self,
+        task_id: uuid.UUID,
+        report_id: uuid.UUID,
+        review_status: str,
+        review_note: str | None,
+        current_user: User,
+    ) -> TaskProgressReportPublic:
+        """Approve or reject a progress report (its on-site photo = evidence)."""
+        if review_status not in ("approved", "rejected"):
+            raise HTTPException(422, "review_status must be approved | rejected")
+
+        report = await self._task_repo.get_progress_report_or_404(report_id, task_id)
+        old_status = report.review_status
+        report = await self._task_repo.update_progress_report(
+            report,
+            {
+                "review_status": review_status,
+                "reviewer_id": current_user.id,
+                "reviewed_at": _utcnow(),
+                "review_note": review_note,
+            },
+        )
+        await self._audit_repo.write(
+            actor_id=current_user.id,
+            action="task.progress_reviewed",
+            entity_type="task",
+            entity_id=task_id,
+            old_value=old_status,
+            new_value=review_status,
+        )
+
+        reviewer_name = _display_name(current_user) or ""
+        task = await self._task_repo.get_or_404(task_id)
+        approved = review_status == "approved"
+
+        # Progress only moves on approval. Recompute the (approved-only) rollup and
+        # adjust task status accordingly.
+        if task.status != "done":
+            combined_after = await _rollup_completion_pct(self._task_repo, task_id)
+            if approved:
+                if combined_after >= 100.0 and task.status != "review":
+                    # 100% approved → hand to assignor for final verification.
+                    await self._task_repo.set_status(task, "review")
+                elif task.status == "todo":
+                    await self._task_repo.set_status(task, "in_progress")
+            else:
+                # Rejected: if it had reached review at 100% but now drops below,
+                # send it back to in_progress so the worker can resubmit.
+                if task.status == "review" and combined_after < 100.0:
+                    await self._task_repo.set_status(task, "in_progress")
+
+        # Roll the change up the parent chain (parents complete when children do).
+        await self._propagate_completion_up(task, current_user.id)
+
+        event = "task.progress_approved" if approved else "task.progress_rejected"
+        payload = {
+            "actor_id": str(current_user.id),
+            "reviewer_name": reviewer_name,
+            "note": review_note or "",
+            "task_name": task.name,
+        }
+        await self._emit_task_ws(task_id, event, payload)
+        await self._notify_task_participants(task, event, payload)
+        if report.reporter_id != current_user.id:
+            await self._notify(
+                user_id=report.reporter_id,
+                notif_type="progress_approved" if approved else "progress_rejected",
+                title=(
+                    f'Báo cáo tiến độ của "{task.name}" đã được duyệt'
+                    if approved
+                    else f'Báo cáo tiến độ của "{task.name}" bị từ chối'
+                ),
+                body=(f"Duyệt bởi {reviewer_name}" if approved else (review_note or "")),
+                entity_type="task",
+                entity_id=task_id,
+            )
+
+        reporters = await self._user_repo.list_by_ids([report.reporter_id])
+        reporter = reporters[0] if reporters else None
+        return _report_to_public(report, reporter, task)
 
     # ------------------------------------------------------------------
     # Misc

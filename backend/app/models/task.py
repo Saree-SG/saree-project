@@ -1,6 +1,6 @@
 """
 Task domain models:
-  Task, TaskDependency, TaskObserver, TaskComment, TaskProof, AuditLog
+  Task, TaskDependency, TaskObserver, TaskComment, AuditLog
 """
 
 import uuid
@@ -107,7 +107,6 @@ class Task(TaskBase, table=True):
         sa_relationship_kwargs={"cascade": "all, delete-orphan"},
     )
     comments: list["TaskComment"] = Relationship(back_populates="task", cascade_delete=True)
-    proofs: list["TaskProof"] = Relationship(back_populates="task", cascade_delete=True)
     progress_reports: list["TaskProgressReport"] = Relationship(
         back_populates="task",
         cascade_delete=True,
@@ -415,6 +414,13 @@ class TaskProgressReport(SQLModel, table=True):
     # True when check-in was required but GPS could not be captured; the worker
     # supplied a reason instead, flagging this report for manager/director review.
     checkin_skipped: bool = Field(default=False)
+    # Review flow — the on-site progress photo doubles as completion evidence,
+    # so the manager/leader approves or rejects it. Drives the "quality" score.
+    review_status: str = Field(default="pending", max_length=20)
+    # pending | approved | rejected
+    reviewer_id: uuid.UUID | None = Field(default=None, foreign_key="user.id")
+    reviewed_at: datetime | None = None
+    review_note: str | None = Field(default=None, sa_type=Text)
     created_at: datetime = Field(
         default_factory=_utcnow, sa_type=DateTime(timezone=True)  # type: ignore
     )
@@ -455,72 +461,12 @@ class TaskProgressReportPublic(SQLModel):
     # the task has no reference point or the report has no GPS.
     distance_m: float | None = None
     location_valid: bool | None = None
-    created_at: datetime
-
-
-# ---------------------------------------------------------------------------
-# TaskProof — Evidence for task completion (photo, file)
-# ---------------------------------------------------------------------------
-class TaskProof(SQLModel, table=True):
-    """
-    Workers upload proof when completing a task.
-    GPS + timestamp captured from mobile device to prevent fake submissions.
-    Manager/Leader reviews and approves/rejects.
-    """
-    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
-    task_id: uuid.UUID = Field(foreign_key="task.id", index=True)
-    uploader_id: uuid.UUID = Field(foreign_key="user.id", index=True)
-
-    file_url: str = Field(max_length=1000)         # S3 URL or local path
-    file_type: str = Field(default="image", max_length=20)  # image | video | document
-    note: str | None = Field(default=None, sa_type=Text)
-
-    # Mobile device metadata (anti-fraud)
-    gps_lat: float | None = None
-    gps_lng: float | None = None
-    captured_at: datetime | None = None            # Device timestamp from photo metadata
-    device_info: str | None = Field(default=None, max_length=255)
-
     # Review flow
-    review_status: str = Field(default="pending", max_length=20)
-    # pending | approved | rejected
-    reviewer_id: uuid.UUID | None = Field(default=None, foreign_key="user.id")
+    review_status: str = "pending"
+    reviewer_id: uuid.UUID | None = None
     reviewed_at: datetime | None = None
-    review_note: str | None = Field(default=None, sa_type=Text)
-
-    uploaded_at: datetime = Field(
-        default_factory=_utcnow, sa_type=DateTime(timezone=True)  # type: ignore
-    )
-
-    task: Task = Relationship(back_populates="proofs")
-    uploader: "User" = Relationship(  # type: ignore
-        back_populates="proofs",
-        sa_relationship_kwargs={"foreign_keys": "[TaskProof.uploader_id]"},
-    )
-
-
-class TaskProofCreate(SQLModel):
-    file_url: str
-    file_type: str = "image"
-    note: str | None = None
-    gps_lat: float | None = None
-    gps_lng: float | None = None
-    captured_at: datetime | None = None
-    device_info: str | None = None
-
-
-class TaskProofPublic(SQLModel):
-    id: uuid.UUID
-    task_id: uuid.UUID
-    uploader_id: uuid.UUID
-    file_url: str
-    file_type: str
-    note: str | None
-    gps_lat: float | None
-    gps_lng: float | None
-    review_status: str
-    reviewer_id: uuid.UUID | None
-    uploaded_at: datetime
+    review_note: str | None = None
+    created_at: datetime
 
 
 # ---------------------------------------------------------------------------
@@ -534,7 +480,9 @@ class AuditLog(SQLModel, table=True):
     Never DELETE from this table.
     """
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
-    actor_id: uuid.UUID = Field(foreign_key="user.id", index=True)
+    # Nullable: system-initiated actions (cron jobs, auto-expiry, escalation)
+    # have no human actor.
+    actor_id: uuid.UUID | None = Field(default=None, foreign_key="user.id", index=True)
     action: str = Field(max_length=100, index=True)
     # e.g. "task.status_changed", "task.proof_uploaded", "project.created"
 
@@ -555,7 +503,7 @@ class AuditLog(SQLModel, table=True):
 
 class AuditLogPublic(SQLModel):
     id: uuid.UUID
-    actor_id: uuid.UUID
+    actor_id: uuid.UUID | None = None
     actor_name: str | None = None
     action: str
     entity_type: str

@@ -21,7 +21,6 @@ from app.models.task import (
     TaskDependency,
     TaskObserver,
     TaskProgressReport,
-    TaskProof,
     TaskLinkedEntity,
 )
 
@@ -203,9 +202,35 @@ class TaskRepository(BaseRepository[Task]):
     # ------------------------------------------------------------------
 
     async def sum_progress(self, task_id: uuid.UUID) -> int:
-        """Sum all submitted progress_percent values for a task (not capped at 100)."""
-        stmt = select(func.coalesce(func.sum(TaskProgressReport.progress_percent), 0)).where(
-            TaskProgressReport.task_id == task_id
+        """Sum APPROVED progress_percent for a task (the official completion %).
+
+        Only manager-approved reports count toward progress — pending/rejected
+        submissions do not move the task forward.
+        """
+        stmt = select(
+            func.coalesce(func.sum(TaskProgressReport.progress_percent), 0)
+        ).where(
+            TaskProgressReport.task_id == task_id,
+            TaskProgressReport.review_status == "approved",
+        )
+        result = await self._execute(stmt)
+        raw = result.scalar_one()
+        try:
+            return int(raw) if raw is not None else 0
+        except (TypeError, ValueError):
+            return 0
+
+    async def sum_submitted_progress(self, task_id: uuid.UUID) -> int:
+        """Sum approved + pending progress_percent (excludes rejected).
+
+        Used to cap submissions so the queue of pending reports plus already
+        approved progress cannot promise more than 100%.
+        """
+        stmt = select(
+            func.coalesce(func.sum(TaskProgressReport.progress_percent), 0)
+        ).where(
+            TaskProgressReport.task_id == task_id,
+            TaskProgressReport.review_status != "rejected",
         )
         result = await self._execute(stmt)
         raw = result.scalar_one()
@@ -227,6 +252,26 @@ class TaskRepository(BaseRepository[Task]):
     async def create_progress_report(self, data: dict) -> TaskProgressReport:
         """Insert a new progress report; flush to get PK."""
         report = TaskProgressReport.model_validate(data)
+        self._session.add(report)
+        await self._session.flush()
+        await self._session.refresh(report)
+        return report
+
+    async def get_progress_report_or_404(
+        self, report_id: uuid.UUID, task_id: uuid.UUID
+    ) -> TaskProgressReport:
+        """Load a progress report; raise 404 if missing or in another task."""
+        report = await self._session.get(TaskProgressReport, report_id)
+        if not report or report.task_id != task_id:
+            raise HTTPException(status_code=404, detail="Progress report not found")
+        return report
+
+    async def update_progress_report(
+        self, report: TaskProgressReport, data: dict
+    ) -> TaskProgressReport:
+        """Apply partial update to a progress report."""
+        for field, val in data.items():
+            setattr(report, field, val)
         self._session.add(report)
         await self._session.flush()
         await self._session.refresh(report)
@@ -285,43 +330,6 @@ class TaskRepository(BaseRepository[Task]):
         await self._session.refresh(comment)
         return comment
 
-    # ------------------------------------------------------------------
-    # Sub-entity: proofs
-    # ------------------------------------------------------------------
-
-    async def list_proofs(self, task_id: uuid.UUID) -> Sequence[TaskProof]:
-        """List proofs ordered by upload time."""
-        stmt = (
-            select(TaskProof)
-            .where(TaskProof.task_id == task_id)
-            .order_by(TaskProof.uploaded_at)
-        )
-        result = await self._execute(stmt)
-        return result.scalars().all()
-
-    async def get_proof_or_404(self, proof_id: uuid.UUID, task_id: uuid.UUID) -> TaskProof:
-        """Load a proof; raise 404 if not found or belongs to another task."""
-        proof = await self._session.get(TaskProof, proof_id)
-        if not proof or proof.task_id != task_id:
-            raise HTTPException(status_code=404, detail="Proof not found")
-        return proof
-
-    async def create_proof(self, data: dict) -> TaskProof:
-        """Insert a proof record."""
-        proof = TaskProof.model_validate(data)
-        self._session.add(proof)
-        await self._session.flush()
-        await self._session.refresh(proof)
-        return proof
-
-    async def update_proof(self, proof: TaskProof, data: dict) -> TaskProof:
-        """Apply partial update to a proof."""
-        for field, val in data.items():
-            setattr(proof, field, val)
-        self._session.add(proof)
-        await self._session.flush()
-        await self._session.refresh(proof)
-        return proof
 
     # ------------------------------------------------------------------
     # Sub-entity: dependencies
@@ -410,7 +418,10 @@ class TaskRepository(BaseRepository[Task]):
                 TaskProgressReport.task_id,
                 func.coalesce(func.sum(TaskProgressReport.progress_percent), 0).label("total"),
             )
-            .where(TaskProgressReport.task_id.in_(task_subq))
+            .where(
+                TaskProgressReport.task_id.in_(task_subq),
+                TaskProgressReport.review_status == "approved",
+            )
             .group_by(TaskProgressReport.task_id)
         )
         result = await self._execute(stmt)

@@ -5,7 +5,7 @@ Use-case: reset the DB to an "empty execution" state while preserving users and 
 
 This script deletes:
 - Chat rooms/members/messages/attachments
-- Task progress/proofs/comments/observers/dependencies/audit logs
+- Task progress/comments/observers/dependencies/audit logs
 - Tasks + task level configs
 - Project memberships + projects
 
@@ -36,7 +36,6 @@ from app.models.task import (
     TaskDependency,
     TaskObserver,
     TaskProgressReport,
-    TaskProof,
 )
 
 
@@ -74,7 +73,6 @@ def wipe_execution_data(session: Session) -> None:
     session.exec(delete(ChatRoom))
 
     session.exec(delete(TaskProgressReport))
-    session.exec(delete(TaskProof))
     session.exec(delete(TaskComment))
     session.exec(delete(TaskObserver))
     session.exec(delete(TaskDependency))

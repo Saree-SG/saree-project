@@ -44,7 +44,6 @@ from app.models.task import (
     TaskDependency,
     TaskObserver,
     TaskProgressReport,
-    TaskProof,
 )
 from app.models.user import User, UserCreate
 from app.scripts.seed_defaults import seed
@@ -147,7 +146,6 @@ def wipe_tenant_tables(session: Session) -> None:
     session.exec(delete(ChatRoom))
 
     session.exec(delete(TaskProgressReport))
-    session.exec(delete(TaskProof))
     session.exec(delete(TaskComment))
     session.exec(delete(TaskObserver))
     session.exec(delete(TaskDependency))

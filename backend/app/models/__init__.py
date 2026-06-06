@@ -143,8 +143,6 @@ from app.models.task import (  # noqa: F401
     TaskProgressReport,
     TaskProgressReportCreate,
     TaskProgressReportPublic,
-    TaskProof,
-    TaskProofCreate,
     TaskPublic,
     TaskLinkedEntity,
     TasksPublic,

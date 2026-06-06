@@ -24,7 +24,7 @@ def _normalize_json(value: Any) -> Any:
 
 async def write_audit_log(
     session: AsyncSession,
-    actor_id: uuid.UUID,
+    actor_id: uuid.UUID | None,
     action: str,
     entity_type: str,
     entity_id: uuid.UUID,
