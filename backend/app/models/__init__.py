@@ -92,6 +92,22 @@ from app.models.attendance import (  # noqa: F401
     SiteLocationUpdate,
 )
 
+# Leave requests (xin nghỉ phép)
+from app.models.leave_request import (  # noqa: F401
+    LeaveApprovalParticipant,
+    LeaveApproverConfig,
+    LeaveApproverConfigItem,
+    LeaveApproverConfigListPublic,
+    LeaveApproverConfigPublic,
+    LeaveApproverConfigUpdate,
+    LeaveDecisionRequest,
+    LeaveRequest,
+    LeaveRequestCreate,
+    LeaveRequestPublic,
+    LeaveRequestsPublic,
+    LeaveStageTransition,
+)
+
 # Project
 from app.models.project import (  # noqa: F401
     Project,
@@ -126,6 +142,15 @@ from app.models.contract import (  # noqa: F401
     Contract,
     ContractAttachment,
     ContractStatusTransition,
+)
+
+# Customer companies (directory of customer / own companies inside a tenant)
+from app.models.customer_company import (  # noqa: F401
+    CustomerCompaniesPublic,
+    CustomerCompany,
+    CustomerCompanyCreate,
+    CustomerCompanyPublic,
+    CustomerCompanyUpdate,
 )
 
 # Task

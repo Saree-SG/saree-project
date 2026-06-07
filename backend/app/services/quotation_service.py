@@ -16,9 +16,10 @@ from fastapi import HTTPException
 from loguru import logger
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.models.customer_company import CustomerCompany
 from app.models.notification import Notification
 from app.models.project import Project
-from sqlmodel import select
+from sqlmodel import func, select
 
 from app.models.quotation import (
     ACTION_LABELS,
@@ -557,6 +558,63 @@ class QuotationService:
     # CRUD
     # ------------------------------------------------------------------
 
+    async def _resolve_customer_company(
+        self,
+        current_user: User,
+        client_company_id: uuid.UUID | None,
+        client_company_name: str | None,
+    ) -> tuple[uuid.UUID | None, dict[str, Any]]:
+        """Resolve the linked customer company and a snapshot of its text fields.
+
+        - If ``client_company_id`` is given, validate it belongs to the tenant
+          and return a snapshot (name/contact/address) to keep the quotation
+          text fields consistent.
+        - Otherwise, if a name is given, find-or-create a customer company for
+          the tenant (deduped by lower(name)) so the directory stays populated.
+        Returns (resolved_id, snapshot_fields).
+        """
+        tenant_id = current_user.company_id
+        if tenant_id is None:
+            return None, {}
+
+        customer: CustomerCompany | None = None
+        if client_company_id is not None:
+            customer = await self._session.get(CustomerCompany, client_company_id)
+            if customer is None or customer.is_deleted or customer.company_id != tenant_id:
+                raise HTTPException(404, "Customer company not found")
+        elif client_company_name and client_company_name.strip():
+            name = client_company_name.strip()
+            existing = await self._session.execute(
+                select(CustomerCompany).where(
+                    CustomerCompany.company_id == tenant_id,
+                    CustomerCompany.is_deleted == False,  # noqa: E712
+                    func.lower(CustomerCompany.name) == name.lower(),
+                )
+            )
+            customer = existing.scalars().first()
+            if customer is None:
+                customer = CustomerCompany(
+                    company_id=tenant_id,
+                    created_by=current_user.id,
+                    type="customer",
+                    name=name,
+                )
+                self._session.add(customer)
+                await self._session.flush()
+
+        if customer is None:
+            return None, {}
+
+        snapshot = {
+            "client_company_name": customer.name,
+            "client_contact_name": customer.contact_name,
+            "client_contact_title": customer.contact_title,
+            "client_contact_phone": customer.contact_phone,
+            "client_contact_email": customer.contact_email,
+            "client_address": customer.address,
+        }
+        return customer.id, snapshot
+
     async def create_quotation(
         self, body: QuotationCreate, current_user: User
     ) -> QuotationPublic:
@@ -565,16 +623,21 @@ class QuotationService:
         year = _date.today().year
         quote_number = await self._repo.next_quote_number(year)
 
+        resolved_id, snapshot = await self._resolve_customer_company(
+            current_user, body.client_company_id, body.client_company_name
+        )
+
         quotation = Quotation(
             company_id=current_user.company_id,
             quote_number=quote_number,
             project_name=body.project_name,
-            client_company_name=body.client_company_name,
-            client_contact_name=body.client_contact_name,
-            client_contact_title=body.client_contact_title,
-            client_contact_phone=body.client_contact_phone,
-            client_contact_email=body.client_contact_email,
-            client_address=body.client_address,
+            client_company_id=resolved_id,
+            client_company_name=snapshot.get("client_company_name") or body.client_company_name,
+            client_contact_name=snapshot.get("client_contact_name") or body.client_contact_name,
+            client_contact_title=snapshot.get("client_contact_title") or body.client_contact_title,
+            client_contact_phone=snapshot.get("client_contact_phone") or body.client_contact_phone,
+            client_contact_email=snapshot.get("client_contact_email") or body.client_contact_email,
+            client_address=snapshot.get("client_address") or body.client_address,
             equipment_category=body.equipment_category,
             notes=body.notes,
             survey_note=body.survey_note,
@@ -677,6 +740,16 @@ class QuotationService:
             raise HTTPException(422, "Không thể chỉnh sửa hồ sơ đã đóng.")
 
         update_data = body.model_dump(exclude_unset=True)
+
+        # When (re)linking a customer company, refresh the text snapshot so the
+        # quotation's client fields stay consistent with the directory.
+        if "client_company_id" in update_data and update_data["client_company_id"] is not None:
+            resolved_id, snapshot = await self._resolve_customer_company(
+                current_user, update_data["client_company_id"], None
+            )
+            update_data["client_company_id"] = resolved_id
+            update_data.update(snapshot)
+
         old_data = {k: getattr(q, k) for k in update_data}
 
         for field, val in update_data.items():

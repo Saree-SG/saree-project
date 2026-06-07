@@ -73,6 +73,715 @@ export const AccountProfilePublicSchema = {
     title: 'AccountProfilePublic'
 } as const;
 
+export const AdminUserActivityRowSchema = {
+    properties: {
+        at: {
+            type: 'string',
+            format: 'date-time',
+            title: 'At'
+        },
+        type: {
+            type: 'string',
+            title: 'Type'
+        },
+        ip_address: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Ip Address'
+        },
+        user_agent: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'User Agent'
+        }
+    },
+    type: 'object',
+    required: ['at', 'type', 'ip_address', 'user_agent'],
+    title: 'AdminUserActivityRow'
+} as const;
+
+export const AdminUserDetailSchema = {
+    properties: {
+        id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Id'
+        },
+        email: {
+            type: 'string',
+            title: 'Email'
+        },
+        full_name: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Full Name'
+        },
+        is_active: {
+            type: 'boolean',
+            title: 'Is Active'
+        },
+        is_superuser: {
+            type: 'boolean',
+            title: 'Is Superuser'
+        },
+        job_title: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Job Title'
+        },
+        availability_status: {
+            type: 'string',
+            title: 'Availability Status'
+        },
+        company_id: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'uuid'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Company Id'
+        },
+        company_name: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Company Name'
+        },
+        department_id: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'uuid'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Department Id'
+        },
+        department_name: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Department Name'
+        },
+        created_at: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'date-time'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Created At'
+        },
+        memberships: {
+            items: {
+                '$ref': '#/components/schemas/AdminUserMembership'
+            },
+            type: 'array',
+            title: 'Memberships'
+        },
+        active_sessions: {
+            items: {
+                '$ref': '#/components/schemas/AdminUserSessionInfo'
+            },
+            type: 'array',
+            title: 'Active Sessions'
+        },
+        recent_activity: {
+            items: {
+                '$ref': '#/components/schemas/AdminUserActivityRow'
+            },
+            type: 'array',
+            title: 'Recent Activity'
+        }
+    },
+    type: 'object',
+    required: ['id', 'email', 'full_name', 'is_active', 'is_superuser', 'job_title', 'availability_status', 'company_id', 'company_name', 'department_id', 'department_name', 'created_at', 'memberships', 'active_sessions', 'recent_activity'],
+    title: 'AdminUserDetail'
+} as const;
+
+export const AdminUserListRowSchema = {
+    properties: {
+        id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Id'
+        },
+        email: {
+            type: 'string',
+            title: 'Email'
+        },
+        full_name: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Full Name'
+        },
+        is_active: {
+            type: 'boolean',
+            title: 'Is Active'
+        },
+        is_superuser: {
+            type: 'boolean',
+            title: 'Is Superuser'
+        },
+        company_id: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'uuid'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Company Id'
+        },
+        company_name: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Company Name'
+        },
+        department_id: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'uuid'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Department Id'
+        },
+        department_name: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Department Name'
+        },
+        primary_role_id: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'uuid'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Primary Role Id'
+        },
+        primary_role_name: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Primary Role Name'
+        },
+        primary_role_display_name: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Primary Role Display Name'
+        },
+        primary_role_level: {
+            anyOf: [
+                {
+                    type: 'integer'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Primary Role Level'
+        },
+        last_login_at: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'date-time'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Last Login At'
+        },
+        created_at: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'date-time'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Created At'
+        }
+    },
+    type: 'object',
+    required: ['id', 'email', 'full_name', 'is_active', 'is_superuser', 'company_id', 'company_name', 'department_id', 'department_name', 'primary_role_id', 'primary_role_name', 'primary_role_display_name', 'primary_role_level', 'last_login_at', 'created_at'],
+    title: 'AdminUserListRow'
+} as const;
+
+export const AdminUserMembershipSchema = {
+    properties: {
+        company_id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Company Id'
+        },
+        company_name: {
+            type: 'string',
+            title: 'Company Name'
+        },
+        role_id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Role Id'
+        },
+        role_name: {
+            type: 'string',
+            title: 'Role Name'
+        },
+        role_display_name: {
+            type: 'string',
+            title: 'Role Display Name'
+        },
+        role_level: {
+            type: 'integer',
+            title: 'Role Level'
+        },
+        is_primary: {
+            type: 'boolean',
+            title: 'Is Primary'
+        },
+        assigned_at: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'date-time'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Assigned At'
+        }
+    },
+    type: 'object',
+    required: ['company_id', 'company_name', 'role_id', 'role_name', 'role_display_name', 'role_level', 'is_primary', 'assigned_at'],
+    title: 'AdminUserMembership'
+} as const;
+
+export const AdminUserSessionInfoSchema = {
+    properties: {
+        session_id: {
+            type: 'string',
+            title: 'Session Id'
+        },
+        login_at: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'date-time'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Login At'
+        },
+        last_seen_at: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'date-time'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Last Seen At'
+        },
+        ip_address: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Ip Address'
+        },
+        user_agent: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'User Agent'
+        }
+    },
+    type: 'object',
+    required: ['session_id', 'login_at', 'last_seen_at', 'ip_address', 'user_agent'],
+    title: 'AdminUserSessionInfo'
+} as const;
+
+export const ApplyProfileRequestSchema = {
+    properties: {
+        project_id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Project Id'
+        },
+        parent_task_id: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'uuid'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Parent Task Id'
+        },
+        assignee_id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Assignee Id'
+        },
+        extra_assignee_ids: {
+            items: {
+                type: 'string',
+                format: 'uuid'
+            },
+            type: 'array',
+            title: 'Extra Assignee Ids',
+            default: []
+        }
+    },
+    type: 'object',
+    required: ['project_id', 'assignee_id'],
+    title: 'ApplyProfileRequest'
+} as const;
+
+export const AttendanceRecordPublicSchema = {
+    properties: {
+        id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Id'
+        },
+        user_id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'User Id'
+        },
+        mode: {
+            type: 'string',
+            title: 'Mode'
+        },
+        project_id: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'uuid'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Project Id'
+        },
+        company_id: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'uuid'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Company Id'
+        },
+        customer_company_id: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'uuid'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Customer Company Id'
+        },
+        task_label: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Task Label'
+        },
+        work_date: {
+            type: 'string',
+            format: 'date',
+            title: 'Work Date'
+        },
+        check_in_at: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Check In At'
+        },
+        check_in_lat: {
+            type: 'number',
+            title: 'Check In Lat'
+        },
+        check_in_lng: {
+            type: 'number',
+            title: 'Check In Lng'
+        },
+        check_in_accuracy_m: {
+            anyOf: [
+                {
+                    type: 'number'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Check In Accuracy M'
+        },
+        check_in_distance_m: {
+            type: 'number',
+            title: 'Check In Distance M'
+        },
+        check_in_valid: {
+            type: 'boolean',
+            title: 'Check In Valid'
+        },
+        check_in_photo_url: {
+            type: 'string',
+            title: 'Check In Photo Url'
+        },
+        check_out_at: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'date-time'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Check Out At'
+        },
+        check_out_lat: {
+            anyOf: [
+                {
+                    type: 'number'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Check Out Lat'
+        },
+        check_out_lng: {
+            anyOf: [
+                {
+                    type: 'number'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Check Out Lng'
+        },
+        check_out_accuracy_m: {
+            anyOf: [
+                {
+                    type: 'number'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Check Out Accuracy M'
+        },
+        check_out_distance_m: {
+            anyOf: [
+                {
+                    type: 'number'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Check Out Distance M'
+        },
+        check_out_valid: {
+            anyOf: [
+                {
+                    type: 'boolean'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Check Out Valid'
+        },
+        check_out_photo_url: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Check Out Photo Url'
+        },
+        work_hours: {
+            anyOf: [
+                {
+                    type: 'number'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Work Hours'
+        },
+        is_capped: {
+            type: 'boolean',
+            title: 'Is Capped'
+        },
+        is_auto_closed: {
+            type: 'boolean',
+            title: 'Is Auto Closed'
+        },
+        note: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Note'
+        },
+        created_at: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Created At'
+        }
+    },
+    type: 'object',
+    required: ['id', 'user_id', 'mode', 'project_id', 'company_id', 'customer_company_id', 'task_label', 'work_date', 'check_in_at', 'check_in_lat', 'check_in_lng', 'check_in_accuracy_m', 'check_in_distance_m', 'check_in_valid', 'check_in_photo_url', 'check_out_at', 'check_out_lat', 'check_out_lng', 'check_out_accuracy_m', 'check_out_distance_m', 'check_out_valid', 'check_out_photo_url', 'work_hours', 'is_capped', 'is_auto_closed', 'note', 'created_at'],
+    title: 'AttendanceRecordPublic'
+} as const;
+
+export const AttendanceRecordsPublicSchema = {
+    properties: {
+        data: {
+            items: {
+                '$ref': '#/components/schemas/AttendanceRecordPublic'
+            },
+            type: 'array',
+            title: 'Data'
+        },
+        count: {
+            type: 'integer',
+            title: 'Count'
+        }
+    },
+    type: 'object',
+    required: ['data', 'count'],
+    title: 'AttendanceRecordsPublic'
+} as const;
+
 export const AuditLogPublicSchema = {
     properties: {
         id: {
@@ -81,9 +790,27 @@ export const AuditLogPublicSchema = {
             title: 'Id'
         },
         actor_id: {
-            type: 'string',
-            format: 'uuid',
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'uuid'
+                },
+                {
+                    type: 'null'
+                }
+            ],
             title: 'Actor Id'
+        },
+        actor_name: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Actor Name'
         },
         action: {
             type: 'string',
@@ -123,8 +850,162 @@ export const AuditLogPublicSchema = {
         }
     },
     type: 'object',
-    required: ['id', 'actor_id', 'action', 'entity_type', 'entity_id', 'old_value', 'new_value', 'created_at'],
+    required: ['id', 'action', 'entity_type', 'entity_id', 'old_value', 'new_value', 'created_at'],
     title: 'AuditLogPublic'
+} as const;
+
+export const BlockerInfoSchema = {
+    properties: {
+        id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Id'
+        },
+        name: {
+            type: 'string',
+            title: 'Name'
+        },
+        status: {
+            type: 'string',
+            title: 'Status'
+        }
+    },
+    type: 'object',
+    required: ['id', 'name', 'status'],
+    title: 'BlockerInfo',
+    description: 'Minimal info about a task that is blocking this one.'
+} as const;
+
+export const Body_attendance_check_inSchema = {
+    properties: {
+        file: {
+            type: 'string',
+            format: 'binary',
+            title: 'File'
+        },
+        lat: {
+            type: 'number',
+            title: 'Lat'
+        },
+        lng: {
+            type: 'number',
+            title: 'Lng'
+        },
+        mode: {
+            type: 'string',
+            title: 'Mode',
+            default: 'project'
+        },
+        project_id: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'uuid'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Project Id'
+        },
+        company_id: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'uuid'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Company Id'
+        },
+        customer_company_id: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'uuid'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Customer Company Id'
+        },
+        task_label: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Task Label'
+        },
+        accuracy_m: {
+            anyOf: [
+                {
+                    type: 'number'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Accuracy M'
+        },
+        note: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Note'
+        }
+    },
+    type: 'object',
+    required: ['file', 'lat', 'lng'],
+    title: 'Body_attendance-check_in'
+} as const;
+
+export const Body_attendance_check_outSchema = {
+    properties: {
+        file: {
+            type: 'string',
+            format: 'binary',
+            title: 'File'
+        },
+        record_id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Record Id'
+        },
+        lat: {
+            type: 'number',
+            title: 'Lat'
+        },
+        lng: {
+            type: 'number',
+            title: 'Lng'
+        },
+        accuracy_m: {
+            anyOf: [
+                {
+                    type: 'number'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Accuracy M'
+        }
+    },
+    type: 'object',
+    required: ['file', 'record_id', 'lat', 'lng'],
+    title: 'Body_attendance-check_out'
 } as const;
 
 export const Body_chat_upload_attachmentSchema = {
@@ -138,6 +1019,32 @@ export const Body_chat_upload_attachmentSchema = {
     type: 'object',
     required: ['file'],
     title: 'Body_chat-upload_attachment'
+} as const;
+
+export const Body_contracts_upload_attachmentSchema = {
+    properties: {
+        file: {
+            type: 'string',
+            format: 'binary',
+            title: 'File'
+        }
+    },
+    type: 'object',
+    required: ['file'],
+    title: 'Body_contracts-upload_attachment'
+} as const;
+
+export const Body_incidents_add_incident_attachmentSchema = {
+    properties: {
+        file: {
+            type: 'string',
+            format: 'binary',
+            title: 'File'
+        }
+    },
+    type: 'object',
+    required: ['file'],
+    title: 'Body_incidents-add_incident_attachment'
 } as const;
 
 export const Body_login_login_access_tokenSchema = {
@@ -195,6 +1102,93 @@ export const Body_login_login_access_tokenSchema = {
     type: 'object',
     required: ['username', 'password'],
     title: 'Body_login-login_access_token'
+} as const;
+
+export const Body_quotations_upload_attachment_fileSchema = {
+    properties: {
+        file: {
+            type: 'string',
+            format: 'binary',
+            title: 'File'
+        }
+    },
+    type: 'object',
+    required: ['file'],
+    title: 'Body_quotations-upload_attachment_file'
+} as const;
+
+export const Body_tasks_add_progress_reportSchema = {
+    properties: {
+        file: {
+            type: 'string',
+            format: 'binary',
+            title: 'File'
+        },
+        progress_percent: {
+            type: 'integer',
+            maximum: 100,
+            minimum: 1,
+            title: 'Progress Percent'
+        },
+        note: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Note'
+        },
+        gps_lat: {
+            anyOf: [
+                {
+                    type: 'number'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Gps Lat'
+        },
+        gps_lng: {
+            anyOf: [
+                {
+                    type: 'number'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Gps Lng'
+        },
+        gps_accuracy_m: {
+            anyOf: [
+                {
+                    type: 'number'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Gps Accuracy M'
+        },
+        checkin_skip_reason: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Checkin Skip Reason'
+        }
+    },
+    type: 'object',
+    required: ['file', 'progress_percent'],
+    title: 'Body_tasks-add_progress_report'
 } as const;
 
 export const Body_tasks_upload_progress_report_photoSchema = {
@@ -496,6 +1490,29 @@ export const ChatRoomPublicSchema = {
             type: 'string',
             format: 'date-time',
             title: 'Created At'
+        },
+        last_message_content: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Last Message Content'
+        },
+        last_message_at: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'date-time'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Last Message At'
         }
     },
     type: 'object',
@@ -536,6 +1553,19 @@ export const ChatRoomUpdateSchema = {
     description: 'Update chat room fields (currently only name).'
 } as const;
 
+export const ChatUnreadCountPublicSchema = {
+    properties: {
+        count: {
+            type: 'integer',
+            title: 'Count'
+        }
+    },
+    type: 'object',
+    required: ['count'],
+    title: 'ChatUnreadCountPublic',
+    description: 'Total unread message count across all rooms.'
+} as const;
+
 export const CompanyCreateSchema = {
     properties: {
         name: {
@@ -552,6 +1582,92 @@ export const CompanyCreateSchema = {
     type: 'object',
     required: ['name', 'slug'],
     title: 'CompanyCreate'
+} as const;
+
+export const CompanyMemberPublicSchema = {
+    properties: {
+        user_id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'User Id'
+        },
+        email: {
+            type: 'string',
+            title: 'Email'
+        },
+        full_name: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Full Name'
+        },
+        role_id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Role Id'
+        },
+        role_name: {
+            type: 'string',
+            title: 'Role Name'
+        },
+        role_display_name: {
+            type: 'string',
+            title: 'Role Display Name'
+        },
+        role_level: {
+            type: 'integer',
+            title: 'Role Level'
+        },
+        is_primary: {
+            type: 'boolean',
+            title: 'Is Primary'
+        },
+        department_id: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'uuid'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Department Id'
+        }
+    },
+    type: 'object',
+    required: ['user_id', 'email', 'full_name', 'role_id', 'role_name', 'role_display_name', 'role_level', 'is_primary'],
+    title: 'CompanyMemberPublic',
+    description: 'Member projection for company management UI.'
+} as const;
+
+export const CompanyMemberRoleUpdateRequestSchema = {
+    properties: {
+        current_role_id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Current Role Id'
+        },
+        new_role_id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'New Role Id'
+        },
+        is_primary: {
+            type: 'boolean',
+            title: 'Is Primary',
+            default: false
+        }
+    },
+    type: 'object',
+    required: ['current_role_id', 'new_role_id'],
+    title: 'CompanyMemberRoleUpdateRequest',
+    description: 'Payload to update company member role assignment.'
 } as const;
 
 export const CompanyPublicSchema = {
@@ -572,6 +1688,33 @@ export const CompanyPublicSchema = {
         is_active: {
             type: 'boolean',
             title: 'Is Active'
+        },
+        site_lat: {
+            anyOf: [
+                {
+                    type: 'number'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Site Lat'
+        },
+        site_lng: {
+            anyOf: [
+                {
+                    type: 'number'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Site Lng'
+        },
+        site_radius_m: {
+            type: 'integer',
+            title: 'Site Radius M',
+            default: 150
         }
     },
     type: 'object',
@@ -607,6 +1750,1197 @@ export const CompanyUpdateSchema = {
     },
     type: 'object',
     title: 'CompanyUpdate'
+} as const;
+
+export const ContractActionRequestSchema = {
+    properties: {
+        note: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Note'
+        }
+    },
+    type: 'object',
+    title: 'ContractActionRequest'
+} as const;
+
+export const ContractAttachmentPublicSchema = {
+    properties: {
+        id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Id'
+        },
+        contract_id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Contract Id'
+        },
+        uploaded_by: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Uploaded By'
+        },
+        file_url: {
+            type: 'string',
+            title: 'File Url'
+        },
+        file_name: {
+            type: 'string',
+            title: 'File Name'
+        },
+        file_type: {
+            type: 'string',
+            title: 'File Type'
+        },
+        phase: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Phase'
+        },
+        description: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Description'
+        },
+        uploaded_at: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Uploaded At'
+        }
+    },
+    type: 'object',
+    required: ['id', 'contract_id', 'uploaded_by', 'file_url', 'file_name', 'file_type', 'phase', 'description', 'uploaded_at'],
+    title: 'ContractAttachmentPublic'
+} as const;
+
+export const ContractConfirmAdvanceRequestSchema = {
+    properties: {
+        advance_amount: {
+            type: 'number',
+            title: 'Advance Amount'
+        },
+        advance_paid_at: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Advance Paid At'
+        },
+        note: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Note'
+        }
+    },
+    type: 'object',
+    required: ['advance_amount', 'advance_paid_at'],
+    title: 'ContractConfirmAdvanceRequest'
+} as const;
+
+export const ContractCreateSchema = {
+    properties: {
+        contract_date: {
+            type: 'string',
+            format: 'date',
+            title: 'Contract Date'
+        },
+        total_value: {
+            type: 'number',
+            title: 'Total Value'
+        },
+        currency: {
+            type: 'string',
+            maxLength: 10,
+            title: 'Currency',
+            default: 'VND'
+        },
+        advance_amount: {
+            anyOf: [
+                {
+                    type: 'number'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Advance Amount'
+        },
+        notes: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Notes'
+        },
+        quotation_id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Quotation Id'
+        },
+        project_id: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'uuid'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Project Id'
+        }
+    },
+    type: 'object',
+    required: ['contract_date', 'total_value', 'quotation_id'],
+    title: 'ContractCreate'
+} as const;
+
+export const ContractPublicSchema = {
+    properties: {
+        contract_date: {
+            type: 'string',
+            format: 'date',
+            title: 'Contract Date'
+        },
+        total_value: {
+            type: 'number',
+            title: 'Total Value'
+        },
+        currency: {
+            type: 'string',
+            maxLength: 10,
+            title: 'Currency',
+            default: 'VND'
+        },
+        advance_amount: {
+            anyOf: [
+                {
+                    type: 'number'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Advance Amount'
+        },
+        notes: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Notes'
+        },
+        id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Id'
+        },
+        company_id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Company Id'
+        },
+        quotation_id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Quotation Id'
+        },
+        project_id: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'uuid'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Project Id'
+        },
+        contract_number: {
+            type: 'string',
+            title: 'Contract Number'
+        },
+        signing_date: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'date'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Signing Date'
+        },
+        status: {
+            type: 'string',
+            title: 'Status'
+        },
+        status_label: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Status Label'
+        },
+        advance_paid_at: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'date-time'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Advance Paid At'
+        },
+        advance_paid_by: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'uuid'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Advance Paid By'
+        },
+        created_by: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Created By'
+        },
+        created_at: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Created At'
+        },
+        updated_at: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Updated At'
+        }
+    },
+    type: 'object',
+    required: ['contract_date', 'total_value', 'id', 'company_id', 'quotation_id', 'project_id', 'contract_number', 'signing_date', 'status', 'advance_paid_at', 'advance_paid_by', 'created_by', 'created_at', 'updated_at'],
+    title: 'ContractPublic'
+} as const;
+
+export const ContractSignRequestSchema = {
+    properties: {
+        signing_date: {
+            type: 'string',
+            format: 'date',
+            title: 'Signing Date'
+        },
+        note: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Note'
+        }
+    },
+    type: 'object',
+    required: ['signing_date'],
+    title: 'ContractSignRequest'
+} as const;
+
+export const ContractStatusTransitionPublicSchema = {
+    properties: {
+        id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Id'
+        },
+        contract_id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Contract Id'
+        },
+        from_status: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'From Status'
+        },
+        to_status: {
+            type: 'string',
+            title: 'To Status'
+        },
+        actor_id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Actor Id'
+        },
+        actor_name: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Actor Name'
+        },
+        action: {
+            type: 'string',
+            title: 'Action'
+        },
+        note: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Note'
+        },
+        created_at: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Created At'
+        }
+    },
+    type: 'object',
+    required: ['id', 'contract_id', 'from_status', 'to_status', 'actor_id', 'actor_name', 'action', 'note', 'created_at'],
+    title: 'ContractStatusTransitionPublic'
+} as const;
+
+export const ContractUpdateSchema = {
+    properties: {
+        contract_date: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'date'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Contract Date'
+        },
+        total_value: {
+            anyOf: [
+                {
+                    type: 'number'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Total Value'
+        },
+        currency: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Currency'
+        },
+        advance_amount: {
+            anyOf: [
+                {
+                    type: 'number'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Advance Amount'
+        },
+        notes: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Notes'
+        },
+        signing_date: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'date'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Signing Date'
+        }
+    },
+    type: 'object',
+    title: 'ContractUpdate'
+} as const;
+
+export const ContractWithDetailsPublicSchema = {
+    properties: {
+        contract_date: {
+            type: 'string',
+            format: 'date',
+            title: 'Contract Date'
+        },
+        total_value: {
+            type: 'number',
+            title: 'Total Value'
+        },
+        currency: {
+            type: 'string',
+            maxLength: 10,
+            title: 'Currency',
+            default: 'VND'
+        },
+        advance_amount: {
+            anyOf: [
+                {
+                    type: 'number'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Advance Amount'
+        },
+        notes: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Notes'
+        },
+        id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Id'
+        },
+        company_id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Company Id'
+        },
+        quotation_id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Quotation Id'
+        },
+        project_id: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'uuid'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Project Id'
+        },
+        contract_number: {
+            type: 'string',
+            title: 'Contract Number'
+        },
+        signing_date: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'date'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Signing Date'
+        },
+        status: {
+            type: 'string',
+            title: 'Status'
+        },
+        status_label: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Status Label'
+        },
+        advance_paid_at: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'date-time'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Advance Paid At'
+        },
+        advance_paid_by: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'uuid'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Advance Paid By'
+        },
+        created_by: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Created By'
+        },
+        created_at: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Created At'
+        },
+        updated_at: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Updated At'
+        },
+        attachments: {
+            items: {
+                '$ref': '#/components/schemas/ContractAttachmentPublic'
+            },
+            type: 'array',
+            title: 'Attachments',
+            default: []
+        },
+        transitions: {
+            items: {
+                '$ref': '#/components/schemas/ContractStatusTransitionPublic'
+            },
+            type: 'array',
+            title: 'Transitions',
+            default: []
+        }
+    },
+    type: 'object',
+    required: ['contract_date', 'total_value', 'id', 'company_id', 'quotation_id', 'project_id', 'contract_number', 'signing_date', 'status', 'advance_paid_at', 'advance_paid_by', 'created_by', 'created_at', 'updated_at'],
+    title: 'ContractWithDetailsPublic'
+} as const;
+
+export const ContractsPublicSchema = {
+    properties: {
+        data: {
+            items: {
+                '$ref': '#/components/schemas/ContractPublic'
+            },
+            type: 'array',
+            title: 'Data'
+        },
+        count: {
+            type: 'integer',
+            title: 'Count'
+        }
+    },
+    type: 'object',
+    required: ['data', 'count'],
+    title: 'ContractsPublic'
+} as const;
+
+export const CustomerCompaniesPublicSchema = {
+    properties: {
+        data: {
+            items: {
+                '$ref': '#/components/schemas/CustomerCompanyPublic'
+            },
+            type: 'array',
+            title: 'Data'
+        },
+        count: {
+            type: 'integer',
+            title: 'Count'
+        }
+    },
+    type: 'object',
+    required: ['data', 'count'],
+    title: 'CustomerCompaniesPublic'
+} as const;
+
+export const CustomerCompanyCreateSchema = {
+    properties: {
+        name: {
+            type: 'string',
+            maxLength: 255,
+            title: 'Name'
+        },
+        type: {
+            type: 'string',
+            maxLength: 20,
+            title: 'Type',
+            default: 'customer'
+        },
+        tax_code: {
+            anyOf: [
+                {
+                    type: 'string',
+                    maxLength: 50
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Tax Code'
+        },
+        contact_name: {
+            anyOf: [
+                {
+                    type: 'string',
+                    maxLength: 255
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Contact Name'
+        },
+        contact_title: {
+            anyOf: [
+                {
+                    type: 'string',
+                    maxLength: 100
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Contact Title'
+        },
+        contact_phone: {
+            anyOf: [
+                {
+                    type: 'string',
+                    maxLength: 50
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Contact Phone'
+        },
+        contact_email: {
+            anyOf: [
+                {
+                    type: 'string',
+                    maxLength: 255
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Contact Email'
+        },
+        address: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Address'
+        },
+        notes: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Notes'
+        },
+        site_lat: {
+            anyOf: [
+                {
+                    type: 'number'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Site Lat'
+        },
+        site_lng: {
+            anyOf: [
+                {
+                    type: 'number'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Site Lng'
+        },
+        site_radius_m: {
+            type: 'integer',
+            title: 'Site Radius M',
+            default: 150
+        }
+    },
+    type: 'object',
+    required: ['name'],
+    title: 'CustomerCompanyCreate'
+} as const;
+
+export const CustomerCompanyPublicSchema = {
+    properties: {
+        name: {
+            type: 'string',
+            maxLength: 255,
+            title: 'Name'
+        },
+        type: {
+            type: 'string',
+            maxLength: 20,
+            title: 'Type',
+            default: 'customer'
+        },
+        tax_code: {
+            anyOf: [
+                {
+                    type: 'string',
+                    maxLength: 50
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Tax Code'
+        },
+        contact_name: {
+            anyOf: [
+                {
+                    type: 'string',
+                    maxLength: 255
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Contact Name'
+        },
+        contact_title: {
+            anyOf: [
+                {
+                    type: 'string',
+                    maxLength: 100
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Contact Title'
+        },
+        contact_phone: {
+            anyOf: [
+                {
+                    type: 'string',
+                    maxLength: 50
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Contact Phone'
+        },
+        contact_email: {
+            anyOf: [
+                {
+                    type: 'string',
+                    maxLength: 255
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Contact Email'
+        },
+        address: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Address'
+        },
+        notes: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Notes'
+        },
+        site_lat: {
+            anyOf: [
+                {
+                    type: 'number'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Site Lat'
+        },
+        site_lng: {
+            anyOf: [
+                {
+                    type: 'number'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Site Lng'
+        },
+        site_radius_m: {
+            type: 'integer',
+            title: 'Site Radius M',
+            default: 150
+        },
+        id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Id'
+        },
+        company_id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Company Id'
+        },
+        is_active: {
+            type: 'boolean',
+            title: 'Is Active'
+        },
+        created_by: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Created By'
+        },
+        created_at: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Created At'
+        },
+        updated_at: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Updated At'
+        }
+    },
+    type: 'object',
+    required: ['name', 'id', 'company_id', 'is_active', 'created_by', 'created_at', 'updated_at'],
+    title: 'CustomerCompanyPublic'
+} as const;
+
+export const CustomerCompanyUpdateSchema = {
+    properties: {
+        name: {
+            anyOf: [
+                {
+                    type: 'string',
+                    maxLength: 255
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Name'
+        },
+        type: {
+            anyOf: [
+                {
+                    type: 'string',
+                    maxLength: 20
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Type'
+        },
+        tax_code: {
+            anyOf: [
+                {
+                    type: 'string',
+                    maxLength: 50
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Tax Code'
+        },
+        contact_name: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Contact Name'
+        },
+        contact_title: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Contact Title'
+        },
+        contact_phone: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Contact Phone'
+        },
+        contact_email: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Contact Email'
+        },
+        address: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Address'
+        },
+        notes: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Notes'
+        },
+        site_lat: {
+            anyOf: [
+                {
+                    type: 'number'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Site Lat'
+        },
+        site_lng: {
+            anyOf: [
+                {
+                    type: 'number'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Site Lng'
+        },
+        site_radius_m: {
+            anyOf: [
+                {
+                    type: 'integer'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Site Radius M'
+        },
+        is_active: {
+            anyOf: [
+                {
+                    type: 'boolean'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Is Active'
+        }
+    },
+    type: 'object',
+    title: 'CustomerCompanyUpdate'
+} as const;
+
+export const DelayWarningPublicSchema = {
+    properties: {
+        severity: {
+            type: 'string',
+            title: 'Severity'
+        },
+        layer: {
+            type: 'integer',
+            title: 'Layer'
+        },
+        title: {
+            type: 'string',
+            title: 'Title'
+        },
+        detail: {
+            type: 'string',
+            title: 'Detail'
+        },
+        task_id: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Task Id'
+        },
+        task_name: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Task Name'
+        },
+        estimated_delay_days: {
+            anyOf: [
+                {
+                    type: 'integer'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Estimated Delay Days'
+        }
+    },
+    type: 'object',
+    required: ['severity', 'layer', 'title', 'detail'],
+    title: 'DelayWarningPublic'
+} as const;
+
+export const DelayWarningsPublicSchema = {
+    properties: {
+        warnings: {
+            items: {
+                '$ref': '#/components/schemas/DelayWarningPublic'
+            },
+            type: 'array',
+            title: 'Warnings'
+        },
+        analyzed_at: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Analyzed At'
+        }
+    },
+    type: 'object',
+    required: ['warnings', 'analyzed_at'],
+    title: 'DelayWarningsPublic'
 } as const;
 
 export const DepartmentCreateSchema = {
@@ -694,6 +3028,114 @@ export const DepartmentPublicSchema = {
     title: 'DepartmentPublic'
 } as const;
 
+export const DepartmentUpdateSchema = {
+    properties: {
+        name: {
+            anyOf: [
+                {
+                    type: 'string',
+                    maxLength: 255
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Name'
+        },
+        dept_type: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Dept Type'
+        },
+        is_active: {
+            anyOf: [
+                {
+                    type: 'boolean'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Is Active'
+        },
+        parent_id: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'uuid'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Parent Id'
+        }
+    },
+    type: 'object',
+    title: 'DepartmentUpdate'
+} as const;
+
+export const DependencyPublicSchema = {
+    properties: {
+        id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Id'
+        },
+        blocking_task_id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Blocking Task Id'
+        },
+        dependent_task_id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Dependent Task Id'
+        },
+        dependency_type: {
+            type: 'string',
+            title: 'Dependency Type'
+        },
+        lag_hours: {
+            type: 'integer',
+            title: 'Lag Hours'
+        }
+    },
+    type: 'object',
+    required: ['id', 'blocking_task_id', 'dependent_task_id', 'dependency_type', 'lag_hours'],
+    title: 'DependencyPublic',
+    description: 'Response schema for a task dependency link.'
+} as const;
+
+export const GanttPublicSchema = {
+    properties: {
+        tasks: {
+            items: {
+                '$ref': '#/components/schemas/TaskPublic'
+            },
+            type: 'array',
+            title: 'Tasks'
+        },
+        dependencies: {
+            items: {
+                '$ref': '#/components/schemas/DependencyPublic'
+            },
+            type: 'array',
+            title: 'Dependencies'
+        }
+    },
+    type: 'object',
+    required: ['tasks', 'dependencies'],
+    title: 'GanttPublic',
+    description: 'Response schema for the project Gantt endpoint.'
+} as const;
+
 export const HTTPValidationErrorSchema = {
     properties: {
         detail: {
@@ -706,6 +3148,698 @@ export const HTTPValidationErrorSchema = {
     },
     type: 'object',
     title: 'HTTPValidationError'
+} as const;
+
+export const IncidentAttachmentPublicSchema = {
+    properties: {
+        id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Id'
+        },
+        file_url: {
+            type: 'string',
+            title: 'File Url'
+        },
+        file_type: {
+            type: 'string',
+            title: 'File Type'
+        },
+        uploaded_at: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Uploaded At'
+        }
+    },
+    type: 'object',
+    required: ['id', 'file_url', 'file_type', 'uploaded_at'],
+    title: 'IncidentAttachmentPublic'
+} as const;
+
+export const IncidentCreateSchema = {
+    properties: {
+        title: {
+            type: 'string',
+            maxLength: 500,
+            title: 'Title'
+        },
+        description: {
+            type: 'string',
+            title: 'Description'
+        },
+        category: {
+            type: 'string',
+            title: 'Category',
+            default: 'other'
+        },
+        severity: {
+            type: 'string',
+            title: 'Severity',
+            default: 'medium'
+        },
+        project_id: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'uuid'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Project Id'
+        },
+        task_id: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'uuid'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Task Id'
+        },
+        root_cause: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Root Cause'
+        },
+        solution: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Solution'
+        }
+    },
+    type: 'object',
+    required: ['title', 'description'],
+    title: 'IncidentCreate'
+} as const;
+
+export const IncidentPublicSchema = {
+    properties: {
+        id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Id'
+        },
+        company_id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Company Id'
+        },
+        project_id: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'uuid'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Project Id'
+        },
+        task_id: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'uuid'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Task Id'
+        },
+        title: {
+            type: 'string',
+            title: 'Title'
+        },
+        description: {
+            type: 'string',
+            title: 'Description'
+        },
+        category: {
+            type: 'string',
+            title: 'Category'
+        },
+        severity: {
+            type: 'string',
+            title: 'Severity'
+        },
+        root_cause: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Root Cause'
+        },
+        solution: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Solution'
+        },
+        status: {
+            type: 'string',
+            title: 'Status'
+        },
+        reported_by: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Reported By'
+        },
+        resolved_by: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'uuid'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Resolved By'
+        },
+        resolved_at: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'date-time'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Resolved At'
+        },
+        created_at: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Created At'
+        },
+        updated_at: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Updated At'
+        },
+        attachments: {
+            items: {
+                '$ref': '#/components/schemas/IncidentAttachmentPublic'
+            },
+            type: 'array',
+            title: 'Attachments',
+            default: []
+        }
+    },
+    type: 'object',
+    required: ['id', 'company_id', 'project_id', 'task_id', 'title', 'description', 'category', 'severity', 'root_cause', 'solution', 'status', 'reported_by', 'resolved_by', 'resolved_at', 'created_at', 'updated_at'],
+    title: 'IncidentPublic'
+} as const;
+
+export const IncidentResolveSchema = {
+    properties: {
+        root_cause: {
+            type: 'string',
+            title: 'Root Cause'
+        },
+        solution: {
+            type: 'string',
+            title: 'Solution'
+        }
+    },
+    type: 'object',
+    required: ['root_cause', 'solution'],
+    title: 'IncidentResolve'
+} as const;
+
+export const IncidentUpdateSchema = {
+    properties: {
+        title: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Title'
+        },
+        description: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Description'
+        },
+        category: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Category'
+        },
+        severity: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Severity'
+        },
+        root_cause: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Root Cause'
+        },
+        solution: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Solution'
+        }
+    },
+    type: 'object',
+    title: 'IncidentUpdate'
+} as const;
+
+export const IncidentsPublicSchema = {
+    properties: {
+        data: {
+            items: {
+                '$ref': '#/components/schemas/IncidentPublic'
+            },
+            type: 'array',
+            title: 'Data'
+        },
+        count: {
+            type: 'integer',
+            title: 'Count'
+        }
+    },
+    type: 'object',
+    required: ['data', 'count'],
+    title: 'IncidentsPublic'
+} as const;
+
+export const LeaveApproverConfigItemSchema = {
+    properties: {
+        step_order: {
+            type: 'integer',
+            title: 'Step Order',
+            default: 1
+        },
+        approver_role_id: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'uuid'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Approver Role Id'
+        },
+        approver_user_id: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'uuid'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Approver User Id'
+        }
+    },
+    type: 'object',
+    title: 'LeaveApproverConfigItem',
+    description: 'One configured approver step (input).'
+} as const;
+
+export const LeaveApproverConfigListPublicSchema = {
+    properties: {
+        data: {
+            items: {
+                '$ref': '#/components/schemas/LeaveApproverConfigPublic'
+            },
+            type: 'array',
+            title: 'Data'
+        },
+        uses_default: {
+            type: 'boolean',
+            title: 'Uses Default'
+        }
+    },
+    type: 'object',
+    required: ['data', 'uses_default'],
+    title: 'LeaveApproverConfigListPublic',
+    description: 'The configured chain plus whether the default (directors) is in effect.'
+} as const;
+
+export const LeaveApproverConfigPublicSchema = {
+    properties: {
+        id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Id'
+        },
+        step_order: {
+            type: 'integer',
+            title: 'Step Order'
+        },
+        approver_role_id: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'uuid'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Approver Role Id'
+        },
+        approver_user_id: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'uuid'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Approver User Id'
+        },
+        is_active: {
+            type: 'boolean',
+            title: 'Is Active'
+        },
+        approver_role_name: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Approver Role Name'
+        },
+        approver_user_name: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Approver User Name'
+        }
+    },
+    type: 'object',
+    required: ['id', 'step_order', 'approver_role_id', 'approver_user_id', 'is_active'],
+    title: 'LeaveApproverConfigPublic'
+} as const;
+
+export const LeaveApproverConfigUpdateSchema = {
+    properties: {
+        items: {
+            items: {
+                '$ref': '#/components/schemas/LeaveApproverConfigItem'
+            },
+            type: 'array',
+            title: 'Items'
+        }
+    },
+    type: 'object',
+    required: ['items'],
+    title: 'LeaveApproverConfigUpdate',
+    description: 'Replace the whole approver chain for a company.'
+} as const;
+
+export const LeaveDecisionRequestSchema = {
+    properties: {
+        note: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Note'
+        }
+    },
+    type: 'object',
+    title: 'LeaveDecisionRequest',
+    description: 'Body for approve / reject. `note` is required when rejecting.'
+} as const;
+
+export const LeaveRequestCreateSchema = {
+    properties: {
+        leave_type: {
+            type: 'string',
+            maxLength: 20,
+            title: 'Leave Type',
+            default: 'annual'
+        },
+        start_date: {
+            type: 'string',
+            format: 'date',
+            title: 'Start Date'
+        },
+        end_date: {
+            type: 'string',
+            format: 'date',
+            title: 'End Date'
+        },
+        half_day: {
+            anyOf: [
+                {
+                    type: 'string',
+                    maxLength: 10
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Half Day'
+        },
+        reason: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Reason'
+        }
+    },
+    type: 'object',
+    required: ['start_date', 'end_date'],
+    title: 'LeaveRequestCreate'
+} as const;
+
+export const LeaveRequestPublicSchema = {
+    properties: {
+        id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Id'
+        },
+        company_id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Company Id'
+        },
+        user_id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'User Id'
+        },
+        leave_type: {
+            type: 'string',
+            title: 'Leave Type'
+        },
+        start_date: {
+            type: 'string',
+            format: 'date',
+            title: 'Start Date'
+        },
+        end_date: {
+            type: 'string',
+            format: 'date',
+            title: 'End Date'
+        },
+        half_day: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Half Day'
+        },
+        num_days: {
+            type: 'number',
+            title: 'Num Days'
+        },
+        reason: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Reason'
+        },
+        status: {
+            type: 'string',
+            title: 'Status'
+        },
+        decided_by: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'uuid'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Decided By'
+        },
+        decided_at: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'date-time'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Decided At'
+        },
+        decision_note: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Decision Note'
+        },
+        created_at: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Created At'
+        },
+        user_name: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'User Name'
+        },
+        decided_by_name: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Decided By Name'
+        }
+    },
+    type: 'object',
+    required: ['id', 'company_id', 'user_id', 'leave_type', 'start_date', 'end_date', 'half_day', 'num_days', 'reason', 'status', 'decided_by', 'decided_at', 'decision_note', 'created_at'],
+    title: 'LeaveRequestPublic'
+} as const;
+
+export const LeaveRequestsPublicSchema = {
+    properties: {
+        data: {
+            items: {
+                '$ref': '#/components/schemas/LeaveRequestPublic'
+            },
+            type: 'array',
+            title: 'Data'
+        },
+        count: {
+            type: 'integer',
+            title: 'Count'
+        }
+    },
+    type: 'object',
+    required: ['data', 'count'],
+    title: 'LeaveRequestsPublic'
 } as const;
 
 export const LogoutRequestSchema = {
@@ -724,6 +3858,88 @@ export const LogoutRequestSchema = {
     },
     type: 'object',
     title: 'LogoutRequest'
+} as const;
+
+export const MembershipCreateSchema = {
+    properties: {
+        company_id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Company Id'
+        },
+        role_id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Role Id'
+        },
+        department_id: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'uuid'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Department Id'
+        },
+        is_primary: {
+            type: 'boolean',
+            title: 'Is Primary',
+            default: false
+        }
+    },
+    type: 'object',
+    required: ['company_id', 'role_id'],
+    title: 'MembershipCreate'
+} as const;
+
+export const MembershipUpdateSchema = {
+    properties: {
+        role_id: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'uuid'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Role Id'
+        },
+        department_id: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'uuid'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Department Id'
+        },
+        clear_department: {
+            type: 'boolean',
+            title: 'Clear Department',
+            default: false
+        },
+        is_primary: {
+            anyOf: [
+                {
+                    type: 'boolean'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Is Primary'
+        }
+    },
+    type: 'object',
+    title: 'MembershipUpdate'
 } as const;
 
 export const MessageSchema = {
@@ -752,6 +3968,75 @@ export const NewPasswordSchema = {
     type: 'object',
     required: ['token', 'new_password'],
     title: 'NewPassword'
+} as const;
+
+export const NotificationPublicSchema = {
+    properties: {
+        id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Id'
+        },
+        user_id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'User Id'
+        },
+        type: {
+            type: 'string',
+            title: 'Type'
+        },
+        title: {
+            type: 'string',
+            title: 'Title'
+        },
+        body: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Body'
+        },
+        entity_type: {
+            type: 'string',
+            title: 'Entity Type'
+        },
+        entity_id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Entity Id'
+        },
+        is_read: {
+            type: 'boolean',
+            title: 'Is Read'
+        },
+        created_at: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Created At'
+        }
+    },
+    type: 'object',
+    required: ['id', 'user_id', 'type', 'title', 'body', 'entity_type', 'entity_id', 'is_read', 'created_at'],
+    title: 'NotificationPublic',
+    description: 'Response schema for a notification.'
+} as const;
+
+export const NotificationUnreadCountSchema = {
+    properties: {
+        count: {
+            type: 'integer',
+            title: 'Count'
+        }
+    },
+    type: 'object',
+    required: ['count'],
+    title: 'NotificationUnreadCount',
+    description: 'Response schema for unread notification count.'
 } as const;
 
 export const OrgTreeDepartmentGroupPublicSchema = {
@@ -929,6 +4214,67 @@ export const OrgTreeRoleNodePublicSchema = {
     title: 'OrgTreeRoleNodePublic'
 } as const;
 
+export const PermissionItemSchema = {
+    properties: {
+        code: {
+            type: 'string',
+            title: 'Code'
+        },
+        module: {
+            type: 'string',
+            title: 'Module'
+        },
+        action: {
+            type: 'string',
+            title: 'Action'
+        },
+        scope: {
+            type: 'string',
+            title: 'Scope'
+        },
+        description: {
+            type: 'string',
+            title: 'Description'
+        }
+    },
+    type: 'object',
+    required: ['code', 'module', 'action', 'scope', 'description'],
+    title: 'PermissionItem'
+} as const;
+
+export const PermissionPublicSchema = {
+    properties: {
+        id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Id'
+        },
+        code: {
+            type: 'string',
+            title: 'Code'
+        },
+        module: {
+            type: 'string',
+            title: 'Module'
+        },
+        action: {
+            type: 'string',
+            title: 'Action'
+        },
+        scope: {
+            type: 'string',
+            title: 'Scope'
+        },
+        description: {
+            type: 'string',
+            title: 'Description'
+        }
+    },
+    type: 'object',
+    required: ['id', 'code', 'module', 'action', 'scope', 'description'],
+    title: 'PermissionPublic'
+} as const;
+
 export const PrivateUserCreateSchema = {
     properties: {
         email: {
@@ -993,6 +4339,12 @@ export const ProjectCreateSchema = {
             title: 'Status',
             default: 'planning'
         },
+        project_type: {
+            type: 'string',
+            maxLength: 20,
+            title: 'Project Type',
+            default: 'client'
+        },
         department_id: {
             anyOf: [
                 {
@@ -1004,6 +4356,30 @@ export const ProjectCreateSchema = {
                 }
             ],
             title: 'Department Id'
+        },
+        company_id: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'uuid'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Company Id'
+        },
+        pm_id: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'uuid'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Pm Id'
         }
     },
     type: 'object',
@@ -1093,6 +4469,12 @@ export const ProjectPublicSchema = {
             title: 'Status',
             default: 'planning'
         },
+        project_type: {
+            type: 'string',
+            maxLength: 20,
+            title: 'Project Type',
+            default: 'client'
+        },
         id: {
             type: 'string',
             format: 'uuid',
@@ -1119,6 +4501,45 @@ export const ProjectPublicSchema = {
             type: 'string',
             format: 'uuid',
             title: 'Pm Id'
+        },
+        chat_room_id: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'uuid'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Chat Room Id'
+        },
+        site_lat: {
+            anyOf: [
+                {
+                    type: 'number'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Site Lat'
+        },
+        site_lng: {
+            anyOf: [
+                {
+                    type: 'number'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Site Lng'
+        },
+        site_radius_m: {
+            type: 'integer',
+            title: 'Site Radius M',
+            default: 150
         },
         created_at: {
             type: 'string',
@@ -1206,6 +4627,17 @@ export const ProjectUpdateSchema = {
                 }
             ],
             title: 'Pm Id'
+        },
+        project_type: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Project Type'
         }
     },
     type: 'object',
@@ -1229,6 +4661,1930 @@ export const ProjectsPublicSchema = {
     type: 'object',
     required: ['data', 'count'],
     title: 'ProjectsPublic'
+} as const;
+
+export const PushSubscribeRequestSchema = {
+    properties: {
+        endpoint: {
+            type: 'string',
+            title: 'Endpoint'
+        },
+        p256dh: {
+            type: 'string',
+            title: 'P256Dh'
+        },
+        auth: {
+            type: 'string',
+            title: 'Auth'
+        }
+    },
+    type: 'object',
+    required: ['endpoint', 'p256dh', 'auth'],
+    title: 'PushSubscribeRequest'
+} as const;
+
+export const QuotationApprovalParticipantCreateSchema = {
+    properties: {
+        user_id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'User Id'
+        },
+        role: {
+            type: 'string',
+            title: 'Role'
+        }
+    },
+    type: 'object',
+    required: ['user_id', 'role'],
+    title: 'QuotationApprovalParticipantCreate'
+} as const;
+
+export const QuotationApprovalParticipantPublicSchema = {
+    properties: {
+        id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Id'
+        },
+        quotation_id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Quotation Id'
+        },
+        stage: {
+            type: 'string',
+            title: 'Stage'
+        },
+        user_id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'User Id'
+        },
+        user_name: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'User Name'
+        },
+        role: {
+            type: 'string',
+            title: 'Role'
+        },
+        has_approved: {
+            type: 'boolean',
+            title: 'Has Approved'
+        },
+        approved_at: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'date-time'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Approved At'
+        },
+        created_at: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Created At'
+        }
+    },
+    type: 'object',
+    required: ['id', 'quotation_id', 'stage', 'user_id', 'role', 'has_approved', 'approved_at', 'created_at'],
+    title: 'QuotationApprovalParticipantPublic'
+} as const;
+
+export const QuotationApproveRequestSchema = {
+    properties: {
+        action: {
+            type: 'string',
+            enum: ['approve', 'reject'],
+            title: 'Action'
+        },
+        note: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Note'
+        },
+        target_stage: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Target Stage'
+        }
+    },
+    type: 'object',
+    required: ['action'],
+    title: 'QuotationApproveRequest',
+    description: `BGĐ approve or reject a stage (S2, S4, S7, S8B).
+When action=reject, target_stage overrides the default reject destination.`
+} as const;
+
+export const QuotationAttachmentCreateSchema = {
+    properties: {
+        file_url: {
+            type: 'string',
+            title: 'File Url'
+        },
+        file_name: {
+            type: 'string',
+            title: 'File Name'
+        },
+        file_type: {
+            type: 'string',
+            title: 'File Type',
+            default: 'document'
+        },
+        document_category: {
+            type: 'string',
+            title: 'Document Category',
+            default: 'other'
+        },
+        description: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Description'
+        }
+    },
+    type: 'object',
+    required: ['file_url', 'file_name'],
+    title: 'QuotationAttachmentCreate'
+} as const;
+
+export const QuotationAttachmentPublicSchema = {
+    properties: {
+        id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Id'
+        },
+        quotation_id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Quotation Id'
+        },
+        uploaded_by: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Uploaded By'
+        },
+        uploaded_by_name: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Uploaded By Name'
+        },
+        file_url: {
+            type: 'string',
+            title: 'File Url'
+        },
+        file_name: {
+            type: 'string',
+            title: 'File Name'
+        },
+        file_type: {
+            type: 'string',
+            title: 'File Type'
+        },
+        document_category: {
+            type: 'string',
+            title: 'Document Category'
+        },
+        stage_uploaded: {
+            type: 'string',
+            title: 'Stage Uploaded'
+        },
+        description: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Description'
+        },
+        uploaded_at: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Uploaded At'
+        }
+    },
+    type: 'object',
+    required: ['id', 'quotation_id', 'uploaded_by', 'file_url', 'file_name', 'file_type', 'document_category', 'stage_uploaded', 'description', 'uploaded_at'],
+    title: 'QuotationAttachmentPublic'
+} as const;
+
+export const QuotationByClientRowSchema = {
+    properties: {
+        client_company_name: {
+            type: 'string',
+            title: 'Client Company Name'
+        },
+        total: {
+            type: 'integer',
+            title: 'Total'
+        },
+        won: {
+            type: 'integer',
+            title: 'Won'
+        },
+        lost: {
+            type: 'integer',
+            title: 'Lost'
+        },
+        in_progress: {
+            type: 'integer',
+            title: 'In Progress'
+        },
+        win_rate: {
+            anyOf: [
+                {
+                    type: 'number'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Win Rate'
+        },
+        total_won_value: {
+            anyOf: [
+                {
+                    type: 'number'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Total Won Value'
+        }
+    },
+    type: 'object',
+    required: ['client_company_name', 'total', 'won', 'lost', 'in_progress', 'win_rate', 'total_won_value'],
+    title: 'QuotationByClientRow'
+} as const;
+
+export const QuotationByEquipmentRowSchema = {
+    properties: {
+        equipment_category: {
+            type: 'string',
+            title: 'Equipment Category'
+        },
+        total: {
+            type: 'integer',
+            title: 'Total'
+        },
+        won: {
+            type: 'integer',
+            title: 'Won'
+        },
+        lost: {
+            type: 'integer',
+            title: 'Lost'
+        },
+        win_rate: {
+            anyOf: [
+                {
+                    type: 'number'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Win Rate'
+        }
+    },
+    type: 'object',
+    required: ['equipment_category', 'total', 'won', 'lost', 'win_rate'],
+    title: 'QuotationByEquipmentRow'
+} as const;
+
+export const QuotationCloseRequestSchema = {
+    properties: {
+        outcome: {
+            type: 'string',
+            enum: ['won', 'lost'],
+            title: 'Outcome'
+        },
+        lost_reason_category: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Lost Reason Category'
+        },
+        lost_reason_detail: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Lost Reason Detail'
+        },
+        note: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Note'
+        },
+        extra_role_ids: {
+            anyOf: [
+                {
+                    items: {
+                        type: 'string',
+                        format: 'uuid'
+                    },
+                    type: 'array'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Extra Role Ids'
+        }
+    },
+    type: 'object',
+    required: ['outcome'],
+    title: 'QuotationCloseRequest',
+    description: 'S8 → S9: KD đóng hồ sơ.'
+} as const;
+
+export const QuotationCompanyProfilePublicSchema = {
+    properties: {
+        client_company_name: {
+            type: 'string',
+            title: 'Client Company Name'
+        },
+        client_contact_name: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Client Contact Name'
+        },
+        client_contact_title: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Client Contact Title'
+        },
+        client_contact_phone: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Client Contact Phone'
+        },
+        client_contact_email: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Client Contact Email'
+        },
+        client_address: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Client Address'
+        },
+        notes: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Notes'
+        },
+        survey_note: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Survey Note'
+        },
+        equipment_category: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Equipment Category'
+        }
+    },
+    type: 'object',
+    required: ['client_company_name'],
+    title: 'QuotationCompanyProfilePublic',
+    description: 'Latest remembered client-company info for quotation creation.'
+} as const;
+
+export const QuotationCreateSchema = {
+    properties: {
+        project_name: {
+            type: 'string',
+            maxLength: 500,
+            title: 'Project Name'
+        },
+        client_company_id: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'uuid'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Client Company Id'
+        },
+        client_company_name: {
+            type: 'string',
+            maxLength: 255,
+            title: 'Client Company Name'
+        },
+        client_contact_name: {
+            anyOf: [
+                {
+                    type: 'string',
+                    maxLength: 255
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Client Contact Name'
+        },
+        client_contact_title: {
+            anyOf: [
+                {
+                    type: 'string',
+                    maxLength: 100
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Client Contact Title'
+        },
+        client_contact_phone: {
+            anyOf: [
+                {
+                    type: 'string',
+                    maxLength: 50
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Client Contact Phone'
+        },
+        client_contact_email: {
+            anyOf: [
+                {
+                    type: 'string',
+                    maxLength: 255
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Client Contact Email'
+        },
+        client_address: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Client Address'
+        },
+        equipment_category: {
+            anyOf: [
+                {
+                    type: 'string',
+                    maxLength: 100
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Equipment Category'
+        },
+        notes: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Notes'
+        },
+        survey_note: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Survey Note'
+        },
+        color: {
+            anyOf: [
+                {
+                    type: 'string',
+                    maxLength: 30
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Color'
+        },
+        sales_owner_id: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'uuid'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Sales Owner Id'
+        }
+    },
+    type: 'object',
+    required: ['project_name', 'client_company_name'],
+    title: 'QuotationCreate',
+    description: 'Fields required to open a new quotation (Kinh Doanh).'
+} as const;
+
+export const QuotationFinalizeRequestSchema = {
+    properties: {
+        note: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Note'
+        }
+    },
+    type: 'object',
+    title: 'QuotationFinalizeRequest',
+    description: 'S6 → S7: KD hoàn thiện hợp đồng chào giá (upload file + điều khoản), nộp GĐ duyệt.'
+} as const;
+
+export const QuotationLostReasonRowSchema = {
+    properties: {
+        lost_reason_category: {
+            type: 'string',
+            title: 'Lost Reason Category'
+        },
+        count: {
+            type: 'integer',
+            title: 'Count'
+        },
+        percentage: {
+            type: 'number',
+            title: 'Percentage'
+        }
+    },
+    type: 'object',
+    required: ['lost_reason_category', 'count', 'percentage'],
+    title: 'QuotationLostReasonRow'
+} as const;
+
+export const QuotationNegotiationLogCreateSchema = {
+    properties: {
+        contact_date: {
+            type: 'string',
+            format: 'date',
+            title: 'Contact Date'
+        },
+        contact_method: {
+            type: 'string',
+            maxLength: 20,
+            title: 'Contact Method'
+        },
+        summary: {
+            type: 'string',
+            title: 'Summary'
+        },
+        client_feedback: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Client Feedback'
+        },
+        requested_changes: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Requested Changes'
+        },
+        follow_up_date: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'date'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Follow Up Date'
+        },
+        attachments: {
+            anyOf: [
+                {
+                    items: {
+                        type: 'string'
+                    },
+                    type: 'array'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Attachments'
+        }
+    },
+    type: 'object',
+    required: ['contact_date', 'contact_method', 'summary'],
+    title: 'QuotationNegotiationLogCreate'
+} as const;
+
+export const QuotationNegotiationLogPublicSchema = {
+    properties: {
+        contact_date: {
+            type: 'string',
+            format: 'date',
+            title: 'Contact Date'
+        },
+        contact_method: {
+            type: 'string',
+            maxLength: 20,
+            title: 'Contact Method'
+        },
+        summary: {
+            type: 'string',
+            title: 'Summary'
+        },
+        client_feedback: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Client Feedback'
+        },
+        requested_changes: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Requested Changes'
+        },
+        follow_up_date: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'date'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Follow Up Date'
+        },
+        id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Id'
+        },
+        quotation_id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Quotation Id'
+        },
+        logged_by: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Logged By'
+        },
+        logged_by_name: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Logged By Name'
+        },
+        attachments: {
+            anyOf: [
+                {
+                    items: {
+                        type: 'string'
+                    },
+                    type: 'array'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Attachments'
+        },
+        created_at: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Created At'
+        }
+    },
+    type: 'object',
+    required: ['contact_date', 'contact_method', 'summary', 'id', 'quotation_id', 'logged_by', 'attachments', 'created_at'],
+    title: 'QuotationNegotiationLogPublic'
+} as const;
+
+export const QuotationPublicSchema = {
+    properties: {
+        project_name: {
+            type: 'string',
+            maxLength: 500,
+            title: 'Project Name'
+        },
+        client_company_id: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'uuid'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Client Company Id'
+        },
+        client_company_name: {
+            type: 'string',
+            maxLength: 255,
+            title: 'Client Company Name'
+        },
+        client_contact_name: {
+            anyOf: [
+                {
+                    type: 'string',
+                    maxLength: 255
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Client Contact Name'
+        },
+        client_contact_title: {
+            anyOf: [
+                {
+                    type: 'string',
+                    maxLength: 100
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Client Contact Title'
+        },
+        client_contact_phone: {
+            anyOf: [
+                {
+                    type: 'string',
+                    maxLength: 50
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Client Contact Phone'
+        },
+        client_contact_email: {
+            anyOf: [
+                {
+                    type: 'string',
+                    maxLength: 255
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Client Contact Email'
+        },
+        client_address: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Client Address'
+        },
+        equipment_category: {
+            anyOf: [
+                {
+                    type: 'string',
+                    maxLength: 100
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Equipment Category'
+        },
+        notes: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Notes'
+        },
+        survey_note: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Survey Note'
+        },
+        color: {
+            anyOf: [
+                {
+                    type: 'string',
+                    maxLength: 30
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Color'
+        },
+        id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Id'
+        },
+        company_id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Company Id'
+        },
+        quote_number: {
+            type: 'string',
+            title: 'Quote Number'
+        },
+        status: {
+            type: 'string',
+            title: 'Status'
+        },
+        current_stage: {
+            type: 'string',
+            title: 'Current Stage'
+        },
+        stage_label: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Stage Label'
+        },
+        site_survey_date: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'date'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Site Survey Date'
+        },
+        survey_start_date: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'date'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Survey Start Date'
+        },
+        survey_end_date: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'date'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Survey End Date'
+        },
+        created_by: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Created By'
+        },
+        sales_owner_id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Sales Owner Id'
+        },
+        sales_owner_name: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Sales Owner Name'
+        },
+        technical_owner_id: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'uuid'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Technical Owner Id'
+        },
+        technical_owner_name: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Technical Owner Name'
+        },
+        procurement_owner_id: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'uuid'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Procurement Owner Id'
+        },
+        procurement_owner_name: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Procurement Owner Name'
+        },
+        total_contract_value: {
+            anyOf: [
+                {
+                    type: 'number'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Total Contract Value'
+        },
+        currency: {
+            type: 'string',
+            title: 'Currency'
+        },
+        valid_until: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'date'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Valid Until'
+        },
+        sent_to_client_at: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'date-time'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Sent To Client At'
+        },
+        client_response_deadline: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'date'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Client Response Deadline'
+        },
+        outcome: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Outcome'
+        },
+        lost_reason_category: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Lost Reason Category'
+        },
+        lost_reason_detail: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Lost Reason Detail'
+        },
+        won_project_id: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'uuid'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Won Project Id'
+        },
+        created_at: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Created At'
+        },
+        updated_at: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Updated At'
+        }
+    },
+    type: 'object',
+    required: ['project_name', 'client_company_name', 'id', 'company_id', 'quote_number', 'status', 'current_stage', 'site_survey_date', 'survey_start_date', 'survey_end_date', 'created_by', 'sales_owner_id', 'technical_owner_id', 'procurement_owner_id', 'total_contract_value', 'currency', 'valid_until', 'sent_to_client_at', 'client_response_deadline', 'outcome', 'lost_reason_category', 'lost_reason_detail', 'won_project_id', 'created_at', 'updated_at'],
+    title: 'QuotationPublic'
+} as const;
+
+export const QuotationReportSummarySchema = {
+    properties: {
+        total: {
+            type: 'integer',
+            title: 'Total'
+        },
+        in_progress: {
+            type: 'integer',
+            title: 'In Progress'
+        },
+        sent: {
+            type: 'integer',
+            title: 'Sent'
+        },
+        negotiating: {
+            type: 'integer',
+            title: 'Negotiating'
+        },
+        closed_won: {
+            type: 'integer',
+            title: 'Closed Won'
+        },
+        closed_lost: {
+            type: 'integer',
+            title: 'Closed Lost'
+        },
+        win_rate: {
+            anyOf: [
+                {
+                    type: 'number'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Win Rate'
+        },
+        total_won_value: {
+            anyOf: [
+                {
+                    type: 'number'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Total Won Value'
+        },
+        period_from: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'date'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Period From'
+        },
+        period_to: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'date'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Period To'
+        }
+    },
+    type: 'object',
+    required: ['total', 'in_progress', 'sent', 'negotiating', 'closed_won', 'closed_lost', 'win_rate', 'total_won_value', 'period_from', 'period_to'],
+    title: 'QuotationReportSummary'
+} as const;
+
+export const QuotationSendToClientRequestSchema = {
+    properties: {
+        valid_until: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'date'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Valid Until'
+        },
+        client_response_deadline: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'date'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Client Response Deadline'
+        },
+        note: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Note'
+        }
+    },
+    type: 'object',
+    title: 'QuotationSendToClientRequest',
+    description: 'S8: KD ghi nhận đã gửi khách hàng.'
+} as const;
+
+export const QuotationStageTransitionPublicSchema = {
+    properties: {
+        id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Id'
+        },
+        quotation_id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Quotation Id'
+        },
+        from_stage: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'From Stage'
+        },
+        from_stage_label: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'From Stage Label'
+        },
+        to_stage: {
+            type: 'string',
+            title: 'To Stage'
+        },
+        to_stage_label: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'To Stage Label'
+        },
+        actor_id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Actor Id'
+        },
+        actor_name: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Actor Name'
+        },
+        action: {
+            type: 'string',
+            title: 'Action'
+        },
+        action_label: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Action Label'
+        },
+        note: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Note'
+        },
+        created_at: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Created At'
+        }
+    },
+    type: 'object',
+    required: ['id', 'quotation_id', 'from_stage', 'to_stage', 'actor_id', 'action', 'note', 'created_at'],
+    title: 'QuotationStageTransitionPublic'
+} as const;
+
+export const QuotationSubmitBocTachRequestSchema = {
+    properties: {
+        note: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Note'
+        }
+    },
+    type: 'object',
+    title: 'QuotationSubmitBocTachRequest',
+    description: 'S3B: KT hoàn thành bóc tách khối lượng → S4.'
+} as const;
+
+export const QuotationSubmitDesignRequestSchema = {
+    properties: {
+        note: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Note'
+        }
+    },
+    type: 'object',
+    title: 'QuotationSubmitDesignRequest',
+    description: 'S3 → S4: KT nộp thiết kế.'
+} as const;
+
+export const QuotationSubmitNegotiationRequestSchema = {
+    properties: {
+        note: {
+            type: 'string',
+            title: 'Note'
+        }
+    },
+    type: 'object',
+    required: ['note'],
+    title: 'QuotationSubmitNegotiationRequest',
+    description: 'S8 → S8B: KD ghi nhận thương lượng và trình GĐ duyệt.'
+} as const;
+
+export const QuotationSubmitPricingRequestSchema = {
+    properties: {
+        total_contract_value: {
+            type: 'number',
+            title: 'Total Contract Value'
+        },
+        note: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Note'
+        }
+    },
+    type: 'object',
+    required: ['total_contract_value'],
+    title: 'QuotationSubmitPricingRequest',
+    description: 'S5 → S6: VT upload file báo giá đã điền giá, nhập tổng giá trị hợp đồng.'
+} as const;
+
+export const QuotationSubmitSurveyRequestSchema = {
+    properties: {
+        client_contact_name: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Client Contact Name'
+        },
+        client_contact_phone: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Client Contact Phone'
+        },
+        client_contact_title: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Client Contact Title'
+        },
+        client_address: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Client Address'
+        },
+        site_survey_date: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'date'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Site Survey Date'
+        },
+        survey_start_date: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'date'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Survey Start Date'
+        },
+        survey_end_date: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'date'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Survey End Date'
+        },
+        note: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Note'
+        }
+    },
+    type: 'object',
+    title: 'QuotationSubmitSurveyRequest',
+    description: 'S1 → S2: KD nộp báo cáo khảo sát.'
+} as const;
+
+export const QuotationUpdateSchema = {
+    properties: {
+        project_name: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Project Name'
+        },
+        client_company_id: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'uuid'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Client Company Id'
+        },
+        client_company_name: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Client Company Name'
+        },
+        client_contact_name: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Client Contact Name'
+        },
+        client_contact_title: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Client Contact Title'
+        },
+        client_contact_phone: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Client Contact Phone'
+        },
+        client_contact_email: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Client Contact Email'
+        },
+        client_address: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Client Address'
+        },
+        equipment_category: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Equipment Category'
+        },
+        notes: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Notes'
+        },
+        survey_note: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Survey Note'
+        },
+        site_survey_date: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'date'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Site Survey Date'
+        },
+        survey_start_date: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'date'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Survey Start Date'
+        },
+        survey_end_date: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'date'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Survey End Date'
+        },
+        valid_until: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'date'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Valid Until'
+        },
+        client_response_deadline: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'date'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Client Response Deadline'
+        },
+        technical_owner_id: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'uuid'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Technical Owner Id'
+        },
+        procurement_owner_id: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'uuid'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Procurement Owner Id'
+        },
+        color: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Color'
+        }
+    },
+    type: 'object',
+    title: 'QuotationUpdate'
+} as const;
+
+export const QuotationVersionPublicSchema = {
+    properties: {
+        id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Id'
+        },
+        quotation_id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Quotation Id'
+        },
+        version_number: {
+            type: 'integer',
+            title: 'Version Number'
+        },
+        snapshot_data: {
+            title: 'Snapshot Data'
+        },
+        created_by: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Created By'
+        },
+        created_by_name: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Created By Name'
+        },
+        reason: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Reason'
+        },
+        created_at: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Created At'
+        }
+    },
+    type: 'object',
+    required: ['id', 'quotation_id', 'version_number', 'snapshot_data', 'created_by', 'reason', 'created_at'],
+    title: 'QuotationVersionPublic'
+} as const;
+
+export const QuotationsPublicSchema = {
+    properties: {
+        data: {
+            items: {
+                '$ref': '#/components/schemas/QuotationPublic'
+            },
+            type: 'array',
+            title: 'Data'
+        },
+        count: {
+            type: 'integer',
+            title: 'Count'
+        }
+    },
+    type: 'object',
+    required: ['data', 'count'],
+    title: 'QuotationsPublic'
 } as const;
 
 export const RefreshTokenRequestSchema = {
@@ -1434,6 +6790,178 @@ export const RoleDependencyPublicSchema = {
     title: 'RoleDependencyPublic'
 } as const;
 
+export const RolePermissionAssignRequestSchema = {
+    properties: {
+        permission_codes: {
+            items: {
+                type: 'string'
+            },
+            type: 'array',
+            title: 'Permission Codes'
+        }
+    },
+    type: 'object',
+    required: ['permission_codes'],
+    title: 'RolePermissionAssignRequest',
+    description: "Payload to replace a role's permission set."
+} as const;
+
+export const RolePermissionAssignResponseSchema = {
+    properties: {
+        role_id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Role Id'
+        },
+        assigned_permission_codes: {
+            items: {
+                type: 'string'
+            },
+            type: 'array',
+            title: 'Assigned Permission Codes'
+        }
+    },
+    type: 'object',
+    required: ['role_id', 'assigned_permission_codes'],
+    title: 'RolePermissionAssignResponse',
+    description: 'Result of role permission assignment.'
+} as const;
+
+export const SaveAsProfileRequestSchema = {
+    properties: {
+        name: {
+            type: 'string',
+            title: 'Name'
+        },
+        description: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Description'
+        },
+        company_id: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'uuid'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Company Id'
+        }
+    },
+    type: 'object',
+    required: ['name'],
+    title: 'SaveAsProfileRequest'
+} as const;
+
+export const SiteLocationUpdateSchema = {
+    properties: {
+        site_lat: {
+            anyOf: [
+                {
+                    type: 'number'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Site Lat'
+        },
+        site_lng: {
+            anyOf: [
+                {
+                    type: 'number'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Site Lng'
+        },
+        site_radius_m: {
+            anyOf: [
+                {
+                    type: 'integer',
+                    maximum: 5000,
+                    minimum: 10
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Site Radius M'
+        }
+    },
+    type: 'object',
+    title: 'SiteLocationUpdate',
+    description: "Set/clear a project's site coordinates and allowed radius."
+} as const;
+
+export const TaskAssigneeAddSchema = {
+    properties: {
+        user_id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'User Id'
+        }
+    },
+    type: 'object',
+    required: ['user_id'],
+    title: 'TaskAssigneeAdd'
+} as const;
+
+export const TaskAssigneePublicSchema = {
+    properties: {
+        id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Id'
+        },
+        task_id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Task Id'
+        },
+        user_id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'User Id'
+        },
+        user_name: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'User Name'
+        },
+        assigned_by: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Assigned By'
+        },
+        assigned_at: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Assigned At'
+        }
+    },
+    type: 'object',
+    required: ['id', 'task_id', 'user_id', 'assigned_by', 'assigned_at'],
+    title: 'TaskAssigneePublic'
+} as const;
+
 export const TaskCommentApprovalUpdateSchema = {
     properties: {
         approval_status: {
@@ -1618,6 +7146,98 @@ export const TaskCreateSchema = {
             type: 'string',
             format: 'uuid',
             title: 'Assignee Id'
+        },
+        extra_assignee_ids: {
+            items: {
+                type: 'string',
+                format: 'uuid'
+            },
+            type: 'array',
+            title: 'Extra Assignee Ids',
+            default: []
+        },
+        progress_weight: {
+            anyOf: [
+                {
+                    type: 'integer'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Progress Weight'
+        },
+        module_tag: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Module Tag'
+        },
+        linked_entity_type: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Linked Entity Type'
+        },
+        linked_entity_id: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'uuid'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Linked Entity Id'
+        },
+        requires_checkin: {
+            type: 'boolean',
+            title: 'Requires Checkin',
+            default: false
+        },
+        checkin_lat: {
+            anyOf: [
+                {
+                    type: 'number'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Checkin Lat'
+        },
+        checkin_lng: {
+            anyOf: [
+                {
+                    type: 'number'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Checkin Lng'
+        },
+        checkin_radius_m: {
+            anyOf: [
+                {
+                    type: 'integer'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Checkin Radius M'
         }
     },
     type: 'object',
@@ -1751,6 +7371,442 @@ export const TaskLevelConfigPublicSchema = {
     title: 'TaskLevelConfigPublic'
 } as const;
 
+export const TaskLinkedEntityPublicSchema = {
+    properties: {
+        id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Id'
+        },
+        task_id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Task Id'
+        },
+        entity_type: {
+            type: 'string',
+            title: 'Entity Type'
+        },
+        entity_id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Entity Id'
+        },
+        created_by: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Created By'
+        },
+        created_at: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Created At'
+        }
+    },
+    type: 'object',
+    required: ['id', 'task_id', 'entity_type', 'entity_id', 'created_by', 'created_at'],
+    title: 'TaskLinkedEntityPublic'
+} as const;
+
+export const TaskObserverAddSchema = {
+    properties: {
+        user_id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'User Id'
+        }
+    },
+    type: 'object',
+    required: ['user_id'],
+    title: 'TaskObserverAdd'
+} as const;
+
+export const TaskObserverPublicSchema = {
+    properties: {
+        task_id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Task Id'
+        },
+        user_id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'User Id'
+        },
+        user_name: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'User Name'
+        },
+        added_at: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Added At'
+        }
+    },
+    type: 'object',
+    required: ['task_id', 'user_id', 'added_at'],
+    title: 'TaskObserverPublic'
+} as const;
+
+export const TaskProfileCreateSchema = {
+    properties: {
+        name: {
+            type: 'string',
+            title: 'Name'
+        },
+        description: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Description'
+        },
+        company_id: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'uuid'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Company Id'
+        }
+    },
+    type: 'object',
+    required: ['name'],
+    title: 'TaskProfileCreate'
+} as const;
+
+export const TaskProfileItemCreateSchema = {
+    properties: {
+        parent_item_id: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'uuid'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Parent Item Id'
+        },
+        name: {
+            type: 'string',
+            title: 'Name'
+        },
+        duration_days: {
+            type: 'integer',
+            title: 'Duration Days',
+            default: 1
+        },
+        order_index: {
+            type: 'integer',
+            title: 'Order Index',
+            default: 0
+        },
+        description: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Description'
+        },
+        module_tag: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Module Tag'
+        },
+        color: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Color'
+        }
+    },
+    type: 'object',
+    required: ['name'],
+    title: 'TaskProfileItemCreate'
+} as const;
+
+export const TaskProfileItemPublicSchema = {
+    properties: {
+        id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Id'
+        },
+        profile_id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Profile Id'
+        },
+        parent_item_id: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'uuid'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Parent Item Id'
+        },
+        name: {
+            type: 'string',
+            title: 'Name'
+        },
+        level: {
+            type: 'integer',
+            title: 'Level'
+        },
+        duration_days: {
+            type: 'integer',
+            title: 'Duration Days'
+        },
+        order_index: {
+            type: 'integer',
+            title: 'Order Index'
+        },
+        description: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Description'
+        },
+        module_tag: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Module Tag'
+        },
+        color: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Color'
+        }
+    },
+    type: 'object',
+    required: ['id', 'profile_id', 'parent_item_id', 'name', 'level', 'duration_days', 'order_index', 'description', 'module_tag', 'color'],
+    title: 'TaskProfileItemPublic'
+} as const;
+
+export const TaskProfileItemUpdateSchema = {
+    properties: {
+        name: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Name'
+        },
+        duration_days: {
+            anyOf: [
+                {
+                    type: 'integer'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Duration Days'
+        },
+        order_index: {
+            anyOf: [
+                {
+                    type: 'integer'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Order Index'
+        },
+        description: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Description'
+        },
+        module_tag: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Module Tag'
+        },
+        color: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Color'
+        }
+    },
+    type: 'object',
+    title: 'TaskProfileItemUpdate'
+} as const;
+
+export const TaskProfilePublicSchema = {
+    properties: {
+        id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Id'
+        },
+        name: {
+            type: 'string',
+            title: 'Name'
+        },
+        description: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Description'
+        },
+        created_by: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Created By'
+        },
+        created_by_name: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Created By Name'
+        },
+        company_id: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'uuid'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Company Id'
+        },
+        created_at: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Created At'
+        },
+        items: {
+            items: {
+                '$ref': '#/components/schemas/TaskProfileItemPublic'
+            },
+            type: 'array',
+            title: 'Items',
+            default: []
+        }
+    },
+    type: 'object',
+    required: ['id', 'name', 'description', 'created_by', 'created_at'],
+    title: 'TaskProfilePublic'
+} as const;
+
+export const TaskProfileUpdateSchema = {
+    properties: {
+        name: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Name'
+        },
+        description: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Description'
+        }
+    },
+    type: 'object',
+    title: 'TaskProfileUpdate'
+} as const;
+
 export const TaskProgressPhotoUploadPublicSchema = {
     properties: {
         photo_url: {
@@ -1762,36 +7818,6 @@ export const TaskProgressPhotoUploadPublicSchema = {
     required: ['photo_url'],
     title: 'TaskProgressPhotoUploadPublic',
     description: 'Response after saving a progress-report image to storage.'
-} as const;
-
-export const TaskProgressReportCreateSchema = {
-    properties: {
-        photo_url: {
-            type: 'string',
-            maxLength: 1000,
-            title: 'Photo Url'
-        },
-        progress_percent: {
-            type: 'integer',
-            maximum: 100,
-            minimum: 1,
-            title: 'Progress Percent'
-        },
-        note: {
-            anyOf: [
-                {
-                    type: 'string'
-                },
-                {
-                    type: 'null'
-                }
-            ],
-            title: 'Note'
-        }
-    },
-    type: 'object',
-    required: ['photo_url', 'progress_percent'],
-    title: 'TaskProgressReportCreate'
 } as const;
 
 export const TaskProgressReportPublicSchema = {
@@ -1841,39 +7867,6 @@ export const TaskProgressReportPublicSchema = {
             ],
             title: 'Note'
         },
-        created_at: {
-            type: 'string',
-            format: 'date-time',
-            title: 'Created At'
-        }
-    },
-    type: 'object',
-    required: ['id', 'task_id', 'reporter_id', 'photo_url', 'progress_percent', 'note', 'created_at'],
-    title: 'TaskProgressReportPublic'
-} as const;
-
-export const TaskProofCreateSchema = {
-    properties: {
-        file_url: {
-            type: 'string',
-            title: 'File Url'
-        },
-        file_type: {
-            type: 'string',
-            title: 'File Type',
-            default: 'image'
-        },
-        note: {
-            anyOf: [
-                {
-                    type: 'string'
-                },
-                {
-                    type: 'null'
-                }
-            ],
-            title: 'Note'
-        },
         gps_lat: {
             anyOf: [
                 {
@@ -1896,72 +7889,7 @@ export const TaskProofCreateSchema = {
             ],
             title: 'Gps Lng'
         },
-        captured_at: {
-            anyOf: [
-                {
-                    type: 'string',
-                    format: 'date-time'
-                },
-                {
-                    type: 'null'
-                }
-            ],
-            title: 'Captured At'
-        },
-        device_info: {
-            anyOf: [
-                {
-                    type: 'string'
-                },
-                {
-                    type: 'null'
-                }
-            ],
-            title: 'Device Info'
-        }
-    },
-    type: 'object',
-    required: ['file_url'],
-    title: 'TaskProofCreate'
-} as const;
-
-export const TaskProofPublicSchema = {
-    properties: {
-        id: {
-            type: 'string',
-            format: 'uuid',
-            title: 'Id'
-        },
-        task_id: {
-            type: 'string',
-            format: 'uuid',
-            title: 'Task Id'
-        },
-        uploader_id: {
-            type: 'string',
-            format: 'uuid',
-            title: 'Uploader Id'
-        },
-        file_url: {
-            type: 'string',
-            title: 'File Url'
-        },
-        file_type: {
-            type: 'string',
-            title: 'File Type'
-        },
-        note: {
-            anyOf: [
-                {
-                    type: 'string'
-                },
-                {
-                    type: 'null'
-                }
-            ],
-            title: 'Note'
-        },
-        gps_lat: {
+        gps_accuracy_m: {
             anyOf: [
                 {
                     type: 'number'
@@ -1970,9 +7898,14 @@ export const TaskProofPublicSchema = {
                     type: 'null'
                 }
             ],
-            title: 'Gps Lat'
+            title: 'Gps Accuracy M'
         },
-        gps_lng: {
+        checkin_skipped: {
+            type: 'boolean',
+            title: 'Checkin Skipped',
+            default: false
+        },
+        distance_m: {
             anyOf: [
                 {
                     type: 'number'
@@ -1981,11 +7914,23 @@ export const TaskProofPublicSchema = {
                     type: 'null'
                 }
             ],
-            title: 'Gps Lng'
+            title: 'Distance M'
+        },
+        location_valid: {
+            anyOf: [
+                {
+                    type: 'boolean'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Location Valid'
         },
         review_status: {
             type: 'string',
-            title: 'Review Status'
+            title: 'Review Status',
+            default: 'pending'
         },
         reviewer_id: {
             anyOf: [
@@ -1999,15 +7944,38 @@ export const TaskProofPublicSchema = {
             ],
             title: 'Reviewer Id'
         },
-        uploaded_at: {
+        reviewed_at: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'date-time'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Reviewed At'
+        },
+        review_note: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Review Note'
+        },
+        created_at: {
             type: 'string',
             format: 'date-time',
-            title: 'Uploaded At'
+            title: 'Created At'
         }
     },
     type: 'object',
-    required: ['id', 'task_id', 'uploader_id', 'file_url', 'file_type', 'note', 'gps_lat', 'gps_lng', 'review_status', 'reviewer_id', 'uploaded_at'],
-    title: 'TaskProofPublic'
+    required: ['id', 'task_id', 'reporter_id', 'photo_url', 'progress_percent', 'note', 'created_at'],
+    title: 'TaskProgressReportPublic'
 } as const;
 
 export const TaskPublicSchema = {
@@ -2117,6 +8085,29 @@ export const TaskPublicSchema = {
             ],
             title: 'Assignor Name'
         },
+        assignee_department_id: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'uuid'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Assignee Department Id'
+        },
+        assignee_department_name: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Assignee Department Name'
+        },
         actual_end_time: {
             anyOf: [
                 {
@@ -2147,11 +8138,155 @@ export const TaskPublicSchema = {
             type: 'integer',
             title: 'Reported Progress Total',
             default: 0
+        },
+        progress_weight: {
+            anyOf: [
+                {
+                    type: 'integer'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Progress Weight'
+        },
+        requires_checkin: {
+            type: 'boolean',
+            title: 'Requires Checkin',
+            default: false
+        },
+        checkin_lat: {
+            anyOf: [
+                {
+                    type: 'number'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Checkin Lat'
+        },
+        checkin_lng: {
+            anyOf: [
+                {
+                    type: 'number'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Checkin Lng'
+        },
+        checkin_radius_m: {
+            type: 'integer',
+            title: 'Checkin Radius M',
+            default: 150
+        },
+        module_tag: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Module Tag'
+        },
+        linked_entity_type: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Linked Entity Type'
+        },
+        linked_entity_id: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'uuid'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Linked Entity Id'
+        },
+        linked_entities: {
+            items: {
+                '$ref': '#/components/schemas/TaskLinkedEntityPublic'
+            },
+            type: 'array',
+            title: 'Linked Entities',
+            default: []
+        },
+        blocked_by: {
+            items: {
+                '$ref': '#/components/schemas/BlockerInfo'
+            },
+            type: 'array',
+            title: 'Blocked By',
+            default: []
+        },
+        extra_assignees: {
+            items: {
+                '$ref': '#/components/schemas/TaskAssigneePublic'
+            },
+            type: 'array',
+            title: 'Extra Assignees',
+            default: []
+        },
+        observers: {
+            items: {
+                '$ref': '#/components/schemas/TaskObserverPublic'
+            },
+            type: 'array',
+            title: 'Observers',
+            default: []
+        },
+        color: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Color'
+        },
+        performance_coefficient: {
+            anyOf: [
+                {
+                    type: 'number'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Performance Coefficient'
         }
     },
     type: 'object',
     required: ['name', 'start_time', 'end_time', 'id', 'project_id', 'parent_id', 'level', 'status', 'assignor_id', 'assignee_id', 'actual_end_time', 'is_on_critical_path', 'created_at', 'updated_at'],
     title: 'TaskPublic'
+} as const;
+
+export const TaskReassignRequestSchema = {
+    properties: {
+        new_assignee_id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'New Assignee Id'
+        }
+    },
+    type: 'object',
+    required: ['new_assignee_id'],
+    title: 'TaskReassignRequest'
 } as const;
 
 export const TaskStatusUpdateSchema = {
@@ -2247,6 +8382,117 @@ export const TaskUpdateSchema = {
                 }
             ],
             title: 'Assignee Id'
+        },
+        module_tag: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Module Tag'
+        },
+        linked_entity_type: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Linked Entity Type'
+        },
+        linked_entity_id: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'uuid'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Linked Entity Id'
+        },
+        color: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Color'
+        },
+        performance_coefficient: {
+            anyOf: [
+                {
+                    type: 'number'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Performance Coefficient'
+        },
+        progress_weight: {
+            anyOf: [
+                {
+                    type: 'integer'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Progress Weight'
+        },
+        requires_checkin: {
+            anyOf: [
+                {
+                    type: 'boolean'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Requires Checkin'
+        },
+        checkin_lat: {
+            anyOf: [
+                {
+                    type: 'number'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Checkin Lat'
+        },
+        checkin_lng: {
+            anyOf: [
+                {
+                    type: 'number'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Checkin Lng'
+        },
+        checkin_radius_m: {
+            anyOf: [
+                {
+                    type: 'integer'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Checkin Radius M'
         }
     },
     type: 'object',
@@ -2450,6 +8696,66 @@ export const UserCreateSchema = {
     title: 'UserCreate'
 } as const;
 
+export const UserDepartmentAssignSchema = {
+    properties: {
+        user_id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'User Id'
+        },
+        department_id: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'uuid'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Department Id'
+        }
+    },
+    type: 'object',
+    required: ['user_id'],
+    title: 'UserDepartmentAssign'
+} as const;
+
+export const UserPermissionsResponseSchema = {
+    properties: {
+        user_id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'User Id'
+        },
+        is_superuser: {
+            type: 'boolean',
+            title: 'Is Superuser'
+        },
+        source: {
+            type: 'string',
+            title: 'Source'
+        },
+        total: {
+            type: 'integer',
+            title: 'Total'
+        },
+        by_module: {
+            additionalProperties: {
+                items: {
+                    '$ref': '#/components/schemas/PermissionItem'
+                },
+                type: 'array'
+            },
+            type: 'object',
+            title: 'By Module'
+        }
+    },
+    type: 'object',
+    required: ['user_id', 'is_superuser', 'source', 'total', 'by_module'],
+    title: 'UserPermissionsResponse'
+} as const;
+
 export const UserPublicSchema = {
     properties: {
         email: {
@@ -2496,6 +8802,18 @@ export const UserPublicSchema = {
                 }
             ],
             title: 'Created At'
+        },
+        company_id: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'uuid'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Company Id'
         },
         department_id: {
             anyOf: [
@@ -2704,4 +9022,64 @@ export const ValidationErrorSchema = {
     type: 'object',
     required: ['loc', 'msg', 'type'],
     title: 'ValidationError'
+} as const;
+
+export const VapidKeyResponseSchema = {
+    properties: {
+        public_key: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Public Key'
+        }
+    },
+    type: 'object',
+    required: ['public_key'],
+    title: 'VapidKeyResponse'
+} as const;
+
+export const _AdjustHoursRequestSchema = {
+    properties: {
+        work_hours: {
+            type: 'number',
+            title: 'Work Hours'
+        },
+        note: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Note'
+        }
+    },
+    type: 'object',
+    required: ['work_hours'],
+    title: '_AdjustHoursRequest'
+} as const;
+
+export const _ParticipantApproveRequestSchema = {
+    properties: {
+        note: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Note'
+        }
+    },
+    type: 'object',
+    title: '_ParticipantApproveRequest'
 } as const;

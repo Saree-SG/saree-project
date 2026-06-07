@@ -1,5 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { createFileRoute, Link, redirect, useNavigate } from "@tanstack/react-router"
+import {
+  createFileRoute,
+  Link,
+  redirect,
+  useNavigate,
+} from "@tanstack/react-router"
 import { ArrowLeft, Loader2 } from "lucide-react"
 import { useEffect, useState } from "react"
 
@@ -16,11 +21,12 @@ import {
 import useCustomToast from "@/hooks/useCustomToast"
 import { clearSession } from "@/modules/auth/tokenStore"
 import {
-  createQuotation,
-  listQuotationCompanyProfiles,
-} from "@/modules/quotation/quotationApi"
+  type CustomerCompanyPublic,
+  listCustomerCompanies,
+} from "@/modules/company/customerCompanyApi"
+import { createQuotation } from "@/modules/quotation/quotationApi"
+import type { QuotationCreate } from "@/modules/quotation/quotationTypes"
 import { EQUIPMENT_CATEGORIES } from "@/modules/quotation/stageConfig"
-import type { QuotationCompanyProfile, QuotationCreate } from "@/modules/quotation/quotationTypes"
 import { hasPermission } from "@/utils/accountAccess"
 
 // ---------------------------------------------------------------------------
@@ -62,6 +68,7 @@ function NewQuotationPage() {
   const [step, setStep] = useState<1 | 2>(1)
   const [form, setForm] = useState<QuotationCreate>({
     project_name: "",
+    client_company_id: null,
     client_company_name: "",
     equipment_category: null,
     client_contact_name: "",
@@ -73,17 +80,23 @@ function NewQuotationPage() {
     survey_note: "",
   })
 
-  const [errors, setErrors] = useState<Partial<Record<keyof QuotationCreate, string>>>({})
+  const [errors, setErrors] = useState<
+    Partial<Record<keyof QuotationCreate, string>>
+  >({})
   const [companyMode, setCompanyMode] = useState<"existing" | "new">("existing")
 
   const companiesQuery = useQuery({
-    queryKey: ["quotation-company-profiles"],
-    queryFn: listQuotationCompanyProfiles,
+    queryKey: ["customer-companies", "picker"],
+    queryFn: () => listCustomerCompanies({ type: "customer" }),
   })
   const hasExistingCompanies = (companiesQuery.data?.length ?? 0) > 0
 
   useEffect(() => {
-    if (companiesQuery.isSuccess && !hasExistingCompanies && companyMode !== "new") {
+    if (
+      companiesQuery.isSuccess &&
+      !hasExistingCompanies &&
+      companyMode !== "new"
+    ) {
       setCompanyMode("new")
     }
   }, [companiesQuery.isSuccess, hasExistingCompanies, companyMode])
@@ -92,7 +105,7 @@ function NewQuotationPage() {
     mutationFn: createQuotation,
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["quotations"] })
-      queryClient.invalidateQueries({ queryKey: ["quotation-company-profiles"] })
+      queryClient.invalidateQueries({ queryKey: ["customer-companies"] })
       showSuccessToast(`Đã tạo hồ sơ ${data.quote_number} thành công.`)
       navigate({
         to: "/quotations/$quotationId",
@@ -107,30 +120,31 @@ function NewQuotationPage() {
 
   function validateStep1(): boolean {
     const next: typeof errors = {}
-    if (!form.client_company_name.trim()) next.client_company_name = "Vui lòng nhập tên công ty khách hàng."
+    if (!form.client_company_name.trim())
+      next.client_company_name = "Vui lòng nhập tên công ty khách hàng."
     setErrors(next)
     return Object.keys(next).length === 0
   }
 
   function validateStep2(): boolean {
     const next: typeof errors = {}
-    if (!form.project_name.trim()) next.project_name = "Vui lòng nhập tên dự án."
+    if (!form.project_name.trim())
+      next.project_name = "Vui lòng nhập tên dự án."
     setErrors(next)
     return Object.keys(next).length === 0
   }
 
-  function applyCompanyProfile(profile: QuotationCompanyProfile) {
+  function applyCustomerCompany(c: CustomerCompanyPublic) {
     setForm((prev) => ({
       ...prev,
-      client_company_name: profile.client_company_name,
-      client_contact_name: profile.client_contact_name ?? "",
-      client_contact_title: profile.client_contact_title ?? "",
-      client_contact_phone: profile.client_contact_phone ?? "",
-      client_contact_email: profile.client_contact_email ?? "",
-      client_address: profile.client_address ?? "",
-      notes: profile.notes ?? "",
-      survey_note: profile.survey_note ?? "",
-      equipment_category: profile.equipment_category ?? null,
+      client_company_id: c.id,
+      client_company_name: c.name,
+      client_contact_name: c.contact_name ?? "",
+      client_contact_title: c.contact_title ?? "",
+      client_contact_phone: c.contact_phone ?? "",
+      client_contact_email: c.contact_email ?? "",
+      client_address: c.address ?? "",
+      notes: c.notes ?? "",
     }))
   }
 
@@ -139,6 +153,7 @@ function NewQuotationPage() {
     if (!validateStep2()) return
     mutation.mutate({
       project_name: form.project_name.trim(),
+      client_company_id: form.client_company_id || null,
       client_company_name: form.client_company_name.trim(),
       client_contact_name: form.client_contact_name?.trim() || null,
       client_contact_title: form.client_contact_title?.trim() || null,
@@ -169,7 +184,10 @@ function NewQuotationPage() {
       </div>
 
       {/* Form */}
-      <form onSubmit={handleSubmit} className="rounded-lg border bg-card p-6 flex flex-col gap-5">
+      <form
+        onSubmit={handleSubmit}
+        className="rounded-lg border bg-card p-6 flex flex-col gap-5"
+      >
         {step === 1 ? (
           <>
             <div className="rounded-md border bg-muted/30 p-2 text-xs font-medium">
@@ -177,50 +195,58 @@ function NewQuotationPage() {
             </div>
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="client_company_name">
-                Tên công ty khách hàng <span className="text-destructive">*</span>
+                Tên công ty khách hàng{" "}
+                <span className="text-destructive">*</span>
               </Label>
               {hasExistingCompanies && companyMode === "existing" ? (
                 <div className="space-y-2">
                   <Select
-                    value={form.client_company_name || "_none"}
+                    value={form.client_company_id || "_none"}
                     onValueChange={(value) => {
                       if (value === "__new__") {
                         setCompanyMode("new")
-                        setForm((prev) => ({ ...prev, client_company_name: "" }))
+                        setForm((prev) => ({
+                          ...prev,
+                          client_company_id: null,
+                          client_company_name: "",
+                        }))
                         return
                       }
                       if (value === "_none") {
                         setForm((prev) => ({
                           ...prev,
+                          client_company_id: null,
                           client_company_name: "",
                         }))
                       } else {
-                        const profile = (companiesQuery.data ?? []).find(
-                          (item) => item.client_company_name === value,
+                        const company = (companiesQuery.data ?? []).find(
+                          (item) => item.id === value,
                         )
-                        if (profile) {
-                          applyCompanyProfile(profile)
+                        if (company) {
+                          applyCustomerCompany(company)
                         }
                       }
                       if (errors.client_company_name) {
-                        setErrors((prev) => ({ ...prev, client_company_name: undefined }))
+                        setErrors((prev) => ({
+                          ...prev,
+                          client_company_name: undefined,
+                        }))
                       }
                     }}
                   >
                     <SelectTrigger
                       id="client_company_name"
-                      className={errors.client_company_name ? "border-destructive" : ""}
+                      className={
+                        errors.client_company_name ? "border-destructive" : ""
+                      }
                     >
                       <SelectValue placeholder="Chọn công ty đã có" />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="_none">Chọn công ty</SelectItem>
                       {(companiesQuery.data ?? []).map((company) => (
-                        <SelectItem
-                          key={company.client_company_name}
-                          value={company.client_company_name}
-                        >
-                          {company.client_company_name}
+                        <SelectItem key={company.id} value={company.id}>
+                          {company.name}
                         </SelectItem>
                       ))}
                       <SelectItem value="__new__">+ Tạo công ty mới</SelectItem>
@@ -233,12 +259,21 @@ function NewQuotationPage() {
                   placeholder="VD: Công ty TNHH Thực phẩm XYZ"
                   value={form.client_company_name}
                   onChange={(e) => {
-                    setForm((f) => ({ ...f, client_company_name: e.target.value }))
+                    setForm((f) => ({
+                      ...f,
+                      client_company_id: null,
+                      client_company_name: e.target.value,
+                    }))
                     if (errors.client_company_name) {
-                      setErrors((prev) => ({ ...prev, client_company_name: undefined }))
+                      setErrors((prev) => ({
+                        ...prev,
+                        client_company_name: undefined,
+                      }))
                     }
                   }}
-                  className={errors.client_company_name ? "border-destructive" : ""}
+                  className={
+                    errors.client_company_name ? "border-destructive" : ""
+                  }
                   autoFocus
                 />
               )}
@@ -250,9 +285,16 @@ function NewQuotationPage() {
                     size="sm"
                     onClick={() => {
                       setCompanyMode("existing")
-                      setForm((prev) => ({ ...prev, client_company_name: "" }))
+                      setForm((prev) => ({
+                        ...prev,
+                        client_company_id: null,
+                        client_company_name: "",
+                      }))
                       if (errors.client_company_name) {
-                        setErrors((prev) => ({ ...prev, client_company_name: undefined }))
+                        setErrors((prev) => ({
+                          ...prev,
+                          client_company_name: undefined,
+                        }))
                       }
                     }}
                   >
@@ -261,7 +303,9 @@ function NewQuotationPage() {
                 </div>
               ) : null}
               {errors.client_company_name && (
-                <p className="text-xs text-destructive">{errors.client_company_name}</p>
+                <p className="text-xs text-destructive">
+                  {errors.client_company_name}
+                </p>
               )}
             </div>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -271,7 +315,10 @@ function NewQuotationPage() {
                   id="client_contact_name"
                   value={form.client_contact_name ?? ""}
                   onChange={(eventValue) =>
-                    setForm((prev) => ({ ...prev, client_contact_name: eventValue.target.value }))
+                    setForm((prev) => ({
+                      ...prev,
+                      client_contact_name: eventValue.target.value,
+                    }))
                   }
                 />
               </div>
@@ -281,7 +328,10 @@ function NewQuotationPage() {
                   id="client_contact_title"
                   value={form.client_contact_title ?? ""}
                   onChange={(eventValue) =>
-                    setForm((prev) => ({ ...prev, client_contact_title: eventValue.target.value }))
+                    setForm((prev) => ({
+                      ...prev,
+                      client_contact_title: eventValue.target.value,
+                    }))
                   }
                 />
               </div>
@@ -291,7 +341,10 @@ function NewQuotationPage() {
                   id="client_contact_phone"
                   value={form.client_contact_phone ?? ""}
                   onChange={(eventValue) =>
-                    setForm((prev) => ({ ...prev, client_contact_phone: eventValue.target.value }))
+                    setForm((prev) => ({
+                      ...prev,
+                      client_contact_phone: eventValue.target.value,
+                    }))
                   }
                 />
               </div>
@@ -301,7 +354,10 @@ function NewQuotationPage() {
                   id="client_contact_email"
                   value={form.client_contact_email ?? ""}
                   onChange={(eventValue) =>
-                    setForm((prev) => ({ ...prev, client_contact_email: eventValue.target.value }))
+                    setForm((prev) => ({
+                      ...prev,
+                      client_contact_email: eventValue.target.value,
+                    }))
                   }
                 />
               </div>
@@ -312,7 +368,10 @@ function NewQuotationPage() {
                 id="client_address"
                 value={form.client_address ?? ""}
                 onChange={(eventValue) =>
-                  setForm((prev) => ({ ...prev, client_address: eventValue.target.value }))
+                  setForm((prev) => ({
+                    ...prev,
+                    client_address: eventValue.target.value,
+                  }))
                 }
               />
             </div>
@@ -322,7 +381,10 @@ function NewQuotationPage() {
                 id="notes"
                 value={form.notes ?? ""}
                 onChange={(eventValue) =>
-                  setForm((prev) => ({ ...prev, notes: eventValue.target.value }))
+                  setForm((prev) => ({
+                    ...prev,
+                    notes: eventValue.target.value,
+                  }))
                 }
               />
             </div>
@@ -342,13 +404,16 @@ function NewQuotationPage() {
                 value={form.project_name}
                 onChange={(e) => {
                   setForm((f) => ({ ...f, project_name: e.target.value }))
-                  if (errors.project_name) setErrors((prev) => ({ ...prev, project_name: undefined }))
+                  if (errors.project_name)
+                    setErrors((prev) => ({ ...prev, project_name: undefined }))
                 }}
                 className={errors.project_name ? "border-destructive" : ""}
                 autoFocus
               />
               {errors.project_name && (
-                <p className="text-xs text-destructive">{errors.project_name}</p>
+                <p className="text-xs text-destructive">
+                  {errors.project_name}
+                </p>
               )}
             </div>
 
@@ -357,7 +422,10 @@ function NewQuotationPage() {
               <Select
                 value={form.equipment_category ?? "_none"}
                 onValueChange={(v) =>
-                  setForm((f) => ({ ...f, equipment_category: v === "_none" ? null : v }))
+                  setForm((f) => ({
+                    ...f,
+                    equipment_category: v === "_none" ? null : v,
+                  }))
                 }
               >
                 <SelectTrigger id="equipment_category">
@@ -379,7 +447,11 @@ function NewQuotationPage() {
         {/* Actions */}
         <div className="flex items-center justify-end gap-2 pt-2 border-t">
           <Link to="/quotations">
-            <Button type="button" variant="outline" disabled={mutation.isPending}>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={mutation.isPending}
+            >
               Huỷ
             </Button>
           </Link>
@@ -395,11 +467,21 @@ function NewQuotationPage() {
             </Button>
           ) : (
             <>
-              <Button type="button" variant="outline" onClick={() => setStep(1)}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setStep(1)}
+              >
                 Quay lại
               </Button>
-              <Button type="submit" disabled={mutation.isPending} className="gap-1.5">
-                {mutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
+              <Button
+                type="submit"
+                disabled={mutation.isPending}
+                className="gap-1.5"
+              >
+                {mutation.isPending && (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                )}
                 Tạo dự án mới
               </Button>
             </>
@@ -411,8 +493,14 @@ function NewQuotationPage() {
       <div className="rounded-md bg-muted/50 px-4 py-3 text-sm text-muted-foreground">
         <p className="font-medium text-foreground mb-1">Sau khi tạo hồ sơ:</p>
         <ul className="list-disc list-inside space-y-1">
-          <li>Flow hiển thị sẽ bắt đầu từ <strong>Tạo hồ sơ</strong>, sau đó chuyển sang <strong>Khảo sát</strong></li>
-          <li>Nhân viên Kinh doanh điền đầy đủ thông tin khảo sát và nộp cho Ban Giám đốc duyệt</li>
+          <li>
+            Flow hiển thị sẽ bắt đầu từ <strong>Tạo hồ sơ</strong>, sau đó
+            chuyển sang <strong>Khảo sát</strong>
+          </li>
+          <li>
+            Nhân viên Kinh doanh điền đầy đủ thông tin khảo sát và nộp cho Ban
+            Giám đốc duyệt
+          </li>
           <li>Sau khi Giám đốc duyệt, bộ phận Kỹ thuật sẽ bắt đầu thiết kế</li>
         </ul>
       </div>

@@ -3,10 +3,16 @@ import axios from "axios"
 import { OpenAPI } from "@/client"
 import { getAccessToken } from "@/modules/auth/tokenStore"
 
+export type AttendanceMode = "project" | "company"
+
 export type AttendanceRecord = {
   id: string
   user_id: string
-  project_id: string
+  mode: AttendanceMode
+  project_id: string | null
+  company_id: string | null
+  customer_company_id: string | null
+  task_label: string | null
   work_date: string
   check_in_at: string
   check_in_lat: number
@@ -41,7 +47,11 @@ function authHeaders() {
 const API = `${OpenAPI.BASE}/api/v1`
 
 export async function checkIn(params: {
-  projectId: string
+  mode: AttendanceMode
+  projectId?: string
+  companyId?: string
+  customerCompanyId?: string
+  taskLabel?: string
   lat: number
   lng: number
   accuracyM: number | null
@@ -50,14 +60,24 @@ export async function checkIn(params: {
 }): Promise<AttendanceRecord> {
   const form = new FormData()
   form.append("file", params.file)
-  form.append("project_id", params.projectId)
+  form.append("mode", params.mode)
+  if (params.projectId) form.append("project_id", params.projectId)
+  if (params.companyId) form.append("company_id", params.companyId)
+  if (params.customerCompanyId)
+    form.append("customer_company_id", params.customerCompanyId)
+  if (params.taskLabel) form.append("task_label", params.taskLabel)
   form.append("lat", String(params.lat))
   form.append("lng", String(params.lng))
-  if (params.accuracyM != null) form.append("accuracy_m", String(params.accuracyM))
+  if (params.accuracyM != null)
+    form.append("accuracy_m", String(params.accuracyM))
   if (params.note) form.append("note", params.note)
-  const r = await axios.post<AttendanceRecord>(`${API}/attendance/check-in`, form, {
-    headers: authHeaders(),
-  })
+  const r = await axios.post<AttendanceRecord>(
+    `${API}/attendance/check-in`,
+    form,
+    {
+      headers: authHeaders(),
+    },
+  )
   return r.data
 }
 
@@ -73,10 +93,15 @@ export async function checkOut(params: {
   form.append("record_id", params.recordId)
   form.append("lat", String(params.lat))
   form.append("lng", String(params.lng))
-  if (params.accuracyM != null) form.append("accuracy_m", String(params.accuracyM))
-  const r = await axios.post<AttendanceRecord>(`${API}/attendance/check-out`, form, {
-    headers: authHeaders(),
-  })
+  if (params.accuracyM != null)
+    form.append("accuracy_m", String(params.accuracyM))
+  const r = await axios.post<AttendanceRecord>(
+    `${API}/attendance/check-out`,
+    form,
+    {
+      headers: authHeaders(),
+    },
+  )
   return r.data
 }
 
@@ -116,6 +141,58 @@ export async function setSiteLocation(params: {
 }): Promise<ProjectLite> {
   const r = await axios.patch<ProjectLite>(
     `${API}/projects/${params.projectId}/site-location`,
+    {
+      site_lat: params.siteLat,
+      site_lng: params.siteLng,
+      site_radius_m: params.siteRadiusM,
+    },
+    { headers: authHeaders() },
+  )
+  return r.data
+}
+
+export type CompanyLite = {
+  id: string
+  name: string
+  slug: string
+  is_active: boolean
+  site_lat: number | null
+  site_lng: number | null
+  site_radius_m: number
+}
+
+// All companies (manager site-config). Worker check-in uses the scoped list below.
+export async function listCompaniesForAttendance(): Promise<CompanyLite[]> {
+  const r = await axios.get<CompanyLite[]>(`${API}/roles/companies`, {
+    headers: authHeaders(),
+  })
+  return r.data
+}
+
+// Only the tenant companies the current account belongs to — used as the
+// "Công ty của tôi" group in the by-company check-in picker.
+export async function listMyCompaniesForAttendance(): Promise<CompanyLite[]> {
+  const r = await axios.get<CompanyLite[]>(`${API}/roles/my-companies`, {
+    headers: authHeaders(),
+  })
+  return r.data
+}
+
+export async function listTaskSuggestions(): Promise<string[]> {
+  const r = await axios.get<string[]>(`${API}/attendance/task-suggestions`, {
+    headers: authHeaders(),
+  })
+  return r.data
+}
+
+export async function setCompanySiteLocation(params: {
+  companyId: string
+  siteLat: number | null
+  siteLng: number | null
+  siteRadiusM: number
+}): Promise<CompanyLite> {
+  const r = await axios.patch<CompanyLite>(
+    `${API}/companies/${params.companyId}/site-location`,
     {
       site_lat: params.siteLat,
       site_lng: params.siteLng,

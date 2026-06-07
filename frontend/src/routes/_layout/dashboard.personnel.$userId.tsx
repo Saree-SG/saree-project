@@ -1,11 +1,19 @@
 import { useQuery } from "@tanstack/react-query"
-import { createFileRoute, Link } from "@tanstack/react-router"
+import { createFileRoute, Link, redirect } from "@tanstack/react-router"
 import axios from "axios"
 import { ArrowLeft, CalendarRange, Loader2 } from "lucide-react"
 import { useMemo, useState } from "react"
-import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts"
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts"
 
-import { OpenAPI } from "@/client"
+import { ApiError, OpenAPI, RolesService, UsersService } from "@/client"
 import GanttToolbar from "@/components/Gantt/GanttToolbar"
 import GanttView from "@/components/Gantt/GanttView"
 import { toGanttLink, toGanttRow } from "@/components/Gantt/transformers"
@@ -15,8 +23,8 @@ import type {
   GanttScale,
 } from "@/components/Gantt/types"
 import { Button } from "@/components/ui/button"
+import { clearSession, getAccessToken } from "@/modules/auth/tokenStore"
 import { fetchUserGantt } from "@/modules/gantt/ganttApi"
-import { getAccessToken } from "@/modules/auth/tokenStore"
 
 type PersonnelWeeklyRow = {
   period: string
@@ -43,10 +51,37 @@ function authHeaders() {
 export const Route = createFileRoute("/_layout/dashboard/personnel/$userId")({
   component: DashboardPersonnelPage,
   head: () => ({ meta: [{ title: "Dashboard nhân sự" }] }),
+  // Optional ?name= carried from the org chart so the title shows the person's
+  // name even when they have no leaderboard stats. Returned key is optional so
+  // links without a name stay valid.
+  validateSearch: (search: Record<string, unknown>): { name?: string } => {
+    const name = typeof search.name === "string" ? search.name : undefined
+    return name ? { name } : {}
+  },
+  // Only managers (role level ≤ 2) and superusers may open a person's detail.
+  beforeLoad: async () => {
+    const user = await UsersService.readUserMe().catch((errorValue) => {
+      if (errorValue instanceof ApiError && errorValue.status === 401) {
+        clearSession()
+        throw redirect({ to: "/login" })
+      }
+      throw errorValue
+    })
+    if (user.is_superuser) return
+    try {
+      const profile = await RolesService.myAccountProfile()
+      const isManagerUp = profile.memberships.some((m) => m.role_level <= 2)
+      if (isManagerUp) return
+    } catch {
+      // fall through to redirect
+    }
+    throw redirect({ to: "/" })
+  },
 })
 
 function DashboardPersonnelPage() {
   const { userId } = Route.useParams()
+  const { name: nameFromSearch } = Route.useSearch()
 
   const leaderboardQuery = useQuery({
     queryKey: ["dashboard", "leaderboard"],
@@ -97,9 +132,15 @@ function DashboardPersonnelPage() {
       ).data,
   })
 
-  const userStats = (leaderboardQuery.data ?? []).find((row) => row.user_id === userId)
+  const userStats = (leaderboardQuery.data ?? []).find(
+    (row) => row.user_id === userId,
+  )
 
-  if (ganttQuery.isLoading || weeklyStatsQuery.isLoading || leaderboardQuery.isLoading) {
+  if (
+    ganttQuery.isLoading ||
+    weeklyStatsQuery.isLoading ||
+    leaderboardQuery.isLoading
+  ) {
     return (
       <div className="flex h-64 items-center justify-center">
         <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
@@ -119,7 +160,7 @@ function DashboardPersonnelPage() {
             Quay lại dashboard
           </Link>
           <h1 className="text-2xl font-bold tracking-tight">
-            {userStats?.user_name ?? userId}
+            {userStats?.user_name ?? nameFromSearch ?? userId}
           </h1>
           <p className="text-sm text-muted-foreground">
             Tổng hợp tiến độ công việc theo thời gian
@@ -130,7 +171,9 @@ function DashboardPersonnelPage() {
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         <div className="rounded-lg border bg-card p-4">
           <p className="text-xs text-muted-foreground">Hoàn thành</p>
-          <p className="text-2xl font-black text-green-600">{userStats?.done ?? 0}</p>
+          <p className="text-2xl font-black text-green-600">
+            {userStats?.done ?? 0}
+          </p>
         </div>
         <div className="rounded-lg border bg-card p-4">
           <p className="text-xs text-muted-foreground">Đúng hạn</p>
@@ -138,7 +181,9 @@ function DashboardPersonnelPage() {
         </div>
         <div className="rounded-lg border bg-card p-4">
           <p className="text-xs text-muted-foreground">Trễ hạn</p>
-          <p className="text-2xl font-black text-red-600">{userStats?.overdue ?? 0}</p>
+          <p className="text-2xl font-black text-red-600">
+            {userStats?.overdue ?? 0}
+          </p>
         </div>
         <div className="rounded-lg border bg-card p-4">
           <p className="text-xs text-muted-foreground">Tỷ lệ hoàn thành</p>
@@ -167,7 +212,9 @@ function DashboardPersonnelPage() {
           />
         </div>
         {rows.length === 0 ? (
-          <p className="text-sm text-muted-foreground">Chưa có task để hiển thị.</p>
+          <p className="text-sm text-muted-foreground">
+            Chưa có task để hiển thị.
+          </p>
         ) : (
           <GanttView
             rows={rows}
@@ -184,7 +231,9 @@ function DashboardPersonnelPage() {
       <section className="rounded-xl border bg-card p-4">
         <h2 className="mb-4 text-sm font-bold">Hiệu suất theo tuần/tháng</h2>
         {!weeklyStatsQuery.data?.length ? (
-          <p className="text-sm text-muted-foreground">Chưa có dữ liệu thống kê.</p>
+          <p className="text-sm text-muted-foreground">
+            Chưa có dữ liệu thống kê.
+          </p>
         ) : (
           <div className="h-72">
             <ResponsiveContainer width="100%" height="100%">

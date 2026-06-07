@@ -116,7 +116,7 @@ class ChatService:
         content: str,
         current_user: Any,
     ) -> ChatMessage:
-        """Send a text message to a room."""
+        """Send a text message to a room and notify other members."""
         await self._chat_repo.require_active_member(room_id, current_user.id)
         msg = await self._chat_repo.create_message({
             "room_id": room_id,
@@ -124,27 +124,42 @@ class ChatService:
             "message_type": "text",
             "content": content,
         })
+        await self.notify_room_of_message(room_id, current_user, content[:100])
+        return msg
 
-        # Notify all other members: persist in-app notification + fire web push
+    async def notify_room_of_message(
+        self,
+        room_id: uuid.UUID,
+        current_user: Any,
+        body: str | None,
+    ) -> None:
+        """Persist an in-app notification + fire web push for all other members.
+
+        Title follows "{user_name} đã gửi tin nhắn vào {group_name}"; body holds
+        a short preview of the message content (or None for attachments).
+        """
         members = await self._chat_repo.list_members(room_id)
-        sender_name = getattr(current_user, "full_name", None) or getattr(current_user, "email", "")
         room = await self._chat_repo.get_room_or_404(room_id)
-        title = f"{sender_name}: {room.name}" if room.name else sender_name
-        body = content[:100]
+        sender_name = (
+            getattr(current_user, "full_name", None)
+            or getattr(current_user, "email", "")
+            or "Ai đó"
+        )
+        room_name = room.name or "nhóm chat"
+        title = f"{sender_name} đã gửi tin nhắn vào {room_name}"
         for member in members:
             if member.user_id != current_user.id:
-                notif = Notification(
-                    user_id=member.user_id,
-                    type="chat_message",
-                    title=title,
-                    body=body,
-                    entity_type="chat",
-                    entity_id=room_id,
+                self._session.add(
+                    Notification(
+                        user_id=member.user_id,
+                        type="chat_message",
+                        title=title,
+                        body=body,
+                        entity_type="chat",
+                        entity_id=room_id,
+                    )
                 )
-                self._session.add(notif)
                 asyncio.create_task(
                     send_push_bg(member.user_id, title, body, "chat", room_id)
                 )
         await self._session.flush()
-
-        return msg

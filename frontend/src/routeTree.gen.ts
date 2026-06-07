@@ -18,7 +18,9 @@ import { Route as LayoutIndexRouteImport } from './routes/_layout/index'
 import { Route as LayoutYearSummaryRouteImport } from './routes/_layout/year-summary'
 import { Route as LayoutSettingsRouteImport } from './routes/_layout/settings'
 import { Route as LayoutReportsRouteImport } from './routes/_layout/reports'
+import { Route as LayoutProfileRouteImport } from './routes/_layout/profile'
 import { Route as LayoutProductivityRouteImport } from './routes/_layout/productivity'
+import { Route as LayoutLeaveRouteImport } from './routes/_layout/leave'
 import { Route as LayoutItemsRouteImport } from './routes/_layout/items'
 import { Route as LayoutHelpRouteImport } from './routes/_layout/help'
 import { Route as LayoutGanttRouteImport } from './routes/_layout/gantt'
@@ -91,9 +93,19 @@ const LayoutReportsRoute = LayoutReportsRouteImport.update({
   path: '/reports',
   getParentRoute: () => LayoutRoute,
 } as any)
+const LayoutProfileRoute = LayoutProfileRouteImport.update({
+  id: '/profile',
+  path: '/profile',
+  getParentRoute: () => LayoutRoute,
+} as any)
 const LayoutProductivityRoute = LayoutProductivityRouteImport.update({
   id: '/productivity',
   path: '/productivity',
+  getParentRoute: () => LayoutRoute,
+} as any)
+const LayoutLeaveRoute = LayoutLeaveRouteImport.update({
+  id: '/leave',
+  path: '/leave',
   getParentRoute: () => LayoutRoute,
 } as any)
 const LayoutItemsRoute = LayoutItemsRouteImport.update({
@@ -248,7 +260,9 @@ export interface FileRoutesByFullPath {
   '/gantt': typeof LayoutGanttRoute
   '/help': typeof LayoutHelpRoute
   '/items': typeof LayoutItemsRoute
+  '/leave': typeof LayoutLeaveRoute
   '/productivity': typeof LayoutProductivityRoute
+  '/profile': typeof LayoutProfileRoute
   '/reports': typeof LayoutReportsRoute
   '/settings': typeof LayoutSettingsRoute
   '/year-summary': typeof LayoutYearSummaryRoute
@@ -284,7 +298,9 @@ export interface FileRoutesByTo {
   '/gantt': typeof LayoutGanttRoute
   '/help': typeof LayoutHelpRoute
   '/items': typeof LayoutItemsRoute
+  '/leave': typeof LayoutLeaveRoute
   '/productivity': typeof LayoutProductivityRoute
+  '/profile': typeof LayoutProfileRoute
   '/reports': typeof LayoutReportsRoute
   '/settings': typeof LayoutSettingsRoute
   '/year-summary': typeof LayoutYearSummaryRoute
@@ -324,7 +340,9 @@ export interface FileRoutesById {
   '/_layout/gantt': typeof LayoutGanttRoute
   '/_layout/help': typeof LayoutHelpRoute
   '/_layout/items': typeof LayoutItemsRoute
+  '/_layout/leave': typeof LayoutLeaveRoute
   '/_layout/productivity': typeof LayoutProductivityRoute
+  '/_layout/profile': typeof LayoutProfileRoute
   '/_layout/reports': typeof LayoutReportsRoute
   '/_layout/settings': typeof LayoutSettingsRoute
   '/_layout/year-summary': typeof LayoutYearSummaryRoute
@@ -365,7 +383,9 @@ export interface FileRouteTypes {
     | '/gantt'
     | '/help'
     | '/items'
+    | '/leave'
     | '/productivity'
+    | '/profile'
     | '/reports'
     | '/settings'
     | '/year-summary'
@@ -401,7 +421,9 @@ export interface FileRouteTypes {
     | '/gantt'
     | '/help'
     | '/items'
+    | '/leave'
     | '/productivity'
+    | '/profile'
     | '/reports'
     | '/settings'
     | '/year-summary'
@@ -440,7 +462,9 @@ export interface FileRouteTypes {
     | '/_layout/gantt'
     | '/_layout/help'
     | '/_layout/items'
+    | '/_layout/leave'
     | '/_layout/productivity'
+    | '/_layout/profile'
     | '/_layout/reports'
     | '/_layout/settings'
     | '/_layout/year-summary'
@@ -540,11 +564,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LayoutReportsRouteImport
       parentRoute: typeof LayoutRoute
     }
+    '/_layout/profile': {
+      id: '/_layout/profile'
+      path: '/profile'
+      fullPath: '/profile'
+      preLoaderRoute: typeof LayoutProfileRouteImport
+      parentRoute: typeof LayoutRoute
+    }
     '/_layout/productivity': {
       id: '/_layout/productivity'
       path: '/productivity'
       fullPath: '/productivity'
       preLoaderRoute: typeof LayoutProductivityRouteImport
+      parentRoute: typeof LayoutRoute
+    }
+    '/_layout/leave': {
+      id: '/_layout/leave'
+      path: '/leave'
+      fullPath: '/leave'
+      preLoaderRoute: typeof LayoutLeaveRouteImport
       parentRoute: typeof LayoutRoute
     }
     '/_layout/items': {
@@ -771,7 +809,9 @@ interface LayoutRouteChildren {
   LayoutGanttRoute: typeof LayoutGanttRoute
   LayoutHelpRoute: typeof LayoutHelpRoute
   LayoutItemsRoute: typeof LayoutItemsRoute
+  LayoutLeaveRoute: typeof LayoutLeaveRoute
   LayoutProductivityRoute: typeof LayoutProductivityRoute
+  LayoutProfileRoute: typeof LayoutProfileRoute
   LayoutReportsRoute: typeof LayoutReportsRoute
   LayoutSettingsRoute: typeof LayoutSettingsRoute
   LayoutYearSummaryRoute: typeof LayoutYearSummaryRoute
@@ -799,7 +839,9 @@ const LayoutRouteChildren: LayoutRouteChildren = {
   LayoutGanttRoute: LayoutGanttRoute,
   LayoutHelpRoute: LayoutHelpRoute,
   LayoutItemsRoute: LayoutItemsRoute,
+  LayoutLeaveRoute: LayoutLeaveRoute,
   LayoutProductivityRoute: LayoutProductivityRoute,
+  LayoutProfileRoute: LayoutProfileRoute,
   LayoutReportsRoute: LayoutReportsRoute,
   LayoutSettingsRoute: LayoutSettingsRoute,
   LayoutYearSummaryRoute: LayoutYearSummaryRoute,

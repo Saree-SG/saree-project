@@ -46,6 +46,7 @@ from app.models.user import User
 from app.repositories.role_repository import RoleRepository
 from app.repositories.user_repository import UserRepository
 from app.shared.permission import (
+    ADMIN_ONLY_PERMISSION_CODES,
     MANAGER_AUTO_PERMISSION_CODES,
     get_user_role_ids,
     has_permission,
@@ -203,9 +204,17 @@ async def my_permissions(
         select(Role).where(Role.id.in_(role_ids))  # type: ignore[arg-type]
     )
     roles = role_result.scalars().all()
-    if any(role.level == 1 or role.name in DIRECTOR_ROLE_NAMES for role in roles):
+    # System admin → all codes. Company director → all except admin-only codes.
+    if any(role.name == "admin" for role in roles):
         all_perms = await session.execute(select(Permission.code).order_by(Permission.code))
         return list(all_perms.scalars().all())
+    if any(role.level == 1 or role.name in DIRECTOR_ROLE_NAMES for role in roles):
+        all_perms = await session.execute(select(Permission.code).order_by(Permission.code))
+        return [
+            c
+            for c in all_perms.scalars().all()
+            if c not in ADMIN_ONLY_PERMISSION_CODES
+        ]
     if any(role.level <= 2 for role in roles):
         managed_codes = sorted(set(MANAGER_AUTO_PERMISSION_CODES))
         assigned_result = await session.execute(
@@ -332,8 +341,7 @@ async def list_companies(
     repo = RoleRepository(session)
     companies = await repo.list_companies()
     return [
-        CompanyPublic(id=c.id, name=c.name, slug=c.slug, is_active=c.is_active)
-        for c in companies
+        CompanyPublic.model_validate(c, from_attributes=True) for c in companies
     ]
 
 
@@ -353,7 +361,7 @@ async def list_my_companies(
     for cid in company_ids:
         c = await session.get(Company, cid)
         if c and c.is_active:
-            companies.append(CompanyPublic(id=c.id, name=c.name, slug=c.slug, is_active=c.is_active))
+            companies.append(CompanyPublic.model_validate(c, from_attributes=True))
     return companies
 
 

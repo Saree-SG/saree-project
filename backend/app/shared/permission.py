@@ -44,6 +44,22 @@ MANAGER_AUTO_PERMISSION_CODES = {
     "QUOTATION_VIEW",
     "QUOTATION_VIEW_ALL",
     "QUOTATION_REPORT",
+    # Customer directory — managers (L1/L2) manage customer companies
+    "CUSTOMER_VIEW",
+    "CUSTOMER_CREATE",
+    # Attendance — managers check in themselves, view team records, config sites
+    "ATTENDANCE_CHECKIN",
+    "ATTENDANCE_VIEW_TEAM",
+    "ATTENDANCE_CONFIG_SITE",
+}
+
+# System-admin-only permissions. Company directors (L1) get every OTHER
+# permission automatically, but NOT these — only the `admin` role / superusers
+# may create tenants, manage users globally, or read the system audit log.
+ADMIN_ONLY_PERMISSION_CODES = {
+    "COMPANY_CREATE",
+    "USER_MANAGE",
+    "AUDIT_VIEW",
 }
 
 
@@ -126,8 +142,12 @@ async def has_permission(
         select(Role).where(Role.id.in_(role_ids))  # type: ignore[arg-type]
     )
     roles = role_result.scalars().all()
-    if any(_is_company_director_role(role) for role in roles):
+    # System admin role → unrestricted. Company director → everything except
+    # the system-admin-only codes.
+    if any(role.name == "admin" for role in roles):
         return True
+    if any(_is_company_director_role(role) for role in roles):
+        return permission_code not in ADMIN_ONLY_PERMISSION_CODES
     if permission_code in MANAGER_AUTO_PERMISSION_CODES and any(
         _is_company_manager_role(role) for role in roles
     ):

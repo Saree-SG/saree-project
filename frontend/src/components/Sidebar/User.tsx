@@ -57,9 +57,7 @@ export function User({ user }: { user: any }) {
   }
   const goToProfile = () => {
     handleMenuClick()
-    if (user?.id) {
-      navigate({ to: "/admin/users/$userId", params: { userId: user.id } })
-    }
+    navigate({ to: "/profile" })
   }
   const goToSettings = () => {
     handleMenuClick()
@@ -90,15 +88,13 @@ export function User({ user }: { user: any }) {
               <UserInfo fullName={user?.full_name} email={user?.email} />
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
-            {user?.id ? (
-              <DropdownMenuItem onSelect={goToProfile}>
-                <UserCircle />
-                Hồ sơ của tôi
-              </DropdownMenuItem>
-            ) : null}
+            <DropdownMenuItem onSelect={goToProfile}>
+              <UserCircle />
+              Hồ sơ của tôi
+            </DropdownMenuItem>
             <DropdownMenuItem onSelect={goToSettings}>
               <Settings />
-              User Settings
+              Cài đặt
             </DropdownMenuItem>
             <DropdownMenuItem onClick={handleLogout}>
               <LogOut />

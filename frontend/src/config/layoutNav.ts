@@ -2,6 +2,7 @@ import type { LucideIcon } from "lucide-react"
 import {
   AlertTriangle,
   Building2,
+  CalendarOff,
   CalendarRange,
   ClipboardCheck,
   ClipboardList,
@@ -11,6 +12,7 @@ import {
   LayoutDashboard,
   MessageCircle,
   Settings,
+  UserRound,
   Users,
 } from "lucide-react"
 
@@ -50,6 +52,11 @@ export function buildLayoutNavItems(
     icon: ClipboardCheck,
     title: "Chấm công",
     path: "/attendance",
+  })
+  items.push({
+    icon: CalendarOff,
+    title: "Nghỉ phép",
+    path: "/leave",
   })
   items.push({
     icon: AlertTriangle,
@@ -110,7 +117,15 @@ export function buildMobileBottomNavItems(
   canAccessContracts?: boolean,
 ): LayoutNavItem[] {
   return [
-    ...buildLayoutNavItems(isSuperuser, showManagement, showCompanyManagement, canAccessProjects, canAccessQuotations, canAccessContracts),
+    ...buildLayoutNavItems(
+      isSuperuser,
+      showManagement,
+      showCompanyManagement,
+      canAccessProjects,
+      canAccessQuotations,
+      canAccessContracts,
+    ),
+    { icon: UserRound, title: "Hồ sơ", path: "/profile" },
     { icon: Settings, title: "Cài đặt", path: "/settings" },
   ]
 }

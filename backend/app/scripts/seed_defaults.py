@@ -15,7 +15,9 @@ import uuid
 
 from sqlmodel import Session, select
 
+from app import crud
 from app.core.db import engine
+from app.core.security import get_password_hash
 from app.models.org import (
     Company,
     Department,
@@ -26,24 +28,43 @@ from app.models.org import (
     RolePermission,
     UserCompanyRole,
 )
-from app.models.user import User
+from app.models.user import User, UserCreate
 
 # ---------------------------------------------------------------------------
 # Default data
 # ---------------------------------------------------------------------------
 
+# Each production tổ (department) has its OWN distinct lead role — a tổ cannot
+# share a single role with another tổ, the same way each office phòng has its
+# own role. (name, display_name, department_name). Level 2, generic tổ-trưởng
+# permission set. `workshop_lead` is kept as a generic fallback for other scripts.
+PRODUCTION_TEAM_LEADS = [
+    ("lead_iqf", "Tổ trưởng Tổ IQF", "Tổ IQF"),
+    ("lead_to_lanh", "Tổ trưởng Tổ Lạnh", "Tổ Lạnh"),
+    ("lead_to_dien", "Tổ trưởng Tổ Điện", "Tổ Điện"),
+    ("lead_to_tien", "Tổ trưởng Tổ Tiện", "Tổ Tiện"),
+    ("lead_to_may_1", "Tổ trưởng Tổ Máy 1", "Tổ Máy 1"),
+    ("lead_to_may_2", "Tổ trưởng Tổ Máy 2", "Tổ Máy 2"),
+]
+
 SYSTEM_ROLES = [
     {"name": "admin", "display_name": "System Admin", "level": 1, "is_system": True},
-    {"name": "director", "display_name": "Giám đốc / BGD", "level": 1, "is_system": True},
-    {"name": "department_head", "display_name": "Trưởng Phòng", "level": 2, "is_system": True},
-    {"name": "sales", "display_name": "Phòng kinh doanh", "level": 2, "is_system": True},
-    {"name": "engineer", "display_name": "Kỹ thuật / Thiết kế", "level": 2, "is_system": True},
-    {"name": "materials", "display_name": "Phòng vật tư", "level": 2, "is_system": True},
-    {"name": "planner", "display_name": "Phòng kế hoạch", "level": 2, "is_system": True},
+    {"name": "director", "display_name": "Giám đốc", "level": 1, "is_system": True},
+    {"name": "department_head", "display_name": "Trưởng phòng", "level": 2, "is_system": True},
+    {"name": "sales", "display_name": "Trưởng phòng Kinh doanh", "level": 2, "is_system": True},
+    {"name": "engineer", "display_name": "Trưởng phòng Kỹ thuật", "level": 2, "is_system": True},
+    {"name": "materials", "display_name": "Trưởng phòng Vật tư", "level": 2, "is_system": True},
+    {"name": "planner", "display_name": "Trưởng phòng Kế hoạch", "level": 2, "is_system": True},
     {"name": "workshop_lead", "display_name": "Tổ trưởng sản xuất", "level": 2, "is_system": True},
     {"name": "site_supply", "display_name": "Cung ứng vật tư công trình", "level": 2, "is_system": True},
     {"name": "installer", "display_name": "Lắp đặt công trình", "level": 3, "is_system": True},
     {"name": "worker", "display_name": "Tổ viên / Thực hiện", "level": 3, "is_system": True},
+    # Production teams (Tổ IQF, Tổ Lạnh, Tổ Máy 1...) are DEPARTMENTS; each gets
+    # its own distinct lead role below.
+    *[
+        {"name": name, "display_name": display, "level": 2, "is_system": True}
+        for (name, display, _dept) in PRODUCTION_TEAM_LEADS
+    ],
 ]
 
 # fmt: off
@@ -80,6 +101,9 @@ ALL_PERMISSIONS = [
     {"code": "USER_VIEW",              "module": "user",    "action": "read",   "scope": "global",      "description": "Xem danh sách người dùng"},
     {"code": "USER_MANAGE",            "module": "user",    "action": "update", "scope": "global",      "description": "Quản lý người dùng"},
     {"code": "COMPANY_CREATE",         "module": "company", "action": "create", "scope": "global",      "description": "Tạo công ty mới"},
+    # Customer companies (danh bạ công ty khách hàng)
+    {"code": "CUSTOMER_VIEW",          "module": "customer", "action": "read",   "scope": "global",     "description": "Xem danh bạ công ty khách hàng"},
+    {"code": "CUSTOMER_CREATE",        "module": "customer", "action": "create", "scope": "global",     "description": "Tạo/sửa/xóa công ty khách hàng"},
     # Quotation
     {"code": "QUOTATION_CREATE",          "module": "quotation", "action": "create", "scope": "global",   "description": "Tạo hồ sơ báo giá mới"},
     {"code": "QUOTATION_VIEW",            "module": "quotation", "action": "read",   "scope": "assigned", "description": "Xem hồ sơ báo giá được phân công"},
@@ -122,6 +146,12 @@ ALL_PERMISSIONS = [
     {"code": "INCIDENT_CREATE",           "module": "incident", "action": "create", "scope": "assigned", "description": "Ghi nhận sự cố/lỗi thi công"},
     {"code": "INCIDENT_VIEW",             "module": "incident", "action": "read",   "scope": "assigned", "description": "Xem và tra cứu sự cố (knowledge base)"},
     {"code": "INCIDENT_RESOLVE",          "module": "incident", "action": "update", "scope": "project",  "description": "Cập nhật nguyên nhân/giải pháp, đóng sự cố"},
+
+    # --- Leave (xin nghỉ phép) ---
+    {"code": "LEAVE_CREATE",              "module": "leave", "action": "create", "scope": "own",    "description": "Tạo/hủy đơn xin nghỉ phép của bản thân"},
+    {"code": "LEAVE_APPROVE",            "module": "leave", "action": "approve","scope": "team",   "description": "Duyệt/từ chối đơn xin nghỉ phép"},
+    {"code": "LEAVE_VIEW_TEAM",          "module": "leave", "action": "read",   "scope": "team",   "description": "Xem đơn nghỉ phép của nhân viên/phòng ban"},
+    {"code": "LEAVE_CONFIG",             "module": "leave", "action": "update", "scope": "global", "description": "Cấu hình người/role duyệt nghỉ phép (Giám đốc+)"},
 ]
 # fmt: on
 
@@ -138,6 +168,8 @@ _DEPT_HEAD_LIKE_PERMS: list[str] = [
     "ATTENDANCE_CHECKIN", "ATTENDANCE_VIEW_TEAM", "ATTENDANCE_CONFIG_SITE",
     # Incident — full handling (report, view, resolve)
     "INCIDENT_CREATE", "INCIDENT_VIEW", "INCIDENT_RESOLVE",
+    # Leave — request own + view the team's leave
+    "LEAVE_CREATE", "LEAVE_VIEW_TEAM",
     # Quotation — base read
     "QUOTATION_VIEW", "QUOTATION_REPORT",
     # Contract — view only
@@ -154,6 +186,8 @@ _WORKER_LIKE_PERMS: list[str] = [
     "ATTENDANCE_CHECKIN",
     # Incident — report + look up knowledge base
     "INCIDENT_CREATE", "INCIDENT_VIEW",
+    # Leave — request own time-off
+    "LEAVE_CREATE",
     # Quotation — read only
     "QUOTATION_VIEW",
 ]
@@ -193,6 +227,7 @@ ROLE_PERMISSION_MAP: dict[str, list[str]] = {
         "AUDIT_VIEW", "USER_VIEW", "USER_MANAGE",
         "ATTENDANCE_CHECKIN", "ATTENDANCE_VIEW_TEAM", "ATTENDANCE_VIEW_ALL", "ATTENDANCE_CONFIG_SITE",
         "INCIDENT_CREATE", "INCIDENT_VIEW", "INCIDENT_RESOLVE",
+        "LEAVE_CREATE", "LEAVE_APPROVE", "LEAVE_VIEW_TEAM", "LEAVE_CONFIG",
         *_DIRECTOR_QUOTATION_PERMS,
         "CONTRACT_VIEW_ALL", "CONTRACT_APPROVE", "CONTRACT_START_PRODUCTION", "CONTRACT_COMPLETE", "CONTRACT_DELETE",
     ],
@@ -206,6 +241,8 @@ ROLE_PERMISSION_MAP: dict[str, list[str]] = {
     "materials": [*_DEPT_HEAD_LIKE_PERMS, *_MATERIALS_QUOTATION_PERMS],
     "planner": list(_DEPT_HEAD_LIKE_PERMS),
     "workshop_lead": list(_DEPT_HEAD_LIKE_PERMS),
+    # Per-tổ lead roles — same permission set as a generic tổ trưởng.
+    **{name: list(_DEPT_HEAD_LIKE_PERMS) for (name, _d, _dept) in PRODUCTION_TEAM_LEADS},
     "site_supply": list(_DEPT_HEAD_LIKE_PERMS),
     "installer": list(_WORKER_LIKE_PERMS),
     "worker": list(_WORKER_LIKE_PERMS),
@@ -213,6 +250,7 @@ ROLE_PERMISSION_MAP: dict[str, list[str]] = {
 
 
 DEFAULT_DEPARTMENTS = [
+    {"name": "Ban Giám đốc", "dept_type": "office_block"},
     {"name": "Phòng Kinh doanh", "dept_type": "office_block"},
     {"name": "Phòng Kỹ thuật / Thiết kế", "dept_type": "project_block"},
     {"name": "Phòng Vật tư", "dept_type": "office_block"},
@@ -220,6 +258,41 @@ DEFAULT_DEPARTMENTS = [
     {"name": "Sản xuất xưởng", "dept_type": "project_block"},
     {"name": "Cung ứng vật tư công trình", "dept_type": "project_block"},
     {"name": "Lắp đặt công trình", "dept_type": "project_block"},
+    # Tổ sản xuất tại xưởng
+    {"name": "Tổ IQF", "dept_type": "project_block"},
+    {"name": "Tổ Lạnh", "dept_type": "project_block"},
+    {"name": "Tổ Điện", "dept_type": "project_block"},
+    {"name": "Tổ Tiện", "dept_type": "project_block"},
+    {"name": "Tổ Máy 1", "dept_type": "project_block"},
+    {"name": "Tổ Máy 2", "dept_type": "project_block"},
+]
+
+
+# ---------------------------------------------------------------------------
+# Real staff accounts (Saree). Created by the reset script, not by seed().
+# (full_name, email, role_name, department_name)
+# ---------------------------------------------------------------------------
+# Single tenant identity (used by both the reset script and the prod bootstrap).
+SAREE_COMPANY_NAME = "Công Ty TNHH Điện Lạnh SaiGon"
+SAREE_COMPANY_SLUG = "saree"
+
+STAFF_PASSWORD = "Saree1234!"
+STAFF_ACCOUNTS: list[tuple[str, str, str, str]] = [
+    # Ban giám đốc — full company powers (mọi quyền trừ quyền admin hệ thống)
+    ("Vũ Huỳnh", "vuhuynh@saree.com", "director", "Ban Giám đốc"),
+    ("Tuấn Anh", "tuananh@saree.com", "director", "Ban Giám đốc"),
+    # Trưởng phòng kinh doanh — quản lý + quy trình báo giá/hợp đồng
+    ("Bích Vân", "bichvan@saree.com", "sales", "Phòng Kinh doanh"),
+    ("Ngân - Phòng Vật Tư", "ngan_vattu@saree.com", "materials", "Phòng Vật tư"),
+    # Tổ trưởng các tổ sản xuất — mỗi tổ có role riêng (lead_<tổ>), phòng ban là tổ.
+    ("San - IQF", "san_iqf@saree.com", "lead_iqf", "Tổ IQF"),
+    ("Thanh Vũ - Tổ Lạnh", "thanhvu_tolanh@saree.com", "lead_to_lanh", "Tổ Lạnh"),
+    ("Nhân Tổ Tiện", "nhan_totien@saree.com", "lead_to_tien", "Tổ Tiện"),
+    ("Sen Tổ Điện", "sen_todien@saree.com", "lead_to_dien", "Tổ Điện"),
+    ("Trí Tổ Máy 2", "tri_tomay_2@saree.com", "lead_to_may_2", "Tổ Máy 2"),
+    ("Bo Tổ Máy 1", "bo_tomay_1@saree.com", "lead_to_may_1", "Tổ Máy 1"),
+    ("Thông Kế Hoạch", "thong_kehoach@saree.com", "planner", "Phòng Kế hoạch"),
+    ("Thảo Kỹ Thuật", "thao_kythuat@saree.com", "engineer", "Phòng Kỹ thuật / Thiết kế"),
 ]
 
 # Department name used when binding superuser for org preview (seed tail).
@@ -480,6 +553,89 @@ def seed(
         print("  ✓ Demo role assignment ensured")
 
     print("✅ Seed complete!")
+
+
+def seed_staff_accounts(
+    session: Session,
+    company_id: uuid.UUID,
+    accounts: list[tuple[str, str, str, str]] = STAFF_ACCOUNTS,
+    password: str = STAFF_PASSWORD,
+    *,
+    update_existing: bool = True,
+) -> int:
+    """Create/refresh the real staff accounts with their role + department.
+
+    Idempotent. With ``update_existing=True`` (reset use) existing users (by
+    email) are refreshed (name, password, company, department, role). With
+    ``update_existing=False`` (prod bootstrap) existing users are left untouched
+    so a redeploy never overwrites a changed password. Returns count created/updated.
+    """
+    role_by_name = {
+        r.name: r
+        for r in session.exec(select(Role).where(Role.company_id == company_id)).all()
+    }
+    dept_by_name = {
+        d.name: d
+        for d in session.exec(
+            select(Department).where(Department.company_id == company_id)
+        ).all()
+    }
+
+    print("▶ Seeding staff accounts...")
+    count = 0
+    for full_name, email, role_name, dept_name in accounts:
+        user = session.exec(select(User).where(User.email == email)).first()
+        if user is not None and not update_existing:
+            continue  # prod bootstrap: never touch an existing account
+        if user is None:
+            user = crud.create_user(
+                session=session,
+                user_create=UserCreate(
+                    email=email,
+                    password=password,
+                    is_active=True,
+                    is_superuser=False,
+                    full_name=full_name,
+                ),
+            )
+        else:
+            user.full_name = full_name
+            user.is_active = True
+            user.hashed_password = get_password_hash(password)
+
+        dept = dept_by_name.get(dept_name)
+        if dept is None:
+            print(f"  ! Department not found for {email}: {dept_name}")
+        user.company_id = company_id
+        user.department_id = dept.id if dept else None
+        session.add(user)
+        session.flush()
+
+        role = role_by_name.get(role_name)
+        if role is None:
+            print(f"  ! Role not found for {email}: {role_name}")
+            continue
+        # Make this the user's single primary company role. Flush the deletes
+        # before inserting so a re-run that keeps the same role doesn't hit the
+        # (user, company, role) unique constraint via autoflush ordering.
+        for row in session.exec(
+            select(UserCompanyRole).where(UserCompanyRole.user_id == user.id)
+        ).all():
+            session.delete(row)
+        session.flush()
+        session.add(
+            UserCompanyRole(
+                user_id=user.id,
+                company_id=company_id,
+                role_id=role.id,
+                is_primary=True,
+            )
+        )
+        count += 1
+
+    session.commit()
+    print(f"  ✓ {count} staff accounts ensured (password: {password})")
+    return count
 
 
 def main() -> None:

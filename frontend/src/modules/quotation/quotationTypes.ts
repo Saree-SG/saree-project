@@ -44,6 +44,7 @@ export interface QuotationPublic {
   company_id: string
   quote_number: string
   project_name: string
+  client_company_id?: string | null
   client_company_name: string
   client_contact_name: string | null
   client_contact_title?: string | null
@@ -86,6 +87,7 @@ export interface QuotationsPublic {
 
 export interface QuotationCreate {
   project_name: string
+  client_company_id?: string | null
   client_company_name: string
   equipment_category?: string | null
   client_contact_name?: string | null
@@ -112,6 +114,7 @@ export interface QuotationCompanyProfile {
 
 export interface QuotationUpdate {
   project_name?: string
+  client_company_id?: string | null
   client_company_name?: string
   client_contact_name?: string | null
   client_contact_phone?: string | null

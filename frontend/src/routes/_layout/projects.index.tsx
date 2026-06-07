@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { createFileRoute, Link, redirect, useNavigate } from "@tanstack/react-router"
 import { ArrowLeft, FolderOpen, Plus } from "lucide-react"
 
-import { ProjectsService } from "@/client"
+import { ProjectsService, RolesService, UsersService } from "@/client"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -81,6 +81,19 @@ function ProjectsIndexPage() {
   const [internalNameDraft, setInternalNameDraft] = useState("")
   const [internalStartDate, setInternalStartDate] = useState("")
   const [internalEndDate, setInternalEndDate] = useState("")
+  const [internalCompanyId, setInternalCompanyId] = useState("")
+
+  const meQuery = useQuery({
+    queryKey: ["users", "me"],
+    queryFn: () => UsersService.readUserMe(),
+  })
+  const myCompaniesQuery = useQuery({
+    queryKey: ["roles", "my-companies"],
+    queryFn: () => RolesService.listMyCompanies(),
+  })
+  const myCompanies = myCompaniesQuery.data ?? []
+  const showCompanyPicker = myCompanies.length > 1
+  const effectiveCompanyId = internalCompanyId || meQuery.data?.company_id || ""
 
   const createInternalMutation = useMutation({
     mutationFn: async () => {
@@ -100,6 +113,8 @@ function ProjectsIndexPage() {
           end_date: internalEndDate || toISODate(defaultEnd),
           status: "planning",
           project_type: "internal",
+          // Khi user thuộc nhiều công ty, gửi công ty đã chọn; nếu không, backend tự lấy công ty của user.
+          company_id: showCompanyPicker ? (effectiveCompanyId || undefined) : undefined,
         },
       })
     },
@@ -109,6 +124,7 @@ function ProjectsIndexPage() {
       setInternalNameDraft("")
       setInternalStartDate("")
       setInternalEndDate("")
+      setInternalCompanyId("")
       navigate({ to: "/projects/$projectId", params: { projectId: project.id } })
     },
   })
@@ -232,6 +248,24 @@ function ProjectsIndexPage() {
                     placeholder="Nhập tên dự án nội bộ..."
                   />
                 </div>
+                {showCompanyPicker && (
+                  <div className="space-y-1">
+                    <p className="text-xs font-semibold text-muted-foreground">Công ty</p>
+                    <Select
+                      value={effectiveCompanyId}
+                      onValueChange={(v) => setInternalCompanyId(v)}
+                    >
+                      <SelectTrigger className="h-9 text-sm">
+                        <SelectValue placeholder="Chọn công ty" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {myCompanies.map((c) => (
+                          <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
                 <div className="grid grid-cols-2 gap-2">
                   <div className="space-y-1">
                     <p className="text-xs font-semibold text-muted-foreground">Ngày bắt đầu</p>

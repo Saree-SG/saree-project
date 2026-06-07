@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
 import {
+  Building,
   Building2,
   Camera,
   CheckCircle2,
@@ -10,12 +11,16 @@ import {
   LogOut,
   MapPin,
   Navigation,
+  RefreshCw,
   Search,
   XCircle,
 } from "lucide-react"
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { toast } from "sonner"
 
+import { CameraCapture } from "@/components/Common/CameraCapture"
+import { CustomerCompanyFormDialog } from "@/components/Company/CustomerCompanyFormDialog"
+import { SiteMapPicker } from "@/components/Map/SiteMapPicker"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
@@ -25,24 +30,39 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
-import { SiteMapPicker } from "@/components/Map/SiteMapPicker"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
 import { useGeolocation } from "@/hooks/useGeolocation"
 import { useCan } from "@/hooks/useMyPermissions"
 import {
+  type AttendanceMode,
   type AttendanceRecord,
-  type ProjectLite,
+  type CompanyLite,
   checkIn,
   checkOut,
+  listCompaniesForAttendance,
   listMyAttendance,
+  listMyCompaniesForAttendance,
   listProjectsForAttendance,
+  listTaskSuggestions,
+  type ProjectLite,
+  setCompanySiteLocation,
   setSiteLocation,
 } from "@/modules/attendance/attendanceApi"
 import {
@@ -50,6 +70,7 @@ import {
   geocodeAddress,
   parsePastedCoords,
 } from "@/modules/attendance/geocode"
+import { listCustomerCompanies } from "@/modules/company/customerCompanyApi"
 
 export const Route = createFileRoute("/_layout/attendance")({
   component: AttendancePage,
@@ -69,14 +90,76 @@ function AttendancePage() {
   const qc = useQueryClient()
   const geo = useGeolocation()
   const canConfig = useCan("ATTENDANCE_CONFIG_SITE")
+  // Only managers (team viewers) may see GPS validity + distance; the person
+  // checking in (người nộp) must not see whether they were "đúng/lệch vị trí".
+  const canSeeValidity = useCan("ATTENDANCE_VIEW_TEAM")
+  // Customer directory is manager-scoped (L1/L2). Plain workers only see their
+  // own company in the by-company picker.
+  const canViewCustomers = useCan("CUSTOMER_VIEW")
+  const canCreateCustomer = useCan("CUSTOMER_CREATE")
+  const [mode, setMode] = useState<AttendanceMode>("project")
   const [projectId, setProjectId] = useState<string>("")
-  const fileRef = useRef<HTMLInputElement>(null)
+  // Encoded company-mode target: "tenant:<id>" | "customer:<id>".
+  const [companySel, setCompanySel] = useState<string>("")
+  const [taskLabel, setTaskLabel] = useState<string>("")
+  // Full create-customer-company dialog opened from the by-company picker.
+  const [customerFormOpen, setCustomerFormOpen] = useState(false)
   const [photo, setPhoto] = useState<File | null>(null)
-  const [photoPreview, setPhotoPreview] = useState<string | null>(null)
+  // Bumped after a successful check-in/out to remount the camera (clear preview).
+  const [cameraNonce, setCameraNonce] = useState(0)
+
+  // Check-in/out flow dialog: pressing the action button opens the camera, then
+  // a confirm popup (photo + time), then a result popup.
+  const [flowOpen, setFlowOpen] = useState(false)
+  // Captured at submit time so the dialog stays stable even after the open
+  // record is refetched away on check-out.
+  const [flowKind, setFlowKind] = useState<"in" | "out">("in")
+  const [flowPhase, setFlowPhase] = useState<"camera" | "confirm" | "result">(
+    "camera",
+  )
+  const [resultRecord, setResultRecord] = useState<AttendanceRecord | null>(
+    null,
+  )
+  const [capturedAt, setCapturedAt] = useState<Date | null>(null)
+
+  // Object URL for the captured photo, shown in the confirm/result popup.
+  const photoUrl = useMemo(
+    () => (photo ? URL.createObjectURL(photo) : null),
+    [photo],
+  )
+  useEffect(() => {
+    return () => {
+      if (photoUrl) URL.revokeObjectURL(photoUrl)
+    }
+  }, [photoUrl])
 
   const projectsQuery = useQuery({
     queryKey: ["attendance-projects"],
     queryFn: listProjectsForAttendance,
+  })
+
+  const companiesQuery = useQuery({
+    queryKey: ["attendance-companies"],
+    queryFn: listCompaniesForAttendance,
+  })
+
+  // "Công ty của tôi" = tenant(s) the account belongs to.
+  const myCompaniesQuery = useQuery({
+    queryKey: ["attendance-my-companies"],
+    queryFn: listMyCompaniesForAttendance,
+  })
+
+  // "Công ty khách hàng" = customer directory entries (used for on-site work).
+  // Only loaded for users allowed to see the directory (managers / L1-L2).
+  const customerCompaniesQuery = useQuery({
+    queryKey: ["attendance-customer-companies"],
+    queryFn: () => listCustomerCompanies({ type: "customer" }),
+    enabled: canViewCustomers,
+  })
+
+  const taskSuggestionsQuery = useQuery({
+    queryKey: ["attendance-task-suggestions"],
+    queryFn: listTaskSuggestions,
   })
 
   const myQuery = useQuery({
@@ -95,24 +178,92 @@ function AttendancePage() {
     return m
   }, [projectsQuery.data])
 
-  function pickPhoto(f: File | null) {
-    setPhoto(f)
-    setPhotoPreview(f ? URL.createObjectURL(f) : null)
-  }
+  const companiesById = useMemo(() => {
+    const m = new Map<string, string>()
+    for (const c of companiesQuery.data ?? []) m.set(c.id, c.name)
+    for (const c of myCompaniesQuery.data ?? []) m.set(c.id, c.name)
+    return m
+  }, [companiesQuery.data, myCompaniesQuery.data])
+
+  const customerCompaniesById = useMemo(() => {
+    const m = new Map<string, string>()
+    for (const c of customerCompaniesQuery.data ?? []) m.set(c.id, c.name)
+    return m
+  }, [customerCompaniesQuery.data])
 
   function resetForm() {
     setPhoto(null)
-    setPhotoPreview(null)
-    if (fileRef.current) fileRef.current.value = ""
+    setCameraNonce((n) => n + 1)
+  }
+
+  // Decode the by-company picker selection into API params.
+  function parseCompanySel(): {
+    companyId?: string
+    customerCompanyId?: string
+  } {
+    if (companySel.startsWith("tenant:"))
+      return { companyId: companySel.slice("tenant:".length) }
+    if (companySel.startsWith("customer:"))
+      return { customerCompanyId: companySel.slice("customer:".length) }
+    return {}
+  }
+
+  // Validate the location/task selection before opening the camera so the user
+  // doesn't take a photo only to hit a validation error.
+  function selectionError(): string | null {
+    if (openRecord) return null // check-out keeps the open record's context
+    if (mode === "project") {
+      if (!projectId) return "Hãy chọn công trình"
+    } else {
+      if (!companySel) return "Hãy chọn công ty"
+      if (!taskLabel.trim()) return "Hãy nhập công việc"
+    }
+    return null
+  }
+
+  function startFlow() {
+    const err = selectionError()
+    if (err) {
+      toast.error(err)
+      return
+    }
+    setFlowKind(openRecord ? "out" : "in")
+    setPhoto(null)
+    setResultRecord(null)
+    setCapturedAt(null)
+    setFlowPhase("camera")
+    setCameraNonce((n) => n + 1)
+    setFlowOpen(true)
+  }
+
+  function submitFlow() {
+    if (flowKind === "out") checkOutMutation.mutate()
+    else checkInMutation.mutate()
+  }
+
+  function closeFlow() {
+    setFlowOpen(false)
+    resetForm()
   }
 
   const checkInMutation = useMutation({
     mutationFn: async () => {
-      if (!projectId) throw new Error("Hãy chọn công trình")
-      if (!photo) throw new Error("Hãy chụp ảnh tại công trình")
+      if (!photo) throw new Error("Hãy chụp ảnh tại nơi làm việc")
+      if (mode === "project") {
+        if (!projectId) throw new Error("Hãy chọn công trình")
+      } else {
+        if (!companySel) throw new Error("Hãy chọn công ty")
+        if (!taskLabel.trim()) throw new Error("Hãy nhập công việc")
+      }
+      const target = parseCompanySel()
       const fix = await geo.locate()
       return checkIn({
-        projectId,
+        mode,
+        projectId: mode === "project" ? projectId : undefined,
+        companyId: mode === "company" ? target.companyId : undefined,
+        customerCompanyId:
+          mode === "company" ? target.customerCompanyId : undefined,
+        taskLabel: mode === "company" ? taskLabel.trim() : undefined,
         lat: fix.lat,
         lng: fix.lng,
         accuracyM: fix.accuracy,
@@ -120,16 +271,16 @@ function AttendancePage() {
       })
     },
     onSuccess: (rec) => {
-      toast.success(
-        rec.check_in_valid
-          ? "Đã chấm công vào — đúng vị trí công trình ✅"
-          : "Đã ghi nhận check-in nhưng vị trí lệch khỏi công trình ⚠️",
-      )
-      resetForm()
+      toast.success("Đã chấm công vào")
+      setResultRecord(rec)
+      setFlowPhase("result")
       qc.invalidateQueries({ queryKey: ["attendance-me"] })
+      qc.invalidateQueries({ queryKey: ["attendance-task-suggestions"] })
     },
     onError: (e: any) =>
-      toast.error(e?.response?.data?.detail ?? e?.message ?? "Chấm công thất bại"),
+      toast.error(
+        e?.response?.data?.detail ?? e?.message ?? "Chấm công thất bại",
+      ),
   })
 
   const checkOutMutation = useMutation({
@@ -147,18 +298,35 @@ function AttendancePage() {
     },
     onSuccess: (rec) => {
       toast.success(`Đã chấm công ra — ${rec.work_hours ?? 0} giờ công`)
-      resetForm()
+      setResultRecord(rec)
+      setFlowPhase("result")
       qc.invalidateQueries({ queryKey: ["attendance-me"] })
     },
     onError: (e: any) =>
-      toast.error(e?.response?.data?.detail ?? e?.message ?? "Check-out thất bại"),
+      toast.error(
+        e?.response?.data?.detail ?? e?.message ?? "Check-out thất bại",
+      ),
   })
 
-  const busy = checkInMutation.isPending || checkOutMutation.isPending || geo.loading
+  const busy =
+    checkInMutation.isPending || checkOutMutation.isPending || geo.loading
 
-  const openProjectName = openRecord
-    ? (projectsById.get(openRecord.project_id) ?? "Công trình")
-    : null
+  function recordLocationName(rec: AttendanceRecord): string {
+    if (rec.mode === "company") {
+      if (rec.customer_company_id) {
+        return (
+          customerCompaniesById.get(rec.customer_company_id) ??
+          "Công ty khách hàng"
+        )
+      }
+      const c = rec.company_id ? companiesById.get(rec.company_id) : null
+      return c ?? "Công ty"
+    }
+    const p = rec.project_id ? projectsById.get(rec.project_id) : null
+    return p ?? "Công trình"
+  }
+
+  const openProjectName = openRecord ? recordLocationName(openRecord) : null
 
   // A shift open longer than the 8h cap means the worker likely forgot to
   // check out; warn them (the server will cap hours at 8h on check-out).
@@ -170,10 +338,11 @@ function AttendancePage() {
   return (
     <div className="mx-auto w-full max-w-2xl space-y-5 p-4 pb-10">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Chấm công công trình</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">Chấm công</h1>
         <p className="text-muted-foreground mt-1 text-sm">
-          Bật định vị GPS và chụp ảnh tại chỗ. Hệ thống tự kiểm tra bạn có đúng ở
-          công trình hay không.
+          Chấm công theo công trình hoặc theo công ty. Bật định vị GPS và chụp
+          ảnh trực tiếp tại chỗ — hệ thống tự kiểm tra bạn có đúng vị trí hay
+          không.
         </p>
       </div>
 
@@ -211,7 +380,7 @@ function AttendancePage() {
               </div>
             </div>
           </div>
-          {openRecord && (
+          {openRecord && canSeeValidity && (
             <Badge
               variant={openRecord.check_in_valid ? "secondary" : "destructive"}
               className="gap-1"
@@ -237,6 +406,9 @@ function AttendancePage() {
       </div>
 
       {canConfig && <SiteConfigCard projects={projectsQuery.data ?? []} />}
+      {canConfig && (
+        <CompanySiteConfigCard companies={companiesQuery.data ?? []} />
+      )}
 
       {/* Action card */}
       <Card>
@@ -251,109 +423,318 @@ function AttendancePage() {
           </CardTitle>
           <CardDescription>
             {openRecord
-              ? "Chụp ảnh khi rời công trình để kết thúc ca"
-              : "Chọn công trình → chụp ảnh → bấm chấm công"}
+              ? "Chụp ảnh khi rời nơi làm việc để kết thúc ca"
+              : "Chọn nơi làm việc → chụp ảnh → bấm chấm công"}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           {!openRecord && (
-            <div className="space-y-1.5">
-              <label className="text-sm font-medium">Công trình</label>
-              <Select value={projectId} onValueChange={setProjectId}>
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Chọn công trình bạn đang ở" />
-                </SelectTrigger>
-                <SelectContent>
-                  {projectsQuery.data?.length ? (
-                    projectsQuery.data.map((p) => (
-                      <SelectItem key={p.id} value={p.id}>
-                        {p.name} ({p.code})
-                      </SelectItem>
-                    ))
-                  ) : (
-                    <div className="text-muted-foreground px-2 py-1.5 text-sm">
-                      Bạn chưa thuộc dự án nào
-                    </div>
-                  )}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
-
-          <div className="space-y-1.5">
-            <label className="text-sm font-medium">Ảnh tại công trình</label>
-            <input
-              ref={fileRef}
-              type="file"
-              accept="image/*"
-              capture="environment"
-              className="hidden"
-              onChange={(e) => pickPhoto(e.target.files?.[0] ?? null)}
-            />
-            {photoPreview ? (
-              <div className="relative">
-                <img
-                  src={photoPreview}
-                  alt="preview"
-                  className="h-48 w-full rounded-lg object-cover"
-                />
+            <>
+              {/* Mode: by project (default) or by company (ad-hoc help) */}
+              <div className="flex gap-2">
                 <Button
                   type="button"
                   size="sm"
-                  variant="secondary"
-                  className="absolute bottom-2 right-2"
-                  onClick={() => fileRef.current?.click()}
+                  variant={mode === "project" ? "default" : "outline"}
+                  className="flex-1"
+                  onClick={() => setMode("project")}
                 >
-                  <Camera className="size-4" /> Chụp lại
+                  <Building2 className="size-4" /> Theo công trình
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={mode === "company" ? "default" : "outline"}
+                  className="flex-1"
+                  onClick={() => setMode("company")}
+                >
+                  <Building className="size-4" /> Theo công ty
                 </Button>
               </div>
-            ) : (
-              <button
-                type="button"
-                onClick={() => fileRef.current?.click()}
-                className="border-muted-foreground/30 hover:border-primary hover:bg-muted/40 flex h-32 w-full flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed text-sm transition-colors"
-              >
-                <Camera className="text-muted-foreground size-6" />
-                <span className="text-muted-foreground">Bấm để chụp ảnh</span>
-              </button>
-            )}
-          </div>
 
-          {/* GPS status pill */}
-          <div className="flex items-center gap-2 text-xs">
-            {geo.error ? (
-              <span className="text-destructive flex items-center gap-1">
-                <XCircle className="size-3.5" /> {geo.error}
-              </span>
-            ) : geo.fix ? (
-              <span className="flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
-                <MapPin className="size-3" /> GPS sẵn sàng · sai số ~
-                {Math.round(geo.fix.accuracy)} m
-              </span>
-            ) : (
-              <span className="text-muted-foreground flex items-center gap-1">
-                <MapPin className="size-3" /> Vị trí GPS sẽ được lấy khi chấm công
-              </span>
-            )}
-          </div>
+              {mode === "project" ? (
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium">Công trình</label>
+                  <Select value={projectId} onValueChange={setProjectId}>
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Chọn công trình bạn đang ở" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {projectsQuery.data?.length ? (
+                        projectsQuery.data.map((p) => (
+                          <SelectItem key={p.id} value={p.id}>
+                            {p.name} ({p.code})
+                          </SelectItem>
+                        ))
+                      ) : (
+                        <div className="text-muted-foreground px-2 py-1.5 text-sm">
+                          Bạn chưa thuộc dự án nào
+                        </div>
+                      )}
+                    </SelectContent>
+                  </Select>
+                </div>
+              ) : (
+                <>
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-medium">Công ty</label>
+                    <Select
+                      value={companySel}
+                      onValueChange={(v) => {
+                        if (v === "__new_customer__") {
+                          setCustomerFormOpen(true)
+                          return
+                        }
+                        setCompanySel(v)
+                      }}
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Chọn công ty bạn đang ở" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectGroup>
+                          <SelectLabel>Công ty của tôi</SelectLabel>
+                          {myCompaniesQuery.data?.length ? (
+                            myCompaniesQuery.data.map((c) => (
+                              <SelectItem key={c.id} value={`tenant:${c.id}`}>
+                                {c.name}
+                              </SelectItem>
+                            ))
+                          ) : (
+                            <div className="text-muted-foreground px-2 py-1.5 text-xs">
+                              Bạn chưa thuộc công ty nào
+                            </div>
+                          )}
+                        </SelectGroup>
+                        {canViewCustomers && (
+                          <SelectGroup>
+                            <SelectLabel>Công ty khách hàng</SelectLabel>
+                            {customerCompaniesQuery.data?.length
+                              ? customerCompaniesQuery.data.map((c) => (
+                                  <SelectItem
+                                    key={c.id}
+                                    value={`customer:${c.id}`}
+                                  >
+                                    {c.name}
+                                    {c.site_lat == null
+                                      ? " (chưa đặt vị trí)"
+                                      : ""}
+                                  </SelectItem>
+                                ))
+                              : null}
+                            {canCreateCustomer && (
+                              <SelectItem value="__new_customer__">
+                                + Tạo công ty khách hàng mới
+                              </SelectItem>
+                            )}
+                          </SelectGroup>
+                        )}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-medium">Công việc</label>
+                    <Input
+                      value={taskLabel}
+                      onChange={(e) => setTaskLabel(e.target.value)}
+                      list="attendance-task-suggestions"
+                      placeholder="vd: sửa ống nước"
+                    />
+                    <datalist id="attendance-task-suggestions">
+                      {taskSuggestionsQuery.data?.map((t) => (
+                        <option key={t} value={t} />
+                      ))}
+                    </datalist>
+                    <p className="text-muted-foreground text-xs">
+                      Mô tả việc bạn qua đây làm (tự nhập, không liên quan task
+                      dự án).
+                    </p>
+                  </div>
+                </>
+              )}
+            </>
+          )}
+
+          <p className="text-muted-foreground flex items-center gap-1 text-xs">
+            <MapPin className="size-3" /> Bấm nút bên dưới để mở camera
+          </p>
 
           <Button
             className="h-11 w-full text-base"
             disabled={busy}
-            onClick={() =>
-              openRecord
-                ? checkOutMutation.mutate()
-                : checkInMutation.mutate()
-            }
+            onClick={startFlow}
           >
-            {busy
-              ? "Đang xử lý…"
-              : openRecord
-                ? "Chấm công ra"
-                : "Chấm công vào"}
+            <Camera className="size-4" />
+            {openRecord ? "Chấm công ra" : "Chấm công vào"}
           </Button>
         </CardContent>
       </Card>
+
+      {/* Check-in/out flow: camera → confirm (photo + time) → result */}
+      <Dialog
+        open={flowOpen}
+        onOpenChange={(o) => {
+          if (!o) closeFlow()
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              {flowKind === "out" ? "Chấm công ra" : "Chấm công vào"}
+            </DialogTitle>
+            <DialogDescription>
+              {flowPhase === "camera"
+                ? "Chụp ảnh trực tiếp tại nơi làm việc."
+                : flowPhase === "confirm"
+                  ? "Kiểm tra lại ảnh rồi xác nhận để chấm công."
+                  : "Đã ghi nhận chấm công."}
+            </DialogDescription>
+          </DialogHeader>
+
+          {flowPhase === "camera" && (
+            <CameraCapture
+              key={cameraNonce}
+              autoStart
+              onCapture={(f) => {
+                if (!f) return
+                setPhoto(f)
+                setCapturedAt(new Date())
+                setFlowPhase("confirm")
+              }}
+            />
+          )}
+
+          {flowPhase === "confirm" && (
+            <div className="space-y-3">
+              {photoUrl && (
+                <img
+                  src={photoUrl}
+                  alt="Ảnh chấm công"
+                  className="h-56 w-full rounded-lg object-cover"
+                />
+              )}
+              <div className="flex items-center gap-2 text-sm">
+                <Clock className="text-muted-foreground size-4" />
+                <span>
+                  Thời gian:{" "}
+                  <span className="font-medium">
+                    {capturedAt
+                      ? capturedAt.toLocaleString("vi-VN", {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                          day: "2-digit",
+                          month: "2-digit",
+                        })
+                      : "—"}
+                  </span>
+                </span>
+              </div>
+              {geo.error && (
+                <p className="text-destructive text-xs">{geo.error}</p>
+              )}
+              <DialogFooter className="gap-2 sm:gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={busy}
+                  onClick={() => {
+                    setPhoto(null)
+                    setFlowPhase("camera")
+                    setCameraNonce((n) => n + 1)
+                  }}
+                >
+                  <RefreshCw className="size-4" /> Chụp lại
+                </Button>
+                <Button
+                  type="button"
+                  className="flex-1"
+                  disabled={busy}
+                  onClick={submitFlow}
+                >
+                  {busy ? "Đang xử lý…" : "Xác nhận chấm công"}
+                </Button>
+              </DialogFooter>
+            </div>
+          )}
+
+          {flowPhase === "result" && resultRecord && (
+            <div className="space-y-3">
+              {photoUrl && (
+                <img
+                  src={photoUrl}
+                  alt="Ảnh chấm công"
+                  className="h-56 w-full rounded-lg object-cover"
+                />
+              )}
+              <div className="flex items-center gap-2 text-sm">
+                <CheckCircle2 className="size-4 text-emerald-600" />
+                <span>
+                  {flowKind === "out"
+                    ? `Đã chấm công ra · ${resultRecord.work_hours ?? 0} giờ công`
+                    : `Đã chấm công vào lúc ${fmtTime(resultRecord.check_in_at)}`}
+                </span>
+              </div>
+              {/* Validity + distance: managers only. */}
+              {canSeeValidity && (
+                <div className="text-muted-foreground flex flex-wrap items-center gap-2 text-xs">
+                  <Badge
+                    variant={
+                      (
+                        flowKind === "out"
+                          ? resultRecord.check_out_valid
+                          : resultRecord.check_in_valid
+                      )
+                        ? "secondary"
+                        : "destructive"
+                    }
+                    className="gap-1"
+                  >
+                    {(
+                      flowKind === "out"
+                        ? resultRecord.check_out_valid
+                        : resultRecord.check_in_valid
+                    ) ? (
+                      <CheckCircle2 className="size-3" />
+                    ) : (
+                      <XCircle className="size-3" />
+                    )}
+                    {(
+                      flowKind === "out"
+                        ? resultRecord.check_out_valid
+                        : resultRecord.check_in_valid
+                    )
+                      ? "hợp lệ"
+                      : "lệch vị trí"}
+                  </Badge>
+                  <span>
+                    cách ~
+                    {Math.round(
+                      (flowKind === "out"
+                        ? resultRecord.check_out_distance_m
+                        : resultRecord.check_in_distance_m) ?? 0,
+                    )}{" "}
+                    m
+                  </span>
+                </div>
+              )}
+              <DialogFooter>
+                <Button type="button" className="w-full" onClick={closeFlow}>
+                  Đóng
+                </Button>
+              </DialogFooter>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Full create-customer form, reusable across the app */}
+      <CustomerCompanyFormDialog
+        open={customerFormOpen}
+        onOpenChange={setCustomerFormOpen}
+        defaultType="customer"
+        lockType
+        onSaved={(cc) => setCompanySel(`customer:${cc.id}`)}
+      />
 
       {/* History */}
       <Card>
@@ -371,18 +752,29 @@ function AttendancePage() {
               >
                 <div className="min-w-0 space-y-1">
                   <div className="flex items-center gap-1.5 text-sm font-medium">
-                    <Building2 className="text-muted-foreground size-3.5 shrink-0" />
-                    <span className="truncate">
-                      {projectsById.get(r.project_id) ?? "Công trình"}
-                    </span>
+                    {r.mode === "company" ? (
+                      <Building className="text-muted-foreground size-3.5 shrink-0" />
+                    ) : (
+                      <Building2 className="text-muted-foreground size-3.5 shrink-0" />
+                    )}
+                    <span className="truncate">{recordLocationName(r)}</span>
                   </div>
+                  {r.task_label && (
+                    <div className="text-muted-foreground truncate text-xs">
+                      🔧 {r.task_label}
+                    </div>
+                  )}
                   <div className="text-muted-foreground flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs">
                     <span>
                       {fmtTime(r.check_in_at)} → {fmtTime(r.check_out_at)}
                     </span>
-                    <span>· cách ~{Math.round(r.check_in_distance_m)} m</span>
+                    {canSeeValidity && (
+                      <span>· cách ~{Math.round(r.check_in_distance_m)} m</span>
+                    )}
                     {r.is_auto_closed && (
-                      <span className="text-amber-600">· tự đóng (quên check-out)</span>
+                      <span className="text-amber-600">
+                        · tự đóng (quên check-out)
+                      </span>
                     )}
                   </div>
                 </div>
@@ -407,18 +799,22 @@ function AttendancePage() {
                       giới hạn 8h
                     </Badge>
                   )}
-                  {r.check_in_valid ? (
-                    <Badge variant="secondary" className="h-5 gap-1 px-1.5 text-[10px]">
-                      <CheckCircle2 className="size-2.5" /> hợp lệ
-                    </Badge>
-                  ) : (
-                    <Badge
-                      variant="destructive"
-                      className="h-5 gap-1 px-1.5 text-[10px]"
-                    >
-                      <XCircle className="size-2.5" /> lệch
-                    </Badge>
-                  )}
+                  {canSeeValidity &&
+                    (r.check_in_valid ? (
+                      <Badge
+                        variant="secondary"
+                        className="h-5 gap-1 px-1.5 text-[10px]"
+                      >
+                        <CheckCircle2 className="size-2.5" /> hợp lệ
+                      </Badge>
+                    ) : (
+                      <Badge
+                        variant="destructive"
+                        className="h-5 gap-1 px-1.5 text-[10px]"
+                      >
+                        <XCircle className="size-2.5" /> lệch
+                      </Badge>
+                    ))}
                 </div>
               </div>
             ))
@@ -498,7 +894,8 @@ function SiteConfigCard({ projects }: { projects: ProjectLite[] }) {
       if (latN !== null && (Number.isNaN(latN) || Number.isNaN(lngN!)))
         throw new Error("Toạ độ không hợp lệ")
       const radN = Number(radius)
-      if (Number.isNaN(radN) || radN < 10) throw new Error("Bán kính tối thiểu 10m")
+      if (Number.isNaN(radN) || radN < 10)
+        throw new Error("Bán kính tối thiểu 10m")
       return setSiteLocation({
         projectId,
         siteLat: latN,
@@ -543,8 +940,7 @@ function SiteConfigCard({ projects }: { projects: ProjectLite[] }) {
           <SelectContent>
             {projects.map((p) => (
               <SelectItem key={p.id} value={p.id}>
-                {p.name} ({p.code})
-                {p.site_lat != null ? " ✓" : ""}
+                {p.name} ({p.code}){p.site_lat != null ? " ✓" : ""}
               </SelectItem>
             ))}
           </SelectContent>
@@ -620,15 +1016,15 @@ function SiteConfigCard({ projects }: { projects: ProjectLite[] }) {
                   placeholder="Dán toạ độ từ Google Maps, vd: 10.762622, 106.660172"
                 />
                 <p className="text-muted-foreground text-xs">
-                  Trên Google Maps: chuột phải vào điểm → bấm vào cặp số toạ độ để
-                  copy, rồi dán vào đây.
+                  Trên Google Maps: chuột phải vào điểm → bấm vào cặp số toạ độ
+                  để copy, rồi dán vào đây.
                 </p>
               </div>
             )}
 
             <p className="text-muted-foreground text-xs">
-              Bấm lên bản đồ hoặc kéo ghim để tinh chỉnh. Vòng tròn là bán kính cho
-              phép chấm công.
+              Bấm lên bản đồ hoặc kéo ghim để tinh chỉnh. Vòng tròn là bán kính
+              cho phép chấm công.
             </p>
             <SiteMapPicker
               value={
@@ -664,7 +1060,9 @@ function SiteConfigCard({ projects }: { projects: ProjectLite[] }) {
               </div>
             </div>
             <div className="space-y-1">
-              <label className="text-xs font-medium">Bán kính cho phép (m)</label>
+              <label className="text-xs font-medium">
+                Bán kính cho phép (m)
+              </label>
               <Input
                 type="number"
                 value={radius}
@@ -687,6 +1085,268 @@ function SiteConfigCard({ projects }: { projects: ProjectLite[] }) {
               onClick={() => saveMutation.mutate()}
             >
               {saveMutation.isPending ? "Đang lưu…" : "Lưu vị trí công trình"}
+            </Button>
+          </>
+        )}
+      </CardContent>
+    </Card>
+  )
+}
+
+/**
+ * Manager-only card to configure a COMPANY's site coordinates + radius, used to
+ * validate by-company check-ins (a worker helping out at another site).
+ */
+function CompanySiteConfigCard({ companies }: { companies: CompanyLite[] }) {
+  const qc = useQueryClient()
+  const geo = useGeolocation()
+  const [companyId, setCompanyId] = useState<string>("")
+  const [lat, setLat] = useState<string>("")
+  const [lng, setLng] = useState<string>("")
+  const [radius, setRadius] = useState<string>("150")
+  const [mode, setMode] = useState<"address" | "coords">("address")
+  const [addressInput, setAddressInput] = useState<string>("")
+  const [pasteInput, setPasteInput] = useState<string>("")
+  const [geoResults, setGeoResults] = useState<GeocodeResult[]>([])
+
+  const searchMutation = useMutation({
+    mutationFn: () => geocodeAddress(addressInput),
+    onSuccess: (results) => {
+      setGeoResults(results)
+      if (results.length === 0) toast.error("Không tìm thấy địa chỉ")
+    },
+    onError: (e: any) => toast.error(e?.message ?? "Tìm địa chỉ thất bại"),
+  })
+
+  function applyResult(r: GeocodeResult) {
+    setLat(r.lat.toFixed(6))
+    setLng(r.lng.toFixed(6))
+    setGeoResults([])
+    setAddressInput(r.label)
+  }
+
+  function applyPaste(text: string) {
+    setPasteInput(text)
+    const parsed = parsePastedCoords(text)
+    if (parsed) {
+      setLat(parsed.lat.toFixed(6))
+      setLng(parsed.lng.toFixed(6))
+    }
+  }
+
+  const selected = useMemo(
+    () => companies.find((c) => c.id === companyId),
+    [companies, companyId],
+  )
+
+  useEffect(() => {
+    if (!selected) return
+    setLat(selected.site_lat != null ? String(selected.site_lat) : "")
+    setLng(selected.site_lng != null ? String(selected.site_lng) : "")
+    setRadius(String(selected.site_radius_m ?? 150))
+  }, [selected])
+
+  const saveMutation = useMutation({
+    mutationFn: async () => {
+      if (!companyId) throw new Error("Hãy chọn công ty")
+      const latN = lat.trim() === "" ? null : Number(lat)
+      const lngN = lng.trim() === "" ? null : Number(lng)
+      if ((latN === null) !== (lngN === null))
+        throw new Error("Cần nhập cả vĩ độ và kinh độ")
+      if (latN !== null && (Number.isNaN(latN) || Number.isNaN(lngN!)))
+        throw new Error("Toạ độ không hợp lệ")
+      const radN = Number(radius)
+      if (Number.isNaN(radN) || radN < 10)
+        throw new Error("Bán kính tối thiểu 10m")
+      return setCompanySiteLocation({
+        companyId,
+        siteLat: latN,
+        siteLng: lngN,
+        siteRadiusM: radN,
+      })
+    },
+    onSuccess: () => {
+      toast.success("Đã lưu vị trí công ty")
+      qc.invalidateQueries({ queryKey: ["attendance-companies"] })
+    },
+    onError: (e: any) =>
+      toast.error(e?.response?.data?.detail ?? e?.message ?? "Lưu thất bại"),
+  })
+
+  async function useCurrentLocation() {
+    try {
+      const fix = await geo.locate()
+      setLat(String(fix.lat))
+      setLng(String(fix.lng))
+      toast.success(`Đã lấy vị trí (sai số ~${Math.round(fix.accuracy)} m)`)
+    } catch {
+      /* error already surfaced by hook */
+    }
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2 text-base">
+          <Building className="size-4" /> Cấu hình vị trí công ty (Quản lý)
+        </CardTitle>
+        <CardDescription>
+          Đặt toạ độ trụ sở/công ty và bán kính cho phép chấm công theo công ty.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <Select value={companyId} onValueChange={setCompanyId}>
+          <SelectTrigger>
+            <SelectValue placeholder="Chọn công ty" />
+          </SelectTrigger>
+          <SelectContent>
+            {companies.map((c) => (
+              <SelectItem key={c.id} value={c.id}>
+                {c.name}
+                {c.site_lat != null ? " ✓" : ""}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        {companyId && (
+          <>
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                size="sm"
+                variant={mode === "address" ? "default" : "outline"}
+                className="flex-1"
+                onClick={() => setMode("address")}
+              >
+                Theo địa chỉ
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant={mode === "coords" ? "default" : "outline"}
+                className="flex-1"
+                onClick={() => setMode("coords")}
+              >
+                Theo toạ độ
+              </Button>
+            </div>
+
+            {mode === "address" ? (
+              <div className="space-y-2">
+                <div className="flex gap-2">
+                  <Input
+                    value={addressInput}
+                    onChange={(e) => setAddressInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault()
+                        searchMutation.mutate()
+                      }
+                    }}
+                    placeholder="Nhập địa chỉ công ty…"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={searchMutation.isPending || !addressInput.trim()}
+                    onClick={() => searchMutation.mutate()}
+                  >
+                    <Search className="size-4" />
+                  </Button>
+                </div>
+                {geoResults.length > 0 && (
+                  <div className="max-h-40 space-y-1 overflow-auto rounded-md border p-1">
+                    {geoResults.map((r, i) => (
+                      <button
+                        key={i}
+                        type="button"
+                        className="hover:bg-accent block w-full rounded px-2 py-1 text-left text-xs"
+                        onClick={() => applyResult(r)}
+                      >
+                        {r.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="space-y-1">
+                <Input
+                  value={pasteInput}
+                  onChange={(e) => applyPaste(e.target.value)}
+                  placeholder="Dán toạ độ từ Google Maps, vd: 10.762622, 106.660172"
+                />
+                <p className="text-muted-foreground text-xs">
+                  Trên Google Maps: chuột phải vào điểm → bấm vào cặp số toạ độ
+                  để copy, rồi dán vào đây.
+                </p>
+              </div>
+            )}
+
+            <p className="text-muted-foreground text-xs">
+              Bấm lên bản đồ hoặc kéo ghim để tinh chỉnh. Vòng tròn là bán kính
+              cho phép chấm công.
+            </p>
+            <SiteMapPicker
+              value={
+                lat.trim() !== "" &&
+                lng.trim() !== "" &&
+                !Number.isNaN(Number(lat)) &&
+                !Number.isNaN(Number(lng))
+                  ? { lat: Number(lat), lng: Number(lng) }
+                  : null
+              }
+              radiusM={Number(radius) || 150}
+              onChange={(p) => {
+                setLat(p.lat.toFixed(6))
+                setLng(p.lng.toFixed(6))
+              }}
+            />
+            <div className="grid grid-cols-2 gap-2">
+              <div className="space-y-1">
+                <label className="text-xs font-medium">Vĩ độ (lat)</label>
+                <Input
+                  value={lat}
+                  onChange={(e) => setLat(e.target.value)}
+                  placeholder="vd 10.762622"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-medium">Kinh độ (lng)</label>
+                <Input
+                  value={lng}
+                  onChange={(e) => setLng(e.target.value)}
+                  placeholder="vd 106.660172"
+                />
+              </div>
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs font-medium">
+                Bán kính cho phép (m)
+              </label>
+              <Input
+                type="number"
+                value={radius}
+                onChange={(e) => setRadius(e.target.value)}
+              />
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full"
+              disabled={geo.loading}
+              onClick={useCurrentLocation}
+            >
+              <Crosshair className="size-4" />
+              {geo.loading ? "Đang lấy vị trí…" : "Lấy vị trí hiện tại"}
+            </Button>
+            <Button
+              className="w-full"
+              disabled={saveMutation.isPending}
+              onClick={() => saveMutation.mutate()}
+            >
+              {saveMutation.isPending ? "Đang lưu…" : "Lưu vị trí công ty"}
             </Button>
           </>
         )}

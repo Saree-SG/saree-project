@@ -23,6 +23,7 @@ from app.models.chat import (
 )
 from app.repositories.chat_repository import ChatRepository
 from app.repositories.user_repository import UserRepository
+from app.services.chat_service import ChatService
 from app.shared.storage import LocalStorage
 
 router = APIRouter(tags=["chat"])
@@ -292,15 +293,9 @@ async def create_message(
     session: AsyncSessionDep,
     current_user: CurrentUser,
 ) -> ChatMessagePublic:
-    """Send a text message (member-only)."""
-    repo = ChatRepository(session)
-    await repo.require_active_member(room_id, current_user.id)
-    msg = await repo.create_message({
-        "room_id": room_id,
-        "sender_id": current_user.id,
-        "message_type": "text",
-        "content": body.content,
-    })
+    """Send a text message (member-only); notifies + pushes to other members."""
+    service = ChatService(session)
+    msg = await service.send_message(room_id, body.content, current_user)
     return msg  # type: ignore[return-value]
 
 
@@ -337,6 +332,11 @@ async def upload_attachment(
         "storage_path": stored.storage_path,
         "public_url": stored.public_url,
     })
+
+    # Notify + push to other members (same path as text messages)
+    await ChatService(session).notify_room_of_message(
+        room_id, current_user, "Đã gửi một tệp đính kèm"
+    )
 
     return ChatAttachmentPublic(
         id=att.id,

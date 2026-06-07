@@ -22,7 +22,8 @@ from sqlmodel import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.attendance import AttendanceRecord
-from app.models.org import ProjectMemberRole
+from app.models.customer_company import CustomerCompany
+from app.models.org import Company, ProjectMemberRole, UserCompanyRole
 from app.models.project import Project
 from app.models.user import User
 
@@ -56,6 +57,21 @@ class AttendanceService:
             raise HTTPException(404, "Project not found")
         return project
 
+    async def _get_company(self, company_id: uuid.UUID) -> Company:
+        company = await self._session.get(Company, company_id)
+        if not company or not company.is_active:
+            raise HTTPException(404, "Company not found")
+        return company
+
+    async def _get_customer_company(
+        self, customer_company_id: uuid.UUID, user: User
+    ) -> CustomerCompany:
+        """Resolve a customer company, scoped to the user's own tenant."""
+        cc = await self._session.get(CustomerCompany, customer_company_id)
+        if cc is None or cc.is_deleted or cc.company_id != user.company_id:
+            raise HTTPException(404, "Customer company not found")
+        return cc
+
     async def _ensure_member(self, user: User, project: Project) -> None:
         """Only project members (or its creator / superuser) may check in."""
         if user.is_superuser or project.created_by == user.id:
@@ -71,30 +87,88 @@ class AttendanceService:
                 403, "You are not assigned to this project and cannot check in"
             )
 
-    def _evaluate(
-        self, project: Project, lat: float, lng: float, accuracy_m: float | None
+    async def _ensure_company_member(self, user: User, company: Company) -> None:
+        """Members of the company (or superuser) may check in against it.
+
+        By design we also allow members of OTHER companies to check in here —
+        the whole point of by-company mode is helping out at another site. But
+        the user must belong to at least one company; we don't require it to be
+        this one. Superusers always pass.
+        """
+        if user.is_superuser:
+            return
+        result = await self._session.execute(
+            select(UserCompanyRole.user_id).where(
+                UserCompanyRole.user_id == user.id
+            )
+        )
+        if result.scalars().first() is None:
+            raise HTTPException(
+                403, "You are not assigned to any company and cannot check in"
+            )
+
+    def _evaluate_site(
+        self,
+        site_lat: float | None,
+        site_lng: float | None,
+        site_radius_m: int,
+        lat: float,
+        lng: float,
+        accuracy_m: float | None,
     ) -> tuple[float, bool]:
-        """Return (distance_m, is_valid) for a coordinate against the site."""
-        if project.site_lat is None or project.site_lng is None:
+        """Return (distance_m, is_valid) for a coordinate against a site."""
+        if site_lat is None or site_lng is None:
             # Site not configured → record distance as 0 and flag invalid so it
             # surfaces for review rather than silently passing.
             return 0.0, False
-        distance = haversine_m(lat, lng, project.site_lat, project.site_lng)
+        distance = haversine_m(lat, lng, site_lat, site_lng)
         if accuracy_m is not None and accuracy_m > _UNRELIABLE_ACCURACY_M:
             return distance, False
         buffer = min(accuracy_m or 0.0, _MAX_ACCURACY_BUFFER_M)
-        is_valid = distance <= project.site_radius_m + buffer
+        is_valid = distance <= site_radius_m + buffer
         return distance, is_valid
 
-    async def _open_record(
-        self, user_id: uuid.UUID, project_id: uuid.UUID
-    ) -> AttendanceRecord | None:
-        """Most recent record for this user+project that has not checked out."""
+    def _evaluate(
+        self, project: Project, lat: float, lng: float, accuracy_m: float | None
+    ) -> tuple[float, bool]:
+        return self._evaluate_site(
+            project.site_lat, project.site_lng, project.site_radius_m, lat, lng, accuracy_m
+        )
+
+    async def _evaluate_record(
+        self, record: AttendanceRecord, lat: float, lng: float, accuracy_m: float | None
+    ) -> tuple[float, bool]:
+        """Evaluate a coordinate against whatever site the record belongs to."""
+        if record.mode == "company":
+            if record.customer_company_id is not None:
+                cc = await self._session.get(
+                    CustomerCompany, record.customer_company_id
+                )
+                if cc is None:
+                    return 0.0, False
+                return self._evaluate_site(
+                    cc.site_lat, cc.site_lng, cc.site_radius_m, lat, lng, accuracy_m
+                )
+            if record.company_id is not None:
+                company = await self._get_company(record.company_id)
+                return self._evaluate_site(
+                    company.site_lat, company.site_lng, company.site_radius_m,
+                    lat, lng, accuracy_m,
+                )
+        project = await self._get_project(record.project_id)  # type: ignore[arg-type]
+        return self._evaluate(project, lat, lng, accuracy_m)
+
+    async def _open_record(self, user_id: uuid.UUID) -> AttendanceRecord | None:
+        """Most recent record for this user that has not checked out.
+
+        Scoped to the user (not project/company) so a worker can only have one
+        open shift at a time across every site — they must check out of the
+        current site before checking in anywhere else.
+        """
         result = await self._session.execute(
             select(AttendanceRecord)
             .where(
                 AttendanceRecord.user_id == user_id,
-                AttendanceRecord.project_id == project_id,
                 AttendanceRecord.check_out_at.is_(None),  # type: ignore[union-attr]
             )
             .order_by(AttendanceRecord.check_in_at.desc())  # type: ignore[union-attr]
@@ -162,16 +236,53 @@ class AttendanceService:
     async def check_in(
         self,
         user: User,
-        project_id: uuid.UUID,
         lat: float,
         lng: float,
         accuracy_m: float | None,
         photo_url: str,
+        mode: str = "project",
+        project_id: uuid.UUID | None = None,
+        company_id: uuid.UUID | None = None,
+        customer_company_id: uuid.UUID | None = None,
+        task_label: str | None = None,
         note: str | None = None,
     ) -> AttendanceRecord:
-        project = await self._get_project(project_id)
-        await self._ensure_member(user, project)
-        open_rec = await self._open_record(user.id, project_id)
+        # Validate the target site and membership depending on the mode.
+        if mode == "company":
+            task_label = (task_label or "").strip() or None
+            if not task_label:
+                raise HTTPException(422, "Hãy nhập công việc khi chấm công theo công ty")
+            if customer_company_id is not None:
+                # Check in at a customer company's site (validate vs its coords).
+                cc = await self._get_customer_company(customer_company_id, user)
+                distance, valid = self._evaluate_site(
+                    cc.site_lat, cc.site_lng, cc.site_radius_m, lat, lng, accuracy_m,
+                )
+                company_id = None
+            elif company_id is not None:
+                company = await self._get_company(company_id)
+                await self._ensure_company_member(user, company)
+                distance, valid = self._evaluate_site(
+                    company.site_lat, company.site_lng, company.site_radius_m,
+                    lat, lng, accuracy_m,
+                )
+            else:
+                raise HTTPException(
+                    422, "Hãy chọn công ty hoặc công ty khách hàng khi chấm công theo công ty"
+                )
+            project_id = None
+        else:
+            mode = "project"
+            if project_id is None:
+                raise HTTPException(422, "project_id là bắt buộc khi chấm công theo công trình")
+            project = await self._get_project(project_id)
+            await self._ensure_member(user, project)
+            distance, valid = self._evaluate(project, lat, lng, accuracy_m)
+            company_id = None
+            customer_company_id = None
+            task_label = None
+
+        open_rec = await self._open_record(user.id)
         if open_rec:
             # Forgotten check-out from a previous shift → auto-close and allow
             # the new check-in. A genuinely current shift still blocks.
@@ -181,10 +292,13 @@ class AttendanceService:
                     "Bạn đang có 1 ca chưa chấm công ra. Hãy chấm công ra trước.",
                 )
         now = datetime.now(timezone.utc)
-        distance, valid = self._evaluate(project, lat, lng, accuracy_m)
         record = AttendanceRecord(
             user_id=user.id,
+            mode=mode,
             project_id=project_id,
+            company_id=company_id,
+            customer_company_id=customer_company_id,
+            task_label=task_label,
             work_date=now.date(),
             check_in_at=now,
             check_in_lat=lat,
@@ -216,9 +330,8 @@ class AttendanceService:
         if record.check_out_at is not None:
             raise HTTPException(409, "This record is already checked out")
 
-        project = await self._get_project(record.project_id)
         now = datetime.now(timezone.utc)
-        distance, valid = self._evaluate(project, lat, lng, accuracy_m)
+        distance, valid = await self._evaluate_record(record, lat, lng, accuracy_m)
 
         record.check_out_at = now
         record.check_out_lat = lat
@@ -276,3 +389,37 @@ class AttendanceService:
         self._session.add(project)
         await self._session.flush()
         return project
+
+    async def set_company_site_location(
+        self,
+        company_id: uuid.UUID,
+        site_lat: float | None,
+        site_lng: float | None,
+        site_radius_m: int | None,
+    ) -> Company:
+        company = await self._get_company(company_id)
+        company.site_lat = site_lat
+        company.site_lng = site_lng
+        if site_radius_m is not None:
+            company.site_radius_m = site_radius_m
+        self._session.add(company)
+        await self._session.flush()
+        return company
+
+    async def list_task_suggestions(self, user_id: uuid.UUID, limit: int = 20) -> list[str]:
+        """Distinct company-mode task labels this user has used before."""
+        result = await self._session.execute(
+            select(AttendanceRecord.task_label)
+            .where(
+                AttendanceRecord.user_id == user_id,
+                AttendanceRecord.task_label.is_not(None),  # type: ignore[union-attr]
+            )
+            .order_by(AttendanceRecord.check_in_at.desc())  # type: ignore[union-attr]
+        )
+        seen: list[str] = []
+        for label in result.scalars().all():
+            if label and label not in seen:
+                seen.append(label)
+            if len(seen) >= limit:
+                break
+        return seen

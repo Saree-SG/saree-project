@@ -276,6 +276,12 @@ class QuotationVersionPublic(SQLModel):
 
 class QuotationBase(SQLModel):
     project_name: str = Field(max_length=500)
+    # Optional link to a registered customer company. The text fields below are
+    # kept as a snapshot (auto-filled from the linked customer) for backward
+    # compatibility with existing rows and client-grouped reports.
+    client_company_id: Optional[uuid.UUID] = Field(
+        default=None, foreign_key="customercompany.id", index=True
+    )
     client_company_name: str = Field(max_length=255)
     client_contact_name: Optional[str] = Field(default=None, max_length=255)
     client_contact_title: Optional[str] = Field(default=None, max_length=100)
@@ -365,6 +371,7 @@ class QuotationCreate(QuotationBase):
 
 class QuotationUpdate(SQLModel):
     project_name: Optional[str] = None
+    client_company_id: Optional[uuid.UUID] = None
     client_company_name: Optional[str] = None
     client_contact_name: Optional[str] = None
     client_contact_title: Optional[str] = None

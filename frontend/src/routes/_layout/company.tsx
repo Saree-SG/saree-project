@@ -1,11 +1,24 @@
 import { useQuery } from "@tanstack/react-query"
 import { createFileRoute, redirect } from "@tanstack/react-router"
-import { Building2, Gauge, LayoutGrid, Trophy, Users } from "lucide-react"
+import {
+  Building2,
+  Contact,
+  Gauge,
+  LayoutGrid,
+  MapPin,
+  Trophy,
+  Users,
+  Workflow,
+} from "lucide-react"
 import { useState } from "react"
 
-import { ApiError, UsersService } from "@/client"
+import { ApiError, RolesService, UsersService } from "@/client"
+import CompanyOrgChartPanel from "@/components/Company/CompanyOrgChartPanel"
 import CompanyOrgPanel from "@/components/Company/CompanyOrgPanel"
 import CompanyOverviewPanel from "@/components/Company/CompanyOverviewPanel"
+import CustomerCompaniesPanel from "@/components/Company/CustomerCompaniesPanel"
+import LeaveApprovalConfigPanel from "@/components/Company/LeaveApprovalConfigPanel"
+import OwnCompaniesPanel from "@/components/Company/OwnCompaniesPanel"
 import ProductivityPanel from "@/components/Company/ProductivityPanel"
 import YearSummaryPanel from "@/components/Company/YearSummaryPanel"
 import {
@@ -17,10 +30,14 @@ import {
 } from "@/components/ui/select"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import useAuth from "@/hooks/useAuth"
-import { useMyPermissions } from "@/hooks/useMyPermissions"
+import { useCan, useMyPermissions } from "@/hooks/useMyPermissions"
 import { clearSession } from "@/modules/auth/tokenStore"
 import { listMyCompanies, readMyPermissions } from "@/modules/rbac/rbacApi"
-import { canAccessDashboard, canManageCompany } from "@/utils/accountAccess"
+import {
+  canAccessDashboard,
+  canManageCompany,
+  isCompanyDirector,
+} from "@/utils/accountAccess"
 
 export const Route = createFileRoute("/_layout/company")({
   beforeLoad: async () => {
@@ -59,8 +76,18 @@ function CompanyPage() {
   const permissionsQuery = useMyPermissions()
   const permissions = permissionsQuery.data ?? []
 
-  const canManage = isSuperuser || canManageCompany(permissions)
+  // Company directors have full visibility into their own company even though
+  // they intentionally lack the admin-only USER_MANAGE permission.
+  const { data: accountProfile } = useQuery({
+    queryKey: ["roles", "my-account-profile"],
+    queryFn: () => RolesService.myAccountProfile(),
+    enabled: Boolean(user),
+  })
+  const isDirector = isCompanyDirector(accountProfile)
+
+  const canManage = isSuperuser || isDirector || canManageCompany(permissions)
   const canReport = isSuperuser || canAccessDashboard(permissions)
+  const canConfigLeave = useCan("LEAVE_CONFIG")
 
   // One company selector for the whole page — every tab scopes to it.
   const companiesQuery = useQuery({
@@ -107,6 +134,12 @@ function CompanyPage() {
         ) : null}
       </div>
 
+      {canManage ? (
+        <section className="rounded-xl border bg-card p-4 shadow-sm">
+          <CompanyOrgChartPanel companyId={selectedId} />
+        </section>
+      ) : null}
+
       <Tabs defaultValue={defaultTab} className="gap-4">
         <TabsList className="flex h-auto w-full flex-wrap justify-start">
           {canManage ? (
@@ -116,6 +149,12 @@ function CompanyPage() {
               </TabsTrigger>
               <TabsTrigger value="org" className="flex-none px-3">
                 <Users className="mr-1" /> Phòng ban &amp; Nhân sự
+              </TabsTrigger>
+              <TabsTrigger value="customers" className="flex-none px-3">
+                <Contact className="mr-1" /> Khách hàng
+              </TabsTrigger>
+              <TabsTrigger value="own" className="flex-none px-3">
+                <MapPin className="mr-1" /> Công ty của tôi
               </TabsTrigger>
             </>
           ) : null}
@@ -129,6 +168,11 @@ function CompanyPage() {
               </TabsTrigger>
             </>
           ) : null}
+          {canConfigLeave ? (
+            <TabsTrigger value="approval" className="flex-none px-3">
+              <Workflow className="mr-1" /> Phê duyệt
+            </TabsTrigger>
+          ) : null}
         </TabsList>
 
         {canManage ? (
@@ -136,8 +180,14 @@ function CompanyPage() {
             <TabsContent value="overview">
               <CompanyOverviewPanel company={company} />
             </TabsContent>
-            <TabsContent value="org">
+            <TabsContent value="org" className="space-y-5">
               <CompanyOrgPanel company={company} />
+            </TabsContent>
+            <TabsContent value="customers">
+              <CustomerCompaniesPanel />
+            </TabsContent>
+            <TabsContent value="own">
+              <OwnCompaniesPanel />
             </TabsContent>
           </>
         ) : null}
@@ -150,6 +200,11 @@ function CompanyPage() {
               <YearSummaryPanel />
             </TabsContent>
           </>
+        ) : null}
+        {canConfigLeave ? (
+          <TabsContent value="approval">
+            <LeaveApprovalConfigPanel companyId={selectedId} />
+          </TabsContent>
         ) : null}
       </Tabs>
     </div>

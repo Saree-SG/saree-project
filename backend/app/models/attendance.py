@@ -26,7 +26,17 @@ def _utcnow() -> datetime:
 class AttendanceRecord(SQLModel, table=True):
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
     user_id: uuid.UUID = Field(foreign_key="user.id", index=True)
-    project_id: uuid.UUID = Field(foreign_key="project.id", index=True)
+    # "project" → check in against a project site (default, original behaviour);
+    # "company" → check in against a company (e.g. helping out at another site),
+    # with a free-text task describing the ad-hoc work.
+    mode: str = Field(default="project", max_length=20)
+    project_id: uuid.UUID | None = Field(default=None, foreign_key="project.id", index=True)
+    company_id: uuid.UUID | None = Field(default=None, foreign_key="company.id", index=True)
+    # company-mode against a CUSTOMER company (worker at a customer's site).
+    customer_company_id: uuid.UUID | None = Field(
+        default=None, foreign_key="customercompany.id", index=True
+    )
+    task_label: str | None = Field(default=None, max_length=255)  # company-mode ad-hoc task
     work_date: date = Field(index=True)
 
     # Check-in (required)
@@ -63,7 +73,11 @@ class AttendanceRecord(SQLModel, table=True):
 class AttendanceRecordPublic(SQLModel):
     id: uuid.UUID
     user_id: uuid.UUID
-    project_id: uuid.UUID
+    mode: str
+    project_id: uuid.UUID | None
+    company_id: uuid.UUID | None
+    customer_company_id: uuid.UUID | None
+    task_label: str | None
     work_date: date
     check_in_at: datetime
     check_in_lat: float

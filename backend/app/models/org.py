@@ -28,6 +28,13 @@ class Company(SQLModel, table=True):
         default_factory=_utcnow, sa_type=DateTime(timezone=True)  # type: ignore
     )
 
+    # Site location for "by-company" attendance check-in (GPS verification).
+    # A worker checking in against the company (rather than a specific project
+    # site) is validated against these coordinates, same as a project site.
+    site_lat: float | None = None
+    site_lng: float | None = None
+    site_radius_m: int = Field(default=150)   # allowed check-in radius (metres)
+
     departments: list["Department"] = Relationship(back_populates="company")
     roles: list["Role"] = Relationship(back_populates="company")
     user_company_roles: list["UserCompanyRole"] = Relationship(back_populates="company")
@@ -45,6 +52,9 @@ class CompanyPublic(SQLModel):
     name: str
     slug: str
     is_active: bool
+    site_lat: float | None = None
+    site_lng: float | None = None
+    site_radius_m: int = 150
 
 
 class CompanyUpdate(SQLModel):

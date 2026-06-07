@@ -1,11 +1,7 @@
-import { useQuery } from "@tanstack/react-query"
-import { createFileRoute } from "@tanstack/react-router"
-import { Building2, Lock, LogOut, Mail, UserRound } from "lucide-react"
-
-import { RolesService } from "@/client"
-import OrgTreePanel from "@/components/OrgTree/OrgTreePanel"
+import { createFileRoute, Link } from "@tanstack/react-router"
+import { LogOut, ShieldCheck, UserRound } from "lucide-react"
 import ChangePassword from "@/components/UserSettings/ChangePassword"
-import UserInformation from "@/components/UserSettings/UserInformation"
+import DeleteAccount from "@/components/UserSettings/DeleteAccount"
 import { Button } from "@/components/ui/button"
 import useAuth from "@/hooks/useAuth"
 
@@ -14,7 +10,7 @@ export const Route = createFileRoute("/_layout/settings")({
   head: () => ({
     meta: [
       {
-        title: "Settings - Saree",
+        title: "Cài đặt - Saree",
       },
     ],
   }),
@@ -22,135 +18,63 @@ export const Route = createFileRoute("/_layout/settings")({
 
 function UserSettings() {
   const { user: currentUser, logout } = useAuth()
-  const { data: accountProfile } = useQuery({
-    queryKey: ["roles", "my-account-profile"],
-    queryFn: () => RolesService.myAccountProfile(),
-    enabled: Boolean(currentUser),
-  })
-  const primaryMembership =
-    accountProfile?.memberships.find((membership) => membership.is_primary) ||
-    accountProfile?.memberships[0]
-
-  const { data: companyRoles } = useQuery({
-    queryKey: ["roles", "catalog", primaryMembership?.company_id || ""],
-    queryFn: () =>
-      RolesService.listCompanyRoles({
-        companyId: primaryMembership?.company_id || "",
-      }),
-    enabled: Boolean(primaryMembership?.company_id),
-  })
-
-  const currentRole = companyRoles?.find(
-    (role) => role.id === primaryMembership?.role_id,
-  )
 
   if (!currentUser) {
     return null
   }
 
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-6 px-1 pb-8 sm:px-2">
+    <div className="mx-auto w-full max-w-3xl space-y-6 px-1 pb-8 sm:px-2">
       <section className="rounded-2xl border bg-card p-4 shadow-sm sm:p-6">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-4">
-            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-primary/10 text-primary">
-              <UserRound className="size-7" />
-            </div>
-            <div>
-              <h1 className="text-xl font-bold text-foreground sm:text-2xl">
-                {currentUser.full_name || currentUser.email}
-              </h1>
-              <p className="text-sm text-muted-foreground">
-                {primaryMembership?.role_display_name || "Chưa có role"}
-                {primaryMembership?.company_name
-                  ? ` - ${primaryMembership.company_name}`
-                  : ""}
-              </p>
-            </div>
+          <div>
+            <h1 className="flex items-center gap-2 text-xl font-bold text-foreground sm:text-2xl">
+              <ShieldCheck className="size-6 text-primary" /> Cài đặt tài khoản
+            </h1>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Bảo mật và quản lý tài khoản. Xem hồ sơ cá nhân tại{" "}
+              <Link to="/profile" className="text-primary underline">
+                Hồ sơ của tôi
+              </Link>
+              .
+            </p>
           </div>
-          <Button
-            variant="outline"
-            className="w-full sm:w-auto"
-            onClick={() => {
-              void logout()
-            }}
-          >
-            <LogOut className="size-4" />
-            Đăng xuất
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="outline" asChild>
+              <Link to="/profile">
+                <UserRound className="size-4" /> Hồ sơ
+              </Link>
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => {
+                void logout()
+              }}
+            >
+              <LogOut className="size-4" />
+              Đăng xuất
+            </Button>
+          </div>
         </div>
       </section>
 
-      <section className="grid grid-cols-1 gap-3 min-[540px]:grid-cols-2 lg:grid-cols-3">
-        <div className="rounded-xl border bg-card p-4 shadow-sm">
-          <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
-            <Mail className="size-5" />
-          </div>
-          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            Email
-          </p>
-          <p className="mt-1 break-all text-sm font-medium">
-            {currentUser.email}
-          </p>
-        </div>
-
-        <div className="rounded-xl border bg-card p-4 shadow-sm">
-          <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
-            <Building2 className="size-5" />
-          </div>
-          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            Company
-          </p>
-          <p className="mt-1 text-sm font-medium">
-            {primaryMembership?.company_name || "Chưa có công ty"}
-          </p>
-        </div>
-
-        <div className="rounded-xl border bg-card p-4 shadow-sm min-[540px]:col-span-2 lg:col-span-1">
-          <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
-            <Lock className="size-5" />
-          </div>
-          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            Role
-          </p>
-          <p className="mt-1 text-sm font-medium">
-            {primaryMembership?.role_display_name || "Chưa có role"}
-          </p>
-        </div>
+      <section className="rounded-2xl border bg-card p-4 shadow-sm">
+        <h2 className="mb-2 text-lg font-semibold">Đổi mật khẩu</h2>
+        <p className="mb-4 text-sm text-muted-foreground">
+          Cập nhật mật khẩu để tăng cường bảo mật tài khoản.
+        </p>
+        <ChangePassword embedded />
       </section>
 
-      <section className="grid grid-cols-1 gap-6 xl:grid-cols-5">
-        <div className="rounded-2xl border bg-card p-4 shadow-sm xl:col-span-3">
-          <h2 className="mb-2 text-lg font-semibold">Thông tin tài khoản</h2>
-          <p className="mb-4 text-sm text-muted-foreground">
-            Cập nhật hồ sơ cá nhân và kiểm tra role theo công ty.
-          </p>
-          <UserInformation embedded />
-        </div>
-
-        <div className="rounded-2xl border bg-card p-4 shadow-sm xl:col-span-2">
-          <h2 className="mb-2 text-lg font-semibold">Đổi mật khẩu</h2>
-          <p className="mb-4 text-sm text-muted-foreground">
-            Cập nhật mật khẩu để tăng cường bảo mật tài khoản.
-          </p>
-          <ChangePassword embedded />
-        </div>
+      <section className="rounded-2xl border bg-card p-4 shadow-sm">
+        <h2 className="mb-2 text-lg font-semibold text-destructive">
+          Vùng nguy hiểm
+        </h2>
+        <p className="mb-1 text-sm text-muted-foreground">
+          Xóa tài khoản là thao tác không thể hoàn tác.
+        </p>
+        <DeleteAccount />
       </section>
-
-      {primaryMembership && currentRole ? (
-        <OrgTreePanel
-          companyId={primaryMembership.company_id}
-          companyName={primaryMembership.company_name}
-          departmentId={currentUser.department_id || undefined}
-        />
-      ) : (
-        <section className="rounded-2xl border bg-card p-4 shadow-sm sm:p-6">
-          <h2 className="text-lg font-semibold">Sơ đồ tổ chức</h2>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Chưa đủ dữ liệu để hiển thị sơ đồ tổ chức.
-          </p>
-        </section>
-      )}
     </div>
   )
 }

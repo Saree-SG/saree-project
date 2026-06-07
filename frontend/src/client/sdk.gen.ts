@@ -3,12 +3,439 @@
 import type { CancelablePromise } from './core/CancelablePromise';
 import { OpenAPI } from './core/OpenAPI';
 import { request as __request } from './core/request';
-import type { ChatListMyRoomsResponse, ChatCreateRoomData, ChatCreateRoomResponse, ChatGetRoomData, ChatGetRoomResponse, ChatUpdateRoomData, ChatUpdateRoomResponse, ChatDeleteRoomData, ChatDeleteRoomResponse, ChatListMembersData, ChatListMembersResponse, ChatAddMemberData, ChatAddMemberResponse, ChatRemoveMemberData, ChatRemoveMemberResponse, ChatListMessagesData, ChatListMessagesResponse, ChatCreateMessageData, ChatCreateMessageResponse, ChatUploadAttachmentData, ChatUploadAttachmentResponse, DashboardOverviewData, DashboardOverviewResponse, DashboardProjectStatsData, DashboardProjectStatsResponse, DashboardUserWorkloadData, DashboardUserWorkloadResponse, DashboardLeaderboardData, DashboardLeaderboardResponse, DashboardOverdueReportData, DashboardOverdueReportResponse, DashboardTaskCalendarData, DashboardTaskCalendarResponse, LoginLoginAccessTokenData, LoginLoginAccessTokenResponse, LoginTestTokenResponse, LoginRefreshAccessTokenData, LoginRefreshAccessTokenResponse, LoginLogoutData, LoginLogoutResponse, LoginRecoverPasswordData, LoginRecoverPasswordResponse, LoginResetPasswordData, LoginResetPasswordResponse, LoginRecoverPasswordHtmlContentData, LoginRecoverPasswordHtmlContentResponse, PrivateCreateUserData, PrivateCreateUserResponse, ProjectsListProjectsData, ProjectsListProjectsResponse, ProjectsCreateProjectData, ProjectsCreateProjectResponse, ProjectsGetProjectData, ProjectsGetProjectResponse, ProjectsUpdateProjectData, ProjectsUpdateProjectResponse, ProjectsUpsertLevelConfigData, ProjectsUpsertLevelConfigResponse, ProjectsGetLevelConfigsData, ProjectsGetLevelConfigsResponse, ProjectsGetMembersData, ProjectsGetMembersResponse, ProjectsAddMemberData, ProjectsAddMemberResponse, RolesListRoleDependenciesData, RolesListRoleDependenciesResponse, RolesListCompanyRolesData, RolesListCompanyRolesResponse, RolesListCompaniesResponse, RolesCreateCompanyData, RolesCreateCompanyResponse, RolesUpdateCompanyData, RolesUpdateCompanyResponse, RolesCreateDepartmentData, RolesCreateDepartmentResponse, RolesListDepartmentsData, RolesListDepartmentsResponse, RolesCreateRoleData, RolesCreateRoleResponse, RolesCreateRoleDependencyData, RolesCreateRoleDependencyResponse, RolesAssignUserCompanyRoleData, RolesAssignUserCompanyRoleResponse, RolesListUserCompanyRolesData, RolesListUserCompanyRolesResponse, RolesMyAccountProfileResponse, RolesGetOrgTreeData, RolesGetOrgTreeResponse, TasksCreateRootTaskData, TasksCreateRootTaskResponse, TasksListProjectTasksData, TasksListProjectTasksResponse, TasksCreateChildTaskData, TasksCreateChildTaskResponse, TasksGetTaskData, TasksGetTaskResponse, TasksUpdateTaskData, TasksUpdateTaskResponse, TasksDeleteTaskData, TasksDeleteTaskResponse, TasksMyDashboardResponse, TasksUpdateTaskStatusData, TasksUpdateTaskStatusResponse, TasksCloneTaskData, TasksCloneTaskResponse, TasksAddCommentData, TasksAddCommentResponse, TasksListCommentsData, TasksListCommentsResponse, TasksApproveDelayRequestData, TasksApproveDelayRequestResponse, TasksUploadProofData, TasksUploadProofResponse, TasksListProofsData, TasksListProofsResponse, TasksReviewProofData, TasksReviewProofResponse, TasksAddDependencyData, TasksAddDependencyResponse, TasksUploadProgressReportPhotoData, TasksUploadProgressReportPhotoResponse, TasksAddProgressReportData, TasksAddProgressReportResponse, TasksListProgressReportsData, TasksListProgressReportsResponse, TasksGetTaskAuditData, TasksGetTaskAuditResponse, TasksCheckConflictsData, TasksCheckConflictsResponse, UsersReadUserByEmailData, UsersReadUserByEmailResponse, UsersReadUsersData, UsersReadUsersResponse, UsersCreateUserData, UsersCreateUserResponse, UsersReadUserMeResponse, UsersDeleteUserMeResponse, UsersUpdateUserMeData, UsersUpdateUserMeResponse, UsersUpdatePasswordMeData, UsersUpdatePasswordMeResponse, UsersRegisterUserData, UsersRegisterUserResponse, UsersReadUserByIdData, UsersReadUserByIdResponse, UsersUpdateUserData, UsersUpdateUserResponse, UsersDeleteUserData, UsersDeleteUserResponse, UtilsTestEmailData, UtilsTestEmailResponse, UtilsHealthCheckResponse } from './types.gen';
+import type { AdminStatsGetOverviewResponse, AdminStatsListActiveSessionsResponse, AdminStatsGetLoginFrequencyData, AdminStatsGetLoginFrequencyResponse, AdminStatsGetUsersActivityData, AdminStatsGetUsersActivityResponse, AdminStatsListAuditLogData, AdminStatsListAuditLogResponse, AdminStatsRevokeSessionData, AdminStatsRevokeSessionResponse, AdminUsersListUsersResponse, AdminUsersGetUserDetailData, AdminUsersGetUserDetailResponse, AdminUsersAddMembershipData, AdminUsersAddMembershipResponse, AdminUsersUpdateMembershipData, AdminUsersUpdateMembershipResponse, AdminUsersDeleteMembershipData, AdminUsersDeleteMembershipResponse, AdminUsersGetUserPermissionsData, AdminUsersGetUserPermissionsResponse, AttendanceCheckInData, AttendanceCheckInResponse, AttendanceCheckOutData, AttendanceCheckOutResponse, AttendanceAdjustAttendanceHoursData, AttendanceAdjustAttendanceHoursResponse, AttendanceMyAttendanceData, AttendanceMyAttendanceResponse, AttendanceProjectAttendanceData, AttendanceProjectAttendanceResponse, AttendanceAttendanceTaskSuggestionsResponse, AttendanceSetCompanySiteLocationData, AttendanceSetCompanySiteLocationResponse, AttendanceSetSiteLocationData, AttendanceSetSiteLocationResponse, ChatListMyRoomsResponse, ChatCreateRoomData, ChatCreateRoomResponse, ChatGetRoomData, ChatGetRoomResponse, ChatUpdateRoomData, ChatUpdateRoomResponse, ChatDeleteRoomData, ChatDeleteRoomResponse, ChatGetUnreadCountResponse, ChatMarkRoomReadData, ChatMarkRoomReadResponse, ChatListMembersData, ChatListMembersResponse, ChatAddMemberData, ChatAddMemberResponse, ChatRemoveMemberData, ChatRemoveMemberResponse, ChatListMessagesData, ChatListMessagesResponse, ChatCreateMessageData, ChatCreateMessageResponse, ChatUploadAttachmentData, ChatUploadAttachmentResponse, ContractsListContractsData, ContractsListContractsResponse, ContractsCreateContractData, ContractsCreateContractResponse, ContractsGetContractData, ContractsGetContractResponse, ContractsUpdateContractData, ContractsUpdateContractResponse, ContractsDeleteContractData, ContractsDeleteContractResponse, ContractsSubmitContractData, ContractsSubmitContractResponse, ContractsApproveContractData, ContractsApproveContractResponse, ContractsRejectContractData, ContractsRejectContractResponse, ContractsSignContractData, ContractsSignContractResponse, ContractsConfirmAdvanceData, ContractsConfirmAdvanceResponse, ContractsStartProductionData, ContractsStartProductionResponse, ContractsCompleteContractData, ContractsCompleteContractResponse, ContractsUploadAttachmentData, ContractsUploadAttachmentResponse, ContractsDeleteAttachmentData, ContractsDeleteAttachmentResponse, CustomerCompaniesCreateCustomerCompanyData, CustomerCompaniesCreateCustomerCompanyResponse, CustomerCompaniesListCustomerCompaniesData, CustomerCompaniesListCustomerCompaniesResponse, CustomerCompaniesGetCustomerCompanyData, CustomerCompaniesGetCustomerCompanyResponse, CustomerCompaniesUpdateCustomerCompanyData, CustomerCompaniesUpdateCustomerCompanyResponse, CustomerCompaniesDeleteCustomerCompanyData, CustomerCompaniesDeleteCustomerCompanyResponse, DashboardOverviewData, DashboardOverviewResponse, DashboardProjectStatsData, DashboardProjectStatsResponse, DashboardUserWorkloadData, DashboardUserWorkloadResponse, DashboardLeaderboardData, DashboardLeaderboardResponse, DashboardOverdueReportData, DashboardOverdueReportResponse, DashboardUserTasksData, DashboardUserTasksResponse, DashboardCompanyGanttData, DashboardCompanyGanttResponse, DashboardUserGanttData, DashboardUserGanttResponse, DashboardUserWeeklyStatsData, DashboardUserWeeklyStatsResponse, DashboardTaskCalendarData, DashboardTaskCalendarResponse, DashboardTeamProductivityData, DashboardTeamProductivityResponse, DashboardYearSummaryData, DashboardYearSummaryResponse, ExportExportFullResponse, ExportExportAccountsResponse, ExportExportTasksResponse, IncidentsCreateIncidentData, IncidentsCreateIncidentResponse, IncidentsListIncidentsData, IncidentsListIncidentsResponse, IncidentsGetIncidentData, IncidentsGetIncidentResponse, IncidentsUpdateIncidentData, IncidentsUpdateIncidentResponse, IncidentsResolveIncidentData, IncidentsResolveIncidentResponse, IncidentsAddIncidentAttachmentData, IncidentsAddIncidentAttachmentResponse, LeaveCreateLeaveRequestData, LeaveCreateLeaveRequestResponse, LeaveMyLeaveRequestsData, LeaveMyLeaveRequestsResponse, LeaveCancelLeaveRequestData, LeaveCancelLeaveRequestResponse, LeavePendingLeaveRequestsResponse, LeaveApproveLeaveRequestData, LeaveApproveLeaveRequestResponse, LeaveRejectLeaveRequestData, LeaveRejectLeaveRequestResponse, LeaveCompanyLeaveRequestsData, LeaveCompanyLeaveRequestsResponse, LeaveGetLeaveApproverConfigData, LeaveGetLeaveApproverConfigResponse, LeaveSetLeaveApproverConfigData, LeaveSetLeaveApproverConfigResponse, LoginLoginAccessTokenData, LoginLoginAccessTokenResponse, LoginTestTokenResponse, LoginRefreshAccessTokenData, LoginRefreshAccessTokenResponse, LoginLogoutData, LoginLogoutResponse, LoginRecoverPasswordData, LoginRecoverPasswordResponse, LoginResetPasswordData, LoginResetPasswordResponse, LoginRecoverPasswordHtmlContentData, LoginRecoverPasswordHtmlContentResponse, NotificationsListNotificationsData, NotificationsListNotificationsResponse, NotificationsUnreadCountResponse, NotificationsMarkReadData, NotificationsMarkReadResponse, NotificationsMarkAllReadResponse, NotificationsGetVapidPublicKeyResponse, NotificationsSubscribePushData, NotificationsSubscribePushResponse, NotificationsUnsubscribePushData, NotificationsUnsubscribePushResponse, PrivateCreateUserData, PrivateCreateUserResponse, ProjectsListProjectsData, ProjectsListProjectsResponse, ProjectsCreateProjectData, ProjectsCreateProjectResponse, ProjectsGetProjectData, ProjectsGetProjectResponse, ProjectsUpdateProjectData, ProjectsUpdateProjectResponse, ProjectsDeleteProjectData, ProjectsDeleteProjectResponse, ProjectsUpsertLevelConfigData, ProjectsUpsertLevelConfigResponse, ProjectsGetLevelConfigsData, ProjectsGetLevelConfigsResponse, ProjectsGetMembersData, ProjectsGetMembersResponse, ProjectsAddMemberData, ProjectsAddMemberResponse, ProjectsRemoveMemberData, ProjectsRemoveMemberResponse, ProjectsGetDelayWarningsData, ProjectsGetDelayWarningsResponse, ProjectsCreateProjectChatRoomData, ProjectsCreateProjectChatRoomResponse, QuotationsCreateQuotationData, QuotationsCreateQuotationResponse, QuotationsListQuotationsData, QuotationsListQuotationsResponse, QuotationsListCompaniesResponse, QuotationsListCompanyProfilesResponse, QuotationsMyPendingQuotationsResponse, QuotationsGetQuotationData, QuotationsGetQuotationResponse, QuotationsUpdateQuotationData, QuotationsUpdateQuotationResponse, QuotationsDeleteQuotationData, QuotationsDeleteQuotationResponse, QuotationsSubmitSurveyData, QuotationsSubmitSurveyResponse, QuotationsApproveSurveyData, QuotationsApproveSurveyResponse, QuotationsSubmitDesignData, QuotationsSubmitDesignResponse, QuotationsSubmitBocTachData, QuotationsSubmitBocTachResponse, QuotationsApproveDesignData, QuotationsApproveDesignResponse, QuotationsSubmitPricingData, QuotationsSubmitPricingResponse, QuotationsFinalizeData, QuotationsFinalizeResponse, QuotationsApproveFinalData, QuotationsApproveFinalResponse, QuotationsSendToClientData, QuotationsSendToClientResponse, QuotationsSubmitNegotiationData, QuotationsSubmitNegotiationResponse, QuotationsApproveNegotiationData, QuotationsApproveNegotiationResponse, QuotationsCloseQuotationData, QuotationsCloseQuotationResponse, QuotationsListApprovalParticipantsData, QuotationsListApprovalParticipantsResponse, QuotationsAddApprovalParticipantData, QuotationsAddApprovalParticipantResponse, QuotationsRemoveApprovalParticipantData, QuotationsRemoveApprovalParticipantResponse, QuotationsParticipantApproveData, QuotationsParticipantApproveResponse, QuotationsListHistoryData, QuotationsListHistoryResponse, QuotationsListNegotiationsData, QuotationsListNegotiationsResponse, QuotationsAddNegotiationLogData, QuotationsAddNegotiationLogResponse, QuotationsListAttachmentsData, QuotationsListAttachmentsResponse, QuotationsAddAttachmentData, QuotationsAddAttachmentResponse, QuotationsUploadAttachmentFileData, QuotationsUploadAttachmentFileResponse, QuotationsDeleteAttachmentData, QuotationsDeleteAttachmentResponse, QuotationsListVersionsData, QuotationsListVersionsResponse, QuotationsCreateVersionSnapshotData, QuotationsCreateVersionSnapshotResponse, QuotationsGetVersionData, QuotationsGetVersionResponse, QuotationsReportSummaryData, QuotationsReportSummaryResponse, QuotationsReportByClientData, QuotationsReportByClientResponse, QuotationsReportByEquipmentData, QuotationsReportByEquipmentResponse, QuotationsReportLostAnalysisData, QuotationsReportLostAnalysisResponse, RolesListRoleDependenciesData, RolesListRoleDependenciesResponse, RolesListCompanyRolesData, RolesListCompanyRolesResponse, RolesMyPermissionsResponse, RolesPermissionsCatalogResponse, RolesRolePermissionsData, RolesRolePermissionsResponse, RolesAssignRolePermissionsData, RolesAssignRolePermissionsResponse, RolesListCompaniesResponse, RolesCreateCompanyData, RolesCreateCompanyResponse, RolesListMyCompaniesResponse, RolesListCompanyMembersData, RolesListCompanyMembersResponse, RolesUpdateCompanyData, RolesUpdateCompanyResponse, RolesCreateDepartmentData, RolesCreateDepartmentResponse, RolesListDepartmentsData, RolesListDepartmentsResponse, RolesUpdateDepartmentData, RolesUpdateDepartmentResponse, RolesDeleteDepartmentData, RolesDeleteDepartmentResponse, RolesAssignUserToDepartmentData, RolesAssignUserToDepartmentResponse, RolesUnassignUserFromDepartmentData, RolesUnassignUserFromDepartmentResponse, RolesCreateRoleData, RolesCreateRoleResponse, RolesCreateRoleDependencyData, RolesCreateRoleDependencyResponse, RolesAssignUserCompanyRoleData, RolesAssignUserCompanyRoleResponse, RolesUpdateCompanyMemberRoleData, RolesUpdateCompanyMemberRoleResponse, RolesRemoveCompanyMemberRoleData, RolesRemoveCompanyMemberRoleResponse, RolesListUserCompanyRolesData, RolesListUserCompanyRolesResponse, RolesMyAccountProfileResponse, RolesGetOrgTreeData, RolesGetOrgTreeResponse, TaskProfilesListProfilesData, TaskProfilesListProfilesResponse, TaskProfilesCreateProfileData, TaskProfilesCreateProfileResponse, TaskProfilesGetProfileData, TaskProfilesGetProfileResponse, TaskProfilesUpdateProfileData, TaskProfilesUpdateProfileResponse, TaskProfilesDeleteProfileData, TaskProfilesDeleteProfileResponse, TaskProfilesAddProfileItemData, TaskProfilesAddProfileItemResponse, TaskProfilesUpdateProfileItemData, TaskProfilesUpdateProfileItemResponse, TaskProfilesDeleteProfileItemData, TaskProfilesDeleteProfileItemResponse, TaskProfilesApplyProfileData, TaskProfilesApplyProfileResponse, TaskProfilesSaveTaskAsProfileData, TaskProfilesSaveTaskAsProfileResponse, TasksCreateRootTaskData, TasksCreateRootTaskResponse, TasksListProjectTasksData, TasksListProjectTasksResponse, TasksCreateChildTaskData, TasksCreateChildTaskResponse, TasksMyDashboardResponse, TasksGetTaskData, TasksGetTaskResponse, TasksUpdateTaskData, TasksUpdateTaskResponse, TasksDeleteTaskData, TasksDeleteTaskResponse, TasksUpdateTaskStatusData, TasksUpdateTaskStatusResponse, TasksAddExtraAssigneeData, TasksAddExtraAssigneeResponse, TasksRemoveExtraAssigneeData, TasksRemoveExtraAssigneeResponse, TasksAddObserverData, TasksAddObserverResponse, TasksRemoveObserverData, TasksRemoveObserverResponse, TasksReassignTaskData, TasksReassignTaskResponse, TasksCloneTaskData, TasksCloneTaskResponse, TasksAddCommentData, TasksAddCommentResponse, TasksListCommentsData, TasksListCommentsResponse, TasksApproveDelayRequestData, TasksApproveDelayRequestResponse, TasksAddDependencyData, TasksAddDependencyResponse, TasksRemoveDependencyData, TasksRemoveDependencyResponse, TasksGetProjectGanttData, TasksGetProjectGanttResponse, TasksUploadProgressReportPhotoData, TasksUploadProgressReportPhotoResponse, TasksAddProgressReportData, TasksAddProgressReportResponse, TasksListProgressReportsData, TasksListProgressReportsResponse, TasksReviewProgressReportData, TasksReviewProgressReportResponse, TasksGetTaskAuditData, TasksGetTaskAuditResponse, TasksCheckConflictsData, TasksCheckConflictsResponse, UsersReadUserByEmailData, UsersReadUserByEmailResponse, UsersReadUsersData, UsersReadUsersResponse, UsersCreateUserData, UsersCreateUserResponse, UsersReadUserMeResponse, UsersDeleteUserMeResponse, UsersUpdateUserMeData, UsersUpdateUserMeResponse, UsersUpdatePasswordMeData, UsersUpdatePasswordMeResponse, UsersRegisterUserData, UsersRegisterUserResponse, UsersReadUserByIdData, UsersReadUserByIdResponse, UsersUpdateUserData, UsersUpdateUserResponse, UsersDeleteUserData, UsersDeleteUserResponse, UtilsTestEmailData, UtilsTestEmailResponse, UtilsHealthCheckResponse } from './types.gen';
+
+export class AdminStatsService {
+    /**
+     * Get Overview
+     * High-level KPI counters for the admin overview screen.
+     * @returns unknown Successful Response
+     * @throws ApiError
+     */
+    public static getOverview(): CancelablePromise<AdminStatsGetOverviewResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/v1/admin/stats/overview'
+        });
+    }
+    
+    /**
+     * List Active Sessions
+     * List currently active sessions with enriched user info.
+     * @returns unknown Successful Response
+     * @throws ApiError
+     */
+    public static listActiveSessions(): CancelablePromise<AdminStatsListActiveSessionsResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/v1/admin/stats/sessions/active'
+        });
+    }
+    
+    /**
+     * Get Login Frequency
+     * Login frequency per day for the last N days (success-only).
+     * @param data The data for the request.
+     * @param data.days
+     * @returns unknown Successful Response
+     * @throws ApiError
+     */
+    public static getLoginFrequency(data: AdminStatsGetLoginFrequencyData = {}): CancelablePromise<AdminStatsGetLoginFrequencyResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/v1/admin/stats/logins',
+            query: {
+                days: data.days
+            },
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Get Users Activity
+     * Top users by login count over the last N days.
+     * @param data The data for the request.
+     * @param data.days
+     * @param data.limit
+     * @returns unknown Successful Response
+     * @throws ApiError
+     */
+    public static getUsersActivity(data: AdminStatsGetUsersActivityData = {}): CancelablePromise<AdminStatsGetUsersActivityResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/v1/admin/stats/users/activity',
+            query: {
+                days: data.days,
+                limit: data.limit
+            },
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * List Audit Log
+     * Return recent audit log entries (system-wide) with actor info.
+     * @param data The data for the request.
+     * @param data.limit
+     * @param data.action
+     * @param data.entityType
+     * @param data.actorId
+     * @returns unknown Successful Response
+     * @throws ApiError
+     */
+    public static listAuditLog(data: AdminStatsListAuditLogData = {}): CancelablePromise<AdminStatsListAuditLogResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/v1/admin/stats/audit',
+            query: {
+                limit: data.limit,
+                action: data.action,
+                entity_type: data.entityType,
+                actor_id: data.actorId
+            },
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Revoke Session
+     * Force-revoke an active session by id.
+     * @param data The data for the request.
+     * @param data.sessionId
+     * @returns void Successful Response
+     * @throws ApiError
+     */
+    public static revokeSession(data: AdminStatsRevokeSessionData): CancelablePromise<AdminStatsRevokeSessionResponse> {
+        return __request(OpenAPI, {
+            method: 'DELETE',
+            url: '/api/v1/admin/stats/sessions/{session_id}',
+            path: {
+                session_id: data.sessionId
+            },
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+}
+
+export class AdminUsersService {
+    /**
+     * List Users
+     * Rich list of users with company, department, primary role, last login.
+     * @returns AdminUserListRow Successful Response
+     * @throws ApiError
+     */
+    public static listUsers(): CancelablePromise<AdminUsersListUsersResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/v1/admin/users'
+        });
+    }
+    
+    /**
+     * Get User Detail
+     * @param data The data for the request.
+     * @param data.userId
+     * @returns AdminUserDetail Successful Response
+     * @throws ApiError
+     */
+    public static getUserDetail(data: AdminUsersGetUserDetailData): CancelablePromise<AdminUsersGetUserDetailResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/v1/admin/users/{user_id}/detail',
+            path: {
+                user_id: data.userId
+            },
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Add Membership
+     * Atomically create a UserCompanyRole + optionally set user.department_id.
+     * @param data The data for the request.
+     * @param data.userId
+     * @param data.requestBody
+     * @returns AdminUserMembership Successful Response
+     * @throws ApiError
+     */
+    public static addMembership(data: AdminUsersAddMembershipData): CancelablePromise<AdminUsersAddMembershipResponse> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/api/v1/admin/users/{user_id}/memberships',
+            path: {
+                user_id: data.userId
+            },
+            body: data.requestBody,
+            mediaType: 'application/json',
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Update Membership
+     * Atomically update primary membership for (user, company): role + dept.
+     * @param data The data for the request.
+     * @param data.userId
+     * @param data.companyId
+     * @param data.requestBody
+     * @returns AdminUserMembership Successful Response
+     * @throws ApiError
+     */
+    public static updateMembership(data: AdminUsersUpdateMembershipData): CancelablePromise<AdminUsersUpdateMembershipResponse> {
+        return __request(OpenAPI, {
+            method: 'PATCH',
+            url: '/api/v1/admin/users/{user_id}/memberships/{company_id}',
+            path: {
+                user_id: data.userId,
+                company_id: data.companyId
+            },
+            body: data.requestBody,
+            mediaType: 'application/json',
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Delete Membership
+     * Remove ALL memberships for (user, company) and clear department if it belongs to company.
+     * @param data The data for the request.
+     * @param data.userId
+     * @param data.companyId
+     * @returns void Successful Response
+     * @throws ApiError
+     */
+    public static deleteMembership(data: AdminUsersDeleteMembershipData): CancelablePromise<AdminUsersDeleteMembershipResponse> {
+        return __request(OpenAPI, {
+            method: 'DELETE',
+            url: '/api/v1/admin/users/{user_id}/memberships/{company_id}',
+            path: {
+                user_id: data.userId,
+                company_id: data.companyId
+            },
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Get User Permissions
+     * Return effective permissions for a user grouped by module.
+     * @param data The data for the request.
+     * @param data.userId
+     * @returns UserPermissionsResponse Successful Response
+     * @throws ApiError
+     */
+    public static getUserPermissions(data: AdminUsersGetUserPermissionsData): CancelablePromise<AdminUsersGetUserPermissionsResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/v1/admin/users/{user_id}/permissions',
+            path: {
+                user_id: data.userId
+            },
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+}
+
+export class AttendanceService {
+    /**
+     * Check In
+     * Record an on-site check-in. Requires a photo taken at the site.
+     *
+     * `mode="project"` (default) checks in against a project site; `mode="company"`
+     * checks in against a company with a free-text `task_label`.
+     * @param data The data for the request.
+     * @param data.formData
+     * @returns AttendanceRecordPublic Successful Response
+     * @throws ApiError
+     */
+    public static checkIn(data: AttendanceCheckInData): CancelablePromise<AttendanceCheckInResponse> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/api/v1/attendance/check-in',
+            formData: data.formData,
+            mediaType: 'multipart/form-data',
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Check Out
+     * Record check-out for an open attendance record; computes work hours.
+     * @param data The data for the request.
+     * @param data.formData
+     * @returns AttendanceRecordPublic Successful Response
+     * @throws ApiError
+     */
+    public static checkOut(data: AttendanceCheckOutData): CancelablePromise<AttendanceCheckOutResponse> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/api/v1/attendance/check-out',
+            formData: data.formData,
+            mediaType: 'multipart/form-data',
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Adjust Attendance Hours
+     * Manager corrects work hours (e.g. confirm hours of a forgotten check-out).
+     * @param data The data for the request.
+     * @param data.recordId
+     * @param data.requestBody
+     * @returns AttendanceRecordPublic Successful Response
+     * @throws ApiError
+     */
+    public static adjustAttendanceHours(data: AttendanceAdjustAttendanceHoursData): CancelablePromise<AttendanceAdjustAttendanceHoursResponse> {
+        return __request(OpenAPI, {
+            method: 'PATCH',
+            url: '/api/v1/attendance/{record_id}/hours',
+            path: {
+                record_id: data.recordId
+            },
+            body: data.requestBody,
+            mediaType: 'application/json',
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * My Attendance
+     * List the current user's attendance records.
+     * @param data The data for the request.
+     * @param data.dateFrom
+     * @param data.dateTo
+     * @returns AttendanceRecordsPublic Successful Response
+     * @throws ApiError
+     */
+    public static myAttendance(data: AttendanceMyAttendanceData = {}): CancelablePromise<AttendanceMyAttendanceResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/v1/attendance/me',
+            query: {
+                date_from: data.dateFrom,
+                date_to: data.dateTo
+            },
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Project Attendance
+     * List attendance records for a project (managers / leaders).
+     * @param data The data for the request.
+     * @param data.projectId
+     * @param data.workDate
+     * @returns AttendanceRecordsPublic Successful Response
+     * @throws ApiError
+     */
+    public static projectAttendance(data: AttendanceProjectAttendanceData): CancelablePromise<AttendanceProjectAttendanceResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/v1/projects/{project_id}/attendance',
+            path: {
+                project_id: data.projectId
+            },
+            query: {
+                work_date: data.workDate
+            },
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Attendance Task Suggestions
+     * Free-text tasks the current user has used in by-company check-ins.
+     * @returns string Successful Response
+     * @throws ApiError
+     */
+    public static attendanceTaskSuggestions(): CancelablePromise<AttendanceAttendanceTaskSuggestionsResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/v1/attendance/task-suggestions'
+        });
+    }
+    
+    /**
+     * Set Company Site Location
+     * Configure a company's site coordinates and allowed check-in radius.
+     * @param data The data for the request.
+     * @param data.companyId
+     * @param data.requestBody
+     * @returns CompanyPublic Successful Response
+     * @throws ApiError
+     */
+    public static setCompanySiteLocation(data: AttendanceSetCompanySiteLocationData): CancelablePromise<AttendanceSetCompanySiteLocationResponse> {
+        return __request(OpenAPI, {
+            method: 'PATCH',
+            url: '/api/v1/companies/{company_id}/site-location',
+            path: {
+                company_id: data.companyId
+            },
+            body: data.requestBody,
+            mediaType: 'application/json',
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Set Site Location
+     * Configure a project's site coordinates and allowed check-in radius.
+     * @param data The data for the request.
+     * @param data.projectId
+     * @param data.requestBody
+     * @returns ProjectPublic Successful Response
+     * @throws ApiError
+     */
+    public static setSiteLocation(data: AttendanceSetSiteLocationData): CancelablePromise<AttendanceSetSiteLocationResponse> {
+        return __request(OpenAPI, {
+            method: 'PATCH',
+            url: '/api/v1/projects/{project_id}/site-location',
+            path: {
+                project_id: data.projectId
+            },
+            body: data.requestBody,
+            mediaType: 'application/json',
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+}
 
 export class ChatService {
     /**
      * List My Rooms
-     * List rooms the current user belongs to.
+     * List rooms the current user belongs to, sorted by last message.
      * @returns ChatRoomPublic Successful Response
      * @throws ApiError
      */
@@ -62,7 +489,7 @@ export class ChatService {
     
     /**
      * Update Room
-     * Update room metadata (member-only temporary policy).
+     * Update room metadata.
      * @param data The data for the request.
      * @param data.roomId
      * @param data.requestBody
@@ -96,6 +523,40 @@ export class ChatService {
         return __request(OpenAPI, {
             method: 'DELETE',
             url: '/api/v1/chat/rooms/{room_id}',
+            path: {
+                room_id: data.roomId
+            },
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Get Unread Count
+     * Return total unread message count across all rooms.
+     * @returns ChatUnreadCountPublic Successful Response
+     * @throws ApiError
+     */
+    public static getUnreadCount(): CancelablePromise<ChatGetUnreadCountResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/v1/chat/unread-count'
+        });
+    }
+    
+    /**
+     * Mark Room Read
+     * Mark all messages in a room as read for the current user.
+     * @param data The data for the request.
+     * @param data.roomId
+     * @returns void Successful Response
+     * @throws ApiError
+     */
+    public static markRoomRead(data: ChatMarkRoomReadData): CancelablePromise<ChatMarkRoomReadResponse> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/api/v1/chat/rooms/{room_id}/mark-read',
             path: {
                 room_id: data.roomId
             },
@@ -178,7 +639,7 @@ export class ChatService {
      * List message history in a room (member-only).
      * @param data The data for the request.
      * @param data.roomId
-     * @param data.skip
+     * @param data.beforeId
      * @param data.limit
      * @returns ChatMessagePublic Successful Response
      * @throws ApiError
@@ -191,7 +652,7 @@ export class ChatService {
                 room_id: data.roomId
             },
             query: {
-                skip: data.skip,
+                before_id: data.beforeId,
                 limit: data.limit
             },
             errors: {
@@ -202,7 +663,7 @@ export class ChatService {
     
     /**
      * Create Message
-     * Create a text message in a room (member-only).
+     * Send a text message (member-only).
      * @param data The data for the request.
      * @param data.roomId
      * @param data.requestBody
@@ -226,7 +687,7 @@ export class ChatService {
     
     /**
      * Upload Attachment
-     * Upload an attachment and create a file-message in the room (member-only).
+     * Upload an attachment and create a file-message in the room.
      * @param data The data for the request.
      * @param data.roomId
      * @param data.formData
@@ -242,6 +703,448 @@ export class ChatService {
             },
             formData: data.formData,
             mediaType: 'multipart/form-data',
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+}
+
+export class ContractsService {
+    /**
+     * List Contracts
+     * @param data The data for the request.
+     * @param data.status
+     * @param data.skip
+     * @param data.limit
+     * @returns ContractsPublic Successful Response
+     * @throws ApiError
+     */
+    public static listContracts(data: ContractsListContractsData = {}): CancelablePromise<ContractsListContractsResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/v1/contracts/',
+            query: {
+                status: data.status,
+                skip: data.skip,
+                limit: data.limit
+            },
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Create Contract
+     * @param data The data for the request.
+     * @param data.requestBody
+     * @returns ContractPublic Successful Response
+     * @throws ApiError
+     */
+    public static createContract(data: ContractsCreateContractData): CancelablePromise<ContractsCreateContractResponse> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/api/v1/contracts/',
+            body: data.requestBody,
+            mediaType: 'application/json',
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Get Contract
+     * @param data The data for the request.
+     * @param data.contractId
+     * @returns ContractWithDetailsPublic Successful Response
+     * @throws ApiError
+     */
+    public static getContract(data: ContractsGetContractData): CancelablePromise<ContractsGetContractResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/v1/contracts/{contract_id}',
+            path: {
+                contract_id: data.contractId
+            },
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Update Contract
+     * @param data The data for the request.
+     * @param data.contractId
+     * @param data.requestBody
+     * @returns ContractPublic Successful Response
+     * @throws ApiError
+     */
+    public static updateContract(data: ContractsUpdateContractData): CancelablePromise<ContractsUpdateContractResponse> {
+        return __request(OpenAPI, {
+            method: 'PATCH',
+            url: '/api/v1/contracts/{contract_id}',
+            path: {
+                contract_id: data.contractId
+            },
+            body: data.requestBody,
+            mediaType: 'application/json',
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Delete Contract
+     * @param data The data for the request.
+     * @param data.contractId
+     * @returns void Successful Response
+     * @throws ApiError
+     */
+    public static deleteContract(data: ContractsDeleteContractData): CancelablePromise<ContractsDeleteContractResponse> {
+        return __request(OpenAPI, {
+            method: 'DELETE',
+            url: '/api/v1/contracts/{contract_id}',
+            path: {
+                contract_id: data.contractId
+            },
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Submit Contract
+     * Nộp hợp đồng lên BGĐ duyệt (draft → pending_approval).
+     * @param data The data for the request.
+     * @param data.contractId
+     * @param data.requestBody
+     * @returns ContractPublic Successful Response
+     * @throws ApiError
+     */
+    public static submitContract(data: ContractsSubmitContractData): CancelablePromise<ContractsSubmitContractResponse> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/api/v1/contracts/{contract_id}/submit',
+            path: {
+                contract_id: data.contractId
+            },
+            body: data.requestBody,
+            mediaType: 'application/json',
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Approve Contract
+     * BGĐ duyệt hợp đồng, chuyển sang gửi khách (pending_approval → sent).
+     * @param data The data for the request.
+     * @param data.contractId
+     * @param data.requestBody
+     * @returns ContractPublic Successful Response
+     * @throws ApiError
+     */
+    public static approveContract(data: ContractsApproveContractData): CancelablePromise<ContractsApproveContractResponse> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/api/v1/contracts/{contract_id}/approve',
+            path: {
+                contract_id: data.contractId
+            },
+            body: data.requestBody,
+            mediaType: 'application/json',
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Reject Contract
+     * BGĐ từ chối hợp đồng, trả về draft (pending_approval → draft).
+     * @param data The data for the request.
+     * @param data.contractId
+     * @param data.requestBody
+     * @returns ContractPublic Successful Response
+     * @throws ApiError
+     */
+    public static rejectContract(data: ContractsRejectContractData): CancelablePromise<ContractsRejectContractResponse> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/api/v1/contracts/{contract_id}/reject',
+            path: {
+                contract_id: data.contractId
+            },
+            body: data.requestBody,
+            mediaType: 'application/json',
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Sign Contract
+     * Xác nhận khách đã ký hợp đồng (sent → signed).
+     * @param data The data for the request.
+     * @param data.contractId
+     * @param data.requestBody
+     * @returns ContractPublic Successful Response
+     * @throws ApiError
+     */
+    public static signContract(data: ContractsSignContractData): CancelablePromise<ContractsSignContractResponse> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/api/v1/contracts/{contract_id}/sign',
+            path: {
+                contract_id: data.contractId
+            },
+            body: data.requestBody,
+            mediaType: 'application/json',
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Confirm Advance
+     * Xác nhận đã nhận tạm ứng (signed → advance_received).
+     * @param data The data for the request.
+     * @param data.contractId
+     * @param data.requestBody
+     * @returns ContractPublic Successful Response
+     * @throws ApiError
+     */
+    public static confirmAdvance(data: ContractsConfirmAdvanceData): CancelablePromise<ContractsConfirmAdvanceResponse> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/api/v1/contracts/{contract_id}/confirm-advance',
+            path: {
+                contract_id: data.contractId
+            },
+            body: data.requestBody,
+            mediaType: 'application/json',
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Start Production
+     * Chuyển hợp đồng sang giai đoạn sản xuất (advance_received → in_production).
+     * @param data The data for the request.
+     * @param data.contractId
+     * @param data.requestBody
+     * @returns ContractPublic Successful Response
+     * @throws ApiError
+     */
+    public static startProduction(data: ContractsStartProductionData): CancelablePromise<ContractsStartProductionResponse> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/api/v1/contracts/{contract_id}/start-production',
+            path: {
+                contract_id: data.contractId
+            },
+            body: data.requestBody,
+            mediaType: 'application/json',
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Complete Contract
+     * Hoàn thành và đóng hợp đồng (in_production → completed).
+     * @param data The data for the request.
+     * @param data.contractId
+     * @param data.requestBody
+     * @returns ContractPublic Successful Response
+     * @throws ApiError
+     */
+    public static completeContract(data: ContractsCompleteContractData): CancelablePromise<ContractsCompleteContractResponse> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/api/v1/contracts/{contract_id}/complete',
+            path: {
+                contract_id: data.contractId
+            },
+            body: data.requestBody,
+            mediaType: 'application/json',
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Upload Attachment
+     * @param data The data for the request.
+     * @param data.contractId
+     * @param data.formData
+     * @param data.fileType
+     * @param data.description
+     * @param data.phase
+     * @returns ContractAttachmentPublic Successful Response
+     * @throws ApiError
+     */
+    public static uploadAttachment(data: ContractsUploadAttachmentData): CancelablePromise<ContractsUploadAttachmentResponse> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/api/v1/contracts/{contract_id}/attachments/upload',
+            path: {
+                contract_id: data.contractId
+            },
+            query: {
+                file_type: data.fileType,
+                description: data.description,
+                phase: data.phase
+            },
+            formData: data.formData,
+            mediaType: 'multipart/form-data',
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Delete Attachment
+     * @param data The data for the request.
+     * @param data.contractId
+     * @param data.attId
+     * @returns void Successful Response
+     * @throws ApiError
+     */
+    public static deleteAttachment(data: ContractsDeleteAttachmentData): CancelablePromise<ContractsDeleteAttachmentResponse> {
+        return __request(OpenAPI, {
+            method: 'DELETE',
+            url: '/api/v1/contracts/{contract_id}/attachments/{att_id}',
+            path: {
+                contract_id: data.contractId,
+                att_id: data.attId
+            },
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+}
+
+export class CustomerCompaniesService {
+    /**
+     * Create Customer Company
+     * Register a customer company (or own company) for the current tenant.
+     * @param data The data for the request.
+     * @param data.requestBody
+     * @returns CustomerCompanyPublic Successful Response
+     * @throws ApiError
+     */
+    public static createCustomerCompany(data: CustomerCompaniesCreateCustomerCompanyData): CancelablePromise<CustomerCompaniesCreateCustomerCompanyResponse> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/api/v1/customer-companies',
+            body: data.requestBody,
+            mediaType: 'application/json',
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * List Customer Companies
+     * List customer companies for the tenant, filtered by type / name search.
+     * @param data The data for the request.
+     * @param data.type
+     * @param data.q
+     * @param data.includeInactive
+     * @returns CustomerCompaniesPublic Successful Response
+     * @throws ApiError
+     */
+    public static listCustomerCompanies(data: CustomerCompaniesListCustomerCompaniesData = {}): CancelablePromise<CustomerCompaniesListCustomerCompaniesResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/v1/customer-companies',
+            query: {
+                type: data.type,
+                q: data.q,
+                include_inactive: data.includeInactive
+            },
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Get Customer Company
+     * Get a single customer company (must belong to the tenant).
+     * @param data The data for the request.
+     * @param data.customerId
+     * @returns CustomerCompanyPublic Successful Response
+     * @throws ApiError
+     */
+    public static getCustomerCompany(data: CustomerCompaniesGetCustomerCompanyData): CancelablePromise<CustomerCompaniesGetCustomerCompanyResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/v1/customer-companies/{customer_id}',
+            path: {
+                customer_id: data.customerId
+            },
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Update Customer Company
+     * Update info and/or site location of a customer company.
+     * @param data The data for the request.
+     * @param data.customerId
+     * @param data.requestBody
+     * @returns CustomerCompanyPublic Successful Response
+     * @throws ApiError
+     */
+    public static updateCustomerCompany(data: CustomerCompaniesUpdateCustomerCompanyData): CancelablePromise<CustomerCompaniesUpdateCustomerCompanyResponse> {
+        return __request(OpenAPI, {
+            method: 'PATCH',
+            url: '/api/v1/customer-companies/{customer_id}',
+            path: {
+                customer_id: data.customerId
+            },
+            body: data.requestBody,
+            mediaType: 'application/json',
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Delete Customer Company
+     * Soft-delete a customer company.
+     * @param data The data for the request.
+     * @param data.customerId
+     * @returns void Successful Response
+     * @throws ApiError
+     */
+    public static deleteCustomerCompany(data: CustomerCompaniesDeleteCustomerCompanyData): CancelablePromise<CustomerCompaniesDeleteCustomerCompanyResponse> {
+        return __request(OpenAPI, {
+            method: 'DELETE',
+            url: '/api/v1/customer-companies/{customer_id}',
+            path: {
+                customer_id: data.customerId
+            },
             errors: {
                 422: 'Validation Error'
             }
@@ -298,7 +1201,7 @@ export class DashboardService {
     
     /**
      * User Workload
-     * Active task count per user — 'bàn cờ nhân sự'.
+     * Active task count per user — bàn cờ nhân sự.
      * @param data The data for the request.
      * @param data.projectId
      * @param data.departmentId
@@ -344,7 +1247,7 @@ export class DashboardService {
     
     /**
      * Overdue Report
-     * Detailed overdue report: local (warning) vs critical (blocking).
+     * Project warning report derived from task deadlines.
      * @param data The data for the request.
      * @param data.projectId
      * @param data.departmentId
@@ -358,6 +1261,98 @@ export class DashboardService {
             query: {
                 project_id: data.projectId,
                 department_id: data.departmentId
+            },
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * User Tasks
+     * Tasks assigned to a specific user, for Gantt timeline view on personnel page.
+     * @param data The data for the request.
+     * @param data.userId
+     * @returns unknown Successful Response
+     * @throws ApiError
+     */
+    public static userTasks(data: DashboardUserTasksData): CancelablePromise<DashboardUserTasksResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/v1/dashboard/users/{user_id}/tasks',
+            path: {
+                user_id: data.userId
+            },
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Company Gantt
+     * Company-wide Gantt across multiple projects with filters.
+     * @param data The data for the request.
+     * @param data.projectId
+     * @param data.departmentId
+     * @param data.assigneeId
+     * @param data.startDate
+     * @param data.endDate
+     * @returns unknown Successful Response
+     * @throws ApiError
+     */
+    public static companyGantt(data: DashboardCompanyGanttData = {}): CancelablePromise<DashboardCompanyGanttResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/v1/dashboard/gantt',
+            query: {
+                project_id: data.projectId,
+                department_id: data.departmentId,
+                assignee_id: data.assigneeId,
+                start_date: data.startDate,
+                end_date: data.endDate
+            },
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * User Gantt
+     * Gantt view of tasks assigned to a user across all visible projects.
+     * @param data The data for the request.
+     * @param data.userId
+     * @returns unknown Successful Response
+     * @throws ApiError
+     */
+    public static userGantt(data: DashboardUserGanttData): CancelablePromise<DashboardUserGanttResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/v1/dashboard/users/{user_id}/gantt',
+            path: {
+                user_id: data.userId
+            },
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * User Weekly Stats
+     * Weekly completion/overdue counts for a specific user (last 12 weeks).
+     * @param data The data for the request.
+     * @param data.userId
+     * @returns unknown Successful Response
+     * @throws ApiError
+     */
+    public static userWeeklyStats(data: DashboardUserWeeklyStatsData): CancelablePromise<DashboardUserWeeklyStatsResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/v1/dashboard/users/{user_id}/weekly-stats',
+            path: {
+                user_id: data.userId
             },
             errors: {
                 422: 'Validation Error'
@@ -387,12 +1382,461 @@ export class DashboardService {
             }
         });
     }
+    
+    /**
+     * Team Productivity
+     * Per-person productivity for a month: work hours + task completion.
+     *
+     * Combines attendance work hours (giờ công) with task throughput so leaders
+     * can compare effort vs. output — the basis for thi đua / khen thưởng.
+     * @param data The data for the request.
+     * @param data.month YYYY-MM, default: current
+     * @param data.projectId
+     * @param data.departmentId
+     * @returns unknown Successful Response
+     * @throws ApiError
+     */
+    public static teamProductivity(data: DashboardTeamProductivityData = {}): CancelablePromise<DashboardTeamProductivityResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/v1/dashboard/team-productivity',
+            query: {
+                month: data.month,
+                project_id: data.projectId,
+                department_id: data.departmentId
+            },
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Year Summary
+     * Tổng hợp năng suất cả năm theo nhân sự — cơ sở xét thưởng cuối năm.
+     *
+     * Mỗi người gồm: giờ công + ngày công (chấm công), tỷ lệ hoàn thành & đúng hạn
+     * (công việc đến hạn trong kỳ), tỷ lệ bằng chứng được duyệt (chất lượng), và
+     * một ĐIỂM TỔNG HỢP có trọng số để xếp hạng.
+     * @param data The data for the request.
+     * @param data.year Năm, mặc định năm hiện tại
+     * @param data.fromMonth YYYY-MM (ghi đè ngày bắt đầu)
+     * @param data.toMonth YYYY-MM (ghi đè ngày kết thúc)
+     * @param data.projectId
+     * @param data.departmentId
+     * @returns unknown Successful Response
+     * @throws ApiError
+     */
+    public static yearSummary(data: DashboardYearSummaryData = {}): CancelablePromise<DashboardYearSummaryResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/v1/dashboard/year-summary',
+            query: {
+                year: data.year,
+                from_month: data.fromMonth,
+                to_month: data.toMonth,
+                project_id: data.projectId,
+                department_id: data.departmentId
+            },
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+}
+
+export class ExportService {
+    /**
+     * Export Full
+     * Export toàn bộ dữ liệu: nhân sự, dự án, task, phân tích.
+     * @returns unknown Successful Response
+     * @throws ApiError
+     */
+    public static exportFull(): CancelablePromise<ExportExportFullResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/v1/export/full'
+        });
+    }
+    
+    /**
+     * Export Accounts
+     * Export danh sách nhân sự và vai trò.
+     * @returns unknown Successful Response
+     * @throws ApiError
+     */
+    public static exportAccounts(): CancelablePromise<ExportExportAccountsResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/v1/export/accounts'
+        });
+    }
+    
+    /**
+     * Export Tasks
+     * Export danh sách task và dự án.
+     * @returns unknown Successful Response
+     * @throws ApiError
+     */
+    public static exportTasks(): CancelablePromise<ExportExportTasksResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/v1/export/tasks'
+        });
+    }
+}
+
+export class IncidentsService {
+    /**
+     * Create Incident
+     * Report a new construction/installation incident.
+     * @param data The data for the request.
+     * @param data.requestBody
+     * @returns IncidentPublic Successful Response
+     * @throws ApiError
+     */
+    public static createIncident(data: IncidentsCreateIncidentData): CancelablePromise<IncidentsCreateIncidentResponse> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/api/v1/incidents',
+            body: data.requestBody,
+            mediaType: 'application/json',
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * List Incidents
+     * List / search incidents (knowledge base).
+     * @param data The data for the request.
+     * @param data.category
+     * @param data.status
+     * @param data.projectId
+     * @param data.q Tìm theo tiêu đề/mô tả/giải pháp
+     * @param data.skip
+     * @param data.limit
+     * @returns IncidentsPublic Successful Response
+     * @throws ApiError
+     */
+    public static listIncidents(data: IncidentsListIncidentsData = {}): CancelablePromise<IncidentsListIncidentsResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/v1/incidents',
+            query: {
+                category: data.category,
+                status: data.status,
+                project_id: data.projectId,
+                q: data.q,
+                skip: data.skip,
+                limit: data.limit
+            },
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Get Incident
+     * @param data The data for the request.
+     * @param data.incidentId
+     * @returns IncidentPublic Successful Response
+     * @throws ApiError
+     */
+    public static getIncident(data: IncidentsGetIncidentData): CancelablePromise<IncidentsGetIncidentResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/v1/incidents/{incident_id}',
+            path: {
+                incident_id: data.incidentId
+            },
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Update Incident
+     * @param data The data for the request.
+     * @param data.incidentId
+     * @param data.requestBody
+     * @returns IncidentPublic Successful Response
+     * @throws ApiError
+     */
+    public static updateIncident(data: IncidentsUpdateIncidentData): CancelablePromise<IncidentsUpdateIncidentResponse> {
+        return __request(OpenAPI, {
+            method: 'PATCH',
+            url: '/api/v1/incidents/{incident_id}',
+            path: {
+                incident_id: data.incidentId
+            },
+            body: data.requestBody,
+            mediaType: 'application/json',
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Resolve Incident
+     * Record root cause + solution and mark the incident resolved.
+     * @param data The data for the request.
+     * @param data.incidentId
+     * @param data.requestBody
+     * @returns IncidentPublic Successful Response
+     * @throws ApiError
+     */
+    public static resolveIncident(data: IncidentsResolveIncidentData): CancelablePromise<IncidentsResolveIncidentResponse> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/api/v1/incidents/{incident_id}/resolve',
+            path: {
+                incident_id: data.incidentId
+            },
+            body: data.requestBody,
+            mediaType: 'application/json',
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Add Incident Attachment
+     * Attach a photo/document to an incident as evidence.
+     * @param data The data for the request.
+     * @param data.incidentId
+     * @param data.formData
+     * @returns IncidentAttachmentPublic Successful Response
+     * @throws ApiError
+     */
+    public static addIncidentAttachment(data: IncidentsAddIncidentAttachmentData): CancelablePromise<IncidentsAddIncidentAttachmentResponse> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/api/v1/incidents/{incident_id}/attachments',
+            path: {
+                incident_id: data.incidentId
+            },
+            formData: data.formData,
+            mediaType: 'multipart/form-data',
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+}
+
+export class LeaveService {
+    /**
+     * Create Leave Request
+     * Create a leave request; it is routed to the company's approvers.
+     * @param data The data for the request.
+     * @param data.requestBody
+     * @returns LeaveRequestPublic Successful Response
+     * @throws ApiError
+     */
+    public static createLeaveRequest(data: LeaveCreateLeaveRequestData): CancelablePromise<LeaveCreateLeaveRequestResponse> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/api/v1/leave-requests',
+            body: data.requestBody,
+            mediaType: 'application/json',
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * My Leave Requests
+     * List the current user's own leave requests.
+     * @param data The data for the request.
+     * @param data.status
+     * @param data.dateFrom
+     * @param data.dateTo
+     * @returns LeaveRequestsPublic Successful Response
+     * @throws ApiError
+     */
+    public static myLeaveRequests(data: LeaveMyLeaveRequestsData = {}): CancelablePromise<LeaveMyLeaveRequestsResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/v1/leave-requests/me',
+            query: {
+                status: data.status,
+                date_from: data.dateFrom,
+                date_to: data.dateTo
+            },
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Cancel Leave Request
+     * Cancel one of your own pending leave requests.
+     * @param data The data for the request.
+     * @param data.requestId
+     * @returns LeaveRequestPublic Successful Response
+     * @throws ApiError
+     */
+    public static cancelLeaveRequest(data: LeaveCancelLeaveRequestData): CancelablePromise<LeaveCancelLeaveRequestResponse> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/api/v1/leave-requests/{request_id}/cancel',
+            path: {
+                request_id: data.requestId
+            },
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Pending Leave Requests
+     * Leave requests awaiting the current user's approval.
+     * @returns LeaveRequestsPublic Successful Response
+     * @throws ApiError
+     */
+    public static pendingLeaveRequests(): CancelablePromise<LeavePendingLeaveRequestsResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/v1/leave-requests/pending'
+        });
+    }
+    
+    /**
+     * Approve Leave Request
+     * Approve a leave request (advances the chain or finalises it).
+     * @param data The data for the request.
+     * @param data.requestId
+     * @param data.requestBody
+     * @returns LeaveRequestPublic Successful Response
+     * @throws ApiError
+     */
+    public static approveLeaveRequest(data: LeaveApproveLeaveRequestData): CancelablePromise<LeaveApproveLeaveRequestResponse> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/api/v1/leave-requests/{request_id}/approve',
+            path: {
+                request_id: data.requestId
+            },
+            body: data.requestBody,
+            mediaType: 'application/json',
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Reject Leave Request
+     * Reject a leave request (requires a reason).
+     * @param data The data for the request.
+     * @param data.requestId
+     * @param data.requestBody
+     * @returns LeaveRequestPublic Successful Response
+     * @throws ApiError
+     */
+    public static rejectLeaveRequest(data: LeaveRejectLeaveRequestData): CancelablePromise<LeaveRejectLeaveRequestResponse> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/api/v1/leave-requests/{request_id}/reject',
+            path: {
+                request_id: data.requestId
+            },
+            body: data.requestBody,
+            mediaType: 'application/json',
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Company Leave Requests
+     * List all leave requests in a company (managers / HR).
+     * @param data The data for the request.
+     * @param data.companyId
+     * @param data.status
+     * @param data.dateFrom
+     * @param data.dateTo
+     * @returns LeaveRequestsPublic Successful Response
+     * @throws ApiError
+     */
+    public static companyLeaveRequests(data: LeaveCompanyLeaveRequestsData): CancelablePromise<LeaveCompanyLeaveRequestsResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/v1/companies/{company_id}/leave-requests',
+            path: {
+                company_id: data.companyId
+            },
+            query: {
+                status: data.status,
+                date_from: data.dateFrom,
+                date_to: data.dateTo
+            },
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Get Leave Approver Config
+     * Return the company's configured approver chain (or default note).
+     * @param data The data for the request.
+     * @param data.companyId
+     * @returns LeaveApproverConfigListPublic Successful Response
+     * @throws ApiError
+     */
+    public static getLeaveApproverConfig(data: LeaveGetLeaveApproverConfigData): CancelablePromise<LeaveGetLeaveApproverConfigResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/v1/companies/{company_id}/leave-approver-config',
+            path: {
+                company_id: data.companyId
+            },
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Set Leave Approver Config
+     * Replace the company's approver chain.
+     * @param data The data for the request.
+     * @param data.companyId
+     * @param data.requestBody
+     * @returns LeaveApproverConfigListPublic Successful Response
+     * @throws ApiError
+     */
+    public static setLeaveApproverConfig(data: LeaveSetLeaveApproverConfigData): CancelablePromise<LeaveSetLeaveApproverConfigResponse> {
+        return __request(OpenAPI, {
+            method: 'PUT',
+            url: '/api/v1/companies/{company_id}/leave-approver-config',
+            path: {
+                company_id: data.companyId
+            },
+            body: data.requestBody,
+            mediaType: 'application/json',
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
 }
 
 export class LoginService {
     /**
      * Login Access Token
-     * OAuth2 compatible token login, get an access token for future requests
+     * OAuth2 token login — returns access + refresh token pair.
      * @param data The data for the request.
      * @param data.formData
      * @returns Token Successful Response
@@ -412,7 +1856,7 @@ export class LoginService {
     
     /**
      * Test Token
-     * Test access token
+     * Test access token validity.
      * @returns UserPublic Successful Response
      * @throws ApiError
      */
@@ -465,7 +1909,7 @@ export class LoginService {
     
     /**
      * Recover Password
-     * Password Recovery
+     * Send password recovery email if user exists.
      * @param data The data for the request.
      * @param data.email
      * @returns Message Successful Response
@@ -486,7 +1930,7 @@ export class LoginService {
     
     /**
      * Reset Password
-     * Reset password
+     * Reset password using recovery token.
      * @param data The data for the request.
      * @param data.requestBody
      * @returns Message Successful Response
@@ -506,7 +1950,7 @@ export class LoginService {
     
     /**
      * Recover Password Html Content
-     * HTML Content for Password Recovery
+     * Return HTML email content for password recovery preview.
      * @param data The data for the request.
      * @param data.email
      * @returns string Successful Response
@@ -519,6 +1963,131 @@ export class LoginService {
             path: {
                 email: data.email
             },
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+}
+
+export class NotificationsService {
+    /**
+     * List Notifications
+     * List notifications for the current user, newest first.
+     * @param data The data for the request.
+     * @param data.skip
+     * @param data.limit
+     * @returns NotificationPublic Successful Response
+     * @throws ApiError
+     */
+    public static listNotifications(data: NotificationsListNotificationsData = {}): CancelablePromise<NotificationsListNotificationsResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/v1/notifications',
+            query: {
+                skip: data.skip,
+                limit: data.limit
+            },
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Unread Count
+     * Return number of unread notifications for the current user.
+     * @returns NotificationUnreadCount Successful Response
+     * @throws ApiError
+     */
+    public static unreadCount(): CancelablePromise<NotificationsUnreadCountResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/v1/notifications/unread-count'
+        });
+    }
+    
+    /**
+     * Mark Read
+     * Mark a single notification as read.
+     * @param data The data for the request.
+     * @param data.notificationId
+     * @returns NotificationPublic Successful Response
+     * @throws ApiError
+     */
+    public static markRead(data: NotificationsMarkReadData): CancelablePromise<NotificationsMarkReadResponse> {
+        return __request(OpenAPI, {
+            method: 'PATCH',
+            url: '/api/v1/notifications/{notification_id}/read',
+            path: {
+                notification_id: data.notificationId
+            },
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Mark All Read
+     * Mark all notifications for the current user as read.
+     * @returns void Successful Response
+     * @throws ApiError
+     */
+    public static markAllRead(): CancelablePromise<NotificationsMarkAllReadResponse> {
+        return __request(OpenAPI, {
+            method: 'PATCH',
+            url: '/api/v1/notifications/read-all'
+        });
+    }
+    
+    /**
+     * Get Vapid Public Key
+     * Return the VAPID public key for the frontend to subscribe.
+     * @returns VapidKeyResponse Successful Response
+     * @throws ApiError
+     */
+    public static getVapidPublicKey(): CancelablePromise<NotificationsGetVapidPublicKeyResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/v1/notifications/push/vapid-key'
+        });
+    }
+    
+    /**
+     * Subscribe Push
+     * Register or update a push subscription for the current user.
+     * @param data The data for the request.
+     * @param data.requestBody
+     * @returns void Successful Response
+     * @throws ApiError
+     */
+    public static subscribePush(data: NotificationsSubscribePushData): CancelablePromise<NotificationsSubscribePushResponse> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/api/v1/notifications/push/subscribe',
+            body: data.requestBody,
+            mediaType: 'application/json',
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Unsubscribe Push
+     * Remove a push subscription for the current user.
+     * @param data The data for the request.
+     * @param data.requestBody
+     * @returns void Successful Response
+     * @throws ApiError
+     */
+    public static unsubscribePush(data: NotificationsUnsubscribePushData): CancelablePromise<NotificationsUnsubscribePushResponse> {
+        return __request(OpenAPI, {
+            method: 'DELETE',
+            url: '/api/v1/notifications/push/unsubscribe',
+            body: data.requestBody,
+            mediaType: 'application/json',
             errors: {
                 422: 'Validation Error'
             }
@@ -576,6 +2145,7 @@ export class ProjectsService {
     
     /**
      * Create Project
+     * Create a project; add creator as member automatically.
      * @param data The data for the request.
      * @param data.requestBody
      * @returns ProjectPublic Successful Response
@@ -595,6 +2165,7 @@ export class ProjectsService {
     
     /**
      * Get Project
+     * Return a project by ID.
      * @param data The data for the request.
      * @param data.projectId
      * @returns ProjectPublic Successful Response
@@ -615,6 +2186,7 @@ export class ProjectsService {
     
     /**
      * Update Project
+     * Apply partial updates to a project.
      * @param data The data for the request.
      * @param data.projectId
      * @param data.requestBody
@@ -630,6 +2202,27 @@ export class ProjectsService {
             },
             body: data.requestBody,
             mediaType: 'application/json',
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Delete Project
+     * Soft-delete a project.
+     * @param data The data for the request.
+     * @param data.projectId
+     * @returns void Successful Response
+     * @throws ApiError
+     */
+    public static deleteProject(data: ProjectsDeleteProjectData): CancelablePromise<ProjectsDeleteProjectResponse> {
+        return __request(OpenAPI, {
+            method: 'DELETE',
+            url: '/api/v1/projects/{project_id}',
+            path: {
+                project_id: data.projectId
+            },
             errors: {
                 422: 'Validation Error'
             }
@@ -662,6 +2255,7 @@ export class ProjectsService {
     
     /**
      * Get Level Configs
+     * List level configs for a project.
      * @param data The data for the request.
      * @param data.projectId
      * @returns TaskLevelConfigPublic Successful Response
@@ -682,7 +2276,7 @@ export class ProjectsService {
     
     /**
      * Get Members
-     * List project members with user full name, email, and role display label.
+     * List project members with user info.
      * @param data The data for the request.
      * @param data.projectId
      * @returns ProjectMemberWithUserPublic Successful Response
@@ -703,6 +2297,7 @@ export class ProjectsService {
     
     /**
      * Add Member
+     * Add or update a project member.
      * @param data The data for the request.
      * @param data.projectId
      * @param data.userId
@@ -720,6 +2315,944 @@ export class ProjectsService {
             query: {
                 user_id: data.userId,
                 role_id: data.roleId
+            },
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Remove Member
+     * Remove a member from a project.
+     * @param data The data for the request.
+     * @param data.projectId
+     * @param data.userId
+     * @returns void Successful Response
+     * @throws ApiError
+     */
+    public static removeMember(data: ProjectsRemoveMemberData): CancelablePromise<ProjectsRemoveMemberResponse> {
+        return __request(OpenAPI, {
+            method: 'DELETE',
+            url: '/api/v1/projects/{project_id}/members/{user_id}',
+            path: {
+                project_id: data.projectId,
+                user_id: data.userId
+            },
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Get Delay Warnings
+     * Run 4-layer delay prediction for a project and return all active warnings.
+     * @param data The data for the request.
+     * @param data.projectId
+     * @returns DelayWarningsPublic Successful Response
+     * @throws ApiError
+     */
+    public static getDelayWarnings(data: ProjectsGetDelayWarningsData): CancelablePromise<ProjectsGetDelayWarningsResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/v1/projects/{project_id}/delay-warnings',
+            path: {
+                project_id: data.projectId
+            },
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Create Project Chat Room
+     * Create a project-linked chat room when missing.
+     * @param data The data for the request.
+     * @param data.projectId
+     * @returns ChatRoomPublic Successful Response
+     * @throws ApiError
+     */
+    public static createProjectChatRoom(data: ProjectsCreateProjectChatRoomData): CancelablePromise<ProjectsCreateProjectChatRoomResponse> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/api/v1/projects/{project_id}/create-chat-room',
+            path: {
+                project_id: data.projectId
+            },
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+}
+
+export class QuotationsService {
+    /**
+     * Create Quotation
+     * Phòng Kinh Doanh tạo hồ sơ báo giá mới.
+     * @param data The data for the request.
+     * @param data.requestBody
+     * @returns QuotationPublic Successful Response
+     * @throws ApiError
+     */
+    public static createQuotation(data: QuotationsCreateQuotationData): CancelablePromise<QuotationsCreateQuotationResponse> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/api/v1/quotations/',
+            body: data.requestBody,
+            mediaType: 'application/json',
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * List Quotations
+     * Danh sách hồ sơ báo giá với filter đầy đủ.
+     * @param data The data for the request.
+     * @param data.status
+     * @param data.currentStage
+     * @param data.outcome
+     * @param data.equipmentCategory
+     * @param data.clientCompanyName
+     * @param data.salesOwnerId
+     * @param data.dateFrom
+     * @param data.dateTo
+     * @param data.skip
+     * @param data.limit
+     * @returns QuotationsPublic Successful Response
+     * @throws ApiError
+     */
+    public static listQuotations(data: QuotationsListQuotationsData = {}): CancelablePromise<QuotationsListQuotationsResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/v1/quotations/',
+            query: {
+                status: data.status,
+                current_stage: data.currentStage,
+                outcome: data.outcome,
+                equipment_category: data.equipmentCategory,
+                client_company_name: data.clientCompanyName,
+                sales_owner_id: data.salesOwnerId,
+                date_from: data.dateFrom,
+                date_to: data.dateTo,
+                skip: data.skip,
+                limit: data.limit
+            },
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * List Companies
+     * Danh sách tên công ty khách hàng đã từng tạo báo giá (distinct, sorted).
+     * @returns string Successful Response
+     * @throws ApiError
+     */
+    public static listCompanies(): CancelablePromise<QuotationsListCompaniesResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/v1/quotations/companies'
+        });
+    }
+    
+    /**
+     * List Company Profiles
+     * Danh sách profile công ty khách hàng theo lần cập nhật cuối cùng.
+     * @returns QuotationCompanyProfilePublic Successful Response
+     * @throws ApiError
+     */
+    public static listCompanyProfiles(): CancelablePromise<QuotationsListCompanyProfilesResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/v1/quotations/company-profiles'
+        });
+    }
+    
+    /**
+     * My Pending Quotations
+     * Danh sách báo giá đang chờ hành động của người dùng hiện tại.
+     * @returns QuotationPublic Successful Response
+     * @throws ApiError
+     */
+    public static myPendingQuotations(): CancelablePromise<QuotationsMyPendingQuotationsResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/v1/quotations/my-pending'
+        });
+    }
+    
+    /**
+     * Get Quotation
+     * Chi tiết 1 hồ sơ báo giá.
+     * @param data The data for the request.
+     * @param data.quotationId
+     * @returns QuotationPublic Successful Response
+     * @throws ApiError
+     */
+    public static getQuotation(data: QuotationsGetQuotationData): CancelablePromise<QuotationsGetQuotationResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/v1/quotations/{quotation_id}',
+            path: {
+                quotation_id: data.quotationId
+            },
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Update Quotation
+     * Cập nhật thông tin chung của hồ sơ.
+     * @param data The data for the request.
+     * @param data.quotationId
+     * @param data.requestBody
+     * @returns QuotationPublic Successful Response
+     * @throws ApiError
+     */
+    public static updateQuotation(data: QuotationsUpdateQuotationData): CancelablePromise<QuotationsUpdateQuotationResponse> {
+        return __request(OpenAPI, {
+            method: 'PATCH',
+            url: '/api/v1/quotations/{quotation_id}',
+            path: {
+                quotation_id: data.quotationId
+            },
+            body: data.requestBody,
+            mediaType: 'application/json',
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Delete Quotation
+     * Xóa mềm hồ sơ (chỉ BGĐ/admin).
+     * @param data The data for the request.
+     * @param data.quotationId
+     * @returns void Successful Response
+     * @throws ApiError
+     */
+    public static deleteQuotation(data: QuotationsDeleteQuotationData): CancelablePromise<QuotationsDeleteQuotationResponse> {
+        return __request(OpenAPI, {
+            method: 'DELETE',
+            url: '/api/v1/quotations/{quotation_id}',
+            path: {
+                quotation_id: data.quotationId
+            },
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Submit Survey
+     * S1 → S2: Kinh Doanh nộp thông tin khảo sát, chờ BGĐ duyệt.
+     * @param data The data for the request.
+     * @param data.quotationId
+     * @param data.requestBody
+     * @returns QuotationPublic Successful Response
+     * @throws ApiError
+     */
+    public static submitSurvey(data: QuotationsSubmitSurveyData): CancelablePromise<QuotationsSubmitSurveyResponse> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/api/v1/quotations/{quotation_id}/submit-survey',
+            path: {
+                quotation_id: data.quotationId
+            },
+            body: data.requestBody,
+            mediaType: 'application/json',
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Approve Survey
+     * S2: BGĐ phê duyệt hoặc từ chối thông tin khảo sát.
+     * @param data The data for the request.
+     * @param data.quotationId
+     * @param data.requestBody
+     * @returns QuotationPublic Successful Response
+     * @throws ApiError
+     */
+    public static approveSurvey(data: QuotationsApproveSurveyData): CancelablePromise<QuotationsApproveSurveyResponse> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/api/v1/quotations/{quotation_id}/approve-survey',
+            path: {
+                quotation_id: data.quotationId
+            },
+            body: data.requestBody,
+            mediaType: 'application/json',
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Submit Design
+     * S3 → S3B: Kỹ Thuật nộp phương án thiết kế, chuyển sang bóc tách khối lượng.
+     * @param data The data for the request.
+     * @param data.quotationId
+     * @param data.requestBody
+     * @returns QuotationPublic Successful Response
+     * @throws ApiError
+     */
+    public static submitDesign(data: QuotationsSubmitDesignData): CancelablePromise<QuotationsSubmitDesignResponse> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/api/v1/quotations/{quotation_id}/submit-design',
+            path: {
+                quotation_id: data.quotationId
+            },
+            body: data.requestBody,
+            mediaType: 'application/json',
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Submit Boc Tach
+     * S3B → S4: Kỹ Thuật hoàn thành bóc tách khối lượng, nộp BGĐ duyệt.
+     * @param data The data for the request.
+     * @param data.quotationId
+     * @param data.requestBody
+     * @returns QuotationPublic Successful Response
+     * @throws ApiError
+     */
+    public static submitBocTach(data: QuotationsSubmitBocTachData): CancelablePromise<QuotationsSubmitBocTachResponse> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/api/v1/quotations/{quotation_id}/submit-boc-tach',
+            path: {
+                quotation_id: data.quotationId
+            },
+            body: data.requestBody,
+            mediaType: 'application/json',
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Approve Design
+     * S4: BGĐ phê duyệt hoặc từ chối phương án thiết kế.
+     * @param data The data for the request.
+     * @param data.quotationId
+     * @param data.requestBody
+     * @returns QuotationPublic Successful Response
+     * @throws ApiError
+     */
+    public static approveDesign(data: QuotationsApproveDesignData): CancelablePromise<QuotationsApproveDesignResponse> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/api/v1/quotations/{quotation_id}/approve-design',
+            path: {
+                quotation_id: data.quotationId
+            },
+            body: data.requestBody,
+            mediaType: 'application/json',
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Submit Pricing
+     * S5 → S6: Vật Tư xác nhận đã điền đủ đơn giá.
+     * @param data The data for the request.
+     * @param data.quotationId
+     * @param data.requestBody
+     * @returns QuotationPublic Successful Response
+     * @throws ApiError
+     */
+    public static submitPricing(data: QuotationsSubmitPricingData): CancelablePromise<QuotationsSubmitPricingResponse> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/api/v1/quotations/{quotation_id}/submit-pricing',
+            path: {
+                quotation_id: data.quotationId
+            },
+            body: data.requestBody,
+            mediaType: 'application/json',
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Finalize
+     * S6 → S7: Kinh Doanh nhập hệ số giá, hoàn thiện, nộp BGĐ duyệt cuối.
+     * @param data The data for the request.
+     * @param data.quotationId
+     * @param data.requestBody
+     * @returns QuotationPublic Successful Response
+     * @throws ApiError
+     */
+    public static finalize(data: QuotationsFinalizeData): CancelablePromise<QuotationsFinalizeResponse> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/api/v1/quotations/{quotation_id}/finalize',
+            path: {
+                quotation_id: data.quotationId
+            },
+            body: data.requestBody,
+            mediaType: 'application/json',
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Approve Final
+     * S7: BGĐ phê duyệt báo giá cuối hoặc yêu cầu chỉnh sửa lại.
+     * @param data The data for the request.
+     * @param data.quotationId
+     * @param data.requestBody
+     * @returns QuotationPublic Successful Response
+     * @throws ApiError
+     */
+    public static approveFinal(data: QuotationsApproveFinalData): CancelablePromise<QuotationsApproveFinalResponse> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/api/v1/quotations/{quotation_id}/approve-final',
+            path: {
+                quotation_id: data.quotationId
+            },
+            body: data.requestBody,
+            mediaType: 'application/json',
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Send To Client
+     * S8: Ghi nhận đã gửi báo giá cho khách hàng.
+     * @param data The data for the request.
+     * @param data.quotationId
+     * @param data.requestBody
+     * @returns QuotationPublic Successful Response
+     * @throws ApiError
+     */
+    public static sendToClient(data: QuotationsSendToClientData): CancelablePromise<QuotationsSendToClientResponse> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/api/v1/quotations/{quotation_id}/send-to-client',
+            path: {
+                quotation_id: data.quotationId
+            },
+            body: data.requestBody,
+            mediaType: 'application/json',
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Submit Negotiation
+     * S8 → S8B: KD ghi nhận thương lượng và trình GĐ duyệt.
+     * @param data The data for the request.
+     * @param data.quotationId
+     * @param data.requestBody
+     * @returns QuotationPublic Successful Response
+     * @throws ApiError
+     */
+    public static submitNegotiation(data: QuotationsSubmitNegotiationData): CancelablePromise<QuotationsSubmitNegotiationResponse> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/api/v1/quotations/{quotation_id}/submit-negotiation',
+            path: {
+                quotation_id: data.quotationId
+            },
+            body: data.requestBody,
+            mediaType: 'application/json',
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Approve Negotiation
+     * S8B: GĐ duyệt hoặc không đồng ý thương lượng.
+     * @param data The data for the request.
+     * @param data.quotationId
+     * @param data.requestBody
+     * @returns QuotationPublic Successful Response
+     * @throws ApiError
+     */
+    public static approveNegotiation(data: QuotationsApproveNegotiationData): CancelablePromise<QuotationsApproveNegotiationResponse> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/api/v1/quotations/{quotation_id}/approve-negotiation',
+            path: {
+                quotation_id: data.quotationId
+            },
+            body: data.requestBody,
+            mediaType: 'application/json',
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Close Quotation
+     * S8 → S9: Đóng hồ sơ (won → tạo Project / lost → lưu lý do).
+     * @param data The data for the request.
+     * @param data.quotationId
+     * @param data.requestBody
+     * @returns QuotationPublic Successful Response
+     * @throws ApiError
+     */
+    public static closeQuotation(data: QuotationsCloseQuotationData): CancelablePromise<QuotationsCloseQuotationResponse> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/api/v1/quotations/{quotation_id}/close',
+            path: {
+                quotation_id: data.quotationId
+            },
+            body: data.requestBody,
+            mediaType: 'application/json',
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * List Approval Participants
+     * Danh sách người duyệt (co-duyệt / ủy quyền) cho giai đoạn hiện tại.
+     * @param data The data for the request.
+     * @param data.quotationId
+     * @returns QuotationApprovalParticipantPublic Successful Response
+     * @throws ApiError
+     */
+    public static listApprovalParticipants(data: QuotationsListApprovalParticipantsData): CancelablePromise<QuotationsListApprovalParticipantsResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/v1/quotations/{quotation_id}/approval-participants',
+            path: {
+                quotation_id: data.quotationId
+            },
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Add Approval Participant
+     * Giám đốc thêm người co-duyệt hoặc ủy quyền cho giai đoạn hiện tại.
+     * @param data The data for the request.
+     * @param data.quotationId
+     * @param data.requestBody
+     * @returns QuotationApprovalParticipantPublic Successful Response
+     * @throws ApiError
+     */
+    public static addApprovalParticipant(data: QuotationsAddApprovalParticipantData): CancelablePromise<QuotationsAddApprovalParticipantResponse> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/api/v1/quotations/{quotation_id}/approval-participants',
+            path: {
+                quotation_id: data.quotationId
+            },
+            body: data.requestBody,
+            mediaType: 'application/json',
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Remove Approval Participant
+     * Giám đốc xóa người co-duyệt hoặc ủy quyền.
+     * @param data The data for the request.
+     * @param data.quotationId
+     * @param data.participantId
+     * @returns void Successful Response
+     * @throws ApiError
+     */
+    public static removeApprovalParticipant(data: QuotationsRemoveApprovalParticipantData): CancelablePromise<QuotationsRemoveApprovalParticipantResponse> {
+        return __request(OpenAPI, {
+            method: 'DELETE',
+            url: '/api/v1/quotations/{quotation_id}/approval-participants/{participant_id}',
+            path: {
+                quotation_id: data.quotationId,
+                participant_id: data.participantId
+            },
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Participant Approve
+     * Co-duyệt hoặc người được ủy quyền xác nhận duyệt.
+     * @param data The data for the request.
+     * @param data.quotationId
+     * @param data.requestBody
+     * @returns QuotationPublic Successful Response
+     * @throws ApiError
+     */
+    public static participantApprove(data: QuotationsParticipantApproveData): CancelablePromise<QuotationsParticipantApproveResponse> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/api/v1/quotations/{quotation_id}/participant-approve',
+            path: {
+                quotation_id: data.quotationId
+            },
+            body: data.requestBody,
+            mediaType: 'application/json',
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * List History
+     * Lịch sử các bước chuyển giai đoạn của hồ sơ.
+     * @param data The data for the request.
+     * @param data.quotationId
+     * @returns QuotationStageTransitionPublic Successful Response
+     * @throws ApiError
+     */
+    public static listHistory(data: QuotationsListHistoryData): CancelablePromise<QuotationsListHistoryResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/v1/quotations/{quotation_id}/history',
+            path: {
+                quotation_id: data.quotationId
+            },
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * List Negotiations
+     * Lịch sử trao đổi thương lượng với khách hàng.
+     * @param data The data for the request.
+     * @param data.quotationId
+     * @returns QuotationNegotiationLogPublic Successful Response
+     * @throws ApiError
+     */
+    public static listNegotiations(data: QuotationsListNegotiationsData): CancelablePromise<QuotationsListNegotiationsResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/v1/quotations/{quotation_id}/negotiations',
+            path: {
+                quotation_id: data.quotationId
+            },
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Add Negotiation Log
+     * Ghi nhận một lần trao đổi/thương lượng với khách hàng.
+     * @param data The data for the request.
+     * @param data.quotationId
+     * @param data.requestBody
+     * @returns QuotationNegotiationLogPublic Successful Response
+     * @throws ApiError
+     */
+    public static addNegotiationLog(data: QuotationsAddNegotiationLogData): CancelablePromise<QuotationsAddNegotiationLogResponse> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/api/v1/quotations/{quotation_id}/negotiations',
+            path: {
+                quotation_id: data.quotationId
+            },
+            body: data.requestBody,
+            mediaType: 'application/json',
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * List Attachments
+     * Danh sách file đính kèm (bản vẽ, tài liệu kỹ thuật).
+     * @param data The data for the request.
+     * @param data.quotationId
+     * @returns QuotationAttachmentPublic Successful Response
+     * @throws ApiError
+     */
+    public static listAttachments(data: QuotationsListAttachmentsData): CancelablePromise<QuotationsListAttachmentsResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/v1/quotations/{quotation_id}/attachments',
+            path: {
+                quotation_id: data.quotationId
+            },
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Add Attachment
+     * Upload file đính kèm vào hồ sơ.
+     * @param data The data for the request.
+     * @param data.quotationId
+     * @param data.requestBody
+     * @returns QuotationAttachmentPublic Successful Response
+     * @throws ApiError
+     */
+    public static addAttachment(data: QuotationsAddAttachmentData): CancelablePromise<QuotationsAddAttachmentResponse> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/api/v1/quotations/{quotation_id}/attachments',
+            path: {
+                quotation_id: data.quotationId
+            },
+            body: data.requestBody,
+            mediaType: 'application/json',
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Upload Attachment File
+     * Upload file binary lên hệ thống và tự tạo quotation attachment.
+     * @param data The data for the request.
+     * @param data.quotationId
+     * @param data.formData
+     * @param data.description
+     * @returns QuotationAttachmentPublic Successful Response
+     * @throws ApiError
+     */
+    public static uploadAttachmentFile(data: QuotationsUploadAttachmentFileData): CancelablePromise<QuotationsUploadAttachmentFileResponse> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/api/v1/quotations/{quotation_id}/attachments/upload',
+            path: {
+                quotation_id: data.quotationId
+            },
+            query: {
+                description: data.description
+            },
+            formData: data.formData,
+            mediaType: 'multipart/form-data',
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Delete Attachment
+     * Xóa file đính kèm.
+     * @param data The data for the request.
+     * @param data.quotationId
+     * @param data.attId
+     * @returns void Successful Response
+     * @throws ApiError
+     */
+    public static deleteAttachment(data: QuotationsDeleteAttachmentData): CancelablePromise<QuotationsDeleteAttachmentResponse> {
+        return __request(OpenAPI, {
+            method: 'DELETE',
+            url: '/api/v1/quotations/{quotation_id}/attachments/{att_id}',
+            path: {
+                quotation_id: data.quotationId,
+                att_id: data.attId
+            },
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * List Versions
+     * Danh sách các phiên bản snapshot của bảng báo giá.
+     * @param data The data for the request.
+     * @param data.quotationId
+     * @returns QuotationVersionPublic Successful Response
+     * @throws ApiError
+     */
+    public static listVersions(data: QuotationsListVersionsData): CancelablePromise<QuotationsListVersionsResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/v1/quotations/{quotation_id}/versions',
+            path: {
+                quotation_id: data.quotationId
+            },
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Create Version Snapshot
+     * Tạo snapshot thủ công tại thời điểm hiện tại.
+     * @param data The data for the request.
+     * @param data.quotationId
+     * @param data.reason
+     * @returns QuotationVersionPublic Successful Response
+     * @throws ApiError
+     */
+    public static createVersionSnapshot(data: QuotationsCreateVersionSnapshotData): CancelablePromise<QuotationsCreateVersionSnapshotResponse> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/api/v1/quotations/{quotation_id}/versions',
+            path: {
+                quotation_id: data.quotationId
+            },
+            query: {
+                reason: data.reason
+            },
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Get Version
+     * Xem nội dung một phiên bản snapshot cụ thể.
+     * @param data The data for the request.
+     * @param data.quotationId
+     * @param data.versionId
+     * @returns QuotationVersionPublic Successful Response
+     * @throws ApiError
+     */
+    public static getVersion(data: QuotationsGetVersionData): CancelablePromise<QuotationsGetVersionResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/v1/quotations/{quotation_id}/versions/{version_id}',
+            path: {
+                quotation_id: data.quotationId,
+                version_id: data.versionId
+            },
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Report Summary
+     * Tổng quan: tổng số hồ sơ, tỷ lệ thắng/thua, tổng giá trị.
+     * @param data The data for the request.
+     * @param data.dateFrom
+     * @param data.dateTo
+     * @param data.equipmentCategory
+     * @param data.clientCompanyName
+     * @returns QuotationReportSummary Successful Response
+     * @throws ApiError
+     */
+    public static reportSummary(data: QuotationsReportSummaryData = {}): CancelablePromise<QuotationsReportSummaryResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/v1/quotations/reports/summary',
+            query: {
+                date_from: data.dateFrom,
+                date_to: data.dateTo,
+                equipment_category: data.equipmentCategory,
+                client_company_name: data.clientCompanyName
+            },
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Report By Client
+     * Phân tích báo giá theo từng khách hàng.
+     * @param data The data for the request.
+     * @param data.dateFrom
+     * @param data.dateTo
+     * @returns QuotationByClientRow Successful Response
+     * @throws ApiError
+     */
+    public static reportByClient(data: QuotationsReportByClientData = {}): CancelablePromise<QuotationsReportByClientResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/v1/quotations/reports/by-client',
+            query: {
+                date_from: data.dateFrom,
+                date_to: data.dateTo
+            },
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Report By Equipment
+     * Phân tích báo giá theo hạng mục thiết bị.
+     * @param data The data for the request.
+     * @param data.dateFrom
+     * @param data.dateTo
+     * @returns QuotationByEquipmentRow Successful Response
+     * @throws ApiError
+     */
+    public static reportByEquipment(data: QuotationsReportByEquipmentData = {}): CancelablePromise<QuotationsReportByEquipmentResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/v1/quotations/reports/by-equipment',
+            query: {
+                date_from: data.dateFrom,
+                date_to: data.dateTo
+            },
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Report Lost Analysis
+     * Phân tích nguyên nhân thua trong các hồ sơ đã đóng.
+     * @param data The data for the request.
+     * @param data.dateFrom
+     * @param data.dateTo
+     * @returns QuotationLostReasonRow Successful Response
+     * @throws ApiError
+     */
+    public static reportLostAnalysis(data: QuotationsReportLostAnalysisData = {}): CancelablePromise<QuotationsReportLostAnalysisResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/v1/quotations/reports/lost-analysis',
+            query: {
+                date_from: data.dateFrom,
+                date_to: data.dateTo
             },
             errors: {
                 422: 'Validation Error'
@@ -774,8 +3307,79 @@ export class RolesService {
     }
     
     /**
+     * My Permissions
+     * Return effective permission codes of current user in current context.
+     * @returns string Successful Response
+     * @throws ApiError
+     */
+    public static myPermissions(): CancelablePromise<RolesMyPermissionsResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/v1/roles/my-permissions'
+        });
+    }
+    
+    /**
+     * Permissions Catalog
+     * Return all available permissions for RBAC UI configuration.
+     * @returns PermissionPublic Successful Response
+     * @throws ApiError
+     */
+    public static permissionsCatalog(): CancelablePromise<RolesPermissionsCatalogResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/v1/roles/permissions-catalog'
+        });
+    }
+    
+    /**
+     * Role Permissions
+     * Return permission codes currently assigned to a role.
+     * @param data The data for the request.
+     * @param data.roleId
+     * @returns string Successful Response
+     * @throws ApiError
+     */
+    public static rolePermissions(data: RolesRolePermissionsData): CancelablePromise<RolesRolePermissionsResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/v1/roles/{role_id}/permissions',
+            path: {
+                role_id: data.roleId
+            },
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Assign Role Permissions
+     * Replace role permissions by permission codes for a target role.
+     * @param data The data for the request.
+     * @param data.roleId
+     * @param data.requestBody
+     * @returns RolePermissionAssignResponse Successful Response
+     * @throws ApiError
+     */
+    public static assignRolePermissions(data: RolesAssignRolePermissionsData): CancelablePromise<RolesAssignRolePermissionsResponse> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/api/v1/roles/{role_id}/permissions',
+            path: {
+                role_id: data.roleId
+            },
+            body: data.requestBody,
+            mediaType: 'application/json',
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
      * List Companies
-     * List companies for admin UI.
+     * List all companies.
      * @returns CompanyPublic Successful Response
      * @throws ApiError
      */
@@ -788,7 +3392,7 @@ export class RolesService {
     
     /**
      * Create Company
-     * Create company. Allowed for superuser or users with COMPANY_CREATE permission.
+     * Create company (superuser or COMPANY_CREATE permission).
      * @param data The data for the request.
      * @param data.requestBody
      * @returns CompanyPublic Successful Response
@@ -807,8 +3411,42 @@ export class RolesService {
     }
     
     /**
+     * List My Companies
+     * List companies the current user belongs to (via UserCompanyRole).
+     * @returns CompanyPublic Successful Response
+     * @throws ApiError
+     */
+    public static listMyCompanies(): CancelablePromise<RolesListMyCompaniesResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/v1/roles/my-companies'
+        });
+    }
+    
+    /**
+     * List Company Members
+     * List members of a company with their assigned company roles.
+     * @param data The data for the request.
+     * @param data.companyId
+     * @returns CompanyMemberPublic Successful Response
+     * @throws ApiError
+     */
+    public static listCompanyMembers(data: RolesListCompanyMembersData): CancelablePromise<RolesListCompanyMembersResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/v1/roles/companies/{company_id}/members',
+            path: {
+                company_id: data.companyId
+            },
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
      * Update Company
-     * Edit company name/active status for admin or director of that company.
+     * Edit company name/active status.
      * @param data The data for the request.
      * @param data.companyId
      * @param data.requestBody
@@ -832,7 +3470,7 @@ export class RolesService {
     
     /**
      * Create Department
-     * Create department in a company. Allowed for superuser or company director.
+     * Create department in a company.
      * @param data The data for the request.
      * @param data.companyId
      * @param data.requestBody
@@ -856,7 +3494,7 @@ export class RolesService {
     
     /**
      * List Departments
-     * List departments for selected company.
+     * List departments for a company.
      * @param data The data for the request.
      * @param data.companyId
      * @returns DepartmentPublic Successful Response
@@ -868,6 +3506,104 @@ export class RolesService {
             url: '/api/v1/roles/companies/{company_id}/departments',
             path: {
                 company_id: data.companyId
+            },
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Update Department
+     * Update department name, type, active status, or parent.
+     * @param data The data for the request.
+     * @param data.companyId
+     * @param data.departmentId
+     * @param data.requestBody
+     * @returns DepartmentPublic Successful Response
+     * @throws ApiError
+     */
+    public static updateDepartment(data: RolesUpdateDepartmentData): CancelablePromise<RolesUpdateDepartmentResponse> {
+        return __request(OpenAPI, {
+            method: 'PATCH',
+            url: '/api/v1/roles/companies/{company_id}/departments/{department_id}',
+            path: {
+                company_id: data.companyId,
+                department_id: data.departmentId
+            },
+            body: data.requestBody,
+            mediaType: 'application/json',
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Delete Department
+     * Hard-delete a department. Fails if users are still assigned.
+     * @param data The data for the request.
+     * @param data.companyId
+     * @param data.departmentId
+     * @returns void Successful Response
+     * @throws ApiError
+     */
+    public static deleteDepartment(data: RolesDeleteDepartmentData): CancelablePromise<RolesDeleteDepartmentResponse> {
+        return __request(OpenAPI, {
+            method: 'DELETE',
+            url: '/api/v1/roles/companies/{company_id}/departments/{department_id}',
+            path: {
+                company_id: data.companyId,
+                department_id: data.departmentId
+            },
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Assign User To Department
+     * Assign a user to this department.
+     * @param data The data for the request.
+     * @param data.companyId
+     * @param data.departmentId
+     * @param data.requestBody
+     * @returns DepartmentPublic Successful Response
+     * @throws ApiError
+     */
+    public static assignUserToDepartment(data: RolesAssignUserToDepartmentData): CancelablePromise<RolesAssignUserToDepartmentResponse> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/api/v1/roles/companies/{company_id}/departments/{department_id}/assign-user',
+            path: {
+                company_id: data.companyId,
+                department_id: data.departmentId
+            },
+            body: data.requestBody,
+            mediaType: 'application/json',
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Unassign User From Department
+     * Remove department assignment from a user.
+     * @param data The data for the request.
+     * @param data.companyId
+     * @param data.userId
+     * @returns void Successful Response
+     * @throws ApiError
+     */
+    public static unassignUserFromDepartment(data: RolesUnassignUserFromDepartmentData): CancelablePromise<RolesUnassignUserFromDepartmentResponse> {
+        return __request(OpenAPI, {
+            method: 'DELETE',
+            url: '/api/v1/roles/companies/{company_id}/members/{user_id}/department',
+            path: {
+                company_id: data.companyId,
+                user_id: data.userId
             },
             errors: {
                 422: 'Validation Error'
@@ -921,7 +3657,7 @@ export class RolesService {
     
     /**
      * Assign User Company Role
-     * Assign role to user in a company with optional primary flag.
+     * Assign role to user in a company.
      * @param data The data for the request.
      * @param data.requestBody
      * @returns UserCompanyRolePublic Successful Response
@@ -933,6 +3669,57 @@ export class RolesService {
             url: '/api/v1/roles/assignments',
             body: data.requestBody,
             mediaType: 'application/json',
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Update Company Member Role
+     * Update role assignment of a member inside a company.
+     * @param data The data for the request.
+     * @param data.companyId
+     * @param data.userId
+     * @param data.requestBody
+     * @returns UserCompanyRolePublic Successful Response
+     * @throws ApiError
+     */
+    public static updateCompanyMemberRole(data: RolesUpdateCompanyMemberRoleData): CancelablePromise<RolesUpdateCompanyMemberRoleResponse> {
+        return __request(OpenAPI, {
+            method: 'PATCH',
+            url: '/api/v1/roles/companies/{company_id}/members/{user_id}',
+            path: {
+                company_id: data.companyId,
+                user_id: data.userId
+            },
+            body: data.requestBody,
+            mediaType: 'application/json',
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Remove Company Member Role
+     * Remove a role assignment of a member inside a company.
+     * @param data The data for the request.
+     * @param data.companyId
+     * @param data.userId
+     * @param data.roleId
+     * @returns void Successful Response
+     * @throws ApiError
+     */
+    public static removeCompanyMemberRole(data: RolesRemoveCompanyMemberRoleData): CancelablePromise<RolesRemoveCompanyMemberRoleResponse> {
+        return __request(OpenAPI, {
+            method: 'DELETE',
+            url: '/api/v1/roles/companies/{company_id}/members/{user_id}/roles/{role_id}',
+            path: {
+                company_id: data.companyId,
+                user_id: data.userId,
+                role_id: data.roleId
+            },
             errors: {
                 422: 'Validation Error'
             }
@@ -975,7 +3762,7 @@ export class RolesService {
     
     /**
      * Get Org Tree
-     * Return organization tree grouped by department and sorted from low to high role levels.
+     * Return organization tree grouped by department, sorted by role level.
      * @param data The data for the request.
      * @param data.companyId
      * @param data.departmentId
@@ -990,6 +3777,226 @@ export class RolesService {
                 company_id: data.companyId,
                 department_id: data.departmentId
             },
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+}
+
+export class TaskProfilesService {
+    /**
+     * List Profiles
+     * @param data The data for the request.
+     * @param data.companyId
+     * @returns TaskProfilePublic Successful Response
+     * @throws ApiError
+     */
+    public static listProfiles(data: TaskProfilesListProfilesData = {}): CancelablePromise<TaskProfilesListProfilesResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/v1/task-profiles/',
+            query: {
+                company_id: data.companyId
+            },
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Create Profile
+     * @param data The data for the request.
+     * @param data.requestBody
+     * @returns TaskProfilePublic Successful Response
+     * @throws ApiError
+     */
+    public static createProfile(data: TaskProfilesCreateProfileData): CancelablePromise<TaskProfilesCreateProfileResponse> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/api/v1/task-profiles/',
+            body: data.requestBody,
+            mediaType: 'application/json',
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Get Profile
+     * @param data The data for the request.
+     * @param data.profileId
+     * @returns TaskProfilePublic Successful Response
+     * @throws ApiError
+     */
+    public static getProfile(data: TaskProfilesGetProfileData): CancelablePromise<TaskProfilesGetProfileResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/v1/task-profiles/{profile_id}',
+            path: {
+                profile_id: data.profileId
+            },
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Update Profile
+     * @param data The data for the request.
+     * @param data.profileId
+     * @param data.requestBody
+     * @returns TaskProfilePublic Successful Response
+     * @throws ApiError
+     */
+    public static updateProfile(data: TaskProfilesUpdateProfileData): CancelablePromise<TaskProfilesUpdateProfileResponse> {
+        return __request(OpenAPI, {
+            method: 'PATCH',
+            url: '/api/v1/task-profiles/{profile_id}',
+            path: {
+                profile_id: data.profileId
+            },
+            body: data.requestBody,
+            mediaType: 'application/json',
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Delete Profile
+     * @param data The data for the request.
+     * @param data.profileId
+     * @returns void Successful Response
+     * @throws ApiError
+     */
+    public static deleteProfile(data: TaskProfilesDeleteProfileData): CancelablePromise<TaskProfilesDeleteProfileResponse> {
+        return __request(OpenAPI, {
+            method: 'DELETE',
+            url: '/api/v1/task-profiles/{profile_id}',
+            path: {
+                profile_id: data.profileId
+            },
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Add Profile Item
+     * @param data The data for the request.
+     * @param data.profileId
+     * @param data.requestBody
+     * @returns TaskProfileItemPublic Successful Response
+     * @throws ApiError
+     */
+    public static addProfileItem(data: TaskProfilesAddProfileItemData): CancelablePromise<TaskProfilesAddProfileItemResponse> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/api/v1/task-profiles/{profile_id}/items',
+            path: {
+                profile_id: data.profileId
+            },
+            body: data.requestBody,
+            mediaType: 'application/json',
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Update Profile Item
+     * @param data The data for the request.
+     * @param data.itemId
+     * @param data.requestBody
+     * @returns TaskProfileItemPublic Successful Response
+     * @throws ApiError
+     */
+    public static updateProfileItem(data: TaskProfilesUpdateProfileItemData): CancelablePromise<TaskProfilesUpdateProfileItemResponse> {
+        return __request(OpenAPI, {
+            method: 'PATCH',
+            url: '/api/v1/task-profiles/items/{item_id}',
+            path: {
+                item_id: data.itemId
+            },
+            body: data.requestBody,
+            mediaType: 'application/json',
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Delete Profile Item
+     * @param data The data for the request.
+     * @param data.itemId
+     * @returns void Successful Response
+     * @throws ApiError
+     */
+    public static deleteProfileItem(data: TaskProfilesDeleteProfileItemData): CancelablePromise<TaskProfilesDeleteProfileItemResponse> {
+        return __request(OpenAPI, {
+            method: 'DELETE',
+            url: '/api/v1/task-profiles/items/{item_id}',
+            path: {
+                item_id: data.itemId
+            },
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Apply Profile
+     * Apply a TaskProfile to a project, creating a full task tree.
+     * start_time / end_time are set as placeholders; child end_time is clamped
+     * to parent end_time to keep timeline consistent.
+     * @param data The data for the request.
+     * @param data.profileId
+     * @param data.requestBody
+     * @returns unknown Successful Response
+     * @throws ApiError
+     */
+    public static applyProfile(data: TaskProfilesApplyProfileData): CancelablePromise<TaskProfilesApplyProfileResponse> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/api/v1/task-profiles/{profile_id}/apply',
+            path: {
+                profile_id: data.profileId
+            },
+            body: data.requestBody,
+            mediaType: 'application/json',
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Save Task As Profile
+     * Save a task and its entire subtree as a reusable TaskProfile.
+     * @param data The data for the request.
+     * @param data.taskId
+     * @param data.requestBody
+     * @returns TaskProfilePublic Successful Response
+     * @throws ApiError
+     */
+    public static saveTaskAsProfile(data: TaskProfilesSaveTaskAsProfileData): CancelablePromise<TaskProfilesSaveTaskAsProfileResponse> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/api/v1/task-profiles/from-task/{task_id}',
+            path: {
+                task_id: data.taskId
+            },
+            body: data.requestBody,
+            mediaType: 'application/json',
             errors: {
                 422: 'Validation Error'
             }
@@ -1024,6 +4031,7 @@ export class TasksService {
     
     /**
      * List Project Tasks
+     * List tasks in a project with optional filters.
      * @param data The data for the request.
      * @param data.projectId
      * @param data.parentId
@@ -1054,7 +4062,7 @@ export class TasksService {
     
     /**
      * Create Child Task
-     * Create a sub-task under an existing task. Level auto-computed.
+     * Create a child task up to level 4 (5 levels: Hạng mục → Công việc → Đầu việc → Bước → Chi tiết).
      * @param data The data for the request.
      * @param data.parentId
      * @param data.requestBody
@@ -1077,7 +4085,21 @@ export class TasksService {
     }
     
     /**
+     * My Dashboard
+     * Personal task dashboard with company/project metadata.
+     * @returns unknown Successful Response
+     * @throws ApiError
+     */
+    public static myDashboard(): CancelablePromise<TasksMyDashboardResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/v1/tasks/my/dashboard'
+        });
+    }
+    
+    /**
      * Get Task
+     * Fetch a task with computed status.
      * @param data The data for the request.
      * @param data.taskId
      * @returns TaskPublic Successful Response
@@ -1098,6 +4120,7 @@ export class TasksService {
     
     /**
      * Update Task
+     * Update task fields; triggers cascade if end_time is extended.
      * @param data The data for the request.
      * @param data.taskId
      * @param data.requestBody
@@ -1121,6 +4144,7 @@ export class TasksService {
     
     /**
      * Delete Task
+     * Soft-delete a task.
      * @param data The data for the request.
      * @param data.taskId
      * @returns void Successful Response
@@ -1140,20 +4164,8 @@ export class TasksService {
     }
     
     /**
-     * My Dashboard
-     * Personal task dashboard with company/project metadata and filter options.
-     * @returns unknown Successful Response
-     * @throws ApiError
-     */
-    public static myDashboard(): CancelablePromise<TasksMyDashboardResponse> {
-        return __request(OpenAPI, {
-            method: 'GET',
-            url: '/api/v1/tasks/my/dashboard'
-        });
-    }
-    
-    /**
      * Update Task Status
+     * Update task status (assignee only unless superuser).
      * @param data The data for the request.
      * @param data.taskId
      * @param data.requestBody
@@ -1164,6 +4176,125 @@ export class TasksService {
         return __request(OpenAPI, {
             method: 'PATCH',
             url: '/api/v1/tasks/{task_id}/status',
+            path: {
+                task_id: data.taskId
+            },
+            body: data.requestBody,
+            mediaType: 'application/json',
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Add Extra Assignee
+     * Add a co-worker to a task (extra assignee).
+     * @param data The data for the request.
+     * @param data.taskId
+     * @param data.requestBody
+     * @returns TaskPublic Successful Response
+     * @throws ApiError
+     */
+    public static addExtraAssignee(data: TasksAddExtraAssigneeData): CancelablePromise<TasksAddExtraAssigneeResponse> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/api/v1/tasks/{task_id}/assignees',
+            path: {
+                task_id: data.taskId
+            },
+            body: data.requestBody,
+            mediaType: 'application/json',
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Remove Extra Assignee
+     * Remove a co-worker from a task.
+     * @param data The data for the request.
+     * @param data.taskId
+     * @param data.userId
+     * @returns TaskPublic Successful Response
+     * @throws ApiError
+     */
+    public static removeExtraAssignee(data: TasksRemoveExtraAssigneeData): CancelablePromise<TasksRemoveExtraAssigneeResponse> {
+        return __request(OpenAPI, {
+            method: 'DELETE',
+            url: '/api/v1/tasks/{task_id}/assignees/{user_id}',
+            path: {
+                task_id: data.taskId,
+                user_id: data.userId
+            },
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Add Observer
+     * Add a watch-only observer to a task.
+     * @param data The data for the request.
+     * @param data.taskId
+     * @param data.requestBody
+     * @returns TaskPublic Successful Response
+     * @throws ApiError
+     */
+    public static addObserver(data: TasksAddObserverData): CancelablePromise<TasksAddObserverResponse> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/api/v1/tasks/{task_id}/observers',
+            path: {
+                task_id: data.taskId
+            },
+            body: data.requestBody,
+            mediaType: 'application/json',
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Remove Observer
+     * Remove an observer from a task.
+     * @param data The data for the request.
+     * @param data.taskId
+     * @param data.userId
+     * @returns TaskPublic Successful Response
+     * @throws ApiError
+     */
+    public static removeObserver(data: TasksRemoveObserverData): CancelablePromise<TasksRemoveObserverResponse> {
+        return __request(OpenAPI, {
+            method: 'DELETE',
+            url: '/api/v1/tasks/{task_id}/observers/{user_id}',
+            path: {
+                task_id: data.taskId,
+                user_id: data.userId
+            },
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Reassign Task
+     * Transfer the primary assignee to another user.
+     * Old assignee is moved to extra_assignees automatically.
+     * @param data The data for the request.
+     * @param data.taskId
+     * @param data.requestBody
+     * @returns TaskPublic Successful Response
+     * @throws ApiError
+     */
+    public static reassignTask(data: TasksReassignTaskData): CancelablePromise<TasksReassignTaskResponse> {
+        return __request(OpenAPI, {
+            method: 'PATCH',
+            url: '/api/v1/tasks/{task_id}/reassign',
             path: {
                 task_id: data.taskId
             },
@@ -1226,6 +4357,7 @@ export class TasksService {
     
     /**
      * List Comments
+     * List task comments with author names.
      * @param data The data for the request.
      * @param data.taskId
      * @returns TaskCommentPublic Successful Response
@@ -1246,7 +4378,7 @@ export class TasksService {
     
     /**
      * Approve Delay Request
-     * Approve or reject delay request and update task deadline when approved.
+     * Approve or reject a delay request; update task deadline when approved.
      * @param data The data for the request.
      * @param data.taskId
      * @param data.commentId
@@ -1271,79 +4403,8 @@ export class TasksService {
     }
     
     /**
-     * Upload Proof
-     * @param data The data for the request.
-     * @param data.taskId
-     * @param data.requestBody
-     * @returns TaskProofPublic Successful Response
-     * @throws ApiError
-     */
-    public static uploadProof(data: TasksUploadProofData): CancelablePromise<TasksUploadProofResponse> {
-        return __request(OpenAPI, {
-            method: 'POST',
-            url: '/api/v1/tasks/{task_id}/proofs',
-            path: {
-                task_id: data.taskId
-            },
-            body: data.requestBody,
-            mediaType: 'application/json',
-            errors: {
-                422: 'Validation Error'
-            }
-        });
-    }
-    
-    /**
-     * List Proofs
-     * @param data The data for the request.
-     * @param data.taskId
-     * @returns TaskProofPublic Successful Response
-     * @throws ApiError
-     */
-    public static listProofs(data: TasksListProofsData): CancelablePromise<TasksListProofsResponse> {
-        return __request(OpenAPI, {
-            method: 'GET',
-            url: '/api/v1/tasks/{task_id}/proofs',
-            path: {
-                task_id: data.taskId
-            },
-            errors: {
-                422: 'Validation Error'
-            }
-        });
-    }
-    
-    /**
-     * Review Proof
-     * @param data The data for the request.
-     * @param data.taskId
-     * @param data.proofId
-     * @param data.reviewStatus
-     * @param data.reviewNote
-     * @returns TaskProofPublic Successful Response
-     * @throws ApiError
-     */
-    public static reviewProof(data: TasksReviewProofData): CancelablePromise<TasksReviewProofResponse> {
-        return __request(OpenAPI, {
-            method: 'PATCH',
-            url: '/api/v1/tasks/{task_id}/proofs/{proof_id}',
-            path: {
-                task_id: data.taskId,
-                proof_id: data.proofId
-            },
-            query: {
-                review_status: data.reviewStatus,
-                review_note: data.reviewNote
-            },
-            errors: {
-                422: 'Validation Error'
-            }
-        });
-    }
-    
-    /**
      * Add Dependency
-     * Create dependency link between two tasks.
+     * Create a dependency link between two tasks.
      * @param data The data for the request.
      * @param data.taskId
      * @param data.requestBody
@@ -1354,8 +4415,8 @@ export class TasksService {
         return __request(OpenAPI, {
             method: 'POST',
             url: '/api/v1/tasks/{task_id}/dependencies',
-            query: {
-                _task_id: data.taskId
+            path: {
+                task_id: data.taskId
             },
             body: data.requestBody,
             mediaType: 'application/json',
@@ -1366,8 +4427,52 @@ export class TasksService {
     }
     
     /**
+     * Remove Dependency
+     * Remove a dependency link and recalculate the critical path.
+     * @param data The data for the request.
+     * @param data.taskId
+     * @param data.depId
+     * @returns void Successful Response
+     * @throws ApiError
+     */
+    public static removeDependency(data: TasksRemoveDependencyData): CancelablePromise<TasksRemoveDependencyResponse> {
+        return __request(OpenAPI, {
+            method: 'DELETE',
+            url: '/api/v1/tasks/{task_id}/dependencies/{dep_id}',
+            path: {
+                task_id: data.taskId,
+                dep_id: data.depId
+            },
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Get Project Gantt
+     * Return all tasks + dependency links for the project Gantt chart.
+     * @param data The data for the request.
+     * @param data.projectId
+     * @returns GanttPublic Successful Response
+     * @throws ApiError
+     */
+    public static getProjectGantt(data: TasksGetProjectGanttData): CancelablePromise<TasksGetProjectGanttResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/v1/projects/{project_id}/gantt',
+            path: {
+                project_id: data.projectId
+            },
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
      * Upload Progress Report Photo
-     * Persist an image from the assignee's device; use photo_url in add progress report.
+     * Persist an image from the assignee's device; returns photo_url.
      * @param data The data for the request.
      * @param data.taskId
      * @param data.formData
@@ -1391,10 +4496,16 @@ export class TasksService {
     
     /**
      * Add Progress Report
-     * Worker submits photo URL and percent; sum capped at 100%%; auto in_progress / done.
+     * Upload progress photo and create the report atomically in one request.
+     * Accepts multipart/form-data: file (image), progress_percent (1-100), note (optional),
+     * optional GPS (gps_lat/gps_lng), and checkin_skip_reason.
+     *
+     * When the task has requires_checkin = True, the submission must include either
+     * GPS coordinates OR a checkin_skip_reason (device cannot locate) — the latter
+     * flags the report for manager/director review.
      * @param data The data for the request.
      * @param data.taskId
-     * @param data.requestBody
+     * @param data.formData
      * @returns TaskProgressReportPublic Successful Response
      * @throws ApiError
      */
@@ -1405,8 +4516,8 @@ export class TasksService {
             path: {
                 task_id: data.taskId
             },
-            body: data.requestBody,
-            mediaType: 'application/json',
+            formData: data.formData,
+            mediaType: 'multipart/form-data',
             errors: {
                 422: 'Validation Error'
             }
@@ -1415,7 +4526,7 @@ export class TasksService {
     
     /**
      * List Progress Reports
-     * List worker progress submissions (photo + percent) for a task.
+     * List worker progress submissions for a task.
      * @param data The data for the request.
      * @param data.taskId
      * @returns TaskProgressReportPublic Successful Response
@@ -1435,7 +4546,37 @@ export class TasksService {
     }
     
     /**
+     * Review Progress Report
+     * Approve or reject a progress report (its on-site photo is the evidence).
+     * @param data The data for the request.
+     * @param data.taskId
+     * @param data.reportId
+     * @param data.reviewStatus
+     * @param data.reviewNote
+     * @returns TaskProgressReportPublic Successful Response
+     * @throws ApiError
+     */
+    public static reviewProgressReport(data: TasksReviewProgressReportData): CancelablePromise<TasksReviewProgressReportResponse> {
+        return __request(OpenAPI, {
+            method: 'PATCH',
+            url: '/api/v1/tasks/{task_id}/progress-reports/{report_id}',
+            path: {
+                task_id: data.taskId,
+                report_id: data.reportId
+            },
+            query: {
+                review_status: data.reviewStatus,
+                review_note: data.reviewNote
+            },
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
      * Get Task Audit
+     * Return audit log for a task.
      * @param data The data for the request.
      * @param data.taskId
      * @returns AuditLogPublic Successful Response
@@ -1456,6 +4597,7 @@ export class TasksService {
     
     /**
      * Check Conflicts
+     * Check timeline conflicts for a task.
      * @param data The data for the request.
      * @param data.taskId
      * @returns unknown Successful Response
@@ -1499,7 +4641,7 @@ export class UsersService {
     
     /**
      * Read Users
-     * Retrieve users.
+     * Retrieve users (superuser only).
      * @param data The data for the request.
      * @param data.skip
      * @param data.limit
@@ -1522,7 +4664,7 @@ export class UsersService {
     
     /**
      * Create User
-     * Create new user.
+     * Create new user (superuser only).
      * @param data The data for the request.
      * @param data.requestBody
      * @returns UserPublic Successful Response
@@ -1542,7 +4684,7 @@ export class UsersService {
     
     /**
      * Read User Me
-     * Get current user.
+     * Get current user info.
      * @returns UserPublic Successful Response
      * @throws ApiError
      */
@@ -1555,7 +4697,7 @@ export class UsersService {
     
     /**
      * Delete User Me
-     * Delete own user.
+     * Delete own account (non-superuser only).
      * @returns Message Successful Response
      * @throws ApiError
      */
@@ -1568,7 +4710,7 @@ export class UsersService {
     
     /**
      * Update User Me
-     * Update own user.
+     * Update own profile.
      * @param data The data for the request.
      * @param data.requestBody
      * @returns UserPublic Successful Response
@@ -1608,7 +4750,7 @@ export class UsersService {
     
     /**
      * Register User
-     * Create new user without the need to be logged in.
+     * Self-registration (if allowed).
      * @param data The data for the request.
      * @param data.requestBody
      * @returns UserPublic Successful Response
@@ -1628,7 +4770,7 @@ export class UsersService {
     
     /**
      * Read User By Id
-     * Get a specific user by id.
+     * Get a specific user by ID.
      * @param data The data for the request.
      * @param data.userId
      * @returns UserPublic Successful Response
@@ -1649,7 +4791,7 @@ export class UsersService {
     
     /**
      * Update User
-     * Update a user.
+     * Update any user (superuser only).
      * @param data The data for the request.
      * @param data.userId
      * @param data.requestBody
@@ -1673,7 +4815,7 @@ export class UsersService {
     
     /**
      * Delete User
-     * Delete a user.
+     * Delete a user (superuser only).
      * @param data The data for the request.
      * @param data.userId
      * @returns Message Successful Response

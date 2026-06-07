@@ -16,6 +16,7 @@ from app.models.attendance import (
     AttendanceRecordsPublic,
     SiteLocationUpdate,
 )
+from app.models.org import CompanyPublic
 from app.models.project import ProjectPublic
 from app.models.user import User
 from app.services.attendance_service import AttendanceService
@@ -54,16 +55,34 @@ async def check_in(
     session: AsyncSessionDep,
     current_user: User = Depends(require_permission("ATTENDANCE_CHECKIN")),
     file: UploadFile = File(...),
-    project_id: uuid.UUID = Form(...),
     lat: float = Form(...),
     lng: float = Form(...),
+    mode: str = Form(default="project"),
+    project_id: uuid.UUID | None = Form(default=None),
+    company_id: uuid.UUID | None = Form(default=None),
+    customer_company_id: uuid.UUID | None = Form(default=None),
+    task_label: str | None = Form(default=None),
     accuracy_m: float | None = Form(default=None),
     note: str | None = Form(default=None),
 ) -> AttendanceRecordPublic:
-    """Record an on-site check-in. Requires a photo taken at the site."""
+    """Record an on-site check-in. Requires a photo taken at the site.
+
+    `mode="project"` (default) checks in against a project site; `mode="company"`
+    checks in against a company with a free-text `task_label`.
+    """
     photo_url = await _save_photo(file)
     record = await _svc(session).check_in(
-        current_user, project_id, lat, lng, accuracy_m, photo_url, note
+        current_user,
+        lat,
+        lng,
+        accuracy_m,
+        photo_url,
+        mode=mode,
+        project_id=project_id,
+        company_id=company_id,
+        customer_company_id=customer_company_id,
+        task_label=task_label,
+        note=note,
     )
     return AttendanceRecordPublic.model_validate(record, from_attributes=True)
 
@@ -137,6 +156,32 @@ async def project_attendance(
         AttendanceRecordPublic.model_validate(r, from_attributes=True) for r in records
     ]
     return AttendanceRecordsPublic(data=data, count=len(data))
+
+
+@router.get("/attendance/task-suggestions", response_model=list[str])
+async def attendance_task_suggestions(
+    session: AsyncSessionDep,
+    current_user: CurrentUser,
+) -> list[str]:
+    """Free-text tasks the current user has used in by-company check-ins."""
+    return await _svc(session).list_task_suggestions(current_user.id)
+
+
+@router.patch(
+    "/companies/{company_id}/site-location",
+    response_model=CompanyPublic,
+)
+async def set_company_site_location(
+    company_id: uuid.UUID,
+    body: SiteLocationUpdate,
+    session: AsyncSessionDep,
+    current_user: User = Depends(require_permission("ATTENDANCE_CONFIG_SITE")),
+) -> CompanyPublic:
+    """Configure a company's site coordinates and allowed check-in radius."""
+    company = await _svc(session).set_company_site_location(
+        company_id, body.site_lat, body.site_lng, body.site_radius_m
+    )
+    return CompanyPublic.model_validate(company, from_attributes=True)
 
 
 @router.patch(

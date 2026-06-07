@@ -204,6 +204,9 @@ function Layout() {
               duration: 4000,
             })
             void queryClient.invalidateQueries({ queryKey: ["chat", "unread-count"] })
+            // Refresh the notification bell in realtime (same as task events)
+            void queryClient.invalidateQueries({ queryKey: ["notifications-unread-count"] })
+            void queryClient.invalidateQueries({ queryKey: ["notifications-list"] })
           })
           cleanups.push(unsub)
         }
