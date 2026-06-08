@@ -34,19 +34,6 @@ from app.models.user import User, UserCreate
 # Default data
 # ---------------------------------------------------------------------------
 
-# Each production tổ (department) has its OWN distinct lead role — a tổ cannot
-# share a single role with another tổ, the same way each office phòng has its
-# own role. (name, display_name, department_name). Level 2, generic tổ-trưởng
-# permission set. `workshop_lead` is kept as a generic fallback for other scripts.
-PRODUCTION_TEAM_LEADS = [
-    ("lead_iqf", "Tổ trưởng Tổ IQF", "Tổ IQF"),
-    ("lead_to_lanh", "Tổ trưởng Tổ Lạnh", "Tổ Lạnh"),
-    ("lead_to_dien", "Tổ trưởng Tổ Điện", "Tổ Điện"),
-    ("lead_to_tien", "Tổ trưởng Tổ Tiện", "Tổ Tiện"),
-    ("lead_to_may_1", "Tổ trưởng Tổ Máy 1", "Tổ Máy 1"),
-    ("lead_to_may_2", "Tổ trưởng Tổ Máy 2", "Tổ Máy 2"),
-]
-
 SYSTEM_ROLES = [
     {"name": "admin", "display_name": "System Admin", "level": 1, "is_system": True},
     {"name": "director", "display_name": "Giám đốc", "level": 1, "is_system": True},
@@ -55,16 +42,13 @@ SYSTEM_ROLES = [
     {"name": "engineer", "display_name": "Trưởng phòng Kỹ thuật", "level": 2, "is_system": True},
     {"name": "materials", "display_name": "Trưởng phòng Vật tư", "level": 2, "is_system": True},
     {"name": "planner", "display_name": "Trưởng phòng Kế hoạch", "level": 2, "is_system": True},
-    {"name": "workshop_lead", "display_name": "Tổ trưởng sản xuất", "level": 2, "is_system": True},
+    {"name": "workshop_lead", "display_name": "Tổ trưởng", "level": 2, "is_system": True},
     {"name": "site_supply", "display_name": "Cung ứng vật tư công trình", "level": 2, "is_system": True},
     {"name": "installer", "display_name": "Lắp đặt công trình", "level": 3, "is_system": True},
     {"name": "worker", "display_name": "Tổ viên / Thực hiện", "level": 3, "is_system": True},
-    # Production teams (Tổ IQF, Tổ Lạnh, Tổ Máy 1...) are DEPARTMENTS; each gets
-    # its own distinct lead role below.
-    *[
-        {"name": name, "display_name": display, "level": 2, "is_system": True}
-        for (name, display, _dept) in PRODUCTION_TEAM_LEADS
-    ],
+    # Tổ sản xuất (IQF, Lạnh, Điện, Tiện, Máy 1/2) là PHÒNG BAN, không phải role.
+    # Mọi tổ trưởng dùng chung role "workshop_lead" (Tổ trưởng); phòng ban cho
+    # biết người đó thuộc tổ nào — không tạo role lặp lại theo từng tổ.
 ]
 
 # fmt: off
@@ -241,8 +225,6 @@ ROLE_PERMISSION_MAP: dict[str, list[str]] = {
     "materials": [*_DEPT_HEAD_LIKE_PERMS, *_MATERIALS_QUOTATION_PERMS],
     "planner": list(_DEPT_HEAD_LIKE_PERMS),
     "workshop_lead": list(_DEPT_HEAD_LIKE_PERMS),
-    # Per-tổ lead roles — same permission set as a generic tổ trưởng.
-    **{name: list(_DEPT_HEAD_LIKE_PERMS) for (name, _d, _dept) in PRODUCTION_TEAM_LEADS},
     "site_supply": list(_DEPT_HEAD_LIKE_PERMS),
     "installer": list(_WORKER_LIKE_PERMS),
     "worker": list(_WORKER_LIKE_PERMS),
@@ -284,13 +266,14 @@ STAFF_ACCOUNTS: list[tuple[str, str, str, str]] = [
     # Trưởng phòng kinh doanh — quản lý + quy trình báo giá/hợp đồng
     ("Bích Vân", "bichvan@saree.com", "sales", "Phòng Kinh doanh"),
     ("Ngân - Phòng Vật Tư", "ngan_vattu@saree.com", "materials", "Phòng Vật tư"),
-    # Tổ trưởng các tổ sản xuất — mỗi tổ có role riêng (lead_<tổ>), phòng ban là tổ.
-    ("San - IQF", "san_iqf@saree.com", "lead_iqf", "Tổ IQF"),
-    ("Thanh Vũ - Tổ Lạnh", "thanhvu_tolanh@saree.com", "lead_to_lanh", "Tổ Lạnh"),
-    ("Nhân Tổ Tiện", "nhan_totien@saree.com", "lead_to_tien", "Tổ Tiện"),
-    ("Sen Tổ Điện", "sen_todien@saree.com", "lead_to_dien", "Tổ Điện"),
-    ("Trí Tổ Máy 2", "tri_tomay_2@saree.com", "lead_to_may_2", "Tổ Máy 2"),
-    ("Bo Tổ Máy 1", "bo_tomay_1@saree.com", "lead_to_may_1", "Tổ Máy 1"),
+    # Tổ trưởng các tổ sản xuất — role chung "Tổ trưởng" (workshop_lead),
+    # phòng ban cho biết tổ nào.
+    ("San - IQF", "san_iqf@saree.com", "workshop_lead", "Tổ IQF"),
+    ("Thanh Vũ - Tổ Lạnh", "thanhvu_tolanh@saree.com", "workshop_lead", "Tổ Lạnh"),
+    ("Nhân Tổ Tiện", "nhan_totien@saree.com", "workshop_lead", "Tổ Tiện"),
+    ("Sen Tổ Điện", "sen_todien@saree.com", "workshop_lead", "Tổ Điện"),
+    ("Trí Tổ Máy 2", "tri_tomay_2@saree.com", "workshop_lead", "Tổ Máy 2"),
+    ("Bo Tổ Máy 1", "bo_tomay_1@saree.com", "workshop_lead", "Tổ Máy 1"),
     ("Thông Kế Hoạch", "thong_kehoach@saree.com", "planner", "Phòng Kế hoạch"),
     ("Thảo Kỹ Thuật", "thao_kythuat@saree.com", "engineer", "Phòng Kỹ thuật / Thiết kế"),
 ]
