@@ -7,8 +7,9 @@ import {
 } from "@tanstack/react-router"
 import { HelpCircle } from "lucide-react"
 import { useEffect, useRef } from "react"
-import { useQueryClient } from "@tanstack/react-query"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
+import { RolesService } from "@/client"
 import { listMyChatRooms } from "@/modules/chat/chatApi"
 import { subscribeRoom } from "@/modules/chat/chatWs"
 
@@ -17,6 +18,7 @@ import { MobileAppHeader } from "@/components/Layout/MobileAppHeader"
 import { MobileBottomNav } from "@/components/Layout/MobileBottomNav"
 import { NotificationBell } from "@/components/notifications/NotificationBell"
 import AppSidebar from "@/components/Sidebar/AppSidebar"
+import { Badge } from "@/components/ui/badge"
 import {
   SidebarInset,
   SidebarProvider,
@@ -45,6 +47,17 @@ function Layout() {
   const isChatRoute = pathname.startsWith("/chat")
   const queryClient = useQueryClient()
   const { user: currentUser } = useAuth()
+  const { data: accountProfile } = useQuery({
+    queryKey: ["roles", "my-account-profile"],
+    queryFn: () => RolesService.myAccountProfile(),
+    enabled: Boolean(currentUser),
+  })
+  const primaryMembership =
+    accountProfile?.memberships.find((m) => m.is_primary) ||
+    accountProfile?.memberships[0]
+  const greetingName =
+    currentUser?.full_name || currentUser?.email?.split("@")[0] || ""
+  const roleLabel = primaryMembership?.role_display_name
   const { showSuccessToast, showErrorToast } = useCustomToast()
   const showSuccessToastRef = useRef(showSuccessToast)
   const showErrorToastRef = useRef(showErrorToast)
@@ -244,7 +257,18 @@ function Layout() {
         <MobileAppHeader />
         <header className="supports-backdrop-filter:bg-background/80 sticky top-0 z-20 hidden h-16 shrink-0 items-center gap-2 border-b bg-background/95 px-4 backdrop-blur md:flex">
           <SidebarTrigger className="-ml-1 text-muted-foreground" />
+          {greetingName ? (
+            <p className="text-sm text-foreground">
+              Xin chào,{" "}
+              <span className="font-semibold">{greetingName}</span>
+            </p>
+          ) : null}
           <div className="ml-auto flex items-center gap-2">
+            {roleLabel ? (
+              <Badge variant="secondary" className="font-medium">
+                {roleLabel}
+              </Badge>
+            ) : null}
             {isRefreshing ? (
               <p className="text-xs text-muted-foreground">
                 Re-authenticating session...
@@ -261,7 +285,7 @@ function Layout() {
             <NotificationBell />
           </div>
         </header>
-        <div className="flex min-h-0 flex-1 flex-col pt-[calc(3.5rem+env(safe-area-inset-top,0px))] md:pt-0">
+        <div className="flex min-h-0 flex-1 flex-col pt-[calc(5.5rem+env(safe-area-inset-top,0px))] md:pt-0">
           <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-4 pb-[calc(3.5rem+env(safe-area-inset-bottom,0px))] md:px-8 md:py-8 md:pb-8">
             <Outlet />
           </main>

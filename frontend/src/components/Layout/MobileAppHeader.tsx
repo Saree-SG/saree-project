@@ -1,8 +1,12 @@
+import { useQuery } from "@tanstack/react-query"
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router"
 import { ChevronLeft, HelpCircle } from "lucide-react"
 
+import { RolesService } from "@/client"
 import { NotificationBell } from "@/components/notifications/NotificationBell"
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import useAuth from "@/hooks/useAuth"
 import { cn } from "@/lib/utils"
 
 type Crumb = { label: string; to?: string }
@@ -98,6 +102,19 @@ export function MobileAppHeader() {
   const crumbs = computeBreadcrumbs(pathname)
   const backTarget = resolveMobileBackTarget(pathname)
 
+  const { user: currentUser } = useAuth()
+  const { data: accountProfile } = useQuery({
+    queryKey: ["roles", "my-account-profile"],
+    queryFn: () => RolesService.myAccountProfile(),
+    enabled: Boolean(currentUser),
+  })
+  const primaryMembership =
+    accountProfile?.memberships.find((m) => m.is_primary) ||
+    accountProfile?.memberships[0]
+  const greetingName =
+    currentUser?.full_name || currentUser?.email?.split("@")[0] || ""
+  const roleLabel = primaryMembership?.role_display_name
+
   /**
    * Runs the appropriate back navigation for the current route.
    */
@@ -118,21 +135,19 @@ export function MobileAppHeader() {
         "fixed left-0 right-0 top-0 z-40 border-b bg-background pt-[env(safe-area-inset-top,0px)] md:hidden",
       )}
     >
-      <div className="flex h-14 min-h-14 items-center gap-1 px-1">
-        <div className="flex w-10 shrink-0 justify-center">
-          {backTarget !== null ? (
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              className="size-9 shrink-0"
-              aria-label="Quay lại"
-              onClick={handleBack}
-            >
-              <ChevronLeft className="size-5" />
-            </Button>
-          ) : null}
-        </div>
+      <div className="flex h-14 min-h-14 items-center gap-1 px-4">
+        {backTarget !== null ? (
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="-ml-2 size-9 shrink-0"
+            aria-label="Quay lại"
+            onClick={handleBack}
+          >
+            <ChevronLeft className="size-5" />
+          </Button>
+        ) : null}
         <nav className="min-w-0 flex-1 overflow-x-auto" aria-label="Breadcrumb">
           <ol className="flex items-center gap-1 whitespace-nowrap text-sm">
             {crumbs.map((crumb, index) => (
@@ -159,7 +174,7 @@ export function MobileAppHeader() {
             ))}
           </ol>
         </nav>
-        <div className="flex shrink-0 items-center gap-1 pr-1">
+        <div className="-mr-2 flex shrink-0 items-center gap-1">
           <Link
             to="/help"
             title="Hướng dẫn sử dụng"
@@ -170,6 +185,20 @@ export function MobileAppHeader() {
           </Link>
           <NotificationBell />
         </div>
+      </div>
+      <div className="flex h-8 min-h-8 items-center justify-between gap-2 border-t bg-muted/30 px-4">
+        <p className="min-w-0 truncate text-xs text-foreground">
+          Xin chào{greetingName ? ", " : ""}
+          <span className="font-semibold">{greetingName}</span>
+        </p>
+        {roleLabel ? (
+          <Badge
+            variant="secondary"
+            className="shrink-0 px-1.5 py-0 text-[10px] font-medium"
+          >
+            {roleLabel}
+          </Badge>
+        ) : null}
       </div>
     </header>
   )
