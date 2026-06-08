@@ -3,6 +3,7 @@ import {
   Link,
   Outlet,
   redirect,
+  useNavigate,
   useRouterState,
 } from "@tanstack/react-router"
 import { HelpCircle } from "lucide-react"
@@ -45,6 +46,7 @@ function Layout() {
   const isRefreshing = useRefreshState()
   const pathname = useRouterState({ select: (s) => s.location.pathname })
   const isChatRoute = pathname.startsWith("/chat")
+  const navigate = useNavigate()
   const queryClient = useQueryClient()
   const { user: currentUser } = useAuth()
   const { data: accountProfile } = useQuery({
@@ -215,6 +217,11 @@ function Layout() {
               description: content,
               id: `chat-msg-${msg.room_id}`,
               duration: 4000,
+              action: {
+                label: "Mở",
+                onClick: () =>
+                  void navigate({ to: "/chat", search: { room: msg.room_id } }),
+              },
             })
             void queryClient.invalidateQueries({ queryKey: ["chat", "unread-count"] })
             // Refresh the notification bell in realtime (same as task events)
@@ -234,7 +241,7 @@ function Layout() {
       active = false
       for (const cleanup of cleanups) cleanup()
     }
-  }, [currentUser?.id, queryClient])
+  }, [currentUser?.id, queryClient, navigate])
 
   if (isChatRoute) {
     return (

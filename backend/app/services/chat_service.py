@@ -132,11 +132,20 @@ class ChatService:
         room_id: uuid.UUID,
         current_user: Any,
         body: str | None,
+        await_push: bool = False,
     ) -> None:
         """Persist an in-app notification + fire web push for all other members.
 
         Title follows "{user_name} đã gửi tin nhắn vào {group_name}"; body holds
         a short preview of the message content (or None for attachments).
+
+        ``await_push`` controls how web push is dispatched. Inside a long-lived
+        WebSocket handler a fire-and-forget ``asyncio.create_task`` can be
+        garbage-collected before it runs (the parent coroutine just blocks on
+        ``receive`` with no reference to the task), so the phone push silently
+        never sends while the in-app notification — committed via the session —
+        still appears. WS callers pass ``await_push=True`` to await delivery
+        directly; the HTTP path keeps the non-blocking fire-and-forget.
         """
         members = await self._chat_repo.list_members(room_id)
         room = await self._chat_repo.get_room_or_404(room_id)
@@ -147,6 +156,7 @@ class ChatService:
         )
         room_name = room.name or "nhóm chat"
         title = f"{sender_name} đã gửi tin nhắn vào {room_name}"
+        push_targets: list[uuid.UUID] = []
         for member in members:
             if member.user_id != current_user.id:
                 self._session.add(
@@ -159,7 +169,13 @@ class ChatService:
                         entity_id=room_id,
                     )
                 )
-                asyncio.create_task(
-                    send_push_bg(member.user_id, title, body, "chat", room_id)
-                )
+                push_targets.append(member.user_id)
         await self._session.flush()
+        if await_push:
+            for user_id in push_targets:
+                await send_push_bg(user_id, title, body, "chat", room_id)
+        else:
+            for user_id in push_targets:
+                asyncio.create_task(
+                    send_push_bg(user_id, title, body, "chat", room_id)
+                )

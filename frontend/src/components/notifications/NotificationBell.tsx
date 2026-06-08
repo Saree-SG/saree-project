@@ -23,7 +23,8 @@ function notifLink(notif: Notification): string {
   if (notif.entity_type === "task") return `/tasks/${notif.entity_id}`
   if (notif.entity_type === "project") return `/projects/${notif.entity_id}`
   if (notif.entity_type === "quotation") return `/quotations/${notif.entity_id}`
-  if (notif.entity_type === "chat") return `/chat/${notif.entity_id}`
+  // Chat is handled in handleClick: the route is `/chat` and the room is a
+  // `room` search param, not a path segment (`/chat/{id}` would 404).
   return "/"
 }
 
@@ -79,6 +80,10 @@ export function NotificationBell() {
   function handleClick(notif: Notification) {
     if (!notif.is_read) {
       markReadMutation.mutate(notif.id)
+    }
+    if (notif.entity_type === "chat") {
+      void navigate({ to: "/chat", search: { room: notif.entity_id } })
+      return
     }
     void navigate({ to: notifLink(notif) })
   }

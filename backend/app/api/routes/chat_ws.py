@@ -212,17 +212,19 @@ async def chat_ws(
                     },
                 )
 
-                # Persist in-app notifications + fire web push for the other
+                # Persist in-app notifications + send web push to the other
                 # members. The fanout above only reaches clients with a live
                 # socket subscribed to the room; without this, recipients who
-                # are offline (or not in the room) get no notification — which
-                # is why chat pushes never arrived while task pushes did. A
-                # separate session is used so this never blocks delivery.
+                # are offline (or not in the room) get nothing — which is why
+                # chat pushes never arrived while task pushes did. `await_push`
+                # awaits delivery instead of fire-and-forget: a detached task
+                # in this WS loop can be GC'd before it sends. A separate
+                # session keeps this off the message-write transaction.
                 try:
                     async with session_factory() as notif_session:
                         async with notif_session.begin():
                             await ChatService(notif_session).notify_room_of_message(
-                                room_id, current_user, content[:100]
+                                room_id, current_user, content[:100], await_push=True
                             )
                 except Exception:
                     pass
