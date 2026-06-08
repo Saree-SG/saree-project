@@ -40,6 +40,19 @@ export type AttendanceRecordsResponse = {
   count: number
 }
 
+// Team/management view: a record enriched with the employee name + a
+// human-readable location label (project / company / customer company).
+export type AttendanceTeamRecord = AttendanceRecord & {
+  user_name: string | null
+  user_email: string | null
+  location_label: string | null
+}
+
+export type AttendanceTeamRecordsResponse = {
+  data: AttendanceTeamRecord[]
+  count: number
+}
+
 function authHeaders() {
   return { Authorization: `Bearer ${getAccessToken() || ""}` }
 }
@@ -113,6 +126,36 @@ export async function listMyAttendance(params?: {
     headers: authHeaders(),
     params: { date_from: params?.dateFrom, date_to: params?.dateTo },
   })
+  return r.data
+}
+
+// Manager/director view: all attendance for a company's members in a date range.
+export async function listCompanyAttendance(params: {
+  companyId: string
+  dateFrom?: string
+  dateTo?: string
+}): Promise<AttendanceTeamRecordsResponse> {
+  const r = await axios.get<AttendanceTeamRecordsResponse>(
+    `${API}/companies/${params.companyId}/attendance`,
+    {
+      headers: authHeaders(),
+      params: { date_from: params.dateFrom, date_to: params.dateTo },
+    },
+  )
+  return r.data
+}
+
+// Manager correction of work hours (e.g. confirming a forgotten check-out).
+export async function adjustAttendanceHours(params: {
+  recordId: string
+  workHours: number
+  note?: string
+}): Promise<AttendanceRecord> {
+  const r = await axios.patch<AttendanceRecord>(
+    `${API}/attendance/${params.recordId}/hours`,
+    { work_hours: params.workHours, note: params.note },
+    { headers: authHeaders() },
+  )
   return r.data
 }
 

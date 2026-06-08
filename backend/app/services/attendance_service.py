@@ -374,6 +374,133 @@ class AttendanceService:
         result = await self._session.execute(stmt)
         return list(result.scalars().all())
 
+    async def ensure_company_access(self, user: User, company_id: uuid.UUID) -> None:
+        """Guard cross-tenant reads: the requester must be a superuser or a
+        member of the company whose attendance they are listing.
+
+        The ATTENDANCE_VIEW_TEAM permission is evaluated against the requester's
+        own company scope, so on its own it does not stop a manager from passing
+        another company's id in the path — this check closes that gap.
+        """
+        if user.is_superuser:
+            return
+        result = await self._session.execute(
+            select(UserCompanyRole.user_id).where(
+                UserCompanyRole.user_id == user.id,
+                UserCompanyRole.company_id == company_id,
+            )
+        )
+        if result.scalars().first() is None:
+            raise HTTPException(403, "You do not have access to this company")
+
+    async def list_for_company(
+        self, company_id: uuid.UUID, date_from=None, date_to=None
+    ) -> list[dict]:
+        """List attendance for every member of a company, enriched with the
+        employee name and a human-readable location label.
+
+        Scoped by company *membership* (UserCompanyRole), so a worker's records
+        show up here regardless of which site they checked in at — that is what
+        a director wants when reviewing their own staff.
+        """
+        member_result = await self._session.execute(
+            select(UserCompanyRole.user_id).where(
+                UserCompanyRole.company_id == company_id
+            )
+        )
+        member_ids = {row[0] for row in member_result.all()}
+        if not member_ids:
+            return []
+
+        stmt = select(AttendanceRecord).where(
+            AttendanceRecord.user_id.in_(member_ids)  # type: ignore[attr-defined]
+        )
+        if date_from is not None:
+            stmt = stmt.where(AttendanceRecord.work_date >= date_from)
+        if date_to is not None:
+            stmt = stmt.where(AttendanceRecord.work_date <= date_to)
+        stmt = stmt.order_by(AttendanceRecord.check_in_at.desc())  # type: ignore[union-attr]
+        result = await self._session.execute(stmt)
+        records = list(result.scalars().all())
+        if not records:
+            return []
+
+        # Batch-load the related entities needed to label each row.
+        user_ids = {r.user_id for r in records}
+        project_ids = {r.project_id for r in records if r.project_id}
+        company_ids = {r.company_id for r in records if r.company_id}
+        customer_ids = {
+            r.customer_company_id for r in records if r.customer_company_id
+        }
+
+        users = {
+            u.id: u
+            for u in (
+                await self._session.execute(
+                    select(User).where(User.id.in_(user_ids))  # type: ignore[attr-defined]
+                )
+            ).scalars()
+        }
+        projects = (
+            {
+                p.id: p.name
+                for p in (
+                    await self._session.execute(
+                        select(Project).where(Project.id.in_(project_ids))  # type: ignore[attr-defined]
+                    )
+                ).scalars()
+            }
+            if project_ids
+            else {}
+        )
+        companies = (
+            {
+                c.id: c.name
+                for c in (
+                    await self._session.execute(
+                        select(Company).where(Company.id.in_(company_ids))  # type: ignore[attr-defined]
+                    )
+                ).scalars()
+            }
+            if company_ids
+            else {}
+        )
+        customers = (
+            {
+                cc.id: cc.name
+                for cc in (
+                    await self._session.execute(
+                        select(CustomerCompany).where(
+                            CustomerCompany.id.in_(customer_ids)  # type: ignore[attr-defined]
+                        )
+                    )
+                ).scalars()
+            }
+            if customer_ids
+            else {}
+        )
+
+        def _label(rec: AttendanceRecord) -> str:
+            if rec.mode == "company":
+                if rec.customer_company_id:
+                    return customers.get(rec.customer_company_id) or "Công ty khách hàng"
+                if rec.company_id:
+                    return companies.get(rec.company_id) or "Công ty"
+                return "Công ty"
+            if rec.project_id:
+                return projects.get(rec.project_id) or "Công trình"
+            return "Công trình"
+
+        enriched: list[dict] = []
+        for rec in records:
+            user = users.get(rec.user_id)
+            data = rec.model_dump()
+            data["user_name"] = user.full_name if user else None
+            data["user_email"] = user.email if user else None
+            data["location_label"] = _label(rec)
+            enriched.append(data)
+        return enriched
+
     async def set_site_location(
         self,
         project_id: uuid.UUID,

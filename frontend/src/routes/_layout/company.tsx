@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query"
 import { createFileRoute, redirect } from "@tanstack/react-router"
 import {
   Building2,
+  ClipboardCheck,
   Contact,
   Gauge,
   LayoutGrid,
@@ -13,6 +14,7 @@ import {
 import { useState } from "react"
 
 import { ApiError, RolesService, UsersService } from "@/client"
+import CompanyAttendancePanel from "@/components/Company/CompanyAttendancePanel"
 import CompanyOrgChartPanel from "@/components/Company/CompanyOrgChartPanel"
 import CompanyOrgPanel from "@/components/Company/CompanyOrgPanel"
 import CompanyOverviewPanel from "@/components/Company/CompanyOverviewPanel"
@@ -88,12 +90,13 @@ function CompanyPage() {
   const canManage = isSuperuser || isDirector || canManageCompany(permissions)
   const canReport = isSuperuser || canAccessDashboard(permissions)
   const canConfigLeave = useCan("LEAVE_CONFIG")
+  const canViewAttendance = useCan("ATTENDANCE_VIEW_TEAM")
 
   // One company selector for the whole page — every tab scopes to it.
   const companiesQuery = useQuery({
     queryKey: ["my-companies"],
     queryFn: listMyCompanies,
-    enabled: canManage,
+    enabled: canManage || canViewAttendance,
   })
   const companies = companiesQuery.data ?? []
   const [companyId, setCompanyId] = useState<string | null>(null)
@@ -115,7 +118,7 @@ function CompanyPage() {
             ở một nơi.
           </p>
         </div>
-        {canManage && companies.length > 0 ? (
+        {(canManage || canViewAttendance) && companies.length > 0 ? (
           <Select
             value={selectedId ?? ""}
             onValueChange={(v) => setCompanyId(v)}
@@ -168,6 +171,11 @@ function CompanyPage() {
               </TabsTrigger>
             </>
           ) : null}
+          {canViewAttendance ? (
+            <TabsTrigger value="attendance" className="flex-none px-3">
+              <ClipboardCheck className="mr-1" /> Chấm công
+            </TabsTrigger>
+          ) : null}
           {canConfigLeave ? (
             <TabsTrigger value="approval" className="flex-none px-3">
               <Workflow className="mr-1" /> Phê duyệt
@@ -200,6 +208,11 @@ function CompanyPage() {
               <YearSummaryPanel />
             </TabsContent>
           </>
+        ) : null}
+        {canViewAttendance ? (
+          <TabsContent value="attendance">
+            <CompanyAttendancePanel companyId={selectedId} />
+          </TabsContent>
         ) : null}
         {canConfigLeave ? (
           <TabsContent value="approval">

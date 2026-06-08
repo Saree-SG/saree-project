@@ -105,6 +105,21 @@ class AttendanceRecordsPublic(SQLModel):
     count: int
 
 
+class AttendanceTeamRecordPublic(AttendanceRecordPublic):
+    """A team attendance record enriched with the employee's name and a
+    human-readable location label (project / company / customer company),
+    for the manager-facing company attendance view."""
+
+    user_name: str | None = None
+    user_email: str | None = None
+    location_label: str | None = None
+
+
+class AttendanceTeamRecordsPublic(SQLModel):
+    data: list[AttendanceTeamRecordPublic]
+    count: int
+
+
 class SiteLocationUpdate(SQLModel):
     """Set/clear a project's site coordinates and allowed radius."""
 

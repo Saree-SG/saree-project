@@ -14,6 +14,8 @@ from app.core.config import settings
 from app.models.attendance import (
     AttendanceRecordPublic,
     AttendanceRecordsPublic,
+    AttendanceTeamRecordPublic,
+    AttendanceTeamRecordsPublic,
     SiteLocationUpdate,
 )
 from app.models.org import CompanyPublic
@@ -156,6 +158,29 @@ async def project_attendance(
         AttendanceRecordPublic.model_validate(r, from_attributes=True) for r in records
     ]
     return AttendanceRecordsPublic(data=data, count=len(data))
+
+
+@router.get(
+    "/companies/{company_id}/attendance",
+    response_model=AttendanceTeamRecordsPublic,
+)
+async def company_attendance(
+    company_id: uuid.UUID,
+    session: AsyncSessionDep,
+    current_user: User = Depends(require_permission("ATTENDANCE_VIEW_TEAM")),
+    date_from: date | None = Query(default=None),
+    date_to: date | None = Query(default=None),
+) -> AttendanceTeamRecordsPublic:
+    """List attendance for all members of a company (managers / directors).
+
+    Records are enriched with the employee name and a location label. Access is
+    additionally guarded so a manager can only read companies they belong to.
+    """
+    svc = _svc(session)
+    await svc.ensure_company_access(current_user, company_id)
+    rows = await svc.list_for_company(company_id, date_from, date_to)
+    data = [AttendanceTeamRecordPublic.model_validate(r) for r in rows]
+    return AttendanceTeamRecordsPublic(data=data, count=len(data))
 
 
 @router.get("/attendance/task-suggestions", response_model=list[str])
