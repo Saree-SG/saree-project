@@ -40,6 +40,7 @@ jobs:
             echo BACKEND_CORS_ORIGINS=https://dev-dashboard.%DOMAIN%
             echo PUBLIC_BASE_URL=https://dev-api.%DOMAIN%
             echo VITE_API_URL=https://dev-api.%DOMAIN%
+            echo APP_BUILD=%GITHUB_SHA:~0,7%
             echo SMTP_HOST=%SMTP_HOST%
             echo SMTP_USER=%SMTP_USER%
             echo SMTP_PASSWORD=%SMTP_PASSWORD%

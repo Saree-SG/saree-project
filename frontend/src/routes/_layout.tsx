@@ -27,6 +27,7 @@ import {
 } from "@/components/ui/sidebar"
 import useAuth, { isLoggedIn } from "@/hooks/useAuth"
 import useCustomToast from "@/hooks/useCustomToast"
+import { APP_VERSION_LABEL } from "@/utils/appVersion"
 import { getAccessToken } from "@/modules/auth/tokenStore"
 import { buildTaskGlobalWsUrl } from "@/modules/tasks/taskWs"
 import useRefreshState from "@/hooks/useRefreshState"
@@ -271,6 +272,12 @@ function Layout() {
             </p>
           ) : null}
           <div className="ml-auto flex items-center gap-2">
+            <span
+              className="hidden text-[11px] text-muted-foreground lg:inline"
+              title="Phiên bản ứng dụng"
+            >
+              {APP_VERSION_LABEL}
+            </span>
             {roleLabel ? (
               <Badge variant="secondary" className="font-medium">
                 {roleLabel}

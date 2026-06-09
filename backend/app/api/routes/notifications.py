@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import uuid
+from typing import Literal
 
 from fastapi import APIRouter, HTTPException, Query, status
 from pydantic import BaseModel
@@ -15,6 +16,20 @@ from app.models.push_subscription import PushSubscription
 
 router = APIRouter(prefix="/notifications", tags=["notifications"])
 
+# Notification categories split the bell into two zones so chat messages never
+# crowd out task/quotation/etc. notifications. "chat" == chat messages;
+# "other" == everything else.
+Category = Literal["chat", "other"]
+
+
+def _category_clause(category: Category | None) -> list:
+    """SQL filter for a notification category (empty list = no filter)."""
+    if category == "chat":
+        return [Notification.entity_type == "chat"]
+    if category == "other":
+        return [Notification.entity_type != "chat"]
+    return []
+
 
 @router.get("", response_model=list[NotificationPublic])
 async def list_notifications(
@@ -22,11 +37,20 @@ async def list_notifications(
     current_user: CurrentUser,
     skip: int = Query(default=0, ge=0),
     limit: int = Query(default=50, ge=1, le=200),
+    category: Category | None = Query(default=None),
 ) -> list[NotificationPublic]:
-    """List notifications for the current user, newest first."""
+    """List notifications for the current user, newest first.
+
+    ``category`` optionally restricts to "chat" or "other" so each bell tab
+    paginates independently — a flood of chat messages can't push task
+    notifications out of the (limited) result window.
+    """
     result = await session.execute(
         select(Notification)
-        .where(Notification.user_id == current_user.id)
+        .where(
+            Notification.user_id == current_user.id,
+            *_category_clause(category),
+        )
         .order_by(Notification.created_at.desc())
         .offset(skip)
         .limit(limit)
@@ -39,12 +63,14 @@ async def list_notifications(
 async def unread_count(
     session: AsyncSessionDep,
     current_user: CurrentUser,
+    category: Category | None = Query(default=None),
 ) -> NotificationUnreadCount:
-    """Return number of unread notifications for the current user."""
+    """Return number of unread notifications, optionally filtered by category."""
     result = await session.execute(
         select(func.count()).where(
             Notification.user_id == current_user.id,
             Notification.is_read == False,  # noqa: E712
+            *_category_clause(category),
         )
     )
     count = result.scalar_one()
@@ -71,13 +97,15 @@ async def mark_read(
 async def mark_all_read(
     session: AsyncSessionDep,
     current_user: CurrentUser,
+    category: Category | None = Query(default=None),
 ) -> None:
-    """Mark all notifications for the current user as read."""
+    """Mark all notifications as read, optionally only within one category."""
     await session.execute(
         update(Notification)
         .where(
             Notification.user_id == current_user.id,
             Notification.is_read == False,  # noqa: E712
+            *_category_clause(category),
         )
         .values(is_read=True)
     )

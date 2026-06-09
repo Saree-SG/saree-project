@@ -235,6 +235,10 @@ services:
       args:
         - VITE_API_URL=${VITE_API_URL?Variable not set}
         - NODE_ENV=production
+        # Build id for version/update detection. Empty default keeps local
+        # builds working (vite falls back to a timestamp); CI sets it to the
+        # commit sha via .env.
+        - APP_BUILD=${APP_BUILD:-}
     labels:
       - traefik.enable=true
       - traefik.docker.network=traefik-public

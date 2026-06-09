@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import useAuth from "@/hooks/useAuth"
 import { cn } from "@/lib/utils"
+import { APP_VERSION_LABEL } from "@/utils/appVersion"
 
 type Crumb = { label: string; to?: string }
 
@@ -191,14 +192,19 @@ export function MobileAppHeader() {
           Xin chào{greetingName ? ", " : ""}
           <span className="font-semibold">{greetingName}</span>
         </p>
-        {roleLabel ? (
-          <Badge
-            variant="secondary"
-            className="shrink-0 px-1.5 py-0 text-[10px] font-medium"
-          >
-            {roleLabel}
-          </Badge>
-        ) : null}
+        <div className="flex shrink-0 items-center gap-2">
+          {roleLabel ? (
+            <Badge
+              variant="secondary"
+              className="px-1.5 py-0 text-[10px] font-medium"
+            >
+              {roleLabel}
+            </Badge>
+          ) : null}
+          <span className="text-[10px] text-muted-foreground" title="Phiên bản ứng dụng">
+            {APP_VERSION_LABEL}
+          </span>
+        </div>
       </div>
     </header>
   )

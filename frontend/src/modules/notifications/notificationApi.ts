@@ -19,6 +19,9 @@ export type UnreadCount = {
   count: number
 }
 
+// Two notification zones: "chat" = chat messages, "other" = everything else.
+export type NotificationCategory = "chat" | "other"
+
 function authHeaders() {
   return {
     Authorization: `Bearer ${getAccessToken() || ""}`,
@@ -28,21 +31,31 @@ function authHeaders() {
 export async function listNotifications(params?: {
   skip?: number
   limit?: number
+  category?: NotificationCategory
 }): Promise<Notification[]> {
   const r = await axios.get<Notification[]>(
     `${OpenAPI.BASE}/api/v1/notifications`,
     {
-      params: { skip: params?.skip ?? 0, limit: params?.limit ?? 50 },
+      params: {
+        skip: params?.skip ?? 0,
+        limit: params?.limit ?? 50,
+        ...(params?.category ? { category: params.category } : {}),
+      },
       headers: authHeaders(),
     },
   )
   return r.data
 }
 
-export async function getUnreadCount(): Promise<UnreadCount> {
+export async function getUnreadCount(
+  category?: NotificationCategory,
+): Promise<UnreadCount> {
   const r = await axios.get<UnreadCount>(
     `${OpenAPI.BASE}/api/v1/notifications/unread-count`,
-    { headers: authHeaders() },
+    {
+      params: category ? { category } : {},
+      headers: authHeaders(),
+    },
   )
   return r.data
 }
@@ -56,11 +69,16 @@ export async function markRead(notificationId: string): Promise<Notification> {
   return r.data
 }
 
-export async function markAllRead(): Promise<void> {
+export async function markAllRead(
+  category?: NotificationCategory,
+): Promise<void> {
   await axios.patch(
     `${OpenAPI.BASE}/api/v1/notifications/read-all`,
     {},
-    { headers: authHeaders() },
+    {
+      params: category ? { category } : {},
+      headers: authHeaders(),
+    },
   )
 }
 

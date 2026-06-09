@@ -15,15 +15,6 @@ export type ChatRoom = {
   last_message_at: string | null
 }
 
-export type ChatMessage = {
-  id: string
-  room_id: string
-  sender_id: string
-  message_type: "text" | "system" | "file" | string
-  content: string | null
-  created_at: string
-}
-
 export type ChatAttachment = {
   id: string
   message_id: string
@@ -32,6 +23,16 @@ export type ChatAttachment = {
   size_bytes: number | null
   public_url: string | null
   created_at: string
+}
+
+export type ChatMessage = {
+  id: string
+  room_id: string
+  sender_id: string
+  message_type: "text" | "system" | "file" | string
+  content: string | null
+  created_at: string
+  attachments?: ChatAttachment[]
 }
 
 export type ChatMember = {

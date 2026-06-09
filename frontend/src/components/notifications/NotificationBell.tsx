@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "@tanstack/react-router"
 import { Bell, BellOff, Smartphone } from "lucide-react"
+import { useState } from "react"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -16,6 +17,7 @@ import {
   markAllRead,
   markRead,
   type Notification,
+  type NotificationCategory,
 } from "@/modules/notifications/notificationApi"
 import { usePushNotifications } from "@/hooks/usePushNotifications"
 
@@ -26,6 +28,36 @@ function notifLink(notif: Notification): string {
   // Chat is handled in handleClick: the route is `/chat` and the room is a
   // `room` search param, not a path segment (`/chat/{id}` would 404).
   return "/"
+}
+
+function TabButton({
+  active,
+  label,
+  count,
+  onClick,
+}: {
+  active: boolean
+  label: string
+  count: number
+  onClick: () => void
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`flex flex-1 items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-sm font-medium transition-colors ${
+        active
+          ? "bg-muted text-foreground"
+          : "text-muted-foreground hover:text-foreground"
+      }`}
+    >
+      {label}
+      {count > 0 && (
+        <span className="flex min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-bold text-white">
+          {count > 99 ? "99+" : count}
+        </span>
+      )}
+    </button>
+  )
 }
 
 function formatTime(iso: string): string {
@@ -44,38 +76,53 @@ function formatTime(iso: string): string {
 export function NotificationBell() {
   const queryClient = useQueryClient()
   const navigate = useNavigate()
+  const [tab, setTab] = useState<NotificationCategory>("other")
 
-  const { data: countData } = useQuery({
-    queryKey: ["notifications-unread-count"],
-    queryFn: getUnreadCount,
+  const { data: otherCountData } = useQuery({
+    queryKey: ["notifications-unread-count", "other"],
+    queryFn: () => getUnreadCount("other"),
     refetchInterval: 30_000,
   })
 
-  const { data: notifications } = useQuery({
-    queryKey: ["notifications-list"],
-    queryFn: () => listNotifications({ limit: 20 }),
+  const { data: chatCountData } = useQuery({
+    queryKey: ["notifications-unread-count", "chat"],
+    queryFn: () => getUnreadCount("chat"),
+    refetchInterval: 30_000,
+  })
+
+  const { data: otherNotifications } = useQuery({
+    queryKey: ["notifications-list", "other"],
+    queryFn: () => listNotifications({ limit: 20, category: "other" }),
     refetchInterval: 60_000,
   })
 
+  const { data: chatNotifications } = useQuery({
+    queryKey: ["notifications-list", "chat"],
+    queryFn: () => listNotifications({ limit: 20, category: "chat" }),
+    refetchInterval: 60_000,
+  })
+
+  function invalidateAll() {
+    void queryClient.invalidateQueries({ queryKey: ["notifications-unread-count"] })
+    void queryClient.invalidateQueries({ queryKey: ["notifications-list"] })
+  }
+
   const markReadMutation = useMutation({
     mutationFn: markRead,
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["notifications-unread-count"] })
-      void queryClient.invalidateQueries({ queryKey: ["notifications-list"] })
-    },
+    onSuccess: invalidateAll,
   })
 
   const markAllMutation = useMutation({
-    mutationFn: markAllRead,
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["notifications-unread-count"] })
-      void queryClient.invalidateQueries({ queryKey: ["notifications-list"] })
-    },
+    mutationFn: (category: NotificationCategory) => markAllRead(category),
+    onSuccess: invalidateAll,
   })
 
   const push = usePushNotifications()
-  const unreadCount = countData?.count ?? 0
-  const items = notifications ?? []
+  const otherUnread = otherCountData?.count ?? 0
+  const chatUnread = chatCountData?.count ?? 0
+  const totalUnread = otherUnread + chatUnread
+  const items = (tab === "chat" ? chatNotifications : otherNotifications) ?? []
+  const tabUnread = tab === "chat" ? chatUnread : otherUnread
 
   function handleClick(notif: Notification) {
     if (!notif.is_read) {
@@ -93,21 +140,35 @@ export function NotificationBell() {
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" size="icon" className="relative" aria-label="Thông báo">
           <Bell className="size-5" />
-          {unreadCount > 0 && (
+          {totalUnread > 0 && (
             <span className="absolute -right-0.5 -top-0.5 flex size-4 items-center justify-center rounded-full bg-destructive text-[10px] font-bold text-white">
-              {unreadCount > 99 ? "99+" : unreadCount}
+              {totalUnread > 99 ? "99+" : totalUnread}
             </span>
           )}
         </Button>
       </DropdownMenuTrigger>
 
       <DropdownMenuContent align="end" className="w-80">
-        <div className="flex items-center justify-between px-3 py-2">
-          <span className="text-sm font-semibold">Thông báo</span>
-          {unreadCount > 0 && (
+        {/* Two zones so chat messages never crowd out other notifications */}
+        <div className="flex items-center gap-1 px-2 pt-2">
+          <TabButton
+            active={tab === "other"}
+            label="Thông báo"
+            count={otherUnread}
+            onClick={() => setTab("other")}
+          />
+          <TabButton
+            active={tab === "chat"}
+            label="Tin nhắn"
+            count={chatUnread}
+            onClick={() => setTab("chat")}
+          />
+        </div>
+        <div className="flex items-center justify-end px-3 py-1.5">
+          {tabUnread > 0 && (
             <button
               className="text-xs text-muted-foreground hover:text-foreground"
-              onClick={() => markAllMutation.mutate()}
+              onClick={() => markAllMutation.mutate(tab)}
               disabled={markAllMutation.isPending}
             >
               Đánh dấu đã đọc tất cả
@@ -148,7 +209,7 @@ export function NotificationBell() {
 
         {items.length === 0 ? (
           <div className="px-3 py-6 text-center text-sm text-muted-foreground">
-            Không có thông báo nào
+            {tab === "chat" ? "Không có tin nhắn nào" : "Không có thông báo nào"}
           </div>
         ) : (
           <div className="max-h-96 overflow-y-auto">

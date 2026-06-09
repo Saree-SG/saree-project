@@ -151,23 +151,6 @@ class ChatMemberWithUserPublic(ChatMemberPublic):
     full_name: str | None = None
 
 
-class ChatMessagePublic(SQLModel):
-    """Chat message response."""
-
-    id: uuid.UUID
-    room_id: uuid.UUID
-    sender_id: uuid.UUID
-    message_type: str
-    content: str | None
-    created_at: datetime
-
-
-class ChatUnreadCountPublic(SQLModel):
-    """Total unread message count across all rooms."""
-
-    count: int
-
-
 class ChatAttachmentPublic(SQLModel):
     """Chat attachment response."""
 
@@ -178,4 +161,22 @@ class ChatAttachmentPublic(SQLModel):
     size_bytes: int | None
     public_url: str | None
     created_at: datetime
+
+
+class ChatMessagePublic(SQLModel):
+    """Chat message response."""
+
+    id: uuid.UUID
+    room_id: uuid.UUID
+    sender_id: uuid.UUID
+    message_type: str
+    content: str | None
+    created_at: datetime
+    attachments: list[ChatAttachmentPublic] = []
+
+
+class ChatUnreadCountPublic(SQLModel):
+    """Total unread message count across all rooms."""
+
+    count: int
 

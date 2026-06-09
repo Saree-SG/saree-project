@@ -24,6 +24,7 @@ from app.models.chat import (
 from app.repositories.chat_repository import ChatRepository
 from app.repositories.user_repository import UserRepository
 from app.services.chat_service import ChatService
+from app.shared.chat_realtime import chat_fanout
 from app.shared.storage import LocalStorage
 
 router = APIRouter(tags=["chat"])
@@ -279,7 +280,32 @@ async def list_messages(
     repo = ChatRepository(session)
     await repo.require_active_member(room_id, current_user.id)
     messages = await repo.list_messages(room_id, before_id, limit)
-    return list(messages)  # type: ignore[return-value]
+    attachments_by_msg = await repo.list_attachments_for_messages(
+        [m.id for m in messages]
+    )
+    return [
+        ChatMessagePublic(
+            id=m.id,
+            room_id=m.room_id,
+            sender_id=m.sender_id,
+            message_type=m.message_type,
+            content=m.content,
+            created_at=m.created_at,
+            attachments=[
+                ChatAttachmentPublic(
+                    id=a.id,
+                    message_id=a.message_id,
+                    filename=a.filename,
+                    mime_type=a.mime_type,
+                    size_bytes=a.size_bytes,
+                    public_url=a.public_url,
+                    created_at=a.created_at,
+                )
+                for a in attachments_by_msg.get(m.id, [])
+            ],
+        )
+        for m in messages
+    ]
 
 
 @router.post(
@@ -338,7 +364,7 @@ async def upload_attachment(
         room_id, current_user, "Đã gửi một tệp đính kèm"
     )
 
-    return ChatAttachmentPublic(
+    att_public = ChatAttachmentPublic(
         id=att.id,
         message_id=att.message_id,
         filename=att.filename,
@@ -347,3 +373,39 @@ async def upload_attachment(
         public_url=att.public_url,
         created_at=att.created_at,
     )
+
+    # Broadcast to live sockets so other members see the file in real time
+    # (fanout reaches only clients subscribed to the room; offline members
+    # still get the in-app notification + push above).
+    await chat_fanout.publish(
+        room_id,
+        {
+            "type": "message.new",
+            "message": {
+                "id": str(msg.id),
+                "room_id": str(msg.room_id),
+                "sender_id": str(msg.sender_id),
+                "sender_name": current_user.full_name
+                or current_user.email
+                or str(msg.sender_id),
+                "message_type": msg.message_type,
+                "content": msg.content,
+                "created_at": msg.created_at.isoformat() if msg.created_at else None,
+                "attachments": [
+                    {
+                        "id": str(att_public.id),
+                        "message_id": str(att_public.message_id),
+                        "filename": att_public.filename,
+                        "mime_type": att_public.mime_type,
+                        "size_bytes": att_public.size_bytes,
+                        "public_url": att_public.public_url,
+                        "created_at": att_public.created_at.isoformat()
+                        if att_public.created_at
+                        else None,
+                    }
+                ],
+            },
+        },
+    )
+
+    return att_public

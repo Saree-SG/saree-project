@@ -13,6 +13,12 @@ RUN bun install
 
 COPY ./frontend /app/frontend
 ARG VITE_API_URL
+# Build id for version/update detection. The build context has no .git dir, so
+# pass it from the host, e.g.:
+#   docker build --build-arg APP_BUILD=$(git rev-parse --short HEAD) ...
+# If omitted, vite.config.ts falls back to a build timestamp.
+ARG APP_BUILD
+ENV APP_BUILD=$APP_BUILD
 
 RUN bun run build
 

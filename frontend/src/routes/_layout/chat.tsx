@@ -2,6 +2,8 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { createFileRoute, useNavigate } from "@tanstack/react-router"
 import {
   ArrowLeft,
+  Download,
+  FileText,
   MessageCircle,
   MoreVertical,
   Paperclip,
@@ -33,6 +35,7 @@ import { useChatSocket } from "@/hooks/useChatSocket"
 import useCustomToast from "@/hooks/useCustomToast"
 import {
   addRoomMember,
+  type ChatAttachment,
   type ChatMember,
   type ChatMessage,
   type ChatRoom,
@@ -49,6 +52,7 @@ import {
   uploadRoomAttachment,
 } from "@/modules/chat/chatApi"
 import { handleError } from "@/utils"
+import { resolveBackendMediaUrl } from "@/utils/mediaUrl"
 
 const searchSchema = z.object({
   room: z.string().optional(),
@@ -91,6 +95,79 @@ function formatDateSeparator(iso: string | null | undefined): string {
 function isSameDay(a: string | null | undefined, b: string | null | undefined) {
   if (!a || !b) return false
   return new Date(a).toDateString() === new Date(b).toDateString()
+}
+
+function formatFileSize(bytes: number | null | undefined): string {
+  if (bytes == null) return ""
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+}
+
+function isImageAttachment(att: ChatAttachment): boolean {
+  if (att.mime_type?.startsWith("image/")) return true
+  return /\.(png|jpe?g|gif|webp|bmp|svg|heic|heif)$/i.test(att.filename || "")
+}
+
+function AttachmentView({
+  att,
+  isMe,
+}: {
+  att: ChatAttachment
+  isMe: boolean
+}) {
+  const url = att.public_url ? resolveBackendMediaUrl(att.public_url) : ""
+  if (!url) {
+    return (
+      <p className="text-sm italic opacity-70">📎 {att.filename}</p>
+    )
+  }
+
+  if (isImageAttachment(att)) {
+    return (
+      <a
+        href={url}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="block overflow-hidden rounded-lg"
+        title={att.filename}
+      >
+        <img
+          src={url}
+          alt={att.filename}
+          loading="lazy"
+          className="max-h-60 w-auto max-w-full rounded-lg object-cover"
+        />
+      </a>
+    )
+  }
+
+  return (
+    <a
+      href={url}
+      target="_blank"
+      rel="noopener noreferrer"
+      download={att.filename}
+      className={[
+        "flex items-center gap-2.5 rounded-lg px-2 py-1.5 transition-colors",
+        isMe
+          ? "bg-primary-foreground/15 hover:bg-primary-foreground/25"
+          : "bg-muted hover:bg-muted/70",
+      ].join(" ")}
+      title={`Tải về ${att.filename}`}
+    >
+      <FileText className="h-7 w-7 shrink-0 opacity-80" />
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-sm font-medium">{att.filename}</span>
+        {att.size_bytes != null && (
+          <span className="block text-[11px] opacity-70">
+            {formatFileSize(att.size_bytes)}
+          </span>
+        )}
+      </span>
+      <Download className="h-4 w-4 shrink-0 opacity-70" />
+    </a>
+  )
 }
 
 function ChatPage() {
@@ -628,10 +705,29 @@ function ChatPage() {
                                 : "rounded-bl-sm border bg-background text-foreground",
                             ].join(" ")}
                           >
-                            <p className="whitespace-pre-wrap break-words text-sm leading-relaxed">
-                              {msg.content ??
-                                (msg.message_type === "file" ? "📎 Tệp đính kèm" : "")}
-                            </p>
+                            {msg.attachments && msg.attachments.length > 0 ? (
+                              <div className="flex flex-col gap-1.5">
+                                {msg.content && (
+                                  <p className="whitespace-pre-wrap break-words text-sm leading-relaxed">
+                                    {msg.content}
+                                  </p>
+                                )}
+                                {msg.attachments.map((att) => (
+                                  <AttachmentView
+                                    key={att.id}
+                                    att={att}
+                                    isMe={isMe}
+                                  />
+                                ))}
+                              </div>
+                            ) : (
+                              <p className="whitespace-pre-wrap break-words text-sm leading-relaxed">
+                                {msg.content ??
+                                  (msg.message_type === "file"
+                                    ? "📎 Tệp đính kèm"
+                                    : "")}
+                              </p>
+                            )}
                           </div>
                           {!isSameSenderAsNext && (
                             <span className="mt-0.5 px-1 text-[10px] text-muted-foreground">

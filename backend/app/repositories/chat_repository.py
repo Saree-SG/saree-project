@@ -262,3 +262,18 @@ class ChatRepository(BaseRepository[ChatRoom]):
         await self._session.flush()
         await self._session.refresh(att)
         return att
+
+    async def list_attachments_for_messages(
+        self, message_ids: Sequence[uuid.UUID]
+    ) -> dict[uuid.UUID, list[ChatAttachment]]:
+        """Return attachments grouped by message id for the given messages."""
+        if not message_ids:
+            return {}
+        stmt = select(ChatAttachment).where(
+            ChatAttachment.message_id.in_(message_ids)  # type: ignore[attr-defined]
+        )
+        result = await self._execute(stmt)
+        grouped: dict[uuid.UUID, list[ChatAttachment]] = {}
+        for att in result.scalars().all():
+            grouped.setdefault(att.message_id, []).append(att)
+        return grouped
