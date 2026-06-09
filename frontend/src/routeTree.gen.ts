@@ -26,6 +26,7 @@ import { Route as LayoutHelpRouteImport } from './routes/_layout/help'
 import { Route as LayoutGanttRouteImport } from './routes/_layout/gantt'
 import { Route as LayoutCompanyRouteImport } from './routes/_layout/company'
 import { Route as LayoutChatRouteImport } from './routes/_layout/chat'
+import { Route as LayoutAttendanceConfigRouteImport } from './routes/_layout/attendance-config'
 import { Route as LayoutAttendanceRouteImport } from './routes/_layout/attendance'
 import { Route as LayoutAdminRouteImport } from './routes/_layout/admin'
 import { Route as LayoutTasksIndexRouteImport } from './routes/_layout/tasks.index'
@@ -131,6 +132,11 @@ const LayoutCompanyRoute = LayoutCompanyRouteImport.update({
 const LayoutChatRoute = LayoutChatRouteImport.update({
   id: '/chat',
   path: '/chat',
+  getParentRoute: () => LayoutRoute,
+} as any)
+const LayoutAttendanceConfigRoute = LayoutAttendanceConfigRouteImport.update({
+  id: '/attendance-config',
+  path: '/attendance-config',
   getParentRoute: () => LayoutRoute,
 } as any)
 const LayoutAttendanceRoute = LayoutAttendanceRouteImport.update({
@@ -255,6 +261,7 @@ export interface FileRoutesByFullPath {
   '/signup': typeof SignupRoute
   '/admin': typeof LayoutAdminRouteWithChildren
   '/attendance': typeof LayoutAttendanceRoute
+  '/attendance-config': typeof LayoutAttendanceConfigRoute
   '/chat': typeof LayoutChatRoute
   '/company': typeof LayoutCompanyRoute
   '/gantt': typeof LayoutGanttRoute
@@ -293,6 +300,7 @@ export interface FileRoutesByTo {
   '/reset-password': typeof ResetPasswordRoute
   '/signup': typeof SignupRoute
   '/attendance': typeof LayoutAttendanceRoute
+  '/attendance-config': typeof LayoutAttendanceConfigRoute
   '/chat': typeof LayoutChatRoute
   '/company': typeof LayoutCompanyRoute
   '/gantt': typeof LayoutGanttRoute
@@ -335,6 +343,7 @@ export interface FileRoutesById {
   '/signup': typeof SignupRoute
   '/_layout/admin': typeof LayoutAdminRouteWithChildren
   '/_layout/attendance': typeof LayoutAttendanceRoute
+  '/_layout/attendance-config': typeof LayoutAttendanceConfigRoute
   '/_layout/chat': typeof LayoutChatRoute
   '/_layout/company': typeof LayoutCompanyRoute
   '/_layout/gantt': typeof LayoutGanttRoute
@@ -378,6 +387,7 @@ export interface FileRouteTypes {
     | '/signup'
     | '/admin'
     | '/attendance'
+    | '/attendance-config'
     | '/chat'
     | '/company'
     | '/gantt'
@@ -416,6 +426,7 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/signup'
     | '/attendance'
+    | '/attendance-config'
     | '/chat'
     | '/company'
     | '/gantt'
@@ -457,6 +468,7 @@ export interface FileRouteTypes {
     | '/signup'
     | '/_layout/admin'
     | '/_layout/attendance'
+    | '/_layout/attendance-config'
     | '/_layout/chat'
     | '/_layout/company'
     | '/_layout/gantt'
@@ -618,6 +630,13 @@ declare module '@tanstack/react-router' {
       path: '/chat'
       fullPath: '/chat'
       preLoaderRoute: typeof LayoutChatRouteImport
+      parentRoute: typeof LayoutRoute
+    }
+    '/_layout/attendance-config': {
+      id: '/_layout/attendance-config'
+      path: '/attendance-config'
+      fullPath: '/attendance-config'
+      preLoaderRoute: typeof LayoutAttendanceConfigRouteImport
       parentRoute: typeof LayoutRoute
     }
     '/_layout/attendance': {
@@ -804,6 +823,7 @@ const LayoutAdminRouteWithChildren = LayoutAdminRoute._addFileChildren(
 interface LayoutRouteChildren {
   LayoutAdminRoute: typeof LayoutAdminRouteWithChildren
   LayoutAttendanceRoute: typeof LayoutAttendanceRoute
+  LayoutAttendanceConfigRoute: typeof LayoutAttendanceConfigRoute
   LayoutChatRoute: typeof LayoutChatRoute
   LayoutCompanyRoute: typeof LayoutCompanyRoute
   LayoutGanttRoute: typeof LayoutGanttRoute
@@ -834,6 +854,7 @@ interface LayoutRouteChildren {
 const LayoutRouteChildren: LayoutRouteChildren = {
   LayoutAdminRoute: LayoutAdminRouteWithChildren,
   LayoutAttendanceRoute: LayoutAttendanceRoute,
+  LayoutAttendanceConfigRoute: LayoutAttendanceConfigRoute,
   LayoutChatRoute: LayoutChatRoute,
   LayoutCompanyRoute: LayoutCompanyRoute,
   LayoutGanttRoute: LayoutGanttRoute,
