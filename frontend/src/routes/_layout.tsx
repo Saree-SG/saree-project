@@ -1,3 +1,4 @@
+import { useQuery, useQueryClient } from "@tanstack/react-query"
 import {
   createFileRoute,
   Link,
@@ -8,12 +9,8 @@ import {
 } from "@tanstack/react-router"
 import { HelpCircle } from "lucide-react"
 import { useEffect, useRef } from "react"
-import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 import { RolesService } from "@/client"
-import { listMyChatRooms } from "@/modules/chat/chatApi"
-import { subscribeRoom } from "@/modules/chat/chatWs"
-
 import { Footer } from "@/components/Common/Footer"
 import { MobileAppHeader } from "@/components/Layout/MobileAppHeader"
 import { MobileBottomNav } from "@/components/Layout/MobileBottomNav"
@@ -27,10 +24,13 @@ import {
 } from "@/components/ui/sidebar"
 import useAuth, { isLoggedIn } from "@/hooks/useAuth"
 import useCustomToast from "@/hooks/useCustomToast"
-import { APP_VERSION_LABEL } from "@/utils/appVersion"
-import { getAccessToken } from "@/modules/auth/tokenStore"
-import { buildTaskGlobalWsUrl } from "@/modules/tasks/taskWs"
 import useRefreshState from "@/hooks/useRefreshState"
+import { getAccessToken } from "@/modules/auth/tokenStore"
+import { listMyChatRooms } from "@/modules/chat/chatApi"
+import { subscribeRoom } from "@/modules/chat/chatWs"
+import { ResilientWebSocket } from "@/modules/realtime/resilientWs"
+import { buildTaskGlobalWsUrl } from "@/modules/tasks/taskWs"
+import { APP_VERSION_LABEL } from "@/utils/appVersion"
 
 export const Route = createFileRoute("/_layout")({
   component: Layout,
@@ -80,115 +80,135 @@ function Layout() {
     if (!token) {
       return
     }
-    let ws: WebSocket | null = null
-    try {
-      ws = new WebSocket(buildTaskGlobalWsUrl())
-    } catch {
-      return
-    }
-    ws.onmessage = (eventValue) => {
-      try {
-        const msg = JSON.parse(eventValue.data as string) as {
-          event?: string
-          task_id?: string
-          data?: Record<string, string | undefined>
-        }
-        const data = msg.data ?? {}
-        const actorId = data.actor_id
-        const isOwnEvent = Boolean(actorId && actorId === currentUser?.id)
-        const taskLabel = data.task_name ?? msg.task_id ?? "task"
+    const handleEvent = (msg: {
+      event?: string
+      task_id?: string
+      data?: Record<string, string | undefined>
+    }) => {
+      const data = msg.data ?? {}
+      const actorId = data.actor_id
+      const isOwnEvent = Boolean(actorId && actorId === currentUser?.id)
+      const taskLabel = data.task_name ?? msg.task_id ?? "task"
 
-        // If the user is already viewing this specific task's detail page,
-        // the task-scoped WS (tasks.$taskId.tsx) will handle toasts —
-        // skip them here to prevent duplicates.
-        const isOnThisTaskPage =
-          msg.task_id !== undefined &&
-          pathnameRef.current === `/tasks/${msg.task_id}`
+      // If the user is already viewing this specific task's detail page,
+      // the task-scoped WS (tasks.$taskId.tsx) will handle toasts —
+      // skip them here to prevent duplicates.
+      const isOnThisTaskPage =
+        msg.task_id !== undefined &&
+        pathnameRef.current === `/tasks/${msg.task_id}`
 
-        if (
-          msg.event === "task.status_changed" ||
-          msg.event === "task.updated" ||
-          msg.event === "task.assigned" ||
-          msg.event === "project.assigned" ||
-          msg.event === "task.progress_reported" ||
-          msg.event === "task.discussion_added" ||
-          msg.event === "task.delay_requested" ||
-          msg.event === "task.delay_approved" ||
-          msg.event === "task.delay_rejected" ||
-          msg.event === "task.proof_uploaded" ||
-          msg.event === "task.proof_approved" ||
-          msg.event === "task.proof_rejected"
-        ) {
-          void queryClient.invalidateQueries({ queryKey: ["my-tasks-dashboard"] })
-          void queryClient.invalidateQueries({ queryKey: ["project-dashboard"] })
-          // Refresh notification bell immediately on any relevant event
-          if (!isOwnEvent) {
-            void queryClient.invalidateQueries({ queryKey: ["notifications-unread-count"] })
-            void queryClient.invalidateQueries({ queryKey: ["notifications-list"] })
-          }
+      if (
+        msg.event === "task.status_changed" ||
+        msg.event === "task.updated" ||
+        msg.event === "task.assigned" ||
+        msg.event === "project.assigned" ||
+        msg.event === "task.progress_reported" ||
+        msg.event === "task.discussion_added" ||
+        msg.event === "task.delay_requested" ||
+        msg.event === "task.delay_approved" ||
+        msg.event === "task.delay_rejected" ||
+        msg.event === "task.proof_uploaded" ||
+        msg.event === "task.proof_approved" ||
+        msg.event === "task.proof_rejected" ||
+        msg.event === "task.progress_approved" ||
+        msg.event === "task.progress_rejected" ||
+        msg.event === "task.ready_for_review" ||
+        msg.event === "task.reassigned_away"
+      ) {
+        void queryClient.invalidateQueries({ queryKey: ["my-tasks-dashboard"] })
+        void queryClient.invalidateQueries({ queryKey: ["project-dashboard"] })
+        // Refresh notification bell immediately on any relevant event
+        if (!isOwnEvent) {
+          void queryClient.invalidateQueries({
+            queryKey: ["notifications-unread-count"],
+          })
+          void queryClient.invalidateQueries({
+            queryKey: ["notifications-list"],
+          })
         }
+      }
 
-        if (!isOwnEvent && !isOnThisTaskPage) {
-          if (msg.event === "task.status_changed") {
-            showSuccessToastRef.current(
-              `Task "${taskLabel}" chuyển trạng thái sang ${data.new_status ?? ""}`,
-            )
-          } else if (msg.event === "task.assigned") {
-            showSuccessToastRef.current(
-              data.message ??
-                `${data.actor_name ?? "Quản lý"} đã giao công việc "${taskLabel}" cho bạn.`,
-            )
-          } else if (msg.event === "project.assigned") {
-            showSuccessToastRef.current(
-              data.message ?? `Bạn vừa được thêm vào dự án "${data.project_name ?? taskLabel}".`,
-            )
-          } else if (msg.event === "task.updated") {
-            showSuccessToastRef.current(
-              data.message ??
-                `${data.actor_name ?? "Nhân viên"} đã cập nhật thông tin công việc "${taskLabel}".`,
-            )
-          } else if (msg.event === "task.progress_reported") {
-            showSuccessToastRef.current(
-              data.message ??
-                `${data.actor_name ?? "Nhân viên"} đã cập nhật báo cáo tiến độ cho "${taskLabel}".`,
-            )
-          } else if (msg.event === "task.discussion_added") {
-            showSuccessToastRef.current(
-              data.message ??
-                `${data.actor_name ?? "Nhân viên"} đã cập nhật thảo luận cho "${taskLabel}".`,
-            )
-          } else if (msg.event === "task.delay_requested") {
-            showSuccessToastRef.current(
-              `${data.author_name ?? "Nhân viên"} vừa gửi yêu cầu gia hạn cho "${taskLabel}".`,
-            )
-          } else if (msg.event === "task.delay_approved") {
-            showSuccessToastRef.current(
-              `Yêu cầu gia hạn của "${taskLabel}" đã được duyệt.`,
-            )
-          } else if (msg.event === "task.delay_rejected") {
-            showErrorToastRef.current(
-              `Yêu cầu gia hạn của "${taskLabel}" đã bị từ chối.`,
-            )
-          } else if (msg.event === "task.proof_uploaded") {
-            showSuccessToastRef.current(
-              `${data.uploader_name ?? "Nhân viên"} vừa nộp bằng chứng cho "${taskLabel}".`,
-            )
-          } else if (msg.event === "task.proof_approved") {
-            showSuccessToastRef.current(
-              `Bằng chứng của "${taskLabel}" đã được duyệt.`,
-            )
-          } else if (msg.event === "task.proof_rejected") {
-            showErrorToastRef.current(
-              `Bằng chứng của "${taskLabel}" đã bị từ chối.`,
-            )
-          }
+      if (!isOwnEvent && !isOnThisTaskPage) {
+        if (msg.event === "task.status_changed") {
+          showSuccessToastRef.current(
+            `Task "${taskLabel}" chuyển trạng thái sang ${data.new_status ?? ""}`,
+          )
+        } else if (msg.event === "task.assigned") {
+          showSuccessToastRef.current(
+            data.message ??
+              `${data.actor_name ?? "Quản lý"} đã giao công việc "${taskLabel}" cho bạn.`,
+          )
+        } else if (msg.event === "project.assigned") {
+          showSuccessToastRef.current(
+            data.message ??
+              `Bạn vừa được thêm vào dự án "${data.project_name ?? taskLabel}".`,
+          )
+        } else if (msg.event === "task.updated") {
+          showSuccessToastRef.current(
+            data.message ??
+              `${data.actor_name ?? "Nhân viên"} đã cập nhật thông tin công việc "${taskLabel}".`,
+          )
+        } else if (msg.event === "task.progress_reported") {
+          showSuccessToastRef.current(
+            data.message ??
+              `${data.actor_name ?? "Nhân viên"} đã cập nhật báo cáo tiến độ cho "${taskLabel}".`,
+          )
+        } else if (msg.event === "task.discussion_added") {
+          showSuccessToastRef.current(
+            data.message ??
+              `${data.actor_name ?? "Nhân viên"} đã cập nhật thảo luận cho "${taskLabel}".`,
+          )
+        } else if (msg.event === "task.delay_requested") {
+          showSuccessToastRef.current(
+            `${data.author_name ?? "Nhân viên"} vừa gửi yêu cầu gia hạn cho "${taskLabel}".`,
+          )
+        } else if (msg.event === "task.delay_approved") {
+          showSuccessToastRef.current(
+            `Yêu cầu gia hạn của "${taskLabel}" đã được duyệt.`,
+          )
+        } else if (msg.event === "task.delay_rejected") {
+          showErrorToastRef.current(
+            `Yêu cầu gia hạn của "${taskLabel}" đã bị từ chối.`,
+          )
+        } else if (msg.event === "task.proof_uploaded") {
+          showSuccessToastRef.current(
+            `${data.uploader_name ?? "Nhân viên"} vừa nộp bằng chứng cho "${taskLabel}".`,
+          )
+        } else if (msg.event === "task.proof_approved") {
+          showSuccessToastRef.current(
+            `Bằng chứng của "${taskLabel}" đã được duyệt.`,
+          )
+        } else if (msg.event === "task.proof_rejected") {
+          showErrorToastRef.current(
+            `Bằng chứng của "${taskLabel}" đã bị từ chối.`,
+          )
+        } else if (msg.event === "task.progress_approved") {
+          showSuccessToastRef.current(
+            `Báo cáo tiến độ của "${taskLabel}" đã được duyệt.`,
+          )
+        } else if (msg.event === "task.progress_rejected") {
+          showErrorToastRef.current(
+            `Báo cáo tiến độ của "${taskLabel}" đã bị từ chối${data.note ? `: ${data.note}` : "."}`,
+          )
+        } else if (msg.event === "task.ready_for_review") {
+          showSuccessToastRef.current(
+            `"${taskLabel}" đã đạt 100% — cần vào kiểm tra (review).`,
+          )
+        } else if (msg.event === "task.reassigned_away") {
+          showErrorToastRef.current(
+            data.message ??
+              `Công việc "${taskLabel}" đã được chuyển giao cho người khác.`,
+          )
         }
-      } catch {
-        return
       }
     }
+    const rws = new ResilientWebSocket({
+      buildUrl: () => buildTaskGlobalWsUrl(),
+      onEvent: handleEvent,
+    })
+    rws.start()
     return () => {
-      ws?.close()
+      rws.stop()
     }
   }, [currentUser?.id, queryClient])
 
@@ -212,7 +232,9 @@ function Layout() {
             // Show toast: sender name + truncated content
             const senderName = msg.sender_name || "Chat"
             const content = msg.content
-              ? msg.content.length > 60 ? msg.content.slice(0, 60) + "…" : msg.content
+              ? msg.content.length > 60
+                ? `${msg.content.slice(0, 60)}…`
+                : msg.content
               : "📎 Tệp đính kèm"
             toast(senderName, {
               description: content,
@@ -224,10 +246,16 @@ function Layout() {
                   void navigate({ to: "/chat", search: { room: msg.room_id } }),
               },
             })
-            void queryClient.invalidateQueries({ queryKey: ["chat", "unread-count"] })
+            void queryClient.invalidateQueries({
+              queryKey: ["chat", "unread-count"],
+            })
             // Refresh the notification bell in realtime (same as task events)
-            void queryClient.invalidateQueries({ queryKey: ["notifications-unread-count"] })
-            void queryClient.invalidateQueries({ queryKey: ["notifications-list"] })
+            void queryClient.invalidateQueries({
+              queryKey: ["notifications-unread-count"],
+            })
+            void queryClient.invalidateQueries({
+              queryKey: ["notifications-list"],
+            })
           })
           cleanups.push(unsub)
         }
@@ -267,8 +295,7 @@ function Layout() {
           <SidebarTrigger className="-ml-1 text-muted-foreground" />
           {greetingName ? (
             <p className="text-sm text-foreground">
-              Xin chào,{" "}
-              <span className="font-semibold">{greetingName}</span>
+              Xin chào, <span className="font-semibold">{greetingName}</span>
             </p>
           ) : null}
           <div className="ml-auto flex items-center gap-2">

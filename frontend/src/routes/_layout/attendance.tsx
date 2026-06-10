@@ -347,7 +347,8 @@ function AttendancePage() {
         <p className="text-muted-foreground mt-1 text-sm">
           Chấm công theo công trình hoặc theo công ty. Bật định vị GPS và chụp
           ảnh trực tiếp tại chỗ — hệ thống tự kiểm tra bạn có đúng vị trí hay
-          không.
+          không. Mỗi ca làm xong hãy chấm công ra; muốn làm ca mới thì chấm công
+          ra rồi chấm công vào lại.
         </p>
       </div>
 
@@ -403,8 +404,9 @@ function AttendancePage() {
           <div className="mt-3 flex items-start gap-2 rounded-lg bg-amber-100 p-2.5 text-xs text-amber-800 dark:bg-amber-950/60 dark:text-amber-300">
             <XCircle className="mt-0.5 size-3.5 shrink-0" />
             <span>
-              Ca này đã mở hơn 8 tiếng — có thể bạn quên chấm công ra. Hãy chấm
-              công ra ngay; giờ công sẽ được giới hạn ở mức 8 tiếng.
+              Bạn đã làm hơn 8 tiếng — hãy chấm công ra ngay, nếu không hệ thống
+              sẽ không tính giờ công hôm nay. Nếu làm thêm ca mới, hãy chấm công
+              ra rồi chấm công vào lại để bắt đầu ca mới.
             </span>
           </div>
         )}
@@ -771,29 +773,45 @@ function AttendancePage() {
                     {canSeeValidity && (
                       <span>· cách ~{Math.round(r.check_in_distance_m)} m</span>
                     )}
-                    {r.is_auto_closed && (
+                    {r.is_absent ? (
+                      <span className="text-destructive">
+                        · vắng (quên chấm công ra)
+                      </span>
+                    ) : r.is_auto_closed ? (
                       <span className="text-amber-600">
                         · tự đóng (quên check-out)
                       </span>
-                    )}
+                    ) : null}
                   </div>
                 </div>
                 <div className="flex flex-col items-end gap-1">
                   <span
                     className={`text-sm font-semibold ${
                       r.work_hours == null
-                        ? r.is_auto_closed
-                          ? "text-amber-600"
-                          : "text-emerald-600"
+                        ? r.is_absent
+                          ? "text-destructive"
+                          : r.is_auto_closed
+                            ? "text-amber-600"
+                            : "text-emerald-600"
                         : ""
                     }`}
                   >
                     {r.work_hours != null
                       ? `${r.work_hours} giờ`
-                      : r.is_auto_closed
-                        ? "chờ xác nhận"
-                        : "đang mở"}
+                      : r.is_absent
+                        ? "vắng"
+                        : r.is_auto_closed
+                          ? "chờ xác nhận"
+                          : "đang mở"}
                   </span>
+                  {r.is_absent && (
+                    <Badge
+                      variant="destructive"
+                      className="h-5 px-1.5 text-[10px]"
+                    >
+                      không tính giờ
+                    </Badge>
+                  )}
                   {r.is_capped && (
                     <Badge variant="outline" className="h-5 px-1.5 text-[10px]">
                       giới hạn 8h

@@ -31,6 +31,10 @@ export type AttendanceRecord = {
   work_hours: number | null
   is_capped: boolean
   is_auto_closed: boolean
+  // Open past the check-out grace period → recorded as absent (vắng), no hours.
+  is_absent: boolean
+  // When the "please check out" reminder was pushed (null = not yet reminded).
+  reminder_sent_at: string | null
   note: string | null
   created_at: string
 }

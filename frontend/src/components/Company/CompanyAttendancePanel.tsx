@@ -14,12 +14,7 @@ import { toast } from "sonner"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import {
   Dialog,
   DialogContent,
@@ -82,9 +77,12 @@ export default function CompanyAttendancePanel({ companyId }: Props) {
 
   const records = query.data?.data ?? []
   const totalHours = records.reduce((sum, r) => sum + (r.work_hours ?? 0), 0)
+  // Pending review = forgotten check-out still awaiting a manager's hours, but
+  // NOT the ones already recorded as absent (those need no review).
   const pendingReview = records.filter(
-    (r) => r.is_auto_closed && r.work_hours == null,
+    (r) => r.is_auto_closed && !r.is_absent && r.work_hours == null,
   ).length
+  const absentCount = records.filter((r) => r.is_absent).length
 
   if (!companyId) {
     return (
@@ -148,6 +146,9 @@ export default function CompanyAttendancePanel({ companyId }: Props) {
                 {pendingReview} ca chờ xác nhận giờ
               </span>
             ) : null}
+            {absentCount > 0 ? (
+              <span className="text-destructive">{absentCount} ca vắng</span>
+            ) : null}
           </div>
         </CardContent>
       </Card>
@@ -203,7 +204,11 @@ export default function CompanyAttendancePanel({ companyId }: Props) {
                         label="ra"
                       />
                     ) : null}
-                    {r.is_auto_closed ? (
+                    {r.is_absent ? (
+                      <span className="text-destructive">
+                        · vắng (quên chấm công ra)
+                      </span>
+                    ) : r.is_auto_closed ? (
                       <span className="text-amber-600">
                         · tự đóng (quên check-out)
                       </span>
@@ -218,17 +223,21 @@ export default function CompanyAttendancePanel({ companyId }: Props) {
                   <span
                     className={`text-sm font-semibold ${
                       r.work_hours == null
-                        ? r.is_auto_closed
-                          ? "text-amber-600"
-                          : "text-emerald-600"
+                        ? r.is_absent
+                          ? "text-destructive"
+                          : r.is_auto_closed
+                            ? "text-amber-600"
+                            : "text-emerald-600"
                         : ""
                     }`}
                   >
                     {r.work_hours != null
                       ? `${r.work_hours} giờ`
-                      : r.is_auto_closed
-                        ? "chờ xác nhận"
-                        : "đang mở"}
+                      : r.is_absent
+                        ? "vắng"
+                        : r.is_auto_closed
+                          ? "chờ xác nhận"
+                          : "đang mở"}
                   </span>
                   <Button
                     type="button"
@@ -346,15 +355,12 @@ function AdjustHoursDialog({
         <DialogHeader>
           <DialogTitle>Sửa giờ công</DialogTitle>
           <DialogDescription>
-            {record?.user_name || record?.user_email} ·{" "}
-            {record?.location_label}
+            {record?.user_name || record?.user_email} · {record?.location_label}
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-3">
           <div className="space-y-1">
-            <Label className="text-xs">
-              Giờ công (0 – {MAX_SHIFT_HOURS})
-            </Label>
+            <Label className="text-xs">Giờ công (0 – {MAX_SHIFT_HOURS})</Label>
             <Input
               type="number"
               inputMode="decimal"

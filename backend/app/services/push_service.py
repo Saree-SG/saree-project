@@ -154,6 +154,12 @@ async def send_push_bg(
 
 def _build_url(entity_type: str, entity_id: uuid.UUID) -> str:
     base = str(settings.FRONTEND_HOST).rstrip("/")
+    # Entity types whose landing page is a fixed route (no per-entity id segment).
+    fixed = {
+        "attendance": "/attendance",
+    }
+    if entity_type in fixed:
+        return f"{base}{fixed[entity_type]}"
     routes = {
         "task": "/tasks/",
         "project": "/projects/",

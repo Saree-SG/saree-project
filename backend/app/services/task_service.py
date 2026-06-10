@@ -559,8 +559,13 @@ class TaskService:
         event: str,
         data: dict[str, Any],
     ) -> None:
-        """Push one task event to assignee and assignor user-scoped channels."""
+        """Push one task event to every participant's user-scoped channel:
+        primary assignee, assignor, co-workers (extra assignees) and observers (P1-3)."""
         targets: set[uuid.UUID] = {task.assignee_id, task.assignor_id}
+        for extra in await self._task_repo.list_extra_assignees(task.id):
+            targets.add(extra.user_id)
+        for obs in await self._task_repo.list_observers(task.id):
+            targets.add(obs.user_id)
         for user_id in targets:
             await self._emit_task_user_ws(user_id, task.id, event, data)
 
@@ -621,6 +626,21 @@ class TaskService:
         self, body: TaskCreate, level: int, current_user: User
     ) -> TaskPublic:
         """Create a task; validate timeline, write audit, enqueue cascade outbox."""
+        # Depth guard (defence-in-depth — the route also checks parent.level).
+        # 5 tiers only: level 0 (Hạng mục) … level 4 (Chi tiết).
+        if not (0 <= level <= 4):
+            raise HTTPException(
+                422,
+                "Đã đạt giới hạn 5 tầng (Hạng mục → Công việc → Đầu việc → Bước → Chi tiết).",
+            )
+        if level == 0 and body.parent_id is not None:
+            raise HTTPException(422, "Công việc cấp 0 (Hạng mục) không được có công việc cha.")
+        if level > 0:
+            if body.parent_id is None:
+                raise HTTPException(422, "Công việc con phải có công việc cha.")
+            parent = await self._task_repo.get_or_404(body.parent_id)
+            if parent.level + 1 != level:
+                raise HTTPException(422, "Cấp công việc (level) không khớp với công việc cha.")
         if body.progress_weight is not None and not (1 <= body.progress_weight <= 100):
             raise HTTPException(422, "progress_weight phải từ 1 đến 100 (hoặc để trống = tự động 100%).")
 
@@ -841,6 +861,11 @@ class TaskService:
         old_data = task.model_dump()
         update_data = body.model_dump(exclude_unset=True)
 
+        # A primary-assignee change must go through the dedicated reassign flow so
+        # the old assignee is preserved as a co-worker and properly notified — never
+        # silently overwritten here (P1-1). Pop it out of the generic field update.
+        new_assignee_id = update_data.pop("assignee_id", None)
+
         if "progress_weight" in update_data and update_data["progress_weight"] is not None:
             if not (1 <= update_data["progress_weight"] <= 100):
                 raise HTTPException(422, "progress_weight phải từ 1 đến 100 (hoặc để trống = tự động 100%).")
@@ -918,6 +943,12 @@ class TaskService:
             },
         )
 
+        # Delegate a primary-assignee change to the reassign flow (P1-1).
+        if new_assignee_id is not None and new_assignee_id != task.assignee_id:
+            return await self.reassign_task(
+                task_id, TaskReassignRequest(new_assignee_id=new_assignee_id), current_user
+            )
+
         return await _enrich(task, self._session)
 
     async def update_task_status(
@@ -971,7 +1002,9 @@ class TaskService:
                     f"Không thể hoàn thành khi còn công việc con chưa hoàn thành: {names}{more}.",
                 )
             combined_total = await _rollup_completion_pct(self._task_repo, task_id)
-            if combined_total < 100:
+            # Compare on the same rounded value shown to the user (reported_progress_total
+            # is round()-ed) so a task displaying 100% can actually be completed (P1-7).
+            if round(combined_total) < 100:
                 raise HTTPException(
                     422,
                     "Không thể hoàn thành khi tổng tiến độ (công việc con + báo cáo trực tiếp) chưa đạt 100%.",
@@ -999,6 +1032,12 @@ class TaskService:
                 "task.completed",
                 {"task_id": str(task.id), "project_id": str(task.project_id)},
             )
+
+        # A direct status change on a child (e.g. → done) must roll up so ancestors
+        # recompute their completion and auto-advance to review when they hit 100%
+        # (P1-4 — previously only the progress-approval path propagated).
+        if old_status != body.status:
+            await self._propagate_completion_up(task, current_user.id)
 
         await self._emit_task_ws(
             task_id,
@@ -1247,6 +1286,28 @@ class TaskService:
                 "message": f'{actor_name} đã chuyển giao công việc "{task.name}" cho bạn.',
             },
         )
+
+        # Notify the person who lost the task — they stay on as a co-worker (P1-2).
+        if old_assignee_id != current_user.id:
+            await self._notify(
+                user_id=old_assignee_id,
+                notif_type="task_reassigned",
+                title=f'Bạn không còn là người phụ trách chính "{task.name}"',
+                body=f"{actor_name} đã chuyển giao cho người khác. Bạn vẫn là người cùng thực hiện.",
+                entity_type="task",
+                entity_id=task_id,
+            )
+            await self._emit_task_user_ws(
+                old_assignee_id,
+                task_id,
+                "task.reassigned_away",
+                {
+                    "actor_id": str(current_user.id),
+                    "actor_name": actor_name,
+                    "task_name": task.name,
+                    "message": f'{actor_name} đã chuyển giao công việc "{task.name}" cho người khác.',
+                },
+            )
         return await _enrich(task, self._session)
 
     # ------------------------------------------------------------------
@@ -1782,9 +1843,50 @@ class TaskService:
         current_user: User,
     ) -> TaskProgressReportPublic:
         """Submit a progress report; auto-transition task status."""
-        task = await self._task_repo.get_or_404(task_id)
+        # Lock the task row so two concurrent submissions can't both pass the
+        # 100% cap below (P1-5). No-op on SQLite, real FOR UPDATE on Postgres.
+        task = await self._task_repo.lock_for_update(task_id)
         if task.status == "done":
             raise HTTPException(422, "Task is already completed")
+
+        # Only the primary assignee or an extra-assignee (co-worker) may report
+        # progress (P0-4). PROOF_UPLOAD alone is not enough — it must be their task.
+        if not current_user.is_superuser and current_user.id != task.assignee_id:
+            extras = await self._task_repo.list_extra_assignees(task_id)
+            if current_user.id not in {e.user_id for e in extras}:
+                raise HTTPException(
+                    403,
+                    "Chỉ người được giao (hoặc người cùng thực hiện) mới được nộp báo cáo tiến độ.",
+                )
+
+        # On-site check-in enforcement (P0-3): when the task requires check-in and
+        # has a reference point, the report's GPS must fall within the allowed
+        # radius. Out-of-range → reject, progress is NOT recorded, and the worker
+        # is told to go to the correct work location. The checkin_skipped path
+        # (device couldn't locate) stays allowed and is routed to manager review.
+        if (
+            task.requires_checkin
+            and not body.checkin_skipped
+            and task.checkin_lat is not None
+            and task.checkin_lng is not None
+        ):
+            if body.gps_lat is None or body.gps_lng is None:
+                raise HTTPException(
+                    422,
+                    "Công việc này yêu cầu check-in vị trí. Hãy bật định vị (GPS) "
+                    "và nộp báo cáo tại nơi làm việc.",
+                )
+            distance_m = _haversine_m(
+                task.checkin_lat, task.checkin_lng, body.gps_lat, body.gps_lng
+            )
+            allowed = (task.checkin_radius_m or 150) + (body.gps_accuracy_m or 0)
+            if distance_m > allowed:
+                raise HTTPException(
+                    422,
+                    f"Bạn đang cách vị trí làm việc khoảng {round(distance_m)}m "
+                    f"(cho phép {round(allowed)}m). Vui lòng đến đúng vị trí làm việc "
+                    "rồi nộp lại báo cáo — tiến độ chưa được ghi nhận.",
+                )
 
         # If children fully allocate the weight (w_report == 0), this task's own
         # reports would contribute nothing — progress is driven entirely by the
@@ -1948,19 +2050,23 @@ class TaskService:
 
         # Progress only moves on approval. Recompute the (approved-only) rollup and
         # adjust task status accordingly.
-        if task.status != "done":
-            combined_after = await _rollup_completion_pct(self._task_repo, task_id)
-            if approved:
+        combined_after = await _rollup_completion_pct(self._task_repo, task_id)
+        if approved:
+            if task.status != "done":
                 if combined_after >= 100.0 and task.status != "review":
                     # 100% approved → hand to assignor for final verification.
                     await self._task_repo.set_status(task, "review")
                 elif task.status == "todo":
                     await self._task_repo.set_status(task, "in_progress")
-            else:
-                # Rejected: if it had reached review at 100% but now drops below,
-                # send it back to in_progress so the worker can resubmit.
-                if task.status == "review" and combined_after < 100.0:
-                    await self._task_repo.set_status(task, "in_progress")
+        else:
+            # Rejecting a previously-approved report can drop the task below 100%.
+            # Reopen it so the worker can resubmit — even if it had already been
+            # marked done, otherwise the task is stuck "complete" with evidence that
+            # no longer totals 100% (P1-6).
+            if combined_after < 100.0 and task.status in ("review", "done"):
+                if task.status == "done":
+                    await self._task_repo.update_fields(task, {"actual_end_time": None})
+                await self._task_repo.set_status(task, "in_progress")
 
         # Roll the change up the parent chain (parents complete when children do).
         await self._propagate_completion_up(task, current_user.id)

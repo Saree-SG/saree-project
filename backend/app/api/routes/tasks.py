@@ -259,7 +259,7 @@ async def reassign_task(
     task_id: uuid.UUID,
     body: TaskReassignRequest,
     session: AsyncSessionDep,
-    current_user: User = Depends(require_permission("TASK_UPDATE")),
+    current_user: User = Depends(require_permission("TASK_REASSIGN")),
 ) -> TaskPublic:
     """Transfer the primary assignee to another user.
     Old assignee is moved to extra_assignees automatically."""

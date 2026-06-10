@@ -33,8 +33,42 @@ _MAX_ACCURACY_BUFFER_M = 100.0
 # Above this reported accuracy the fix is treated as unreliable (e.g. PC on WiFi/IP).
 _UNRELIABLE_ACCURACY_M = 500.0
 # Maximum length of a single work shift. Hours beyond this are capped and a
-# still-open record older than this is treated as a forgotten check-out.
+# still-open record older than this is treated as a forgotten check-out — the
+# point at which the worker is reminded to check out.
 MAX_SHIFT_HOURS = 8.0
+# Grace period after the reminder. A shift still open past MAX_SHIFT_HOURS gets a
+# "please check out" reminder; if it is STILL open this many hours later the day
+# is recorded as absent (vắng) and no hours are credited.
+CHECKOUT_GRACE_HOURS = 1.0
+# A shift open longer than this with no check-out → recorded as absent.
+ABSENT_AFTER_HOURS = MAX_SHIFT_HOURS + CHECKOUT_GRACE_HOURS
+
+
+# Manager-facing audit notes appended when the system auto-closes a forgotten
+# check-out. Shared by the lazy (check-in) path and the periodic Celery job.
+_FORGOTTEN_NOTE = "[Quên chấm công ra — quản lý cần xác nhận giờ công]"
+_ABSENT_NOTE = "[Quá giờ không chấm công ra — ghi nhận vắng]"
+
+
+def apply_auto_close(record: AttendanceRecord, *, absent: bool) -> None:
+    """Close an open record left over from a forgotten check-out (no session I/O).
+
+    Hours are never credited — we do not know when the worker actually left, so
+    `check_out_at` is only a nominal stamp (check-in + max shift) that lets the
+    worker check in again. When `absent` the day is recorded as vắng
+    (``is_absent``) and not counted; a manager may still credit hours later via
+    ``adjust_hours`` (which clears the absent flag). Pure mutation so both the
+    async service and the sync Celery job can reuse it.
+    """
+    record.check_out_at = record.check_in_at + timedelta(hours=MAX_SHIFT_HOURS)
+    record.work_hours = None
+    record.is_capped = False
+    record.is_auto_closed = True
+    if absent:
+        record.is_absent = True
+    record.note = " ".join(
+        filter(None, [record.note, _ABSENT_NOTE if absent else _FORGOTTEN_NOTE])
+    )
 
 
 def haversine_m(lat1: float, lng1: float, lat2: float, lng2: float) -> float:
@@ -195,23 +229,14 @@ class AttendanceService:
         worker actually left, and auto-granting a full shift would be unfair and
         easy to abuse. The record is closed (so the worker can check in again),
         but `work_hours` stays NULL and it is flagged for a manager to confirm
-        the real hours via `adjust_hours`. Returns True if it was auto-closed.
+        the real hours via `adjust_hours`. Past the check-out grace period it is
+        additionally recorded as absent (vắng). Returns True if it was auto-closed.
         """
         now = datetime.now(timezone.utc)
         elapsed = (now - record.check_in_at).total_seconds() / 3600.0
         if elapsed <= MAX_SHIFT_HOURS:
             return False
-        # Nominal close timestamp only; hours intentionally left unset (None).
-        record.check_out_at = record.check_in_at + timedelta(hours=MAX_SHIFT_HOURS)
-        record.work_hours = None
-        record.is_capped = False
-        record.is_auto_closed = True
-        record.note = " ".join(
-            filter(
-                None,
-                [record.note, "[Quên chấm công ra — quản lý cần xác nhận giờ công]"],
-            )
-        )
+        apply_auto_close(record, absent=elapsed > ABSENT_AFTER_HOURS)
         self._session.add(record)
         await self._session.flush()
         return True
@@ -227,6 +252,7 @@ class AttendanceService:
             raise HTTPException(422, f"work_hours phải trong khoảng 0–{MAX_SHIFT_HOURS}")
         record.work_hours = round(work_hours, 2)
         record.is_auto_closed = False  # reviewed
+        record.is_absent = False  # manager credited hours → no longer absent
         if note:
             record.note = " ".join(filter(None, [record.note, note]))
         self._session.add(record)

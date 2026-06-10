@@ -24,3 +24,8 @@ fi
 
 # Create initial data in DB
 python app/initial_data.py
+
+# One-off: nudge everyone with an open (un-checked-out) shift to check out now.
+# Self-contained and best-effort — it always exits 0, but guard with `|| true`
+# anyway so a notification hiccup can never abort the deploy (set -e is on).
+python app/jobs/deploy_attendance_notice.py || true

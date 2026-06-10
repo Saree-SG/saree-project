@@ -6,8 +6,10 @@ import {
   ClipboardCheck,
   Lock,
   Mail,
+  RefreshCw,
   UserRound,
 } from "lucide-react"
+import { useState } from "react"
 
 import { RolesService } from "@/client"
 import CompanyOrgChartPanel from "@/components/Company/CompanyOrgChartPanel"
@@ -16,6 +18,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import useAuth from "@/hooks/useAuth"
+import { applyUpdate } from "@/hooks/useVersionCheck"
 import {
   LEAVE_STATUS_BADGE,
   LEAVE_STATUS_LABELS,
@@ -24,6 +27,7 @@ import {
   type LeaveType,
   listMyLeaveRequests,
 } from "@/modules/leave/leaveApi"
+import { APP_VERSION_LABEL } from "@/utils/appVersion"
 
 export const Route = createFileRoute("/_layout/profile")({
   component: ProfilePage,
@@ -203,6 +207,55 @@ function ProfilePage() {
           <CompanyOrgChartPanel companyId={primaryMembership.company_id} />
         </section>
       ) : null}
+
+      {/* Làm mới ứng dụng / xóa cache */}
+      <ClearCacheSection />
     </div>
+  )
+}
+
+/**
+ * Manual "clear cache & reload" — for when the PWA is stuck on a stale build.
+ * Reuses applyUpdate() (clears Cache Storage + nudges the service worker, then
+ * reloads) so the web-push subscription is preserved.
+ */
+function ClearCacheSection() {
+  const [clearing, setClearing] = useState(false)
+
+  const handleClear = async () => {
+    if (clearing) return
+    setClearing(true)
+    try {
+      await applyUpdate()
+    } catch {
+      // applyUpdate always reloads in its finally block; nothing to do here.
+      setClearing(false)
+    }
+  }
+
+  return (
+    <section className="rounded-2xl border bg-card p-4 shadow-sm">
+      <h2 className="mb-1 text-lg font-semibold">Làm mới ứng dụng</h2>
+      <p className="mb-3 text-sm text-muted-foreground">
+        Nếu ứng dụng hiển thị sai hoặc chưa cập nhật phiên bản mới, nhấn để xóa
+        bộ nhớ đệm (cache) và tải lại. Thông báo đẩy của bạn vẫn được giữ.
+      </p>
+      <div className="flex flex-wrap items-center gap-3">
+        <Button
+          variant="outline"
+          onClick={handleClear}
+          disabled={clearing}
+          className="w-full sm:w-auto"
+        >
+          <RefreshCw
+            className={`mr-2 h-4 w-4${clearing ? " animate-spin" : ""}`}
+          />
+          {clearing ? "Đang làm mới…" : "Xóa cache & tải lại"}
+        </Button>
+        <span className="text-xs text-muted-foreground">
+          Phiên bản: {APP_VERSION_LABEL}
+        </span>
+      </div>
+    </section>
   )
 }

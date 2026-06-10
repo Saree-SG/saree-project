@@ -60,6 +60,14 @@ class AttendanceRecord(SQLModel, table=True):
     work_hours: float | None = None            # computed at check-out (capped at max shift)
     is_capped: bool = Field(default=False)      # elapsed exceeded max shift → hours capped
     is_auto_closed: bool = Field(default=False) # forgot to check out → auto-closed for review
+    # Open past the check-out grace period (max shift + grace) → recorded as
+    # absent (vắng); work_hours is NOT credited for that day.
+    is_absent: bool = Field(default=False)
+    # When the "please check out" reminder was pushed (dedup so the periodic job
+    # does not re-notify every run while the shift sits in the reminder window).
+    reminder_sent_at: datetime | None = Field(
+        default=None, sa_type=DateTime(timezone=True)  # type: ignore
+    )
     note: str | None = Field(default=None, sa_type=Text)
 
     created_at: datetime = Field(
@@ -96,6 +104,8 @@ class AttendanceRecordPublic(SQLModel):
     work_hours: float | None
     is_capped: bool
     is_auto_closed: bool
+    is_absent: bool
+    reminder_sent_at: datetime | None
     note: str | None
     created_at: datetime
 

@@ -27,6 +27,7 @@ celery_app = Celery(
         "app.jobs.daily_jobs",
         "app.jobs.delay_expiry_job",
         "app.jobs.notification_escalation_job",
+        "app.jobs.attendance_reminder_job",
     ],
 )
 
@@ -66,6 +67,10 @@ celery_app.conf.update(
         },
         "notification-escalation": {
             "task": "app.jobs.notification_escalation_job.escalate_unread_assignments",
+            "schedule": 300.0,  # every 5 minutes
+        },
+        "attendance-checkout-reminder": {
+            "task": "app.jobs.attendance_reminder_job.remind_and_close_open_attendance",
             "schedule": 300.0,  # every 5 minutes
         },
     },
