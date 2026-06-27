@@ -229,6 +229,11 @@ services:
     networks:
       - traefik-public
       - default
+    depends_on:
+      backend:
+        condition: service_healthy
+    environment:
+      - BACKEND_PORT=8000
     build:
       context: .
       dockerfile: frontend/Dockerfile

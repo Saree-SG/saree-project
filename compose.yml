@@ -135,6 +135,8 @@ services:
       args:
         VITE_API_URL: "http://localhost:8111"
     container_name: saree-frontend
+    environment:
+      - BACKEND_PORT=8111
     depends_on:
       - backend
     ports:
