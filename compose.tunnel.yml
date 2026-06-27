@@ -6,7 +6,11 @@ services:
     environment:
       - TUNNEL_TOKEN=${CLOUDFLARE_TUNNEL_TOKEN?Variable not set}
     networks:
-      - traefik-public
+      traefik-public:
+        aliases:
+          - cloudflared
+    dns:
+      - 127.0.0.11
 
 networks:
   traefik-public:
