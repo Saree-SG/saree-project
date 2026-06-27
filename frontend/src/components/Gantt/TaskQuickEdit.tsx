@@ -30,12 +30,14 @@ import type { GanttRow } from "./types"
 
 function initials(name?: string | null): string {
   if (!name) return "?"
-  return name
-    .trim()
-    .split(/\s+/)
-    .slice(0, 2)
-    .map((p) => p[0]?.toUpperCase() ?? "")
-    .join("") || "?"
+  return (
+    name
+      .trim()
+      .split(/\s+/)
+      .slice(0, 2)
+      .map((p) => p[0]?.toUpperCase() ?? "")
+      .join("") || "?"
+  )
 }
 
 function toDateInput(d: Date | string): string {
@@ -46,13 +48,14 @@ function toDateInput(d: Date | string): string {
   return `${y}-${m}-${day}`
 }
 
+// Only the real backend workflow statuses. "blocked"/"cancelled" were never
+// valid (the server stores todo|in_progress|review|done) and "review" is set by
+// the system at 100% — kept here only so a task already in review displays it.
 const STATUS_OPTIONS: { value: string; label: string }[] = [
   { value: "todo", label: "Chưa làm" },
   { value: "in_progress", label: "Đang làm" },
   { value: "review", label: "Review" },
   { value: "done", label: "Hoàn thành" },
-  { value: "blocked", label: "Bị chặn" },
-  { value: "cancelled", label: "Đã huỷ" },
 ]
 
 type Props = {
@@ -88,19 +91,32 @@ export default function TaskQuickEdit({
   }, [row])
 
   const mutation = useMutation({
-    mutationFn: () => {
+    mutationFn: async () => {
       if (!row) throw new Error("No task")
-      const body: Record<string, unknown> = {
-        name,
-        start_time: new Date(`${start}T00:00:00`).toISOString(),
-        end_time: new Date(`${end}T23:59:59`).toISOString(),
-        status,
-        reported_progress_total: progress,
+      const startMs = new Date(`${start}T00:00:00`).getTime()
+      const endMs = new Date(`${end}T23:59:59`).getTime()
+      if (endMs <= startMs) {
+        throw new Error("Ngày kết thúc phải sau ngày bắt đầu")
       }
-      return TasksService.updateTask({
+      // Field update — name + timeline only. progress (reported_progress_total)
+      // is a server-side rollup of approved reports; writing it here did nothing
+      // useful and risked desync, so it's no longer sent (P3-9).
+      await TasksService.updateTask({
         taskId: row.id,
-        requestBody: body as never,
+        requestBody: {
+          name,
+          start_time: new Date(`${start}T00:00:00`).toISOString(),
+          end_time: new Date(`${end}T23:59:59`).toISOString(),
+        } as never,
       })
+      // Status changes go through the dedicated, guarded endpoint instead of a
+      // raw field PATCH (enforces assignee/review/100%-done rules) (P3-9).
+      if (status !== row.status) {
+        await TasksService.updateTaskStatus({
+          taskId: row.id,
+          requestBody: { status } as never,
+        })
+      }
     },
     onSuccess: async () => {
       showSuccessToast("Đã lưu task")
@@ -184,15 +200,17 @@ export default function TaskQuickEdit({
 
             <div className="space-y-1">
               <Label>Tiến độ: {progress}%</Label>
-              <input
-                type="range"
-                min={0}
-                max={100}
-                step={5}
-                value={progress}
-                onChange={(e) => setProgress(Number(e.target.value))}
-                className="w-full"
-              />
+              {/* Read-only — progress is computed from approved progress reports,
+                  not editable here. Submit/approve reports on the task detail. */}
+              <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
+                <div
+                  className="h-full rounded-full bg-primary transition-all"
+                  style={{ width: `${Math.min(100, Math.max(0, progress))}%` }}
+                />
+              </div>
+              <p className="text-[11px] text-muted-foreground">
+                Tiến độ tính từ báo cáo đã duyệt — cập nhật ở trang chi tiết.
+              </p>
             </div>
 
             <div className="flex items-center justify-between pt-2">

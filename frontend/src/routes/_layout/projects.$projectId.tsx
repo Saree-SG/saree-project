@@ -1,11 +1,20 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { createFileRoute, Link, redirect, useNavigate } from "@tanstack/react-router"
-import { ChevronDown, ChevronRight, BookTemplate, Plus, MoreHorizontal, BookmarkPlus, Layers } from "lucide-react"
+import {
+  createFileRoute,
+  Link,
+  redirect,
+  useNavigate,
+} from "@tanstack/react-router"
+import {
+  BookmarkPlus,
+  BookTemplate,
+  ChevronDown,
+  ChevronRight,
+  Layers,
+  MoreHorizontal,
+  Plus,
+} from "lucide-react"
 import { useEffect, useMemo, useRef, useState } from "react"
-
-import ProjectGantt from "@/components/Gantt/ProjectGanttV2"
-import { DelayWarnings } from "@/components/Project/DelayWarnings"
-
 import {
   ApiError,
   DashboardService,
@@ -18,7 +27,10 @@ import {
   TasksService,
   UsersService,
 } from "@/client"
+import ProjectGantt from "@/components/Gantt/ProjectGanttV2"
 import { PermissionGuard } from "@/components/PermissionGuard"
+import { DelayWarnings } from "@/components/Project/DelayWarnings"
+import EditProfileDialog from "@/components/TaskProfile/EditProfileDialog"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -39,7 +51,13 @@ import {
 import useCustomToast from "@/hooks/useCustomToast"
 import { clearSession } from "@/modules/auth/tokenStore"
 import { createProjectChatRoom } from "@/modules/chat/chatApi"
-import EditProfileDialog from "@/components/TaskProfile/EditProfileDialog"
+import { addDependency } from "@/modules/gantt/ganttApi"
+import {
+  type CompanyRole,
+  listCompanyMembers,
+  listCompanyRoles,
+  readMyPermissions,
+} from "@/modules/rbac/rbacApi"
 import {
   applyProfile,
   listProfiles,
@@ -47,8 +65,6 @@ import {
   saveTaskAsProfile,
   type TaskProfile,
 } from "@/modules/taskProfile/taskProfileApi"
-import { addDependency } from "@/modules/gantt/ganttApi"
-import { listCompanyMembers, listCompanyRoles, readMyPermissions, type CompanyRole } from "@/modules/rbac/rbacApi"
 import { handleError } from "@/utils"
 import { hasPermission } from "@/utils/accountAccess"
 
@@ -84,7 +100,8 @@ export const Route = createFileRoute("/_layout/projects/$projectId")({
       }
       throw errorValue
     }
-    const allowed = Boolean(me?.is_superuser) || hasPermission(permissions, "PROJECT_VIEW")
+    const allowed =
+      Boolean(me?.is_superuser) || hasPermission(permissions, "PROJECT_VIEW")
     if (!allowed) {
       throw redirect({ to: "/tasks" })
     }
@@ -123,28 +140,38 @@ function taskBusinessLabel(task: TaskPublic): string {
 }
 
 function initials(name: string): string {
-  const parts = name
-    .trim()
-    .split(/\s+/)
-    .filter(Boolean)
+  const parts = name.trim().split(/\s+/).filter(Boolean)
   if (parts.length === 0) return "?"
   if (parts.length === 1) return parts[0].slice(0, 1).toUpperCase()
   return `${parts[0].slice(0, 1)}${parts[parts.length - 1].slice(0, 1)}`.toUpperCase()
 }
 
 function projectStatusColor(status: string) {
-  if (status === "completed" || status === "done") return "bg-green-50 text-green-700 border-green-200 hover:bg-green-100"
-  if (status === "in_progress" || status === "active") return "bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100"
-  if (status === "on_hold") return "bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100"
-  if (status === "cancelled") return "bg-red-50 text-red-700 border-red-200 hover:bg-red-100"
+  if (status === "completed" || status === "done")
+    return "bg-green-50 text-green-700 border-green-200 hover:bg-green-100"
+  if (status === "in_progress" || status === "active")
+    return "bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100"
+  if (status === "on_hold")
+    return "bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100"
+  if (status === "cancelled")
+    return "bg-red-50 text-red-700 border-red-200 hover:bg-red-100"
   return "bg-gray-50 text-gray-700 border-gray-200 hover:bg-gray-100"
 }
 
-function ProgressBar({ value, color = "bg-primary" }: { value: number; color?: string }) {
+function ProgressBar({
+  value,
+  color = "bg-primary",
+}: {
+  value: number
+  color?: string
+}) {
   const pct = Math.max(0, Math.min(100, value))
   return (
     <div className="h-2 w-full rounded-full bg-muted">
-      <div className={`h-2 rounded-full transition-all ${color}`} style={{ width: `${pct}%` }} />
+      <div
+        className={`h-2 rounded-full transition-all ${color}`}
+        style={{ width: `${pct}%` }}
+      />
     </div>
   )
 }
@@ -192,7 +219,8 @@ function ProjectTaskDashboardPage() {
   const [taskNameDraft, setTaskNameDraft] = useState("")
   const [taskDescriptionDraft, setTaskDescriptionDraft] = useState("")
   const [taskAssigneeEmailDraft, setTaskAssigneeEmailDraft] = useState("")
-  const [taskAssigneeSelectedUserId, setTaskAssigneeSelectedUserId] = useState("")
+  const [taskAssigneeSelectedUserId, setTaskAssigneeSelectedUserId] =
+    useState("")
   const [taskAssigneePickerOpen, setTaskAssigneePickerOpen] = useState(false)
   const [taskExtraAssigneeIds, setTaskExtraAssigneeIds] = useState<string[]>([])
   const [taskExtraPickerOpen, setTaskExtraPickerOpen] = useState(false)
@@ -205,7 +233,9 @@ function ProjectTaskDashboardPage() {
   const [showOverdueOnly, setShowOverdueOnly] = useState(false)
   const [productionSetupOpen, setProductionSetupOpen] = useState(false)
   const [selectedRoleIds, setSelectedRoleIds] = useState<string[]>([])
-  const [taskView, setTaskView] = useState<"list" | "table" | "gantt" | "tree">("list")
+  const [taskView, setTaskView] = useState<"list" | "table" | "gantt" | "tree">(
+    "list",
+  )
   // Tree view expand/collapse state
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set())
   // Profile manager
@@ -217,7 +247,9 @@ function ProjectTaskDashboardPage() {
   const [applyAssigneePickerOpen, setApplyAssigneePickerOpen] = useState(false)
   const [applyParentTaskId, setApplyParentTaskId] = useState<string>("")
   // Save as profile
-  const [saveAsProfileTaskId, setSaveAsProfileTaskId] = useState<string | null>(null)
+  const [saveAsProfileTaskId, setSaveAsProfileTaskId] = useState<string | null>(
+    null,
+  )
   const [saveAsProfileName, setSaveAsProfileName] = useState("")
   const [saveAsProfileDesc, setSaveAsProfileDesc] = useState("")
   const [editingProfileId, setEditingProfileId] = useState<string | null>(null)
@@ -246,7 +278,9 @@ function ProjectTaskDashboardPage() {
   const tasksQuery = useQuery({
     queryKey: ["project-dashboard", "tasks", projectId],
     queryFn: async () =>
-      (await TasksService.listProjectTasks({ projectId, limit: 30 }))
+      // High limit so the Tree/Table/List sub-views get the whole WBS — a low
+      // cap silently dropped nodes and broke the hierarchy on big projects (P3-8).
+      (await TasksService.listProjectTasks({ projectId, limit: 1000 }))
         .data as TaskPublic[],
   })
 
@@ -266,13 +300,22 @@ function ProjectTaskDashboardPage() {
       >,
   })
   const companyUsersQuery = useQuery({
-    queryKey: ["project-dashboard", "company-users", projectQuery.data?.company_id],
+    queryKey: [
+      "project-dashboard",
+      "company-users",
+      projectQuery.data?.company_id,
+    ],
     enabled: Boolean(projectQuery.data?.company_id),
-    queryFn: async () => listCompanyMembers(projectQuery.data?.company_id ?? ""),
+    queryFn: async () =>
+      listCompanyMembers(projectQuery.data?.company_id ?? ""),
   })
 
   const companyRolesQuery = useQuery({
-    queryKey: ["project-dashboard", "company-roles", projectQuery.data?.company_id],
+    queryKey: [
+      "project-dashboard",
+      "company-roles",
+      projectQuery.data?.company_id,
+    ],
     enabled: Boolean(projectQuery.data?.company_id) && productionSetupOpen,
     queryFn: () => listCompanyRoles(projectQuery.data!.company_id),
   })
@@ -294,7 +337,9 @@ function ProjectTaskDashboardPage() {
         assignee_id: applyAssigneeId,
       }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["project-dashboard", "tasks", projectId] })
+      queryClient.invalidateQueries({
+        queryKey: ["project-dashboard", "tasks", projectId],
+      })
       setApplyProfileOpen(false)
       setApplyTargetProfileId("")
       setApplyAssigneeId("")
@@ -418,9 +463,13 @@ function ProjectTaskDashboardPage() {
       })
       // 2. Add members by selected roles (find users with those roles from company members)
       const companyUsers = companyUsersQuery.data ?? []
-      const alreadyMemberIds = new Set((membersQuery.data ?? []).map((m) => m.user_id))
+      const alreadyMemberIds = new Set(
+        (membersQuery.data ?? []).map((m) => m.user_id),
+      )
       const usersToAdd = companyUsers.filter(
-        (u) => selectedRoleIds.includes(u.role_id ?? "") && !alreadyMemberIds.has(u.user_id),
+        (u) =>
+          selectedRoleIds.includes(u.role_id ?? "") &&
+          !alreadyMemberIds.has(u.user_id),
       )
       for (const user of usersToAdd) {
         await ProjectsService.addMember({
@@ -434,10 +483,18 @@ function ProjectTaskDashboardPage() {
       showSuccessToast("Dự án đã chuyển sang thực hiện")
       setProductionSetupOpen(false)
       setSelectedRoleIds([])
-      await queryClient.invalidateQueries({ queryKey: ["project-dashboard", "project", projectId] })
-      await queryClient.invalidateQueries({ queryKey: ["project-dashboard", "members", projectId] })
-      await queryClient.invalidateQueries({ queryKey: ["dashboard", "projects-catalog"] })
-      await queryClient.invalidateQueries({ queryKey: ["dashboard", "project-stats"] })
+      await queryClient.invalidateQueries({
+        queryKey: ["project-dashboard", "project", projectId],
+      })
+      await queryClient.invalidateQueries({
+        queryKey: ["project-dashboard", "members", projectId],
+      })
+      await queryClient.invalidateQueries({
+        queryKey: ["dashboard", "projects-catalog"],
+      })
+      await queryClient.invalidateQueries({
+        queryKey: ["dashboard", "project-stats"],
+      })
     },
     onError: handleError.bind(showErrorToast),
   })
@@ -459,7 +516,9 @@ function ProjectTaskDashboardPage() {
       const candidateUsers = companyUsersQuery.data ?? []
       const keyword = memberEmailDraft.trim()
       const keywordLower = keyword.toLowerCase()
-      let user = candidateUsers.find((row) => row.user_id === memberSelectedUserId)
+      let user = candidateUsers.find(
+        (row) => row.user_id === memberSelectedUserId,
+      )
       if (!user && keyword) {
         user = candidateUsers.find(
           (row) =>
@@ -477,7 +536,9 @@ function ProjectTaskDashboardPage() {
           user = partialMatches[0]
         }
         if (partialMatches.length > 1) {
-          throw new Error("Có nhiều nhân viên trùng tên, hãy chọn đúng trong danh sách")
+          throw new Error(
+            "Có nhiều nhân viên trùng tên, hãy chọn đúng trong danh sách",
+          )
         }
       }
       if (!user) {
@@ -488,8 +549,9 @@ function ProjectTaskDashboardPage() {
       })
       const companyId = projectQuery.data?.company_id
       const assignment =
-        assignments.find((row) => row.is_primary && row.company_id === companyId) ??
-        assignments.find((row) => row.company_id === companyId)
+        assignments.find(
+          (row) => row.is_primary && row.company_id === companyId,
+        ) ?? assignments.find((row) => row.company_id === companyId)
       if (!assignment) {
         throw new Error("User chưa có role trong công ty")
       }
@@ -575,14 +637,17 @@ function ProjectTaskDashboardPage() {
           const name = (row.full_name ?? "").toLowerCase()
           const email = row.email.toLowerCase()
           return (
-            name.includes(assigneeKeywordLower) || email.includes(assigneeKeywordLower)
+            name.includes(assigneeKeywordLower) ||
+            email.includes(assigneeKeywordLower)
           )
         })
         if (partialMatches.length === 1) {
           assignee = partialMatches[0]
         }
         if (partialMatches.length > 1) {
-          throw new Error("Có nhiều nhân viên trùng tên, hãy chọn đúng trong danh sách")
+          throw new Error(
+            "Có nhiều nhân viên trùng tên, hãy chọn đúng trong danh sách",
+          )
         }
       }
       if (!assignee) {
@@ -610,14 +675,19 @@ function ProjectTaskDashboardPage() {
       if (!start || !end) {
         throw new Error("Chọn ngày bắt đầu/kết thúc")
       }
+      if (end < start) {
+        throw new Error("Ngày kết thúc phải sau hoặc bằng ngày bắt đầu")
+      }
       const body: TaskCreate = {
         project_id: projectId,
         parent_id: null,
         name,
         description: taskDescriptionDraft.trim() || null,
         priority: "medium",
-        start_time: `${start}T00:00:00Z`,
-        end_time: `${end}T23:59:59Z`,
+        // Naive local datetime (no trailing Z) — consistent with every other
+        // task dialog, which sends local time via toIsoFromLocalDateTime.
+        start_time: `${start}T00:00:00`,
+        end_time: `${end}T23:59:59`,
         assignee_id: assigneeId,
         extra_assignee_ids: extraIds,
       }
@@ -695,9 +765,16 @@ function ProjectTaskDashboardPage() {
         businessLabel: taskBusinessLabel(task),
         collaborators: [
           task.assignee_name?.trim() || task.assignee_id,
-          ...((task as TaskPublic & { extra_assignees?: Array<{ user_name?: string | null; user_id: string }> }).extra_assignees ?? []).map(
-            (row) => row.user_name?.trim() || row.user_id,
-          ),
+          ...(
+            (
+              task as TaskPublic & {
+                extra_assignees?: Array<{
+                  user_name?: string | null
+                  user_id: string
+                }>
+              }
+            ).extra_assignees ?? []
+          ).map((row) => row.user_name?.trim() || row.user_id),
         ],
         reportedProgress: task.reported_progress_total ?? 0,
         isOverdue,
@@ -714,14 +791,21 @@ function ProjectTaskDashboardPage() {
       }
       return new Date(a.end_time).getTime() - new Date(b.end_time).getTime()
     })
-    const filtered = showOverdueOnly ? mapped.filter((task) => task.isOverdue) : mapped
-    return filtered.slice(0, 10)
+    const filtered = showOverdueOnly
+      ? mapped.filter((task) => task.isOverdue)
+      : mapped
+    // Show the full (urgency-sorted) set — capping at 10 hid tasks from the
+    // List/Table views and made them an incomplete view of the project (P3-8/P4-4).
+    return filtered
   }, [showOverdueOnly, tasksQuery.data])
 
   return (
     <div className="mx-auto w-full max-w-3xl space-y-5 px-2 pb-24 sm:px-4">
       <section className="space-y-2 pt-1">
-        <Link to="/" className="text-xs text-muted-foreground hover:text-foreground">
+        <Link
+          to="/"
+          className="text-xs text-muted-foreground hover:text-foreground"
+        >
           ← Tổng quan
         </Link>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -735,7 +819,9 @@ function ProjectTaskDashboardPage() {
                 variant="outline"
                 size="sm"
                 className="w-full justify-center whitespace-nowrap sm:w-auto"
-                disabled={!projectQuery.data || createProjectChatRoomMutation.isPending}
+                disabled={
+                  !projectQuery.data || createProjectChatRoomMutation.isPending
+                }
                 onClick={() => {
                   const chatRoomId = (projectQuery.data as any)?.chat_room_id as
                     | string
@@ -800,7 +886,12 @@ function ProjectTaskDashboardPage() {
             <>
               <span>·</span>
               <span>
-                Bắt đầu: <span className="font-semibold text-foreground">{new Date(projectQuery.data.start_date).toLocaleDateString("vi-VN")}</span>
+                Bắt đầu:{" "}
+                <span className="font-semibold text-foreground">
+                  {new Date(projectQuery.data.start_date).toLocaleDateString(
+                    "vi-VN",
+                  )}
+                </span>
               </span>
             </>
           )}
@@ -817,7 +908,9 @@ function ProjectTaskDashboardPage() {
                       : "text-foreground",
                   ].join(" ")}
                 >
-                  {new Date(projectQuery.data.end_date).toLocaleDateString("vi-VN")}
+                  {new Date(projectQuery.data.end_date).toLocaleDateString(
+                    "vi-VN",
+                  )}
                 </span>
               </span>
             </>
@@ -829,7 +922,10 @@ function ProjectTaskDashboardPage() {
               <span
                 className={[
                   "rounded-md border px-3 py-1 text-xs font-semibold",
-                  projectStatusColor(projectQuery.data?.status ?? "").replace(/hover:[^\s]+/g, ""),
+                  projectStatusColor(projectQuery.data?.status ?? "").replace(
+                    /hover:[^\s]+/g,
+                    "",
+                  ),
                 ].join(" ")}
               >
                 {statusLabel(projectQuery.data?.status ?? "")}
@@ -845,7 +941,11 @@ function ProjectTaskDashboardPage() {
                   quickUpdateStatusMutation.mutate(val)
                 }
               }}
-              disabled={quickUpdateStatusMutation.isPending || activateWithMembersMutation.isPending || !projectQuery.data}
+              disabled={
+                quickUpdateStatusMutation.isPending ||
+                activateWithMembersMutation.isPending ||
+                !projectQuery.data
+              }
             >
               <SelectTrigger
                 className={[
@@ -870,15 +970,21 @@ function ProjectTaskDashboardPage() {
       <section className="rounded-xl border bg-card p-5 shadow-sm">
         <div className="mb-4 grid grid-cols-3 gap-3 text-center">
           <div>
-            <p className="text-2xl font-black text-primary">{stats?.completion_pct ?? 0}%</p>
+            <p className="text-2xl font-black text-primary">
+              {stats?.completion_pct ?? 0}%
+            </p>
             <p className="text-xs text-muted-foreground">Hoàn thành</p>
           </div>
           <div>
-            <p className="text-2xl font-black text-green-600">{stats?.done_tasks ?? 0}</p>
+            <p className="text-2xl font-black text-green-600">
+              {stats?.done_tasks ?? 0}
+            </p>
             <p className="text-xs text-muted-foreground">Task xong</p>
           </div>
           <div>
-            <p className={`text-2xl font-black ${(stats?.overdue_tasks ?? 0) > 0 ? "text-red-600" : "text-muted-foreground"}`}>
+            <p
+              className={`text-2xl font-black ${(stats?.overdue_tasks ?? 0) > 0 ? "text-red-600" : "text-muted-foreground"}`}
+            >
               {stats?.overdue_tasks ?? 0}
             </p>
             <p className="text-xs text-muted-foreground">Task trễ</p>
@@ -896,7 +1002,9 @@ function ProjectTaskDashboardPage() {
             ].join(" ")}
             onClick={() => setShowOverdueOnly((prev) => !prev)}
           >
-            {showOverdueOnly ? "Hiển thị tất cả task" : `Chỉ xem ${stats?.overdue_tasks} task đang trễ`}
+            {showOverdueOnly
+              ? "Hiển thị tất cả task"
+              : `Chỉ xem ${stats?.overdue_tasks} task đang trễ`}
           </button>
         )}
       </section>
@@ -922,7 +1030,13 @@ function ProjectTaskDashboardPage() {
                       : "text-slate-500 hover:text-slate-700",
                   ].join(" ")}
                 >
-                  {v === "list" ? "Danh sách" : v === "table" ? "Bảng" : v === "tree" ? "Cây" : "Gantt"}
+                  {v === "list"
+                    ? "Danh sách"
+                    : v === "table"
+                      ? "Bảng"
+                      : v === "tree"
+                        ? "Cây"
+                        : "Gantt"}
                 </button>
               ))}
             </div>
@@ -965,7 +1079,7 @@ function ProjectTaskDashboardPage() {
                   <th className="px-4 py-2.5">Kết thúc</th>
                   <th className="px-4 py-2.5">Trạng thái</th>
                   <th className="px-4 py-2.5">Tiến độ</th>
-                  <th className="px-4 py-2.5 w-10"></th>
+                  <th className="px-4 py-2.5 w-10" />
                 </tr>
               </thead>
               <tbody>
@@ -974,9 +1088,18 @@ function ProjectTaskDashboardPage() {
                     key={task.id}
                     className={[
                       "border-b last:border-b-0 cursor-pointer hover:bg-slate-50",
-                      task.isOverdue ? "bg-red-50" : task.isDueSoon ? "bg-amber-50" : "",
+                      task.isOverdue
+                        ? "bg-red-50"
+                        : task.isDueSoon
+                          ? "bg-amber-50"
+                          : "",
                     ].join(" ")}
-                    onClick={() => navigate({ to: "/tasks/$taskId", params: { taskId: task.id } })}
+                    onClick={() =>
+                      navigate({
+                        to: "/tasks/$taskId",
+                        params: { taskId: task.id },
+                      })
+                    }
                   >
                     <td className="max-w-[220px] truncate px-4 py-2.5 font-medium">
                       {task.color && (
@@ -987,13 +1110,28 @@ function ProjectTaskDashboardPage() {
                       )}
                       {task.name}
                     </td>
-                    <td className="px-4 py-2.5 text-xs text-muted-foreground">{task.assigneeName}</td>
+                    <td className="px-4 py-2.5 text-xs text-muted-foreground">
+                      {task.assigneeName}
+                    </td>
                     <td className="px-4 py-2.5 text-xs text-muted-foreground">
                       {new Date(task.start_time).toLocaleDateString("vi-VN")}
                     </td>
-                    <td className={["px-4 py-2.5 text-xs font-medium", task.isOverdue ? "text-red-600" : task.isDueSoon ? "text-amber-600" : "text-muted-foreground"].join(" ")}>
+                    <td
+                      className={[
+                        "px-4 py-2.5 text-xs font-medium",
+                        task.isOverdue
+                          ? "text-red-600"
+                          : task.isDueSoon
+                            ? "text-amber-600"
+                            : "text-muted-foreground",
+                      ].join(" ")}
+                    >
                       {new Date(task.end_time).toLocaleDateString("vi-VN")}
-                      {task.isOverdue && <span className="ml-1 text-[10px]">(trễ {task.overdueDays}n)</span>}
+                      {task.isOverdue && (
+                        <span className="ml-1 text-[10px]">
+                          (trễ {task.overdueDays}n)
+                        </span>
+                      )}
                     </td>
                     <td className="px-4 py-2.5">
                       <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-700">
@@ -1021,7 +1159,10 @@ function ProjectTaskDashboardPage() {
                 ))}
                 {detailedTasks.length === 0 && (
                   <tr>
-                    <td colSpan={7} className="px-4 py-8 text-center text-sm text-muted-foreground">
+                    <td
+                      colSpan={7}
+                      className="px-4 py-8 text-center text-sm text-muted-foreground"
+                    >
                       Chưa có công việc nào.
                     </td>
                   </tr>
@@ -1065,101 +1206,101 @@ function ProjectTaskDashboardPage() {
       </section>
 
       {taskView === "list" && (
-      <section className="space-y-3">
-        <div className="space-y-3">
-          {detailedTasks.map((task) => (
-            <Link
-              key={task.id}
-              to="/tasks/$taskId"
-              params={{ taskId: task.id }}
-              className={[
-                "block space-y-3 rounded-xl border bg-white p-4 shadow-sm",
-                task.isOverdue
-                  ? "border-red-400"
-                  : task.isDueSoon
-                    ? "border-amber-400"
-                    : "",
-              ].join(" ")}
-            >
-              <div className="flex items-start gap-3">
-                <div className="mt-0.5 h-10 w-10 shrink-0 rounded-full bg-primary/10" />
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-bold">{task.name}</p>
-                  <div className="mt-1 flex flex-wrap items-center gap-2">
-                    <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-700">
-                      {task.businessLabel}
-                    </span>
-                    <div className="flex items-center gap-1">
-                      <div className="flex -space-x-2">
-                        {task.collaborators.slice(0, 3).map((name) => (
-                          <span
-                            key={`${task.id}-${name}`}
-                            title={name}
-                            className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-white bg-primary text-[9px] font-bold text-white"
-                          >
-                            {initials(name)}
-                          </span>
-                        ))}
-                      </div>
-                      <span className="text-[10px] font-semibold text-primary">
-                        {task.collaborators.length} người
+        <section className="space-y-3">
+          <div className="space-y-3">
+            {detailedTasks.map((task) => (
+              <Link
+                key={task.id}
+                to="/tasks/$taskId"
+                params={{ taskId: task.id }}
+                className={[
+                  "block space-y-3 rounded-xl border bg-white p-4 shadow-sm",
+                  task.isOverdue
+                    ? "border-red-400"
+                    : task.isDueSoon
+                      ? "border-amber-400"
+                      : "",
+                ].join(" ")}
+              >
+                <div className="flex items-start gap-3">
+                  <div className="mt-0.5 h-10 w-10 shrink-0 rounded-full bg-primary/10" />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-bold">{task.name}</p>
+                    <div className="mt-1 flex flex-wrap items-center gap-2">
+                      <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-700">
+                        {task.businessLabel}
                       </span>
+                      <div className="flex items-center gap-1">
+                        <div className="flex -space-x-2">
+                          {task.collaborators.slice(0, 3).map((name) => (
+                            <span
+                              key={`${task.id}-${name}`}
+                              title={name}
+                              className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-white bg-primary text-[9px] font-bold text-white"
+                            >
+                              {initials(name)}
+                            </span>
+                          ))}
+                        </div>
+                        <span className="text-[10px] font-semibold text-primary">
+                          {task.collaborators.length} người
+                        </span>
+                      </div>
                     </div>
-                  </div>
-                  <p
-                    className={[
-                      "text-[11px]",
-                      task.isOverdue
-                        ? "font-semibold text-red-600"
-                        : task.isDueSoon
-                          ? "font-semibold text-amber-600"
-                          : "text-muted-foreground",
-                    ].join(" ")}
-                  >
-                    Hạn: {new Date(task.end_time).toLocaleDateString("vi-VN")}
-                  </p>
-                </div>
-                <div className="flex items-start gap-1 text-right">
-                  <div>
-                    <p className="text-[10px] font-bold text-muted-foreground">
-                      {statusLabel(task.status)}
+                    <p
+                      className={[
+                        "text-[11px]",
+                        task.isOverdue
+                          ? "font-semibold text-red-600"
+                          : task.isDueSoon
+                            ? "font-semibold text-amber-600"
+                            : "text-muted-foreground",
+                      ].join(" ")}
+                    >
+                      Hạn: {new Date(task.end_time).toLocaleDateString("vi-VN")}
                     </p>
-                    {task.isOverdue ? (
-                      <p className="mt-1 rounded bg-red-100 px-2 py-0.5 text-[10px] font-bold text-red-700">
-                        Trễ {task.overdueDays} ngày
-                      </p>
-                    ) : null}
-                    {task.isDueSoon ? (
-                      <p className="mt-1 rounded bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-700">
-                        Sắp tới hạn
-                      </p>
-                    ) : null}
                   </div>
-                  <TaskRowActions
-                    taskId={task.id}
-                    taskName={task.name}
-                    taskLevel={task.level ?? 0}
-                    menuOpenId={treeMenuTaskId}
-                    setMenuOpenId={setTreeMenuTaskId}
-                    onSaveAsProfile={(taskId, taskName) => {
-                      setSaveAsProfileTaskId(taskId)
-                      setSaveAsProfileName(taskName)
-                    }}
-                    navigate={navigate}
-                  />
+                  <div className="flex items-start gap-1 text-right">
+                    <div>
+                      <p className="text-[10px] font-bold text-muted-foreground">
+                        {statusLabel(task.status)}
+                      </p>
+                      {task.isOverdue ? (
+                        <p className="mt-1 rounded bg-red-100 px-2 py-0.5 text-[10px] font-bold text-red-700">
+                          Trễ {task.overdueDays} ngày
+                        </p>
+                      ) : null}
+                      {task.isDueSoon ? (
+                        <p className="mt-1 rounded bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-700">
+                          Sắp tới hạn
+                        </p>
+                      ) : null}
+                    </div>
+                    <TaskRowActions
+                      taskId={task.id}
+                      taskName={task.name}
+                      taskLevel={task.level ?? 0}
+                      menuOpenId={treeMenuTaskId}
+                      setMenuOpenId={setTreeMenuTaskId}
+                      onSaveAsProfile={(taskId, taskName) => {
+                        setSaveAsProfileTaskId(taskId)
+                        setSaveAsProfileName(taskName)
+                      }}
+                      navigate={navigate}
+                    />
+                  </div>
                 </div>
-              </div>
-              <div className="space-y-1">
-                <div className="flex items-center justify-between text-[10px] font-bold text-muted-foreground">
-                  <span>Tiến độ</span>
-                  <span>{task.reportedProgress}%</span>
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between text-[10px] font-bold text-muted-foreground">
+                    <span>Tiến độ</span>
+                    <span>{task.reportedProgress}%</span>
+                  </div>
+                  <ProgressBar value={task.reportedProgress} />
                 </div>
-                <ProgressBar value={task.reportedProgress} />
-              </div>
-            </Link>
-          ))}
-        </div>
-      </section>
+              </Link>
+            ))}
+          </div>
+        </section>
       )}
 
       <PermissionGuard permission="TASK_CREATE">
@@ -1300,9 +1441,13 @@ function ProjectTaskDashboardPage() {
                         type="button"
                         className={[
                           "flex w-full items-center justify-between px-2 py-2 text-left text-xs hover:bg-slate-50",
-                          memberSelectedUserId === user.user_id ? "bg-slate-100" : "",
+                          memberSelectedUserId === user.user_id
+                            ? "bg-slate-100"
+                            : "",
                         ].join(" ")}
-                        onMouseDown={(eventValue) => eventValue.preventDefault()}
+                        onMouseDown={(eventValue) =>
+                          eventValue.preventDefault()
+                        }
                         onClick={() => {
                           setMemberSelectedUserId(user.user_id)
                           setMemberEmailDraft(user.email)
@@ -1312,7 +1457,9 @@ function ProjectTaskDashboardPage() {
                         <span className="font-medium">
                           {user.full_name || "N/A"}
                         </span>
-                        <span className="text-muted-foreground">{user.email}</span>
+                        <span className="text-muted-foreground">
+                          {user.email}
+                        </span>
                       </button>
                     ))
                   )}
@@ -1346,10 +1493,14 @@ function ProjectTaskDashboardPage() {
           <div className="space-y-3">
             {/* ── Chọn từ mẫu ── */}
             <div className="rounded-lg border bg-slate-50 p-3 space-y-2">
-              <p className="text-xs font-semibold text-muted-foreground">Chọn từ mẫu (tuỳ chọn)</p>
+              <p className="text-xs font-semibold text-muted-foreground">
+                Chọn từ mẫu (tuỳ chọn)
+              </p>
               <Select
                 value={selectedProfileId || "_none"}
-                onValueChange={(v) => setSelectedProfileId(v === "_none" ? "" : v)}
+                onValueChange={(v) =>
+                  setSelectedProfileId(v === "_none" ? "" : v)
+                }
               >
                 <SelectTrigger>
                   <SelectValue placeholder="-- Không dùng mẫu --" />
@@ -1363,20 +1514,25 @@ function ProjectTaskDashboardPage() {
                   ))}
                 </SelectContent>
               </Select>
-              {selectedProfileId && (() => {
-                const profile = (profilesQuery.data ?? []).find((p: TaskProfile) => p.id === selectedProfileId)
-                return profile ? (
-                  <p className="text-xs text-blue-600">
-                    Sẽ tạo {profile.items.length} công việc con theo mẫu
-                  </p>
-                ) : null
-              })()}
+              {selectedProfileId &&
+                (() => {
+                  const profile = (profilesQuery.data ?? []).find(
+                    (p: TaskProfile) => p.id === selectedProfileId,
+                  )
+                  return profile ? (
+                    <p className="text-xs text-blue-600">
+                      Sẽ tạo {profile.items.length} công việc con theo mẫu
+                    </p>
+                  ) : null
+                })()}
             </div>
 
             {/* ── Divider ── */}
             <div className="flex items-center gap-2">
               <div className="flex-1 border-t" />
-              <span className="text-xs text-muted-foreground">hoặc điền thủ công</span>
+              <span className="text-xs text-muted-foreground">
+                hoặc điền thủ công
+              </span>
               <div className="flex-1 border-t" />
             </div>
 
@@ -1411,7 +1567,8 @@ function ProjectTaskDashboardPage() {
                 <div className="max-h-48 overflow-auto rounded-md border">
                   {taskAssigneeCandidates.length === 0 ? (
                     <p className="p-2 text-xs text-muted-foreground">
-                      Không có thành viên trong dự án. Hãy thêm thành viên trước.
+                      Không có thành viên trong dự án. Hãy thêm thành viên
+                      trước.
                     </p>
                   ) : (
                     taskAssigneeCandidates.map((user) => (
@@ -1424,7 +1581,9 @@ function ProjectTaskDashboardPage() {
                             ? "bg-slate-100"
                             : "",
                         ].join(" ")}
-                        onMouseDown={(eventValue) => eventValue.preventDefault()}
+                        onMouseDown={(eventValue) =>
+                          eventValue.preventDefault()
+                        }
                         onClick={() => {
                           setTaskAssigneeSelectedUserId(user.user_id)
                           setTaskAssigneeEmailDraft(user.email)
@@ -1434,7 +1593,9 @@ function ProjectTaskDashboardPage() {
                         <span className="font-medium">
                           {user.full_name || "N/A"}
                         </span>
-                        <span className="text-muted-foreground">{user.email}</span>
+                        <span className="text-muted-foreground">
+                          {user.email}
+                        </span>
                       </button>
                     ))
                   )}
@@ -1517,7 +1678,9 @@ function ProjectTaskDashboardPage() {
                         onMouseDown={(ev) => ev.preventDefault()}
                         onClick={() => {
                           setTaskExtraAssigneeIds((cur) =>
-                            cur.includes(user.user_id) ? cur : [...cur, user.user_id],
+                            cur.includes(user.user_id)
+                              ? cur
+                              : [...cur, user.user_id],
                           )
                           setTaskExtraSearchDraft("")
                         }}
@@ -1525,7 +1688,9 @@ function ProjectTaskDashboardPage() {
                         <span className="font-medium">
                           {user.full_name || "N/A"}
                         </span>
-                        <span className="text-muted-foreground">{user.email}</span>
+                        <span className="text-muted-foreground">
+                          {user.email}
+                        </span>
                       </button>
                     ))
                   })()}
@@ -1537,7 +1702,9 @@ function ProjectTaskDashboardPage() {
               <>
                 <div className="grid grid-cols-2 gap-2">
                   <div className="space-y-1">
-                    <p className="text-xs font-semibold text-muted-foreground">Bắt đầu</p>
+                    <p className="text-xs font-semibold text-muted-foreground">
+                      Bắt đầu
+                    </p>
                     <Input
                       type="date"
                       value={taskStartDateDraft}
@@ -1545,13 +1712,17 @@ function ProjectTaskDashboardPage() {
                         setTaskStartDateDraft(e.target.value)
                         const days = parseInt(taskWorkingDays, 10)
                         if (e.target.value && !Number.isNaN(days) && days > 0) {
-                          setTaskEndDateDraft(addWorkingDays(e.target.value, days))
+                          setTaskEndDateDraft(
+                            addWorkingDays(e.target.value, days),
+                          )
                         }
                       }}
                     />
                   </div>
                   <div className="space-y-1">
-                    <p className="text-xs font-semibold text-muted-foreground">Số ngày làm việc</p>
+                    <p className="text-xs font-semibold text-muted-foreground">
+                      Số ngày làm việc
+                    </p>
                     <Input
                       type="number"
                       min={1}
@@ -1560,14 +1731,23 @@ function ProjectTaskDashboardPage() {
                       onChange={(e) => {
                         setTaskWorkingDays(e.target.value)
                         const days = parseInt(e.target.value, 10)
-                        if (taskStartDateDraft && !Number.isNaN(days) && days > 0) {
-                          setTaskEndDateDraft(addWorkingDays(taskStartDateDraft, days))
+                        if (
+                          taskStartDateDraft &&
+                          !Number.isNaN(days) &&
+                          days > 0
+                        ) {
+                          setTaskEndDateDraft(
+                            addWorkingDays(taskStartDateDraft, days),
+                          )
                         }
                       }}
                     />
                     {taskEndDateDraft && (
                       <p className="text-[11px] text-muted-foreground">
-                        Deadline: {new Date(`${taskEndDateDraft}T12:00:00`).toLocaleDateString("vi-VN")}
+                        Deadline:{" "}
+                        {new Date(
+                          `${taskEndDateDraft}T12:00:00`,
+                        ).toLocaleDateString("vi-VN")}
                       </p>
                     )}
                   </div>
@@ -1635,25 +1815,40 @@ function ProjectTaskDashboardPage() {
           </DialogHeader>
           <div className="space-y-3 py-1">
             {profilesQuery.isLoading ? (
-              <p className="py-6 text-center text-sm text-muted-foreground">Đang tải...</p>
+              <p className="py-6 text-center text-sm text-muted-foreground">
+                Đang tải...
+              </p>
             ) : (profilesQuery.data ?? []).length === 0 ? (
               <div className="py-10 text-center">
                 <Layers className="mx-auto mb-2 h-10 w-10 text-slate-300" />
-                <p className="text-sm font-medium text-slate-500">Chưa có mẫu nào</p>
-                <p className="mt-1 text-xs text-muted-foreground">Chuyển sang tab "Cây", nhấn ⋯ trên Hạng mục → "Lưu làm mẫu"</p>
+                <p className="text-sm font-medium text-slate-500">
+                  Chưa có mẫu nào
+                </p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Chuyển sang tab "Cây", nhấn ⋯ trên Hạng mục → "Lưu làm mẫu"
+                </p>
               </div>
             ) : (
               <div className="grid gap-3">
                 {(profilesQuery.data ?? []).map((profile: TaskProfile) => {
-                  const rootCount = profile.items.filter(i => i.level === 0).length
+                  const rootCount = profile.items.filter(
+                    (i) => i.level === 0,
+                  ).length
                   const totalCount = profile.items.length
                   return (
-                    <div key={profile.id} className="rounded-xl border bg-slate-50 p-4 hover:bg-white transition-colors">
+                    <div
+                      key={profile.id}
+                      className="rounded-xl border bg-slate-50 p-4 hover:bg-white transition-colors"
+                    >
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0 flex-1">
-                          <p className="font-semibold text-slate-800">{profile.name}</p>
+                          <p className="font-semibold text-slate-800">
+                            {profile.name}
+                          </p>
                           {profile.description && (
-                            <p className="mt-0.5 text-xs text-muted-foreground">{profile.description}</p>
+                            <p className="mt-0.5 text-xs text-muted-foreground">
+                              {profile.description}
+                            </p>
                           )}
                           <div className="mt-2 flex flex-wrap gap-2">
                             <span className="rounded-full bg-blue-100 px-2.5 py-0.5 text-[11px] font-semibold text-blue-700">
@@ -1666,18 +1861,34 @@ function ProjectTaskDashboardPage() {
                           {/* Preview tree */}
                           <div className="mt-3 rounded-lg border bg-white p-3 text-xs text-slate-600 space-y-1 max-h-36 overflow-y-auto">
                             {profile.items.slice(0, 12).map((item) => (
-                              <div key={item.id} style={{ paddingLeft: `${item.level * 16}px` }} className="flex items-center gap-1.5">
-                                <span className={LEVEL_CONFIG[item.level]?.dot ?? "h-1.5 w-1.5 rounded-full bg-slate-300"} />
+                              <div
+                                key={item.id}
+                                style={{ paddingLeft: `${item.level * 16}px` }}
+                                className="flex items-center gap-1.5"
+                              >
+                                <span
+                                  className={
+                                    LEVEL_CONFIG[item.level]?.dot ??
+                                    "h-1.5 w-1.5 rounded-full bg-slate-300"
+                                  }
+                                />
                                 <span className="truncate">{item.name}</span>
-                                <span className="ml-auto shrink-0 text-[10px] text-slate-400">{item.duration_days}n</span>
+                                <span className="ml-auto shrink-0 text-[10px] text-slate-400">
+                                  {item.duration_days}n
+                                </span>
                               </div>
                             ))}
                             {profile.items.length > 12 && (
-                              <p className="text-[10px] text-muted-foreground pl-2">...và {profile.items.length - 12} mục nữa</p>
+                              <p className="text-[10px] text-muted-foreground pl-2">
+                                ...và {profile.items.length - 12} mục nữa
+                              </p>
                             )}
                           </div>
                           <p className="mt-2 text-[11px] text-muted-foreground">
-                            Tạo bởi {profile.created_by_name ?? "—"} • {new Date(profile.created_at).toLocaleDateString("vi-VN")}
+                            Tạo bởi {profile.created_by_name ?? "—"} •{" "}
+                            {new Date(profile.created_at).toLocaleDateString(
+                              "vi-VN",
+                            )}
                           </p>
                         </div>
                         <div className="flex shrink-0 flex-col gap-1.5">
@@ -1708,7 +1919,12 @@ function ProjectTaskDashboardPage() {
             )}
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setProfileManagerOpen(false)}>Đóng</Button>
+            <Button
+              variant="outline"
+              onClick={() => setProfileManagerOpen(false)}
+            >
+              Đóng
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -1724,57 +1940,105 @@ function ProjectTaskDashboardPage() {
       />
 
       {/* ── Apply Profile Dialog ── */}
-      <Dialog open={applyProfileOpen} onOpenChange={(open) => { setApplyProfileOpen(open); if (!open) { setApplyAssigneeId(""); setApplyAssigneeEmail(""); setApplyParentTaskId("") } }}>
+      <Dialog
+        open={applyProfileOpen}
+        onOpenChange={(open) => {
+          setApplyProfileOpen(open)
+          if (!open) {
+            setApplyAssigneeId("")
+            setApplyAssigneeEmail("")
+            setApplyParentTaskId("")
+          }
+        }}
+      >
         <DialogContent className="max-w-sm">
           <DialogHeader>
             <DialogTitle>Áp dụng mẫu vào dự án</DialogTitle>
           </DialogHeader>
           <div className="space-y-3 py-1">
             <div className="space-y-1">
-              <p className="text-xs font-semibold text-muted-foreground">Gắn vào hạng mục (tuỳ chọn)</p>
-              <Select value={applyParentTaskId || "_root"} onValueChange={v => setApplyParentTaskId(v === "_root" ? "" : v)}>
+              <p className="text-xs font-semibold text-muted-foreground">
+                Gắn vào hạng mục (tuỳ chọn)
+              </p>
+              <Select
+                value={applyParentTaskId || "_root"}
+                onValueChange={(v) =>
+                  setApplyParentTaskId(v === "_root" ? "" : v)
+                }
+              >
                 <SelectTrigger className="text-sm">
                   <SelectValue placeholder="Tạo ở gốc (Hạng mục mới)" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="_root">Tạo ở gốc dự án</SelectItem>
-                  {(tasksQuery.data ?? []).filter(t => t.level === 0).map(t => (
-                    <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
-                  ))}
+                  {(tasksQuery.data ?? [])
+                    .filter((t) => t.level === 0)
+                    .map((t) => (
+                      <SelectItem key={t.id} value={t.id}>
+                        {t.name}
+                      </SelectItem>
+                    ))}
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-1">
-              <p className="text-xs font-semibold text-muted-foreground">Người thực hiện mặc định</p>
+              <p className="text-xs font-semibold text-muted-foreground">
+                Người thực hiện mặc định
+              </p>
               <Input
                 value={applyAssigneeEmail}
                 placeholder="Gõ tên hoặc email..."
                 onFocus={() => setApplyAssigneePickerOpen(true)}
-                onBlur={() => setTimeout(() => setApplyAssigneePickerOpen(false), 120)}
-                onChange={e => { setApplyAssigneeEmail(e.target.value); setApplyAssigneeId("") }}
+                onBlur={() =>
+                  setTimeout(() => setApplyAssigneePickerOpen(false), 120)
+                }
+                onChange={(e) => {
+                  setApplyAssigneeEmail(e.target.value)
+                  setApplyAssigneeId("")
+                }}
               />
               {applyAssigneePickerOpen && (
                 <div className="max-h-40 overflow-auto rounded-md border bg-white shadow-md z-50">
-                  {memberCandidates.filter(u =>
-                    !applyAssigneeEmail || u.full_name?.toLowerCase().includes(applyAssigneeEmail.toLowerCase()) || u.email.toLowerCase().includes(applyAssigneeEmail.toLowerCase())
-                  ).map(u => (
-                    <button
-                      key={u.user_id}
-                      type="button"
-                      className="flex w-full items-center justify-between px-3 py-2 text-xs hover:bg-slate-50"
-                      onMouseDown={e => e.preventDefault()}
-                      onClick={() => { setApplyAssigneeId(u.user_id); setApplyAssigneeEmail(u.full_name ?? u.email); setApplyAssigneePickerOpen(false) }}
-                    >
-                      <span className="font-medium">{u.full_name ?? "N/A"}</span>
-                      <span className="text-muted-foreground">{u.email}</span>
-                    </button>
-                  ))}
+                  {memberCandidates
+                    .filter(
+                      (u) =>
+                        !applyAssigneeEmail ||
+                        u.full_name
+                          ?.toLowerCase()
+                          .includes(applyAssigneeEmail.toLowerCase()) ||
+                        u.email
+                          .toLowerCase()
+                          .includes(applyAssigneeEmail.toLowerCase()),
+                    )
+                    .map((u) => (
+                      <button
+                        key={u.user_id}
+                        type="button"
+                        className="flex w-full items-center justify-between px-3 py-2 text-xs hover:bg-slate-50"
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => {
+                          setApplyAssigneeId(u.user_id)
+                          setApplyAssigneeEmail(u.full_name ?? u.email)
+                          setApplyAssigneePickerOpen(false)
+                        }}
+                      >
+                        <span className="font-medium">
+                          {u.full_name ?? "N/A"}
+                        </span>
+                        <span className="text-muted-foreground">{u.email}</span>
+                      </button>
+                    ))}
                 </div>
               )}
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setApplyProfileOpen(false)}>Hủy</Button>
+            <Button
+              variant="outline"
+              onClick={() => setApplyProfileOpen(false)}
+            >
+              Hủy
+            </Button>
             <LoadingButton
               loading={applyProfileMutation.isPending}
               disabled={!applyAssigneeId}
@@ -1787,7 +2051,16 @@ function ProjectTaskDashboardPage() {
       </Dialog>
 
       {/* ── Save as Profile Dialog ── */}
-      <Dialog open={!!saveAsProfileTaskId} onOpenChange={open => { if (!open) { setSaveAsProfileTaskId(null); setSaveAsProfileName(""); setSaveAsProfileDesc("") } }}>
+      <Dialog
+        open={!!saveAsProfileTaskId}
+        onOpenChange={(open) => {
+          if (!open) {
+            setSaveAsProfileTaskId(null)
+            setSaveAsProfileName("")
+            setSaveAsProfileDesc("")
+          }
+        }}
+      >
         <DialogContent className="max-w-sm">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
@@ -1797,27 +2070,37 @@ function ProjectTaskDashboardPage() {
           </DialogHeader>
           <div className="space-y-3 py-1">
             <div className="space-y-1">
-              <p className="text-xs font-semibold text-muted-foreground">Tên mẫu</p>
+              <p className="text-xs font-semibold text-muted-foreground">
+                Tên mẫu
+              </p>
               <Input
                 value={saveAsProfileName}
-                onChange={e => setSaveAsProfileName(e.target.value)}
+                onChange={(e) => setSaveAsProfileName(e.target.value)}
                 placeholder="VD: Lắp đặt hệ thống lạnh cơ bản"
               />
             </div>
             <div className="space-y-1">
-              <p className="text-xs font-semibold text-muted-foreground">Mô tả (tuỳ chọn)</p>
+              <p className="text-xs font-semibold text-muted-foreground">
+                Mô tả (tuỳ chọn)
+              </p>
               <Input
                 value={saveAsProfileDesc}
-                onChange={e => setSaveAsProfileDesc(e.target.value)}
+                onChange={(e) => setSaveAsProfileDesc(e.target.value)}
                 placeholder="Mô tả ngắn về mẫu này..."
               />
             </div>
             <p className="rounded-lg bg-blue-50 px-3 py-2 text-[11px] text-blue-700">
-              Toàn bộ cây công việc con sẽ được lưu vào mẫu, kèm số ngày thực hiện của mỗi mục.
+              Toàn bộ cây công việc con sẽ được lưu vào mẫu, kèm số ngày thực
+              hiện của mỗi mục.
             </p>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setSaveAsProfileTaskId(null)}>Hủy</Button>
+            <Button
+              variant="outline"
+              onClick={() => setSaveAsProfileTaskId(null)}
+            >
+              Hủy
+            </Button>
             <LoadingButton
               loading={saveAsProfileMutation.isPending}
               disabled={!saveAsProfileName.trim()}
@@ -1830,17 +2113,30 @@ function ProjectTaskDashboardPage() {
       </Dialog>
 
       {/* ── Dialog: Thiết lập nhân sự khi chuyển sang thực hiện ── */}
-      <Dialog open={productionSetupOpen} onOpenChange={(open) => { setProductionSetupOpen(open); if (!open) setSelectedRoleIds([]) }}>
+      <Dialog
+        open={productionSetupOpen}
+        onOpenChange={(open) => {
+          setProductionSetupOpen(open)
+          if (!open) setSelectedRoleIds([])
+        }}
+      >
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>Chuyển sang Đang thực hiện</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-1">
             <p className="text-sm text-muted-foreground">
-              Chọn các <span className="font-semibold text-foreground">bộ phận / vai trò</span> sẽ tham gia dự án này. Hệ thống sẽ tự thêm các thành viên tương ứng vào dự án.
+              Chọn các{" "}
+              <span className="font-semibold text-foreground">
+                bộ phận / vai trò
+              </span>{" "}
+              sẽ tham gia dự án này. Hệ thống sẽ tự thêm các thành viên tương
+              ứng vào dự án.
             </p>
             {companyRolesQuery.isLoading ? (
-              <p className="text-xs text-muted-foreground">Đang tải danh sách vai trò...</p>
+              <p className="text-xs text-muted-foreground">
+                Đang tải danh sách vai trò...
+              </p>
             ) : (
               <div className="flex flex-wrap gap-2">
                 {(companyRolesQuery.data ?? [])
@@ -1863,7 +2159,9 @@ function ProjectTaskDashboardPage() {
                           checked={checked}
                           onChange={() =>
                             setSelectedRoleIds((prev) =>
-                              checked ? prev.filter((id) => id !== role.id) : [...prev, role.id],
+                              checked
+                                ? prev.filter((id) => id !== role.id)
+                                : [...prev, role.id],
                             )
                           }
                         />
@@ -1871,17 +2169,28 @@ function ProjectTaskDashboardPage() {
                       </label>
                     )
                   })}
-                {(companyRolesQuery.data ?? []).filter((r: CompanyRole) => r.level > 1).length === 0 && (
-                  <p className="text-xs text-muted-foreground">Không có vai trò nào.</p>
+                {(companyRolesQuery.data ?? []).filter(
+                  (r: CompanyRole) => r.level > 1,
+                ).length === 0 && (
+                  <p className="text-xs text-muted-foreground">
+                    Không có vai trò nào.
+                  </p>
                 )}
               </div>
             )}
             <p className="text-[11px] text-muted-foreground">
-              BGĐ và Quản lý dự án đã được thêm tự động. Bạn có thể bỏ qua và thêm thủ công sau.
+              BGĐ và Quản lý dự án đã được thêm tự động. Bạn có thể bỏ qua và
+              thêm thủ công sau.
             </p>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => { setProductionSetupOpen(false); setSelectedRoleIds([]) }}>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setProductionSetupOpen(false)
+                setSelectedRoleIds([])
+              }}
+            >
               Bỏ qua
             </Button>
             <LoadingButton
@@ -1901,12 +2210,40 @@ function ProjectTaskDashboardPage() {
 // Task Tree View
 // ---------------------------------------------------------------------------
 
-const LEVEL_CONFIG: Record<number, { label: string; badge: string; dot: string; indent: string }> = {
-  0: { label: "Hạng mục", badge: "bg-blue-100 text-blue-700 border-blue-200", dot: "inline-block h-2 w-2 rounded-full bg-blue-600", indent: "" },
-  1: { label: "Công việc", badge: "bg-cyan-100 text-cyan-700 border-cyan-200", dot: "inline-block h-2 w-2 rounded-full bg-cyan-500", indent: "ml-5" },
-  2: { label: "Đầu việc", badge: "bg-teal-100 text-teal-700 border-teal-200", dot: "inline-block h-1.5 w-1.5 rounded-full bg-teal-500", indent: "ml-10" },
-  3: { label: "Bước", badge: "bg-slate-100 text-slate-600 border-slate-200", dot: "inline-block h-1.5 w-1.5 rounded-full bg-slate-400", indent: "ml-16" },
-  4: { label: "Chi tiết", badge: "bg-slate-50 text-slate-500 border-slate-200", dot: "inline-block h-1 w-1 rounded-full bg-slate-300", indent: "ml-20" },
+const LEVEL_CONFIG: Record<
+  number,
+  { label: string; badge: string; dot: string; indent: string }
+> = {
+  0: {
+    label: "Hạng mục",
+    badge: "bg-blue-100 text-blue-700 border-blue-200",
+    dot: "inline-block h-2 w-2 rounded-full bg-blue-600",
+    indent: "",
+  },
+  1: {
+    label: "Công việc",
+    badge: "bg-cyan-100 text-cyan-700 border-cyan-200",
+    dot: "inline-block h-2 w-2 rounded-full bg-cyan-500",
+    indent: "ml-5",
+  },
+  2: {
+    label: "Đầu việc",
+    badge: "bg-teal-100 text-teal-700 border-teal-200",
+    dot: "inline-block h-1.5 w-1.5 rounded-full bg-teal-500",
+    indent: "ml-10",
+  },
+  3: {
+    label: "Bước",
+    badge: "bg-slate-100 text-slate-600 border-slate-200",
+    dot: "inline-block h-1.5 w-1.5 rounded-full bg-slate-400",
+    indent: "ml-16",
+  },
+  4: {
+    label: "Chi tiết",
+    badge: "bg-slate-50 text-slate-500 border-slate-200",
+    dot: "inline-block h-1 w-1 rounded-full bg-slate-300",
+    indent: "ml-20",
+  },
 }
 
 const STATUS_CONFIG: Record<string, { label: string; cls: string }> = {
@@ -1974,6 +2311,23 @@ function TaskRowActions({
           >
             <Plus className="h-3.5 w-3.5" /> Xem chi tiết
           </button>
+          {taskLevel < 4 && (
+            <button
+              type="button"
+              className="flex w-full items-center gap-2 px-3 py-2 text-xs hover:bg-slate-50"
+              onClick={(e) => {
+                stop(e)
+                navigate({
+                  to: "/tasks/$taskId",
+                  params: { taskId },
+                  search: { addChild: true },
+                })
+                setMenuOpenId(null)
+              }}
+            >
+              <Plus className="h-3.5 w-3.5" /> Thêm việc con
+            </button>
+          )}
           {taskLevel === 0 && (
             <button
               type="button"
@@ -2015,7 +2369,6 @@ function TaskTreeView({
   onSaveAsProfile,
   navigate,
 }: TaskTreeViewProps) {
-
   const childrenMap = useMemo(() => {
     const m = new Map<string | null, TaskPublic[]>()
     for (const t of tasks) {
@@ -2024,14 +2377,18 @@ function TaskTreeView({
       m.get(key)!.push(t)
     }
     // Sort each group by start_time
-    for (const [, arr] of m) arr.sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime())
+    for (const [, arr] of m)
+      arr.sort(
+        (a, b) =>
+          new Date(a.start_time).getTime() - new Date(b.start_time).getTime(),
+      )
     return m
   }, [tasks])
 
   const roots = childrenMap.get(null) ?? []
 
   function toggleExpand(id: string) {
-    setExpandedNodes(prev => {
+    setExpandedNodes((prev) => {
       const next = new Set(prev)
       if (next.has(id)) next.delete(id)
       else next.add(id)
@@ -2045,7 +2402,14 @@ function TaskTreeView({
     const hasChildren = children.length > 0
     const expanded = expandedNodes.has(task.id)
     const status = STATUS_CONFIG[task.status] ?? STATUS_CONFIG.todo
-    const durationDays = Math.max(1, Math.round((new Date(task.end_time).getTime() - new Date(task.start_time).getTime()) / 86400000))
+    const durationDays = Math.max(
+      1,
+      Math.round(
+        (new Date(task.end_time).getTime() -
+          new Date(task.start_time).getTime()) /
+          86400000,
+      ),
+    )
 
     return (
       <div key={task.id}>
@@ -2062,7 +2426,11 @@ function TaskTreeView({
             onClick={() => hasChildren && toggleExpand(task.id)}
           >
             {hasChildren ? (
-              expanded ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />
+              expanded ? (
+                <ChevronDown className="h-3.5 w-3.5" />
+              ) : (
+                <ChevronRight className="h-3.5 w-3.5" />
+              )
             ) : (
               <span className={cfg.dot} />
             )}
@@ -2070,11 +2438,16 @@ function TaskTreeView({
 
           {/* Color dot if set */}
           {task.color && (
-            <span className="shrink-0 h-2.5 w-2.5 rounded-full" style={{ background: task.color }} />
+            <span
+              className="shrink-0 h-2.5 w-2.5 rounded-full"
+              style={{ background: task.color }}
+            />
           )}
 
           {/* Level badge */}
-          <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-bold ${cfg.badge}`}>
+          <span
+            className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-bold ${cfg.badge}`}
+          >
             {cfg.label}
           </span>
 
@@ -2082,13 +2455,17 @@ function TaskTreeView({
           <button
             type="button"
             className="min-w-0 flex-1 text-left text-sm font-medium text-slate-800 truncate hover:text-blue-600"
-            onClick={() => navigate({ to: "/tasks/$taskId", params: { taskId: task.id } })}
+            onClick={() =>
+              navigate({ to: "/tasks/$taskId", params: { taskId: task.id } })
+            }
           >
             {task.name}
           </button>
 
           {/* Duration */}
-          <span className="shrink-0 text-[11px] text-slate-400 hidden sm:block">{durationDays}n</span>
+          <span className="shrink-0 text-[11px] text-slate-400 hidden sm:block">
+            {durationDays}n
+          </span>
 
           {/* Assignee avatar */}
           {task.assignee_name && (
@@ -2096,12 +2473,19 @@ function TaskTreeView({
               title={task.assignee_name}
               className="shrink-0 inline-flex h-6 w-6 items-center justify-center rounded-full bg-primary text-[9px] font-bold text-white"
             >
-              {task.assignee_name.split(" ").map((w: string) => w[0]).slice(-2).join("").toUpperCase()}
+              {task.assignee_name
+                .split(" ")
+                .map((w: string) => w[0])
+                .slice(-2)
+                .join("")
+                .toUpperCase()}
             </span>
           )}
 
           {/* Status chip */}
-          <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold ${status.cls}`}>
+          <span
+            className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold ${status.cls}`}
+          >
             {status.label}
           </span>
 
@@ -2110,7 +2494,10 @@ function TaskTreeView({
             <button
               type="button"
               className="rounded p-1 text-slate-300 opacity-0 group-hover:opacity-100 hover:bg-slate-200 hover:text-slate-600 transition-all"
-              onClick={e => { e.stopPropagation(); setTreeMenuTaskId(treeMenuTaskId === task.id ? null : task.id) }}
+              onClick={(e) => {
+                e.stopPropagation()
+                setTreeMenuTaskId(treeMenuTaskId === task.id ? null : task.id)
+              }}
             >
               <MoreHorizontal className="h-3.5 w-3.5" />
             </button>
@@ -2122,15 +2509,40 @@ function TaskTreeView({
                 <button
                   type="button"
                   className="flex w-full items-center gap-2 px-3 py-2 text-xs hover:bg-slate-50"
-                  onClick={() => { navigate({ to: "/tasks/$taskId", params: { taskId: task.id } }); setTreeMenuTaskId(null) }}
+                  onClick={() => {
+                    navigate({
+                      to: "/tasks/$taskId",
+                      params: { taskId: task.id },
+                    })
+                    setTreeMenuTaskId(null)
+                  }}
                 >
                   <Plus className="h-3.5 w-3.5" /> Xem chi tiết
                 </button>
+                {task.level < 4 && (
+                  <button
+                    type="button"
+                    className="flex w-full items-center gap-2 px-3 py-2 text-xs hover:bg-slate-50"
+                    onClick={() => {
+                      navigate({
+                        to: "/tasks/$taskId",
+                        params: { taskId: task.id },
+                        search: { addChild: true },
+                      })
+                      setTreeMenuTaskId(null)
+                    }}
+                  >
+                    <Plus className="h-3.5 w-3.5" /> Thêm việc con
+                  </button>
+                )}
                 {task.level === 0 && (
                   <button
                     type="button"
                     className="flex w-full items-center gap-2 px-3 py-2 text-xs text-blue-600 hover:bg-blue-50"
-                    onClick={() => { onSaveAsProfile(task.id, task.name); setTreeMenuTaskId(null) }}
+                    onClick={() => {
+                      onSaveAsProfile(task.id, task.name)
+                      setTreeMenuTaskId(null)
+                    }}
                   >
                     <BookmarkPlus className="h-3.5 w-3.5" /> Lưu làm mẫu
                   </button>
@@ -2143,7 +2555,7 @@ function TaskTreeView({
         {/* Children */}
         {hasChildren && expanded && (
           <div className="border-l border-slate-100 ml-5">
-            {children.map(child => renderNode(child))}
+            {children.map((child) => renderNode(child))}
           </div>
         )}
       </div>
@@ -2154,8 +2566,12 @@ function TaskTreeView({
     return (
       <div className="rounded-xl border bg-white p-10 text-center shadow-sm">
         <Layers className="mx-auto mb-3 h-12 w-12 text-slate-200" />
-        <p className="text-sm font-medium text-slate-500">Chưa có công việc nào</p>
-        <p className="mt-1 text-xs text-muted-foreground">Tạo Hạng mục đầu tiên để bắt đầu</p>
+        <p className="text-sm font-medium text-slate-500">
+          Chưa có công việc nào
+        </p>
+        <p className="mt-1 text-xs text-muted-foreground">
+          Tạo Hạng mục đầu tiên để bắt đầu
+        </p>
       </div>
     )
   }
@@ -2165,14 +2581,15 @@ function TaskTreeView({
       {/* Legend */}
       <div className="flex flex-wrap gap-2 px-4 py-2 bg-slate-50 rounded-t-xl border-b">
         {Object.entries(LEVEL_CONFIG).map(([lvl, cfg]) => (
-          <span key={lvl} className={`rounded-full border px-2.5 py-0.5 text-[10px] font-bold ${cfg.badge}`}>
+          <span
+            key={lvl}
+            className={`rounded-full border px-2.5 py-0.5 text-[10px] font-bold ${cfg.badge}`}
+          >
             {cfg.label}
           </span>
         ))}
       </div>
-      <div className="p-2">
-        {roots.map(root => renderNode(root))}
-      </div>
+      <div className="p-2">{roots.map((root) => renderNode(root))}</div>
     </div>
   )
 }

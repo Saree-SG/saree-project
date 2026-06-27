@@ -9,6 +9,7 @@ import {
   type TaskPublic,
   TasksService,
 } from "@/client"
+import { TaskTree } from "@/components/Tasks/TaskTree"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -24,7 +25,6 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { TaskTree } from "@/components/Tasks/TaskTree"
 import useAuth from "@/hooks/useAuth"
 import useCustomToast from "@/hooks/useCustomToast"
 import { useGeolocation } from "@/hooks/useGeolocation"
@@ -65,6 +65,13 @@ import { resolveBackendMediaUrl } from "@/utils/mediaUrl"
 
 export const Route = createFileRoute("/_layout/tasks/$taskId")({
   component: TaskDetailPage,
+  // ?addChild=true lets other pages deep-link straight into the "add subtask"
+  // dialog (e.g. the project tree/table row menus) (P3-1).
+  validateSearch: (
+    search: Record<string, unknown>,
+  ): { addChild?: boolean } => ({
+    addChild: search.addChild === true || search.addChild === "true",
+  }),
 })
 
 /**
@@ -204,12 +211,14 @@ function TaskDetailPage() {
     "progress" | "comments" | "subtasks" | "history"
   >("progress")
   const [perfCoeffDraft, setPerfCoeffDraft] = useState("")
+  const [colorDraft, setColorDraft] = useState("")
+  const [weightDraft, setWeightDraft] = useState("")
   const [defectNoteDialogOpen, setDefectNoteDialogOpen] = useState(false)
   const [defectNoteDraft, setDefectNoteDraft] = useState("")
 
   useEffect(() => {
     setProgressReportPhotoFailed({})
-  }, [taskId])
+  }, [])
 
   const taskQuery = useQuery({
     queryKey: ["task-detail", "task", taskId],
@@ -628,13 +637,28 @@ function TaskDetailPage() {
       }
       if (
         parsedLat !== null &&
-        (isNaN(parsedLat) || isNaN(parsedLng as number))
+        (Number.isNaN(parsedLat) || Number.isNaN(parsedLng as number))
       ) {
         throw new Error("Toạ độ vị trí check-in không hợp lệ")
       }
       const parsedRadius = checkinRadiusDraft.trim()
         ? parseInt(checkinRadiusDraft, 10)
         : 150
+      const weightRaw = weightDraft.trim()
+      let parsedWeight: number | null | undefined
+      if (weightRaw === "") {
+        // Empty = clear explicit weight (back to auto). Only send when the task
+        // actually had one, to avoid no-op writes.
+        parsedWeight = task?.progress_weight != null ? null : undefined
+      } else {
+        const w = parseInt(weightRaw, 10)
+        if (Number.isNaN(w) || w < 1 || w > 100) {
+          throw new Error(
+            "Trọng số tiến độ phải từ 1 đến 100 (hoặc để trống = tự động).",
+          )
+        }
+        parsedWeight = w
+      }
       return TasksService.updateTask({
         taskId,
         requestBody: {
@@ -644,12 +668,16 @@ function TaskDetailPage() {
           start_time: startTime,
           end_time: endTime,
           module_tag: taskModuleTagDraft || null,
+          color: colorDraft.trim() || null,
           requires_checkin: requiresCheckinDraft,
           checkin_lat: parsedLat,
           checkin_lng: parsedLng,
-          checkin_radius_m: !isNaN(parsedRadius) ? parsedRadius : 150,
-          ...(parsedCoeff !== undefined && !isNaN(parsedCoeff)
+          checkin_radius_m: !Number.isNaN(parsedRadius) ? parsedRadius : 150,
+          ...(parsedCoeff !== undefined && !Number.isNaN(parsedCoeff)
             ? { performance_coefficient: parsedCoeff }
+            : {}),
+          ...(parsedWeight !== undefined
+            ? { progress_weight: parsedWeight }
             : {}),
         } as any,
       })
@@ -711,6 +739,9 @@ function TaskDetailPage() {
       if (!startIso || !endIso) {
         throw new Error("Thời gian không hợp lệ")
       }
+      if (new Date(endIso).getTime() <= new Date(startIso).getTime()) {
+        throw new Error("Thời gian kết thúc phải sau thời gian bắt đầu")
+      }
       const weightRaw = subtaskWeightDraft.trim()
       const weight = weightRaw
         ? Math.min(100, Math.max(1, parseInt(weightRaw, 10)))
@@ -753,11 +784,33 @@ function TaskDetailPage() {
       await queryClient.invalidateQueries({
         queryKey: ["task-detail", "project-tasks"],
       })
+      // The org-chart mini-tree and the "N việc con" badge derive from the
+      // gantt query — refresh it too so they don't show stale data (P3-7).
+      await queryClient.invalidateQueries({
+        queryKey: ["task-detail", "gantt"],
+      })
     },
     onError: handleError.bind(showErrorToast),
   })
 
   const task = taskQuery.data
+
+  // Deep-link: open the add-subtask dialog when arrived via ?addChild=true and
+  // the task can still take children (level < 4) (P3-1).
+  const { addChild } = Route.useSearch()
+  const addChildHandledRef = useRef(false)
+  useEffect(() => {
+    if (
+      addChild &&
+      task &&
+      task.level < 4 &&
+      task.status !== "done" &&
+      !addChildHandledRef.current
+    ) {
+      addChildHandledRef.current = true
+      setSubtaskDialogOpen(true)
+    }
+  }, [addChild, task])
 
   useEffect(() => {
     setTaskModuleTagDraft(task?.module_tag ?? "")
@@ -786,6 +839,10 @@ function TaskDetailPage() {
       (task as any)?.performance_coefficient != null
         ? String((task as any).performance_coefficient)
         : "",
+    )
+    setColorDraft((task as any)?.color ?? "")
+    setWeightDraft(
+      task?.progress_weight != null ? String(task.progress_weight) : "",
     )
   }, [task])
 
@@ -1046,6 +1103,42 @@ function TaskDetailPage() {
     return { total, inProgress, done }
   }, [projectTasks, task])
 
+  // Loading / error state for the main task — without this the page rendered an
+  // empty shell (header silently null) while loading or on failure (P3-6).
+  if (taskQuery.isLoading) {
+    return (
+      <div className="mx-auto w-full max-w-3xl px-2 pt-10 sm:px-4">
+        <div className="flex items-center justify-center gap-2 py-20 text-sm text-muted-foreground">
+          <span className="h-4 w-4 animate-spin rounded-full border-2 border-muted-foreground/40 border-t-foreground" />
+          Đang tải công việc…
+        </div>
+      </div>
+    )
+  }
+  if (taskQuery.isError || !task) {
+    return (
+      <div className="mx-auto w-full max-w-3xl px-2 pt-10 sm:px-4">
+        <div className="space-y-3 rounded-2xl border bg-card p-6 text-center shadow-sm">
+          <p className="text-sm font-medium text-foreground">
+            Không tải được công việc này.
+          </p>
+          <p className="text-xs text-muted-foreground">
+            Công việc có thể đã bị xóa hoặc bạn không có quyền xem.
+          </p>
+          <div className="flex justify-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => void taskQuery.refetch()}
+            >
+              Thử lại
+            </Button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="mx-auto w-full max-w-3xl space-y-6 px-2 pb-24 pt-3 sm:px-4">
       <section className="space-y-1 pt-1">
@@ -1258,6 +1351,12 @@ function TaskDetailPage() {
                     <p>
                       <span className="font-semibold">Giao bởi:</span>{" "}
                       {task.assignor_name}
+                    </p>
+                  )}
+                  {(task as any).performance_coefficient != null && (
+                    <p>
+                      <span className="font-semibold">Hệ số nhân viên:</span>{" "}
+                      {(task as any).performance_coefficient}
                     </p>
                   )}
                 </div>
@@ -1542,7 +1641,7 @@ function TaskDetailPage() {
                 rootId={
                   descendantStats.total > 0
                     ? taskId
-                    : task.parent_id ?? taskId
+                    : (task.parent_id ?? taskId)
                 }
                 currentTaskId={taskId}
                 showRoot
@@ -1668,8 +1767,8 @@ function TaskDetailPage() {
                   {submittedProgress > selfProgress
                     ? ` · chờ duyệt ${submittedProgress - selfProgress}%`
                     : ""}{" "}
-                  · Chỉ % đã duyệt mới được tính. Khi duyệt đủ 100% sẽ chuyển sang
-                  kiểm tra.
+                  · Chỉ % đã duyệt mới được tính. Khi duyệt đủ 100% sẽ chuyển
+                  sang kiểm tra.
                 </p>
               )}
             </div>
@@ -1681,7 +1780,7 @@ function TaskDetailPage() {
               </p>
             )}
             {wReport > 0 ? (
-            <div className="rounded-lg border bg-white p-3">
+              <div className="rounded-lg border bg-white p-3">
                 <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-end">
                   <div className="min-w-0 flex-1 space-y-2">
                     <label
@@ -1842,160 +1941,159 @@ function TaskDetailPage() {
             ) : (
               <p className="rounded-lg border bg-slate-50 p-3 text-[11px] text-muted-foreground">
                 Tiến độ của công việc này được tính hoàn toàn từ công việc con —
-                không cần nộp báo cáo/bằng chứng tại đây. Hãy báo cáo ở từng công
-                việc con.
+                không cần nộp báo cáo/bằng chứng tại đây. Hãy báo cáo ở từng
+                công việc con.
               </p>
             )}
-              <div className="space-y-3">
-                {(progressReportsQuery.data ?? []).map((row) => {
-                  const thumbSrc = resolveBackendMediaUrl(row.photo_url)
-                  const thumbFailed = Boolean(progressReportPhotoFailed[row.id])
-                  const showThumb = Boolean(thumbSrc) && !thumbFailed
-                  return (
-                    <div
-                      key={row.id}
-                      className="flex min-w-0 gap-3 rounded-lg border bg-slate-50 p-3"
-                    >
-                      {showThumb ? (
-                        <button
-                          type="button"
-                          title="Xem ảnh báo cáo"
-                          className="h-20 w-20 shrink-0 cursor-zoom-in overflow-hidden rounded-md border-0 bg-transparent p-0"
-                          onClick={() => setProgressImageLightboxUrl(thumbSrc)}
-                        >
-                          <img
-                            src={thumbSrc}
-                            alt="Ảnh báo cáo tiến độ"
-                            className="h-full w-full rounded-md object-cover"
-                            loading="lazy"
-                            decoding="async"
-                            onError={() =>
-                              setProgressReportPhotoFailed((previous) => ({
-                                ...previous,
-                                [row.id]: true,
-                              }))
-                            }
-                          />
-                        </button>
-                      ) : (
-                        <div
-                          className="flex h-20 w-20 shrink-0 items-center justify-center rounded-md border border-dashed bg-muted px-1 text-center text-[9px] font-medium leading-tight text-muted-foreground"
-                          title={
-                            thumbFailed ? "Không tải được ảnh" : "Chưa có ảnh"
+            <div className="space-y-3">
+              {(progressReportsQuery.data ?? []).map((row) => {
+                const thumbSrc = resolveBackendMediaUrl(row.photo_url)
+                const thumbFailed = Boolean(progressReportPhotoFailed[row.id])
+                const showThumb = Boolean(thumbSrc) && !thumbFailed
+                return (
+                  <div
+                    key={row.id}
+                    className="flex min-w-0 gap-3 rounded-lg border bg-slate-50 p-3"
+                  >
+                    {showThumb ? (
+                      <button
+                        type="button"
+                        title="Xem ảnh báo cáo"
+                        className="h-20 w-20 shrink-0 cursor-zoom-in overflow-hidden rounded-md border-0 bg-transparent p-0"
+                        onClick={() => setProgressImageLightboxUrl(thumbSrc)}
+                      >
+                        <img
+                          src={thumbSrc}
+                          alt="Ảnh báo cáo tiến độ"
+                          className="h-full w-full rounded-md object-cover"
+                          loading="lazy"
+                          decoding="async"
+                          onError={() =>
+                            setProgressReportPhotoFailed((previous) => ({
+                              ...previous,
+                              [row.id]: true,
+                            }))
                           }
-                        >
-                          {thumbFailed ? "Lỗi ảnh" : "—"}
-                        </div>
-                      )}
-                      <div className="min-w-0 flex-1 text-sm">
-                        <p className="font-bold text-primary">
-                          +{row.progress_percent}%
+                        />
+                      </button>
+                    ) : (
+                      <div
+                        className="flex h-20 w-20 shrink-0 items-center justify-center rounded-md border border-dashed bg-muted px-1 text-center text-[9px] font-medium leading-tight text-muted-foreground"
+                        title={
+                          thumbFailed ? "Không tải được ảnh" : "Chưa có ảnh"
+                        }
+                      >
+                        {thumbFailed ? "Lỗi ảnh" : "—"}
+                      </div>
+                    )}
+                    <div className="min-w-0 flex-1 text-sm">
+                      <p className="font-bold text-primary">
+                        +{row.progress_percent}%
+                      </p>
+                      <p className="break-words text-[11px] text-muted-foreground">
+                        {row.reporter_name ?? row.reporter_id}
+                        {" · "}
+                        {new Date(row.created_at).toLocaleString()}
+                      </p>
+                      {row.note ? (
+                        <p className="mt-1 break-words text-[13px]">
+                          {row.note}
                         </p>
-                        <p className="break-words text-[11px] text-muted-foreground">
-                          {row.reporter_name ?? row.reporter_id}
-                          {" · "}
-                          {new Date(row.created_at).toLocaleString()}
-                        </p>
-                        {row.note ? (
-                          <p className="mt-1 break-words text-[13px]">
-                            {row.note}
-                          </p>
-                        ) : null}
-                        {row.gps_lat != null && row.gps_lng != null ? (
-                          <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">
-                            <a
-                              href={`https://www.google.com/maps?q=${row.gps_lat},${row.gps_lng}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="inline-flex items-center gap-1 break-all text-[12px] font-medium text-blue-600 hover:underline"
-                              title="Mở vị trí trên Google Maps"
-                            >
-                              📍 {row.gps_lat.toFixed(6)},{" "}
-                              {row.gps_lng.toFixed(6)}
-                              {row.gps_accuracy_m != null
-                                ? ` (±${Math.round(row.gps_accuracy_m)}m)`
-                                : ""}
-                            </a>
-                            {row.location_valid === true ? (
-                              <span className="rounded-full bg-green-100 px-2 py-0.5 text-[11px] font-bold text-green-700">
-                                ✓ Đúng vị trí
-                                {row.distance_m != null
-                                  ? ` · cách ${Math.round(row.distance_m)}m`
-                                  : ""}
-                              </span>
-                            ) : row.location_valid === false ? (
-                              <span className="rounded-full bg-red-100 px-2 py-0.5 text-[11px] font-bold text-red-700">
-                                ✗ Sai vị trí
-                                {row.distance_m != null
-                                  ? ` · cách ${Math.round(row.distance_m)}m`
-                                  : ""}
-                              </span>
-                            ) : null}
-                          </div>
-                        ) : row.checkin_skipped ? (
-                          <p className="mt-1 text-[12px] font-medium text-amber-600">
-                            ⚠️ Không có vị trí (đã bỏ qua check-in)
-                          </p>
-                        ) : null}
-
-                        {/* Review status + actions — the on-site photo is the evidence */}
-                        <div className="mt-2 flex flex-wrap items-center gap-2">
-                          <span
-                            className={[
-                              "rounded-full px-2 py-0.5 text-[10px] font-black uppercase",
-                              row.review_status === "approved"
-                                ? "bg-green-200 text-green-800"
-                                : row.review_status === "rejected"
-                                  ? "bg-red-200 text-red-800"
-                                  : "bg-slate-200 text-slate-700",
-                            ].join(" ")}
+                      ) : null}
+                      {row.gps_lat != null && row.gps_lng != null ? (
+                        <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">
+                          <a
+                            href={`https://www.google.com/maps?q=${row.gps_lat},${row.gps_lng}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 break-all text-[12px] font-medium text-blue-600 hover:underline"
+                            title="Mở vị trí trên Google Maps"
                           >
-                            {row.review_status === "approved"
-                              ? "Đã duyệt"
-                              : row.review_status === "rejected"
-                                ? "Bị từ chối"
-                                : "Chờ duyệt"}
-                          </span>
-                          {row.review_status === "rejected" &&
-                          row.review_note ? (
-                            <span className="text-[11px] text-red-600">
-                              {row.review_note}
+                            📍 {row.gps_lat.toFixed(6)},{" "}
+                            {row.gps_lng.toFixed(6)}
+                            {row.gps_accuracy_m != null
+                              ? ` (±${Math.round(row.gps_accuracy_m)}m)`
+                              : ""}
+                          </a>
+                          {row.location_valid === true ? (
+                            <span className="rounded-full bg-green-100 px-2 py-0.5 text-[11px] font-bold text-green-700">
+                              ✓ Đúng vị trí
+                              {row.distance_m != null
+                                ? ` · cách ${Math.round(row.distance_m)}m`
+                                : ""}
+                            </span>
+                          ) : row.location_valid === false ? (
+                            <span className="rounded-full bg-red-100 px-2 py-0.5 text-[11px] font-bold text-red-700">
+                              ✗ Sai vị trí
+                              {row.distance_m != null
+                                ? ` · cách ${Math.round(row.distance_m)}m`
+                                : ""}
                             </span>
                           ) : null}
                         </div>
-                        {row.review_status === "pending" && canApproveProof ? (
-                          <div className="mt-2 flex gap-2">
-                            <button
-                              type="button"
-                              disabled={reviewProgressReportMutation.isPending}
-                              className="rounded-md bg-green-600 px-3 py-1 text-[11px] font-bold text-white disabled:opacity-60"
-                              onClick={() =>
-                                reviewProgressReportMutation.mutate({
-                                  reportId: row.id,
-                                  reviewStatus: "approved",
-                                })
-                              }
-                            >
-                              Duyệt
-                            </button>
-                            <button
-                              type="button"
-                              disabled={reviewProgressReportMutation.isPending}
-                              className="rounded-md border border-red-300 px-3 py-1 text-[11px] font-bold text-red-600 disabled:opacity-60"
-                              onClick={() => {
-                                setRejectReportId(row.id)
-                                setRejectReportNote("")
-                              }}
-                            >
-                              Từ chối
-                            </button>
-                          </div>
+                      ) : row.checkin_skipped ? (
+                        <p className="mt-1 text-[12px] font-medium text-amber-600">
+                          ⚠️ Không có vị trí (đã bỏ qua check-in)
+                        </p>
+                      ) : null}
+
+                      {/* Review status + actions — the on-site photo is the evidence */}
+                      <div className="mt-2 flex flex-wrap items-center gap-2">
+                        <span
+                          className={[
+                            "rounded-full px-2 py-0.5 text-[10px] font-black uppercase",
+                            row.review_status === "approved"
+                              ? "bg-green-200 text-green-800"
+                              : row.review_status === "rejected"
+                                ? "bg-red-200 text-red-800"
+                                : "bg-slate-200 text-slate-700",
+                          ].join(" ")}
+                        >
+                          {row.review_status === "approved"
+                            ? "Đã duyệt"
+                            : row.review_status === "rejected"
+                              ? "Bị từ chối"
+                              : "Chờ duyệt"}
+                        </span>
+                        {row.review_status === "rejected" && row.review_note ? (
+                          <span className="text-[11px] text-red-600">
+                            {row.review_note}
+                          </span>
                         ) : null}
                       </div>
+                      {row.review_status === "pending" && canApproveProof ? (
+                        <div className="mt-2 flex gap-2">
+                          <button
+                            type="button"
+                            disabled={reviewProgressReportMutation.isPending}
+                            className="rounded-md bg-green-600 px-3 py-1 text-[11px] font-bold text-white disabled:opacity-60"
+                            onClick={() =>
+                              reviewProgressReportMutation.mutate({
+                                reportId: row.id,
+                                reviewStatus: "approved",
+                              })
+                            }
+                          >
+                            Duyệt
+                          </button>
+                          <button
+                            type="button"
+                            disabled={reviewProgressReportMutation.isPending}
+                            className="rounded-md border border-red-300 px-3 py-1 text-[11px] font-bold text-red-600 disabled:opacity-60"
+                            onClick={() => {
+                              setRejectReportId(row.id)
+                              setRejectReportNote("")
+                            }}
+                          >
+                            Từ chối
+                          </button>
+                        </div>
+                      ) : null}
                     </div>
-                  )
-                })}
-              </div>
+                  </div>
+                )
+              })}
+            </div>
           </section>
         </div>
       )}
@@ -2481,6 +2579,53 @@ function TaskDetailPage() {
                   onChange={(e) => setPerfCoeffDraft(e.target.value)}
                   className="h-10 w-full min-w-0 rounded-md border border-input bg-transparent px-3 text-sm outline-none"
                   placeholder="VD: 1.0, 1.5, 2.0"
+                />
+              </div>
+            )}
+            <div>
+              <label className="mb-1 block text-sm font-semibold text-slate-700">
+                Màu nhãn
+              </label>
+              <div className="flex items-center gap-2">
+                <input
+                  type="color"
+                  aria-label="Chọn màu nhãn"
+                  value={colorDraft || "#3b82f6"}
+                  onChange={(e) => setColorDraft(e.target.value)}
+                  className="h-10 w-14 shrink-0 cursor-pointer rounded-md border border-input bg-transparent"
+                />
+                <input
+                  type="text"
+                  value={colorDraft}
+                  onChange={(e) => setColorDraft(e.target.value)}
+                  className="h-10 w-full min-w-0 rounded-md border border-input bg-transparent px-3 text-sm outline-none"
+                  placeholder="#3b82f6 (để trống = không màu)"
+                />
+                {colorDraft ? (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setColorDraft("")}
+                  >
+                    Xoá
+                  </Button>
+                ) : null}
+              </div>
+            </div>
+            {task.level > 0 && (
+              <div>
+                <label className="mb-1 block text-sm font-semibold text-slate-700">
+                  Trọng số tiến độ (% của việc cha)
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  max="100"
+                  value={weightDraft}
+                  onChange={(e) => setWeightDraft(e.target.value)}
+                  className="h-10 w-full min-w-0 rounded-md border border-input bg-transparent px-3 text-sm outline-none"
+                  placeholder="Để trống = tự động chia đều"
                 />
               </div>
             )}
