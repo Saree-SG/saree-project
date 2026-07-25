@@ -20,7 +20,6 @@ import { Route as LayoutSettingsRouteImport } from './routes/_layout/settings'
 import { Route as LayoutReportsRouteImport } from './routes/_layout/reports'
 import { Route as LayoutProfileRouteImport } from './routes/_layout/profile'
 import { Route as LayoutProductivityRouteImport } from './routes/_layout/productivity'
-import { Route as LayoutOverviewDemoRouteImport } from './routes/_layout/overview-demo'
 import { Route as LayoutLeaveRouteImport } from './routes/_layout/leave'
 import { Route as LayoutItemsRouteImport } from './routes/_layout/items'
 import { Route as LayoutHelpRouteImport } from './routes/_layout/help'
@@ -103,11 +102,6 @@ const LayoutProfileRoute = LayoutProfileRouteImport.update({
 const LayoutProductivityRoute = LayoutProductivityRouteImport.update({
   id: '/productivity',
   path: '/productivity',
-  getParentRoute: () => LayoutRoute,
-} as any)
-const LayoutOverviewDemoRoute = LayoutOverviewDemoRouteImport.update({
-  id: '/overview-demo',
-  path: '/overview-demo',
   getParentRoute: () => LayoutRoute,
 } as any)
 const LayoutLeaveRoute = LayoutLeaveRouteImport.update({
@@ -274,7 +268,6 @@ export interface FileRoutesByFullPath {
   '/help': typeof LayoutHelpRoute
   '/items': typeof LayoutItemsRoute
   '/leave': typeof LayoutLeaveRoute
-  '/overview-demo': typeof LayoutOverviewDemoRoute
   '/productivity': typeof LayoutProductivityRoute
   '/profile': typeof LayoutProfileRoute
   '/reports': typeof LayoutReportsRoute
@@ -314,7 +307,6 @@ export interface FileRoutesByTo {
   '/help': typeof LayoutHelpRoute
   '/items': typeof LayoutItemsRoute
   '/leave': typeof LayoutLeaveRoute
-  '/overview-demo': typeof LayoutOverviewDemoRoute
   '/productivity': typeof LayoutProductivityRoute
   '/profile': typeof LayoutProfileRoute
   '/reports': typeof LayoutReportsRoute
@@ -358,7 +350,6 @@ export interface FileRoutesById {
   '/_layout/help': typeof LayoutHelpRoute
   '/_layout/items': typeof LayoutItemsRoute
   '/_layout/leave': typeof LayoutLeaveRoute
-  '/_layout/overview-demo': typeof LayoutOverviewDemoRoute
   '/_layout/productivity': typeof LayoutProductivityRoute
   '/_layout/profile': typeof LayoutProfileRoute
   '/_layout/reports': typeof LayoutReportsRoute
@@ -403,7 +394,6 @@ export interface FileRouteTypes {
     | '/help'
     | '/items'
     | '/leave'
-    | '/overview-demo'
     | '/productivity'
     | '/profile'
     | '/reports'
@@ -443,7 +433,6 @@ export interface FileRouteTypes {
     | '/help'
     | '/items'
     | '/leave'
-    | '/overview-demo'
     | '/productivity'
     | '/profile'
     | '/reports'
@@ -486,7 +475,6 @@ export interface FileRouteTypes {
     | '/_layout/help'
     | '/_layout/items'
     | '/_layout/leave'
-    | '/_layout/overview-demo'
     | '/_layout/productivity'
     | '/_layout/profile'
     | '/_layout/reports'
@@ -600,13 +588,6 @@ declare module '@tanstack/react-router' {
       path: '/productivity'
       fullPath: '/productivity'
       preLoaderRoute: typeof LayoutProductivityRouteImport
-      parentRoute: typeof LayoutRoute
-    }
-    '/_layout/overview-demo': {
-      id: '/_layout/overview-demo'
-      path: '/overview-demo'
-      fullPath: '/overview-demo'
-      preLoaderRoute: typeof LayoutOverviewDemoRouteImport
       parentRoute: typeof LayoutRoute
     }
     '/_layout/leave': {
@@ -849,7 +830,6 @@ interface LayoutRouteChildren {
   LayoutHelpRoute: typeof LayoutHelpRoute
   LayoutItemsRoute: typeof LayoutItemsRoute
   LayoutLeaveRoute: typeof LayoutLeaveRoute
-  LayoutOverviewDemoRoute: typeof LayoutOverviewDemoRoute
   LayoutProductivityRoute: typeof LayoutProductivityRoute
   LayoutProfileRoute: typeof LayoutProfileRoute
   LayoutReportsRoute: typeof LayoutReportsRoute
@@ -881,7 +861,6 @@ const LayoutRouteChildren: LayoutRouteChildren = {
   LayoutHelpRoute: LayoutHelpRoute,
   LayoutItemsRoute: LayoutItemsRoute,
   LayoutLeaveRoute: LayoutLeaveRoute,
-  LayoutOverviewDemoRoute: LayoutOverviewDemoRoute,
   LayoutProductivityRoute: LayoutProductivityRoute,
   LayoutProfileRoute: LayoutProfileRoute,
   LayoutReportsRoute: LayoutReportsRoute,
