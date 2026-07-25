@@ -221,6 +221,26 @@ def test_update_user_me(
     assert user_db.full_name == full_name
 
 
+def test_mark_release_notes_seen(
+    client: TestClient, normal_user_token_headers: dict[str, str], db: Session
+) -> None:
+    """Release-notes read-state is stored per user (persists across devices)."""
+    r = client.get(f"{settings.API_V1_STR}/users/me", headers=normal_user_token_headers)
+    assert r.status_code == 200
+    assert r.json()["last_seen_release_version"] is None
+
+    r = client.patch(
+        f"{settings.API_V1_STR}/users/me/release-notes-seen",
+        headers=normal_user_token_headers,
+        json={"version": "2026.07.25"},
+    )
+    assert r.status_code == 200, r.text
+    assert r.json()["last_seen_release_version"] == "2026.07.25"
+
+    r = client.get(f"{settings.API_V1_STR}/users/me", headers=normal_user_token_headers)
+    assert r.json()["last_seen_release_version"] == "2026.07.25"
+
+
 def test_update_password_me(
     client: TestClient, superuser_token_headers: dict[str, str], db: Session
 ) -> None:

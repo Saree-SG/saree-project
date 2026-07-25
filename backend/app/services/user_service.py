@@ -67,6 +67,15 @@ class UserService:
         user = await self._user_repo.update_user(current_user, update_data)
         return UserPublic(**user.model_dump())
 
+    async def mark_release_notes_seen(
+        self, current_user: User, version: str
+    ) -> UserPublic:
+        """Record the latest release-notes version the user has acknowledged."""
+        user = await self._user_repo.update_user(
+            current_user, {"last_seen_release_version": version}
+        )
+        return UserPublic(**user.model_dump())
+
     async def update_password(
         self, current_user: User, body: UpdatePassword
     ) -> None:

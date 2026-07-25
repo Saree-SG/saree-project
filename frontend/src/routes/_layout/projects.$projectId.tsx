@@ -13,6 +13,7 @@ import {
   Layers,
   MoreHorizontal,
   Plus,
+  Trash2,
 } from "lucide-react"
 import { useEffect, useMemo, useRef, useState } from "react"
 import {
@@ -432,6 +433,44 @@ function ProjectTaskDashboardPage() {
     onError: handleError.bind(showErrorToast),
   })
 
+  const deleteTaskMutation = useMutation({
+    mutationFn: async (taskId: string) => {
+      return TasksService.deleteTask({ taskId })
+    },
+    onSuccess: async () => {
+      showSuccessToast("Đã xóa hạng mục")
+      await queryClient.invalidateQueries({
+        queryKey: ["project-dashboard", "tasks", projectId],
+      })
+    },
+    onError: handleError.bind(showErrorToast),
+  })
+
+  const handleDeleteTask = (taskId: string, taskName: string) => {
+    if (
+      !window.confirm(
+        `Xóa hạng mục "${taskName}"? Toàn bộ công việc con bên trong cũng sẽ bị ẩn.`,
+      )
+    ) {
+      return
+    }
+    deleteTaskMutation.mutate(taskId)
+  }
+
+  const deleteProjectMutation = useMutation({
+    mutationFn: async () => {
+      return ProjectsService.deleteProject({ projectId })
+    },
+    onSuccess: async () => {
+      showSuccessToast("Đã xóa dự án")
+      await queryClient.invalidateQueries({
+        queryKey: ["dashboard", "projects-catalog"],
+      })
+      navigate({ to: "/" })
+    },
+    onError: handleError.bind(showErrorToast),
+  })
+
   const quickUpdateStatusMutation = useMutation({
     mutationFn: async (newStatus: string) => {
       return ProjectsService.updateProject({
@@ -600,9 +639,7 @@ function ProjectTaskDashboardPage() {
 
   const taskAssigneeCandidates = useMemo(() => {
     const keyword = taskAssigneeEmailDraft.trim().toLowerCase()
-    const rows = (membersQuery.data ?? []).filter(
-      (row) => row.user_id !== meQuery.data?.id,
-    )
+    const rows = membersQuery.data ?? []
     if (!keyword) return rows.slice(0, 12)
     return rows
       .filter((row) => {
@@ -611,7 +648,7 @@ function ProjectTaskDashboardPage() {
         return name.includes(keyword) || email.includes(keyword)
       })
       .slice(0, 12)
-  }, [membersQuery.data, taskAssigneeEmailDraft, meQuery.data?.id])
+  }, [membersQuery.data, taskAssigneeEmailDraft])
 
   const createTaskMutation = useMutation({
     mutationFn: async () => {
@@ -861,6 +898,27 @@ function ProjectTaskDashboardPage() {
                 Chỉnh sửa
               </Button>
             </PermissionGuard>
+            <PermissionGuard permission="PROJECT_UPDATE">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="w-full justify-center whitespace-nowrap border-red-200 text-red-600 hover:bg-red-50 sm:w-auto"
+                disabled={!projectQuery.data || deleteProjectMutation.isPending}
+                onClick={() => {
+                  if (
+                    !window.confirm(
+                      `Xóa dự án "${projectQuery.data?.name}"? Toàn bộ hạng mục/công việc bên trong cũng sẽ bị ẩn. Hành động này không thể hoàn tác từ giao diện.`,
+                    )
+                  ) {
+                    return
+                  }
+                  deleteProjectMutation.mutate()
+                }}
+              >
+                Xóa dự án
+              </Button>
+            </PermissionGuard>
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
@@ -1064,6 +1122,7 @@ function ProjectTaskDashboardPage() {
               setSaveAsProfileTaskId(taskId)
               setSaveAsProfileName(taskName)
             }}
+            onDeleteTask={handleDeleteTask}
             navigate={navigate}
             projectId={projectId}
           />
@@ -1152,6 +1211,7 @@ function ProjectTaskDashboardPage() {
                           setSaveAsProfileTaskId(taskId)
                           setSaveAsProfileName(taskName)
                         }}
+                        onDeleteTask={handleDeleteTask}
                         navigate={navigate}
                       />
                     </td>
@@ -1286,6 +1346,7 @@ function ProjectTaskDashboardPage() {
                         setSaveAsProfileTaskId(taskId)
                         setSaveAsProfileName(taskName)
                       }}
+                      onDeleteTask={handleDeleteTask}
                       navigate={navigate}
                     />
                   </div>
@@ -2260,6 +2321,7 @@ interface TaskRowActionsProps {
   menuOpenId: string | null
   setMenuOpenId: (id: string | null) => void
   onSaveAsProfile: (taskId: string, taskName: string) => void
+  onDeleteTask: (taskId: string, taskName: string) => void
   navigate: ReturnType<typeof useNavigate>
   align?: "left" | "right"
 }
@@ -2271,6 +2333,7 @@ function TaskRowActions({
   menuOpenId,
   setMenuOpenId,
   onSaveAsProfile,
+  onDeleteTask,
   navigate,
   align = "right",
 }: TaskRowActionsProps) {
@@ -2341,6 +2404,21 @@ function TaskRowActions({
               <BookmarkPlus className="h-3.5 w-3.5" /> Lưu làm mẫu
             </button>
           )}
+          {taskLevel === 0 && (
+            <PermissionGuard permission="TASK_DELETE">
+              <button
+                type="button"
+                className="flex w-full items-center gap-2 px-3 py-2 text-xs text-red-600 hover:bg-red-50"
+                onClick={(e) => {
+                  stop(e)
+                  onDeleteTask(taskId, taskName)
+                  setMenuOpenId(null)
+                }}
+              >
+                <Trash2 className="h-3.5 w-3.5" /> Xóa hạng mục
+              </button>
+            </PermissionGuard>
+          )}
         </div>
       )}
     </div>
@@ -2355,6 +2433,7 @@ interface TaskTreeViewProps {
   setTreeMenuTaskId: (id: string | null) => void
   treeMenuRef: React.RefObject<HTMLDivElement | null>
   onSaveAsProfile: (taskId: string, taskName: string) => void
+  onDeleteTask: (taskId: string, taskName: string) => void
   navigate: ReturnType<typeof useNavigate>
   projectId: string
 }
@@ -2367,6 +2446,7 @@ function TaskTreeView({
   setTreeMenuTaskId,
   treeMenuRef,
   onSaveAsProfile,
+  onDeleteTask,
   navigate,
 }: TaskTreeViewProps) {
   const childrenMap = useMemo(() => {
@@ -2546,6 +2626,20 @@ function TaskTreeView({
                   >
                     <BookmarkPlus className="h-3.5 w-3.5" /> Lưu làm mẫu
                   </button>
+                )}
+                {task.level === 0 && (
+                  <PermissionGuard permission="TASK_DELETE">
+                    <button
+                      type="button"
+                      className="flex w-full items-center gap-2 px-3 py-2 text-xs text-red-600 hover:bg-red-50"
+                      onClick={() => {
+                        onDeleteTask(task.id, task.name)
+                        setTreeMenuTaskId(null)
+                      }}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" /> Xóa hạng mục
+                    </button>
+                  </PermissionGuard>
                 )}
               </div>
             )}

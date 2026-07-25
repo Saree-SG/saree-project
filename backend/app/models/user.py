@@ -67,6 +67,9 @@ class User(UserBase, table=True):
     job_title: str | None = Field(default=None, max_length=100)
     # free | busy | away — computed direction, but also settable manually
     availability_status: str = Field(default="free", max_length=20)
+    # Latest release-notes version this user has acknowledged (drives the
+    # unread badge on the release-notes bell — see app/api/routes/users.py).
+    last_seen_release_version: str | None = Field(default=None, max_length=50)
 
     # Relationships
     global_roles: list["UserGlobalRole"] = Relationship(back_populates="user", cascade_delete=True)
@@ -95,6 +98,7 @@ class UserPublic(UserBase):
     department_id: uuid.UUID | None = None
     job_title: str | None = None
     availability_status: str = "free"
+    last_seen_release_version: str | None = None
 
 
 class UsersPublic(SQLModel):

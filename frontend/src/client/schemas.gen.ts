@@ -741,6 +741,22 @@ export const AttendanceRecordPublicSchema = {
             type: 'boolean',
             title: 'Is Auto Closed'
         },
+        is_absent: {
+            type: 'boolean',
+            title: 'Is Absent'
+        },
+        reminder_sent_at: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'date-time'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Reminder Sent At'
+        },
         note: {
             anyOf: [
                 {
@@ -759,7 +775,7 @@ export const AttendanceRecordPublicSchema = {
         }
     },
     type: 'object',
-    required: ['id', 'user_id', 'mode', 'project_id', 'company_id', 'customer_company_id', 'task_label', 'work_date', 'check_in_at', 'check_in_lat', 'check_in_lng', 'check_in_accuracy_m', 'check_in_distance_m', 'check_in_valid', 'check_in_photo_url', 'check_out_at', 'check_out_lat', 'check_out_lng', 'check_out_accuracy_m', 'check_out_distance_m', 'check_out_valid', 'check_out_photo_url', 'work_hours', 'is_capped', 'is_auto_closed', 'note', 'created_at'],
+    required: ['id', 'user_id', 'mode', 'project_id', 'company_id', 'customer_company_id', 'task_label', 'work_date', 'check_in_at', 'check_in_lat', 'check_in_lng', 'check_in_accuracy_m', 'check_in_distance_m', 'check_in_valid', 'check_in_photo_url', 'check_out_at', 'check_out_lat', 'check_out_lng', 'check_out_accuracy_m', 'check_out_distance_m', 'check_out_valid', 'check_out_photo_url', 'work_hours', 'is_capped', 'is_auto_closed', 'is_absent', 'reminder_sent_at', 'note', 'created_at'],
     title: 'AttendanceRecordPublic'
 } as const;
 
@@ -780,6 +796,300 @@ export const AttendanceRecordsPublicSchema = {
     type: 'object',
     required: ['data', 'count'],
     title: 'AttendanceRecordsPublic'
+} as const;
+
+export const AttendanceTeamRecordPublicSchema = {
+    properties: {
+        id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Id'
+        },
+        user_id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'User Id'
+        },
+        mode: {
+            type: 'string',
+            title: 'Mode'
+        },
+        project_id: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'uuid'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Project Id'
+        },
+        company_id: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'uuid'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Company Id'
+        },
+        customer_company_id: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'uuid'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Customer Company Id'
+        },
+        task_label: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Task Label'
+        },
+        work_date: {
+            type: 'string',
+            format: 'date',
+            title: 'Work Date'
+        },
+        check_in_at: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Check In At'
+        },
+        check_in_lat: {
+            type: 'number',
+            title: 'Check In Lat'
+        },
+        check_in_lng: {
+            type: 'number',
+            title: 'Check In Lng'
+        },
+        check_in_accuracy_m: {
+            anyOf: [
+                {
+                    type: 'number'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Check In Accuracy M'
+        },
+        check_in_distance_m: {
+            type: 'number',
+            title: 'Check In Distance M'
+        },
+        check_in_valid: {
+            type: 'boolean',
+            title: 'Check In Valid'
+        },
+        check_in_photo_url: {
+            type: 'string',
+            title: 'Check In Photo Url'
+        },
+        check_out_at: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'date-time'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Check Out At'
+        },
+        check_out_lat: {
+            anyOf: [
+                {
+                    type: 'number'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Check Out Lat'
+        },
+        check_out_lng: {
+            anyOf: [
+                {
+                    type: 'number'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Check Out Lng'
+        },
+        check_out_accuracy_m: {
+            anyOf: [
+                {
+                    type: 'number'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Check Out Accuracy M'
+        },
+        check_out_distance_m: {
+            anyOf: [
+                {
+                    type: 'number'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Check Out Distance M'
+        },
+        check_out_valid: {
+            anyOf: [
+                {
+                    type: 'boolean'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Check Out Valid'
+        },
+        check_out_photo_url: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Check Out Photo Url'
+        },
+        work_hours: {
+            anyOf: [
+                {
+                    type: 'number'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Work Hours'
+        },
+        is_capped: {
+            type: 'boolean',
+            title: 'Is Capped'
+        },
+        is_auto_closed: {
+            type: 'boolean',
+            title: 'Is Auto Closed'
+        },
+        is_absent: {
+            type: 'boolean',
+            title: 'Is Absent'
+        },
+        reminder_sent_at: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'date-time'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Reminder Sent At'
+        },
+        note: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Note'
+        },
+        created_at: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Created At'
+        },
+        user_name: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'User Name'
+        },
+        user_email: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'User Email'
+        },
+        location_label: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Location Label'
+        }
+    },
+    type: 'object',
+    required: ['id', 'user_id', 'mode', 'project_id', 'company_id', 'customer_company_id', 'task_label', 'work_date', 'check_in_at', 'check_in_lat', 'check_in_lng', 'check_in_accuracy_m', 'check_in_distance_m', 'check_in_valid', 'check_in_photo_url', 'check_out_at', 'check_out_lat', 'check_out_lng', 'check_out_accuracy_m', 'check_out_distance_m', 'check_out_valid', 'check_out_photo_url', 'work_hours', 'is_capped', 'is_auto_closed', 'is_absent', 'reminder_sent_at', 'note', 'created_at'],
+    title: 'AttendanceTeamRecordPublic',
+    description: `A team attendance record enriched with the employee's name and a
+human-readable location label (project / company / customer company),
+for the manager-facing company attendance view.`
+} as const;
+
+export const AttendanceTeamRecordsPublicSchema = {
+    properties: {
+        data: {
+            items: {
+                '$ref': '#/components/schemas/AttendanceTeamRecordPublic'
+            },
+            type: 'array',
+            title: 'Data'
+        },
+        count: {
+            type: 'integer',
+            title: 'Count'
+        }
+    },
+    type: 'object',
+    required: ['data', 'count'],
+    title: 'AttendanceTeamRecordsPublic'
 } as const;
 
 export const AuditLogPublicSchema = {
@@ -880,7 +1190,7 @@ export const Body_attendance_check_inSchema = {
     properties: {
         file: {
             type: 'string',
-            format: 'binary',
+            contentMediaType: 'application/octet-stream',
             title: 'File'
         },
         lat: {
@@ -975,7 +1285,7 @@ export const Body_attendance_check_outSchema = {
     properties: {
         file: {
             type: 'string',
-            format: 'binary',
+            contentMediaType: 'application/octet-stream',
             title: 'File'
         },
         record_id: {
@@ -1012,7 +1322,7 @@ export const Body_chat_upload_attachmentSchema = {
     properties: {
         file: {
             type: 'string',
-            format: 'binary',
+            contentMediaType: 'application/octet-stream',
             title: 'File'
         }
     },
@@ -1025,7 +1335,7 @@ export const Body_contracts_upload_attachmentSchema = {
     properties: {
         file: {
             type: 'string',
-            format: 'binary',
+            contentMediaType: 'application/octet-stream',
             title: 'File'
         }
     },
@@ -1038,7 +1348,7 @@ export const Body_incidents_add_incident_attachmentSchema = {
     properties: {
         file: {
             type: 'string',
-            format: 'binary',
+            contentMediaType: 'application/octet-stream',
             title: 'File'
         }
     },
@@ -1108,7 +1418,7 @@ export const Body_quotations_upload_attachment_fileSchema = {
     properties: {
         file: {
             type: 'string',
-            format: 'binary',
+            contentMediaType: 'application/octet-stream',
             title: 'File'
         }
     },
@@ -1121,7 +1431,7 @@ export const Body_tasks_add_progress_reportSchema = {
     properties: {
         file: {
             type: 'string',
-            format: 'binary',
+            contentMediaType: 'application/octet-stream',
             title: 'File'
         },
         progress_percent: {
@@ -1195,7 +1505,7 @@ export const Body_tasks_upload_progress_report_photoSchema = {
     properties: {
         file: {
             type: 'string',
-            format: 'binary',
+            contentMediaType: 'application/octet-stream',
             title: 'File'
         }
     },
@@ -1389,6 +1699,14 @@ export const ChatMessagePublicSchema = {
             type: 'string',
             format: 'date-time',
             title: 'Created At'
+        },
+        attachments: {
+            items: {
+                '$ref': '#/components/schemas/ChatAttachmentPublic'
+            },
+            type: 'array',
+            title: 'Attachments',
+            default: []
         }
     },
     type: 'object',
@@ -6599,6 +6917,18 @@ export const RefreshTokenRequestSchema = {
     title: 'RefreshTokenRequest'
 } as const;
 
+export const ReleaseNotesSeenUpdateSchema = {
+    properties: {
+        version: {
+            type: 'string',
+            title: 'Version'
+        }
+    },
+    type: 'object',
+    required: ['version'],
+    title: 'ReleaseNotesSeenUpdate'
+} as const;
+
 export const RoleSchema = {
     properties: {
         id: {
@@ -8842,6 +9172,17 @@ export const UserPublicSchema = {
             type: 'string',
             title: 'Availability Status',
             default: 'free'
+        },
+        last_seen_release_version: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Last Seen Release Version'
         }
     },
     type: 'object',

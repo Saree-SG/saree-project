@@ -121,12 +121,59 @@ export type AttendanceRecordPublic = {
     work_hours: (number | null);
     is_capped: boolean;
     is_auto_closed: boolean;
+    is_absent: boolean;
+    reminder_sent_at: (string | null);
     note: (string | null);
     created_at: string;
 };
 
 export type AttendanceRecordsPublic = {
     data: Array<AttendanceRecordPublic>;
+    count: number;
+};
+
+/**
+ * A team attendance record enriched with the employee's name and a
+ * human-readable location label (project / company / customer company),
+ * for the manager-facing company attendance view.
+ */
+export type AttendanceTeamRecordPublic = {
+    id: string;
+    user_id: string;
+    mode: string;
+    project_id: (string | null);
+    company_id: (string | null);
+    customer_company_id: (string | null);
+    task_label: (string | null);
+    work_date: string;
+    check_in_at: string;
+    check_in_lat: number;
+    check_in_lng: number;
+    check_in_accuracy_m: (number | null);
+    check_in_distance_m: number;
+    check_in_valid: boolean;
+    check_in_photo_url: string;
+    check_out_at: (string | null);
+    check_out_lat: (number | null);
+    check_out_lng: (number | null);
+    check_out_accuracy_m: (number | null);
+    check_out_distance_m: (number | null);
+    check_out_valid: (boolean | null);
+    check_out_photo_url: (string | null);
+    work_hours: (number | null);
+    is_capped: boolean;
+    is_auto_closed: boolean;
+    is_absent: boolean;
+    reminder_sent_at: (string | null);
+    note: (string | null);
+    created_at: string;
+    user_name?: (string | null);
+    user_email?: (string | null);
+    location_label?: (string | null);
+};
+
+export type AttendanceTeamRecordsPublic = {
+    data: Array<AttendanceTeamRecordPublic>;
     count: number;
 };
 
@@ -152,7 +199,7 @@ export type BlockerInfo = {
 };
 
 export type Body_attendance_check_in = {
-    file: (Blob | File);
+    file: string;
     lat: number;
     lng: number;
     mode?: string;
@@ -165,7 +212,7 @@ export type Body_attendance_check_in = {
 };
 
 export type Body_attendance_check_out = {
-    file: (Blob | File);
+    file: string;
     record_id: string;
     lat: number;
     lng: number;
@@ -173,15 +220,15 @@ export type Body_attendance_check_out = {
 };
 
 export type Body_chat_upload_attachment = {
-    file: (Blob | File);
+    file: string;
 };
 
 export type Body_contracts_upload_attachment = {
-    file: (Blob | File);
+    file: string;
 };
 
 export type Body_incidents_add_incident_attachment = {
-    file: (Blob | File);
+    file: string;
 };
 
 export type Body_login_login_access_token = {
@@ -194,11 +241,11 @@ export type Body_login_login_access_token = {
 };
 
 export type Body_quotations_upload_attachment_file = {
-    file: (Blob | File);
+    file: string;
 };
 
 export type Body_tasks_add_progress_report = {
-    file: (Blob | File);
+    file: string;
     progress_percent: number;
     note?: (string | null);
     gps_lat?: (number | null);
@@ -208,7 +255,7 @@ export type Body_tasks_add_progress_report = {
 };
 
 export type Body_tasks_upload_progress_report_photo = {
-    file: (Blob | File);
+    file: string;
 };
 
 /**
@@ -264,6 +311,7 @@ export type ChatMessagePublic = {
     message_type: string;
     content: (string | null);
     created_at: string;
+    attachments?: Array<ChatAttachmentPublic>;
 };
 
 /**
@@ -1196,6 +1244,10 @@ export type RefreshTokenRequest = {
     refresh_token: string;
 };
 
+export type ReleaseNotesSeenUpdate = {
+    version: string;
+};
+
 /**
  * Roles are DATA, not code.
  * System roles (is_system=True) are seeded and cannot be deleted.
@@ -1602,6 +1654,7 @@ export type UserPublic = {
     department_id?: (string | null);
     job_title?: (string | null);
     availability_status?: string;
+    last_seen_release_version?: (string | null);
 };
 
 export type UserRegister = {
@@ -1752,6 +1805,14 @@ export type AttendanceProjectAttendanceData = {
 };
 
 export type AttendanceProjectAttendanceResponse = (AttendanceRecordsPublic);
+
+export type AttendanceCompanyAttendanceData = {
+    companyId: string;
+    dateFrom?: (string | null);
+    dateTo?: (string | null);
+};
+
+export type AttendanceCompanyAttendanceResponse = (AttendanceTeamRecordsPublic);
 
 export type AttendanceAttendanceTaskSuggestionsResponse = (Array<(string)>);
 
@@ -2252,11 +2313,16 @@ export type LoginRecoverPasswordHtmlContentData = {
 export type LoginRecoverPasswordHtmlContentResponse = (string);
 
 export type NotificationsListNotificationsData = {
+    category?: ('chat' | 'other' | null);
     limit?: number;
     skip?: number;
 };
 
 export type NotificationsListNotificationsResponse = (Array<NotificationPublic>);
+
+export type NotificationsUnreadCountData = {
+    category?: ('chat' | 'other' | null);
+};
 
 export type NotificationsUnreadCountResponse = (NotificationUnreadCount);
 
@@ -2265,6 +2331,10 @@ export type NotificationsMarkReadData = {
 };
 
 export type NotificationsMarkReadResponse = (NotificationPublic);
+
+export type NotificationsMarkAllReadData = {
+    category?: ('chat' | 'other' | null);
+};
 
 export type NotificationsMarkAllReadResponse = (void);
 
@@ -3046,6 +3116,12 @@ export type UsersUpdateUserMeData = {
 };
 
 export type UsersUpdateUserMeResponse = (UserPublic);
+
+export type UsersMarkReleaseNotesSeenData = {
+    requestBody: ReleaseNotesSeenUpdate;
+};
+
+export type UsersMarkReleaseNotesSeenResponse = (UserPublic);
 
 export type UsersUpdatePasswordMeData = {
     requestBody: UpdatePassword;

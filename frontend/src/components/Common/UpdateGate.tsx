@@ -1,6 +1,7 @@
 import { RefreshCw } from "lucide-react"
 import { useState } from "react"
 
+import { ReleaseNotesDialog } from "@/components/Common/ReleaseNotesDialog"
 import { Button } from "@/components/ui/button"
 import { applyUpdate, useVersionCheck } from "@/hooks/useVersionCheck"
 
@@ -13,6 +14,7 @@ import { applyUpdate, useVersionCheck } from "@/hooks/useVersionCheck"
 export function UpdateGate() {
   const { updateAvailable } = useVersionCheck()
   const [busy, setBusy] = useState(false)
+  const [releaseNotesOpen, setReleaseNotesOpen] = useState(false)
 
   if (!updateAvailable) return null
 
@@ -37,7 +39,18 @@ export function UpdateGate() {
         >
           {busy ? "Đang cập nhật..." : "Cập nhật ngay"}
         </Button>
+        <button
+          type="button"
+          className="mt-3 w-full text-center text-xs font-medium text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
+          onClick={() => setReleaseNotesOpen(true)}
+        >
+          Xem có gì mới
+        </button>
       </div>
+      <ReleaseNotesDialog
+        open={releaseNotesOpen}
+        onOpenChange={setReleaseNotesOpen}
+      />
     </div>
   )
 }

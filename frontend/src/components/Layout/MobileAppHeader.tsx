@@ -3,6 +3,7 @@ import { Link, useNavigate, useRouterState } from "@tanstack/react-router"
 import { ChevronLeft, HelpCircle } from "lucide-react"
 
 import { RolesService } from "@/client"
+import { ReleaseNotesBell } from "@/components/Common/ReleaseNotesBell"
 import { NotificationBell } from "@/components/notifications/NotificationBell"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -184,6 +185,7 @@ export function MobileAppHeader() {
           >
             <HelpCircle className="size-5" />
           </Link>
+          <ReleaseNotesBell />
           <NotificationBell />
         </div>
       </div>

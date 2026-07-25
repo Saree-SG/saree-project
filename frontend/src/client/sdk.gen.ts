@@ -3,7 +3,7 @@
 import type { CancelablePromise } from './core/CancelablePromise';
 import { OpenAPI } from './core/OpenAPI';
 import { request as __request } from './core/request';
-import type { AdminStatsGetOverviewResponse, AdminStatsListActiveSessionsResponse, AdminStatsGetLoginFrequencyData, AdminStatsGetLoginFrequencyResponse, AdminStatsGetUsersActivityData, AdminStatsGetUsersActivityResponse, AdminStatsListAuditLogData, AdminStatsListAuditLogResponse, AdminStatsRevokeSessionData, AdminStatsRevokeSessionResponse, AdminUsersListUsersResponse, AdminUsersGetUserDetailData, AdminUsersGetUserDetailResponse, AdminUsersAddMembershipData, AdminUsersAddMembershipResponse, AdminUsersUpdateMembershipData, AdminUsersUpdateMembershipResponse, AdminUsersDeleteMembershipData, AdminUsersDeleteMembershipResponse, AdminUsersGetUserPermissionsData, AdminUsersGetUserPermissionsResponse, AttendanceCheckInData, AttendanceCheckInResponse, AttendanceCheckOutData, AttendanceCheckOutResponse, AttendanceAdjustAttendanceHoursData, AttendanceAdjustAttendanceHoursResponse, AttendanceMyAttendanceData, AttendanceMyAttendanceResponse, AttendanceProjectAttendanceData, AttendanceProjectAttendanceResponse, AttendanceAttendanceTaskSuggestionsResponse, AttendanceSetCompanySiteLocationData, AttendanceSetCompanySiteLocationResponse, AttendanceSetSiteLocationData, AttendanceSetSiteLocationResponse, ChatListMyRoomsResponse, ChatCreateRoomData, ChatCreateRoomResponse, ChatGetRoomData, ChatGetRoomResponse, ChatUpdateRoomData, ChatUpdateRoomResponse, ChatDeleteRoomData, ChatDeleteRoomResponse, ChatGetUnreadCountResponse, ChatMarkRoomReadData, ChatMarkRoomReadResponse, ChatListMembersData, ChatListMembersResponse, ChatAddMemberData, ChatAddMemberResponse, ChatRemoveMemberData, ChatRemoveMemberResponse, ChatListMessagesData, ChatListMessagesResponse, ChatCreateMessageData, ChatCreateMessageResponse, ChatUploadAttachmentData, ChatUploadAttachmentResponse, ContractsListContractsData, ContractsListContractsResponse, ContractsCreateContractData, ContractsCreateContractResponse, ContractsGetContractData, ContractsGetContractResponse, ContractsUpdateContractData, ContractsUpdateContractResponse, ContractsDeleteContractData, ContractsDeleteContractResponse, ContractsSubmitContractData, ContractsSubmitContractResponse, ContractsApproveContractData, ContractsApproveContractResponse, ContractsRejectContractData, ContractsRejectContractResponse, ContractsSignContractData, ContractsSignContractResponse, ContractsConfirmAdvanceData, ContractsConfirmAdvanceResponse, ContractsStartProductionData, ContractsStartProductionResponse, ContractsCompleteContractData, ContractsCompleteContractResponse, ContractsUploadAttachmentData, ContractsUploadAttachmentResponse, ContractsDeleteAttachmentData, ContractsDeleteAttachmentResponse, CustomerCompaniesCreateCustomerCompanyData, CustomerCompaniesCreateCustomerCompanyResponse, CustomerCompaniesListCustomerCompaniesData, CustomerCompaniesListCustomerCompaniesResponse, CustomerCompaniesGetCustomerCompanyData, CustomerCompaniesGetCustomerCompanyResponse, CustomerCompaniesUpdateCustomerCompanyData, CustomerCompaniesUpdateCustomerCompanyResponse, CustomerCompaniesDeleteCustomerCompanyData, CustomerCompaniesDeleteCustomerCompanyResponse, DashboardOverviewData, DashboardOverviewResponse, DashboardProjectStatsData, DashboardProjectStatsResponse, DashboardUserWorkloadData, DashboardUserWorkloadResponse, DashboardLeaderboardData, DashboardLeaderboardResponse, DashboardOverdueReportData, DashboardOverdueReportResponse, DashboardUserTasksData, DashboardUserTasksResponse, DashboardCompanyGanttData, DashboardCompanyGanttResponse, DashboardUserGanttData, DashboardUserGanttResponse, DashboardUserWeeklyStatsData, DashboardUserWeeklyStatsResponse, DashboardTaskCalendarData, DashboardTaskCalendarResponse, DashboardTeamProductivityData, DashboardTeamProductivityResponse, DashboardYearSummaryData, DashboardYearSummaryResponse, ExportExportFullResponse, ExportExportAccountsResponse, ExportExportTasksResponse, IncidentsCreateIncidentData, IncidentsCreateIncidentResponse, IncidentsListIncidentsData, IncidentsListIncidentsResponse, IncidentsGetIncidentData, IncidentsGetIncidentResponse, IncidentsUpdateIncidentData, IncidentsUpdateIncidentResponse, IncidentsResolveIncidentData, IncidentsResolveIncidentResponse, IncidentsAddIncidentAttachmentData, IncidentsAddIncidentAttachmentResponse, LeaveCreateLeaveRequestData, LeaveCreateLeaveRequestResponse, LeaveMyLeaveRequestsData, LeaveMyLeaveRequestsResponse, LeaveCancelLeaveRequestData, LeaveCancelLeaveRequestResponse, LeavePendingLeaveRequestsResponse, LeaveApproveLeaveRequestData, LeaveApproveLeaveRequestResponse, LeaveRejectLeaveRequestData, LeaveRejectLeaveRequestResponse, LeaveCompanyLeaveRequestsData, LeaveCompanyLeaveRequestsResponse, LeaveGetLeaveApproverConfigData, LeaveGetLeaveApproverConfigResponse, LeaveSetLeaveApproverConfigData, LeaveSetLeaveApproverConfigResponse, LoginLoginAccessTokenData, LoginLoginAccessTokenResponse, LoginTestTokenResponse, LoginRefreshAccessTokenData, LoginRefreshAccessTokenResponse, LoginLogoutData, LoginLogoutResponse, LoginRecoverPasswordData, LoginRecoverPasswordResponse, LoginResetPasswordData, LoginResetPasswordResponse, LoginRecoverPasswordHtmlContentData, LoginRecoverPasswordHtmlContentResponse, NotificationsListNotificationsData, NotificationsListNotificationsResponse, NotificationsUnreadCountResponse, NotificationsMarkReadData, NotificationsMarkReadResponse, NotificationsMarkAllReadResponse, NotificationsGetVapidPublicKeyResponse, NotificationsSubscribePushData, NotificationsSubscribePushResponse, NotificationsUnsubscribePushData, NotificationsUnsubscribePushResponse, PrivateCreateUserData, PrivateCreateUserResponse, ProjectsListProjectsData, ProjectsListProjectsResponse, ProjectsCreateProjectData, ProjectsCreateProjectResponse, ProjectsGetProjectData, ProjectsGetProjectResponse, ProjectsUpdateProjectData, ProjectsUpdateProjectResponse, ProjectsDeleteProjectData, ProjectsDeleteProjectResponse, ProjectsUpsertLevelConfigData, ProjectsUpsertLevelConfigResponse, ProjectsGetLevelConfigsData, ProjectsGetLevelConfigsResponse, ProjectsGetMembersData, ProjectsGetMembersResponse, ProjectsAddMemberData, ProjectsAddMemberResponse, ProjectsRemoveMemberData, ProjectsRemoveMemberResponse, ProjectsGetDelayWarningsData, ProjectsGetDelayWarningsResponse, ProjectsCreateProjectChatRoomData, ProjectsCreateProjectChatRoomResponse, QuotationsCreateQuotationData, QuotationsCreateQuotationResponse, QuotationsListQuotationsData, QuotationsListQuotationsResponse, QuotationsListCompaniesResponse, QuotationsListCompanyProfilesResponse, QuotationsMyPendingQuotationsResponse, QuotationsGetQuotationData, QuotationsGetQuotationResponse, QuotationsUpdateQuotationData, QuotationsUpdateQuotationResponse, QuotationsDeleteQuotationData, QuotationsDeleteQuotationResponse, QuotationsSubmitSurveyData, QuotationsSubmitSurveyResponse, QuotationsApproveSurveyData, QuotationsApproveSurveyResponse, QuotationsSubmitDesignData, QuotationsSubmitDesignResponse, QuotationsSubmitBocTachData, QuotationsSubmitBocTachResponse, QuotationsApproveDesignData, QuotationsApproveDesignResponse, QuotationsSubmitPricingData, QuotationsSubmitPricingResponse, QuotationsFinalizeData, QuotationsFinalizeResponse, QuotationsApproveFinalData, QuotationsApproveFinalResponse, QuotationsSendToClientData, QuotationsSendToClientResponse, QuotationsSubmitNegotiationData, QuotationsSubmitNegotiationResponse, QuotationsApproveNegotiationData, QuotationsApproveNegotiationResponse, QuotationsCloseQuotationData, QuotationsCloseQuotationResponse, QuotationsListApprovalParticipantsData, QuotationsListApprovalParticipantsResponse, QuotationsAddApprovalParticipantData, QuotationsAddApprovalParticipantResponse, QuotationsRemoveApprovalParticipantData, QuotationsRemoveApprovalParticipantResponse, QuotationsParticipantApproveData, QuotationsParticipantApproveResponse, QuotationsListHistoryData, QuotationsListHistoryResponse, QuotationsListNegotiationsData, QuotationsListNegotiationsResponse, QuotationsAddNegotiationLogData, QuotationsAddNegotiationLogResponse, QuotationsListAttachmentsData, QuotationsListAttachmentsResponse, QuotationsAddAttachmentData, QuotationsAddAttachmentResponse, QuotationsUploadAttachmentFileData, QuotationsUploadAttachmentFileResponse, QuotationsDeleteAttachmentData, QuotationsDeleteAttachmentResponse, QuotationsListVersionsData, QuotationsListVersionsResponse, QuotationsCreateVersionSnapshotData, QuotationsCreateVersionSnapshotResponse, QuotationsGetVersionData, QuotationsGetVersionResponse, QuotationsReportSummaryData, QuotationsReportSummaryResponse, QuotationsReportByClientData, QuotationsReportByClientResponse, QuotationsReportByEquipmentData, QuotationsReportByEquipmentResponse, QuotationsReportLostAnalysisData, QuotationsReportLostAnalysisResponse, RolesListRoleDependenciesData, RolesListRoleDependenciesResponse, RolesListCompanyRolesData, RolesListCompanyRolesResponse, RolesMyPermissionsResponse, RolesPermissionsCatalogResponse, RolesRolePermissionsData, RolesRolePermissionsResponse, RolesAssignRolePermissionsData, RolesAssignRolePermissionsResponse, RolesListCompaniesResponse, RolesCreateCompanyData, RolesCreateCompanyResponse, RolesListMyCompaniesResponse, RolesListCompanyMembersData, RolesListCompanyMembersResponse, RolesUpdateCompanyData, RolesUpdateCompanyResponse, RolesCreateDepartmentData, RolesCreateDepartmentResponse, RolesListDepartmentsData, RolesListDepartmentsResponse, RolesUpdateDepartmentData, RolesUpdateDepartmentResponse, RolesDeleteDepartmentData, RolesDeleteDepartmentResponse, RolesAssignUserToDepartmentData, RolesAssignUserToDepartmentResponse, RolesUnassignUserFromDepartmentData, RolesUnassignUserFromDepartmentResponse, RolesCreateRoleData, RolesCreateRoleResponse, RolesCreateRoleDependencyData, RolesCreateRoleDependencyResponse, RolesAssignUserCompanyRoleData, RolesAssignUserCompanyRoleResponse, RolesUpdateCompanyMemberRoleData, RolesUpdateCompanyMemberRoleResponse, RolesRemoveCompanyMemberRoleData, RolesRemoveCompanyMemberRoleResponse, RolesListUserCompanyRolesData, RolesListUserCompanyRolesResponse, RolesMyAccountProfileResponse, RolesGetOrgTreeData, RolesGetOrgTreeResponse, TaskProfilesListProfilesData, TaskProfilesListProfilesResponse, TaskProfilesCreateProfileData, TaskProfilesCreateProfileResponse, TaskProfilesGetProfileData, TaskProfilesGetProfileResponse, TaskProfilesUpdateProfileData, TaskProfilesUpdateProfileResponse, TaskProfilesDeleteProfileData, TaskProfilesDeleteProfileResponse, TaskProfilesAddProfileItemData, TaskProfilesAddProfileItemResponse, TaskProfilesUpdateProfileItemData, TaskProfilesUpdateProfileItemResponse, TaskProfilesDeleteProfileItemData, TaskProfilesDeleteProfileItemResponse, TaskProfilesApplyProfileData, TaskProfilesApplyProfileResponse, TaskProfilesSaveTaskAsProfileData, TaskProfilesSaveTaskAsProfileResponse, TasksCreateRootTaskData, TasksCreateRootTaskResponse, TasksListProjectTasksData, TasksListProjectTasksResponse, TasksCreateChildTaskData, TasksCreateChildTaskResponse, TasksMyDashboardResponse, TasksGetTaskData, TasksGetTaskResponse, TasksUpdateTaskData, TasksUpdateTaskResponse, TasksDeleteTaskData, TasksDeleteTaskResponse, TasksUpdateTaskStatusData, TasksUpdateTaskStatusResponse, TasksAddExtraAssigneeData, TasksAddExtraAssigneeResponse, TasksRemoveExtraAssigneeData, TasksRemoveExtraAssigneeResponse, TasksAddObserverData, TasksAddObserverResponse, TasksRemoveObserverData, TasksRemoveObserverResponse, TasksReassignTaskData, TasksReassignTaskResponse, TasksCloneTaskData, TasksCloneTaskResponse, TasksAddCommentData, TasksAddCommentResponse, TasksListCommentsData, TasksListCommentsResponse, TasksApproveDelayRequestData, TasksApproveDelayRequestResponse, TasksAddDependencyData, TasksAddDependencyResponse, TasksRemoveDependencyData, TasksRemoveDependencyResponse, TasksGetProjectGanttData, TasksGetProjectGanttResponse, TasksUploadProgressReportPhotoData, TasksUploadProgressReportPhotoResponse, TasksAddProgressReportData, TasksAddProgressReportResponse, TasksListProgressReportsData, TasksListProgressReportsResponse, TasksReviewProgressReportData, TasksReviewProgressReportResponse, TasksGetTaskAuditData, TasksGetTaskAuditResponse, TasksCheckConflictsData, TasksCheckConflictsResponse, UsersReadUserByEmailData, UsersReadUserByEmailResponse, UsersReadUsersData, UsersReadUsersResponse, UsersCreateUserData, UsersCreateUserResponse, UsersReadUserMeResponse, UsersDeleteUserMeResponse, UsersUpdateUserMeData, UsersUpdateUserMeResponse, UsersUpdatePasswordMeData, UsersUpdatePasswordMeResponse, UsersRegisterUserData, UsersRegisterUserResponse, UsersReadUserByIdData, UsersReadUserByIdResponse, UsersUpdateUserData, UsersUpdateUserResponse, UsersDeleteUserData, UsersDeleteUserResponse, UtilsTestEmailData, UtilsTestEmailResponse, UtilsHealthCheckResponse } from './types.gen';
+import type { AdminStatsGetOverviewResponse, AdminStatsListActiveSessionsResponse, AdminStatsGetLoginFrequencyData, AdminStatsGetLoginFrequencyResponse, AdminStatsGetUsersActivityData, AdminStatsGetUsersActivityResponse, AdminStatsListAuditLogData, AdminStatsListAuditLogResponse, AdminStatsRevokeSessionData, AdminStatsRevokeSessionResponse, AdminUsersListUsersResponse, AdminUsersGetUserDetailData, AdminUsersGetUserDetailResponse, AdminUsersAddMembershipData, AdminUsersAddMembershipResponse, AdminUsersUpdateMembershipData, AdminUsersUpdateMembershipResponse, AdminUsersDeleteMembershipData, AdminUsersDeleteMembershipResponse, AdminUsersGetUserPermissionsData, AdminUsersGetUserPermissionsResponse, AttendanceCheckInData, AttendanceCheckInResponse, AttendanceCheckOutData, AttendanceCheckOutResponse, AttendanceAdjustAttendanceHoursData, AttendanceAdjustAttendanceHoursResponse, AttendanceMyAttendanceData, AttendanceMyAttendanceResponse, AttendanceProjectAttendanceData, AttendanceProjectAttendanceResponse, AttendanceCompanyAttendanceData, AttendanceCompanyAttendanceResponse, AttendanceAttendanceTaskSuggestionsResponse, AttendanceSetCompanySiteLocationData, AttendanceSetCompanySiteLocationResponse, AttendanceSetSiteLocationData, AttendanceSetSiteLocationResponse, ChatListMyRoomsResponse, ChatCreateRoomData, ChatCreateRoomResponse, ChatGetRoomData, ChatGetRoomResponse, ChatUpdateRoomData, ChatUpdateRoomResponse, ChatDeleteRoomData, ChatDeleteRoomResponse, ChatGetUnreadCountResponse, ChatMarkRoomReadData, ChatMarkRoomReadResponse, ChatListMembersData, ChatListMembersResponse, ChatAddMemberData, ChatAddMemberResponse, ChatRemoveMemberData, ChatRemoveMemberResponse, ChatListMessagesData, ChatListMessagesResponse, ChatCreateMessageData, ChatCreateMessageResponse, ChatUploadAttachmentData, ChatUploadAttachmentResponse, ContractsListContractsData, ContractsListContractsResponse, ContractsCreateContractData, ContractsCreateContractResponse, ContractsGetContractData, ContractsGetContractResponse, ContractsUpdateContractData, ContractsUpdateContractResponse, ContractsDeleteContractData, ContractsDeleteContractResponse, ContractsSubmitContractData, ContractsSubmitContractResponse, ContractsApproveContractData, ContractsApproveContractResponse, ContractsRejectContractData, ContractsRejectContractResponse, ContractsSignContractData, ContractsSignContractResponse, ContractsConfirmAdvanceData, ContractsConfirmAdvanceResponse, ContractsStartProductionData, ContractsStartProductionResponse, ContractsCompleteContractData, ContractsCompleteContractResponse, ContractsUploadAttachmentData, ContractsUploadAttachmentResponse, ContractsDeleteAttachmentData, ContractsDeleteAttachmentResponse, CustomerCompaniesCreateCustomerCompanyData, CustomerCompaniesCreateCustomerCompanyResponse, CustomerCompaniesListCustomerCompaniesData, CustomerCompaniesListCustomerCompaniesResponse, CustomerCompaniesGetCustomerCompanyData, CustomerCompaniesGetCustomerCompanyResponse, CustomerCompaniesUpdateCustomerCompanyData, CustomerCompaniesUpdateCustomerCompanyResponse, CustomerCompaniesDeleteCustomerCompanyData, CustomerCompaniesDeleteCustomerCompanyResponse, DashboardOverviewData, DashboardOverviewResponse, DashboardProjectStatsData, DashboardProjectStatsResponse, DashboardUserWorkloadData, DashboardUserWorkloadResponse, DashboardLeaderboardData, DashboardLeaderboardResponse, DashboardOverdueReportData, DashboardOverdueReportResponse, DashboardUserTasksData, DashboardUserTasksResponse, DashboardCompanyGanttData, DashboardCompanyGanttResponse, DashboardUserGanttData, DashboardUserGanttResponse, DashboardUserWeeklyStatsData, DashboardUserWeeklyStatsResponse, DashboardTaskCalendarData, DashboardTaskCalendarResponse, DashboardTeamProductivityData, DashboardTeamProductivityResponse, DashboardYearSummaryData, DashboardYearSummaryResponse, ExportExportFullResponse, ExportExportAccountsResponse, ExportExportTasksResponse, IncidentsCreateIncidentData, IncidentsCreateIncidentResponse, IncidentsListIncidentsData, IncidentsListIncidentsResponse, IncidentsGetIncidentData, IncidentsGetIncidentResponse, IncidentsUpdateIncidentData, IncidentsUpdateIncidentResponse, IncidentsResolveIncidentData, IncidentsResolveIncidentResponse, IncidentsAddIncidentAttachmentData, IncidentsAddIncidentAttachmentResponse, LeaveCreateLeaveRequestData, LeaveCreateLeaveRequestResponse, LeaveMyLeaveRequestsData, LeaveMyLeaveRequestsResponse, LeaveCancelLeaveRequestData, LeaveCancelLeaveRequestResponse, LeavePendingLeaveRequestsResponse, LeaveApproveLeaveRequestData, LeaveApproveLeaveRequestResponse, LeaveRejectLeaveRequestData, LeaveRejectLeaveRequestResponse, LeaveCompanyLeaveRequestsData, LeaveCompanyLeaveRequestsResponse, LeaveGetLeaveApproverConfigData, LeaveGetLeaveApproverConfigResponse, LeaveSetLeaveApproverConfigData, LeaveSetLeaveApproverConfigResponse, LoginLoginAccessTokenData, LoginLoginAccessTokenResponse, LoginTestTokenResponse, LoginRefreshAccessTokenData, LoginRefreshAccessTokenResponse, LoginLogoutData, LoginLogoutResponse, LoginRecoverPasswordData, LoginRecoverPasswordResponse, LoginResetPasswordData, LoginResetPasswordResponse, LoginRecoverPasswordHtmlContentData, LoginRecoverPasswordHtmlContentResponse, NotificationsListNotificationsData, NotificationsListNotificationsResponse, NotificationsUnreadCountData, NotificationsUnreadCountResponse, NotificationsMarkReadData, NotificationsMarkReadResponse, NotificationsMarkAllReadData, NotificationsMarkAllReadResponse, NotificationsGetVapidPublicKeyResponse, NotificationsSubscribePushData, NotificationsSubscribePushResponse, NotificationsUnsubscribePushData, NotificationsUnsubscribePushResponse, PrivateCreateUserData, PrivateCreateUserResponse, ProjectsListProjectsData, ProjectsListProjectsResponse, ProjectsCreateProjectData, ProjectsCreateProjectResponse, ProjectsGetProjectData, ProjectsGetProjectResponse, ProjectsUpdateProjectData, ProjectsUpdateProjectResponse, ProjectsDeleteProjectData, ProjectsDeleteProjectResponse, ProjectsUpsertLevelConfigData, ProjectsUpsertLevelConfigResponse, ProjectsGetLevelConfigsData, ProjectsGetLevelConfigsResponse, ProjectsGetMembersData, ProjectsGetMembersResponse, ProjectsAddMemberData, ProjectsAddMemberResponse, ProjectsRemoveMemberData, ProjectsRemoveMemberResponse, ProjectsGetDelayWarningsData, ProjectsGetDelayWarningsResponse, ProjectsCreateProjectChatRoomData, ProjectsCreateProjectChatRoomResponse, QuotationsCreateQuotationData, QuotationsCreateQuotationResponse, QuotationsListQuotationsData, QuotationsListQuotationsResponse, QuotationsListCompaniesResponse, QuotationsListCompanyProfilesResponse, QuotationsMyPendingQuotationsResponse, QuotationsGetQuotationData, QuotationsGetQuotationResponse, QuotationsUpdateQuotationData, QuotationsUpdateQuotationResponse, QuotationsDeleteQuotationData, QuotationsDeleteQuotationResponse, QuotationsSubmitSurveyData, QuotationsSubmitSurveyResponse, QuotationsApproveSurveyData, QuotationsApproveSurveyResponse, QuotationsSubmitDesignData, QuotationsSubmitDesignResponse, QuotationsSubmitBocTachData, QuotationsSubmitBocTachResponse, QuotationsApproveDesignData, QuotationsApproveDesignResponse, QuotationsSubmitPricingData, QuotationsSubmitPricingResponse, QuotationsFinalizeData, QuotationsFinalizeResponse, QuotationsApproveFinalData, QuotationsApproveFinalResponse, QuotationsSendToClientData, QuotationsSendToClientResponse, QuotationsSubmitNegotiationData, QuotationsSubmitNegotiationResponse, QuotationsApproveNegotiationData, QuotationsApproveNegotiationResponse, QuotationsCloseQuotationData, QuotationsCloseQuotationResponse, QuotationsListApprovalParticipantsData, QuotationsListApprovalParticipantsResponse, QuotationsAddApprovalParticipantData, QuotationsAddApprovalParticipantResponse, QuotationsRemoveApprovalParticipantData, QuotationsRemoveApprovalParticipantResponse, QuotationsParticipantApproveData, QuotationsParticipantApproveResponse, QuotationsListHistoryData, QuotationsListHistoryResponse, QuotationsListNegotiationsData, QuotationsListNegotiationsResponse, QuotationsAddNegotiationLogData, QuotationsAddNegotiationLogResponse, QuotationsListAttachmentsData, QuotationsListAttachmentsResponse, QuotationsAddAttachmentData, QuotationsAddAttachmentResponse, QuotationsUploadAttachmentFileData, QuotationsUploadAttachmentFileResponse, QuotationsDeleteAttachmentData, QuotationsDeleteAttachmentResponse, QuotationsListVersionsData, QuotationsListVersionsResponse, QuotationsCreateVersionSnapshotData, QuotationsCreateVersionSnapshotResponse, QuotationsGetVersionData, QuotationsGetVersionResponse, QuotationsReportSummaryData, QuotationsReportSummaryResponse, QuotationsReportByClientData, QuotationsReportByClientResponse, QuotationsReportByEquipmentData, QuotationsReportByEquipmentResponse, QuotationsReportLostAnalysisData, QuotationsReportLostAnalysisResponse, RolesListRoleDependenciesData, RolesListRoleDependenciesResponse, RolesListCompanyRolesData, RolesListCompanyRolesResponse, RolesMyPermissionsResponse, RolesPermissionsCatalogResponse, RolesRolePermissionsData, RolesRolePermissionsResponse, RolesAssignRolePermissionsData, RolesAssignRolePermissionsResponse, RolesListCompaniesResponse, RolesCreateCompanyData, RolesCreateCompanyResponse, RolesListMyCompaniesResponse, RolesListCompanyMembersData, RolesListCompanyMembersResponse, RolesUpdateCompanyData, RolesUpdateCompanyResponse, RolesCreateDepartmentData, RolesCreateDepartmentResponse, RolesListDepartmentsData, RolesListDepartmentsResponse, RolesUpdateDepartmentData, RolesUpdateDepartmentResponse, RolesDeleteDepartmentData, RolesDeleteDepartmentResponse, RolesAssignUserToDepartmentData, RolesAssignUserToDepartmentResponse, RolesUnassignUserFromDepartmentData, RolesUnassignUserFromDepartmentResponse, RolesCreateRoleData, RolesCreateRoleResponse, RolesCreateRoleDependencyData, RolesCreateRoleDependencyResponse, RolesAssignUserCompanyRoleData, RolesAssignUserCompanyRoleResponse, RolesUpdateCompanyMemberRoleData, RolesUpdateCompanyMemberRoleResponse, RolesRemoveCompanyMemberRoleData, RolesRemoveCompanyMemberRoleResponse, RolesListUserCompanyRolesData, RolesListUserCompanyRolesResponse, RolesMyAccountProfileResponse, RolesGetOrgTreeData, RolesGetOrgTreeResponse, TaskProfilesListProfilesData, TaskProfilesListProfilesResponse, TaskProfilesCreateProfileData, TaskProfilesCreateProfileResponse, TaskProfilesGetProfileData, TaskProfilesGetProfileResponse, TaskProfilesUpdateProfileData, TaskProfilesUpdateProfileResponse, TaskProfilesDeleteProfileData, TaskProfilesDeleteProfileResponse, TaskProfilesAddProfileItemData, TaskProfilesAddProfileItemResponse, TaskProfilesUpdateProfileItemData, TaskProfilesUpdateProfileItemResponse, TaskProfilesDeleteProfileItemData, TaskProfilesDeleteProfileItemResponse, TaskProfilesApplyProfileData, TaskProfilesApplyProfileResponse, TaskProfilesSaveTaskAsProfileData, TaskProfilesSaveTaskAsProfileResponse, TasksCreateRootTaskData, TasksCreateRootTaskResponse, TasksListProjectTasksData, TasksListProjectTasksResponse, TasksCreateChildTaskData, TasksCreateChildTaskResponse, TasksMyDashboardResponse, TasksGetTaskData, TasksGetTaskResponse, TasksUpdateTaskData, TasksUpdateTaskResponse, TasksDeleteTaskData, TasksDeleteTaskResponse, TasksUpdateTaskStatusData, TasksUpdateTaskStatusResponse, TasksAddExtraAssigneeData, TasksAddExtraAssigneeResponse, TasksRemoveExtraAssigneeData, TasksRemoveExtraAssigneeResponse, TasksAddObserverData, TasksAddObserverResponse, TasksRemoveObserverData, TasksRemoveObserverResponse, TasksReassignTaskData, TasksReassignTaskResponse, TasksCloneTaskData, TasksCloneTaskResponse, TasksAddCommentData, TasksAddCommentResponse, TasksListCommentsData, TasksListCommentsResponse, TasksApproveDelayRequestData, TasksApproveDelayRequestResponse, TasksAddDependencyData, TasksAddDependencyResponse, TasksRemoveDependencyData, TasksRemoveDependencyResponse, TasksGetProjectGanttData, TasksGetProjectGanttResponse, TasksUploadProgressReportPhotoData, TasksUploadProgressReportPhotoResponse, TasksAddProgressReportData, TasksAddProgressReportResponse, TasksListProgressReportsData, TasksListProgressReportsResponse, TasksReviewProgressReportData, TasksReviewProgressReportResponse, TasksGetTaskAuditData, TasksGetTaskAuditResponse, TasksCheckConflictsData, TasksCheckConflictsResponse, UsersReadUserByEmailData, UsersReadUserByEmailResponse, UsersReadUsersData, UsersReadUsersResponse, UsersCreateUserData, UsersCreateUserResponse, UsersReadUserMeResponse, UsersDeleteUserMeResponse, UsersUpdateUserMeData, UsersUpdateUserMeResponse, UsersMarkReleaseNotesSeenData, UsersMarkReleaseNotesSeenResponse, UsersUpdatePasswordMeData, UsersUpdatePasswordMeResponse, UsersRegisterUserData, UsersRegisterUserResponse, UsersReadUserByIdData, UsersReadUserByIdResponse, UsersUpdateUserData, UsersUpdateUserResponse, UsersDeleteUserData, UsersDeleteUserResponse, UtilsTestEmailData, UtilsTestEmailResponse, UtilsHealthCheckResponse } from './types.gen';
 
 export class AdminStatsService {
     /**
@@ -371,6 +371,36 @@ export class AttendanceService {
     }
     
     /**
+     * Company Attendance
+     * List attendance for all members of a company (managers / directors).
+     *
+     * Records are enriched with the employee name and a location label. Access is
+     * additionally guarded so a manager can only read companies they belong to.
+     * @param data The data for the request.
+     * @param data.companyId
+     * @param data.dateFrom
+     * @param data.dateTo
+     * @returns AttendanceTeamRecordsPublic Successful Response
+     * @throws ApiError
+     */
+    public static companyAttendance(data: AttendanceCompanyAttendanceData): CancelablePromise<AttendanceCompanyAttendanceResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/v1/companies/{company_id}/attendance',
+            path: {
+                company_id: data.companyId
+            },
+            query: {
+                date_from: data.dateFrom,
+                date_to: data.dateTo
+            },
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
      * Attendance Task Suggestions
      * Free-text tasks the current user has used in by-company check-ins.
      * @returns string Successful Response
@@ -663,7 +693,7 @@ export class ChatService {
     
     /**
      * Create Message
-     * Send a text message (member-only).
+     * Send a text message (member-only); notifies + pushes to other members.
      * @param data The data for the request.
      * @param data.roomId
      * @param data.requestBody
@@ -1974,9 +2004,14 @@ export class NotificationsService {
     /**
      * List Notifications
      * List notifications for the current user, newest first.
+     *
+     * ``category`` optionally restricts to "chat" or "other" so each bell tab
+     * paginates independently — a flood of chat messages can't push task
+     * notifications out of the (limited) result window.
      * @param data The data for the request.
      * @param data.skip
      * @param data.limit
+     * @param data.category
      * @returns NotificationPublic Successful Response
      * @throws ApiError
      */
@@ -1986,7 +2021,8 @@ export class NotificationsService {
             url: '/api/v1/notifications',
             query: {
                 skip: data.skip,
-                limit: data.limit
+                limit: data.limit,
+                category: data.category
             },
             errors: {
                 422: 'Validation Error'
@@ -1996,14 +2032,22 @@ export class NotificationsService {
     
     /**
      * Unread Count
-     * Return number of unread notifications for the current user.
+     * Return number of unread notifications, optionally filtered by category.
+     * @param data The data for the request.
+     * @param data.category
      * @returns NotificationUnreadCount Successful Response
      * @throws ApiError
      */
-    public static unreadCount(): CancelablePromise<NotificationsUnreadCountResponse> {
+    public static unreadCount(data: NotificationsUnreadCountData = {}): CancelablePromise<NotificationsUnreadCountResponse> {
         return __request(OpenAPI, {
             method: 'GET',
-            url: '/api/v1/notifications/unread-count'
+            url: '/api/v1/notifications/unread-count',
+            query: {
+                category: data.category
+            },
+            errors: {
+                422: 'Validation Error'
+            }
         });
     }
     
@@ -2030,14 +2074,22 @@ export class NotificationsService {
     
     /**
      * Mark All Read
-     * Mark all notifications for the current user as read.
+     * Mark all notifications as read, optionally only within one category.
+     * @param data The data for the request.
+     * @param data.category
      * @returns void Successful Response
      * @throws ApiError
      */
-    public static markAllRead(): CancelablePromise<NotificationsMarkAllReadResponse> {
+    public static markAllRead(data: NotificationsMarkAllReadData = {}): CancelablePromise<NotificationsMarkAllReadResponse> {
         return __request(OpenAPI, {
             method: 'PATCH',
-            url: '/api/v1/notifications/read-all'
+            url: '/api/v1/notifications/read-all',
+            query: {
+                category: data.category
+            },
+            errors: {
+                422: 'Validation Error'
+            }
         });
     }
     
@@ -4720,6 +4772,26 @@ export class UsersService {
         return __request(OpenAPI, {
             method: 'PATCH',
             url: '/api/v1/users/me',
+            body: data.requestBody,
+            mediaType: 'application/json',
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Mark Release Notes Seen
+     * Record that the current user has read release notes up to `version`.
+     * @param data The data for the request.
+     * @param data.requestBody
+     * @returns UserPublic Successful Response
+     * @throws ApiError
+     */
+    public static markReleaseNotesSeen(data: UsersMarkReleaseNotesSeenData): CancelablePromise<UsersMarkReleaseNotesSeenResponse> {
+        return __request(OpenAPI, {
+            method: 'PATCH',
+            url: '/api/v1/users/me/release-notes-seen',
             body: data.requestBody,
             mediaType: 'application/json',
             errors: {

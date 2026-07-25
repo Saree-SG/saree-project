@@ -6,6 +6,7 @@ import uuid
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import AsyncSessionDep, CurrentUser, get_current_active_superuser
@@ -84,6 +85,18 @@ async def update_user_me(
 ) -> Any:
     """Update own profile."""
     return await _svc(session).update_me(current_user, user_in)
+
+
+class ReleaseNotesSeenUpdate(BaseModel):
+    version: str
+
+
+@router.patch("/me/release-notes-seen", response_model=UserPublic)
+async def mark_release_notes_seen(
+    session: AsyncSessionDep, body: ReleaseNotesSeenUpdate, current_user: CurrentUser
+) -> Any:
+    """Record that the current user has read release notes up to `version`."""
+    return await _svc(session).mark_release_notes_seen(current_user, body.version)
 
 
 @router.patch("/me/password", response_model=Message)

@@ -42,6 +42,7 @@ MANAGER_AUTO_PERMISSION_CODES = {
     "TASK_UPDATE",
     "TASK_UPDATE_STATUS",
     "TASK_REASSIGN",
+    "TASK_DELETE",
     # Quotation — managers can view all and run reports
     "QUOTATION_VIEW",
     "QUOTATION_VIEW_ALL",

@@ -12,6 +12,7 @@ import { useEffect, useRef } from "react"
 import { toast } from "sonner"
 import { RolesService } from "@/client"
 import { Footer } from "@/components/Common/Footer"
+import { ReleaseNotesBell } from "@/components/Common/ReleaseNotesBell"
 import { MobileAppHeader } from "@/components/Layout/MobileAppHeader"
 import { MobileBottomNav } from "@/components/Layout/MobileBottomNav"
 import { NotificationBell } from "@/components/notifications/NotificationBell"
@@ -323,6 +324,7 @@ function Layout() {
             >
               <HelpCircle className="size-5" />
             </Link>
+            <ReleaseNotesBell />
             <NotificationBell />
           </div>
         </header>

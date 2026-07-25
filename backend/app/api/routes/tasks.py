@@ -45,6 +45,31 @@ _progress_storage = LocalStorage(
     static_url_segment="task-progress",
 )
 
+# Progress reports accept photos plus common office/document formats.
+_PROGRESS_DOCUMENT_CONTENT_TYPES = {
+    "application/pdf",
+    "application/msword",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "application/vnd.ms-excel",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    "application/vnd.ms-powerpoint",
+    "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+}
+_PROGRESS_DOCUMENT_MAX_BYTES = 25 * 1024 * 1024  # 25 MB for Word/Excel/PowerPoint/PDF
+
+
+def _validate_progress_upload(file: UploadFile) -> int | None:
+    """Check the progress-report file's content type; return a max_bytes override, or raise 422."""
+    content_type = (file.content_type or "").lower()
+    if content_type.startswith("image/"):
+        return None
+    if content_type in _PROGRESS_DOCUMENT_CONTENT_TYPES:
+        return _PROGRESS_DOCUMENT_MAX_BYTES
+    raise HTTPException(
+        422,
+        "File phải là ảnh hoặc tài liệu (Word, Excel, PowerPoint, PDF)",
+    )
+
 
 # ---------------------------------------------------------------------------
 # Internal helper
@@ -391,11 +416,10 @@ async def upload_progress_report_photo(
         raise HTTPException(422, "Task is already completed")
     if task.assignee_id != current_user.id and not current_user.is_superuser:
         raise HTTPException(403, "Only the assignee can upload progress photos")
-    content_type = (file.content_type or "").lower()
-    if not content_type.startswith("image/"):
-        raise HTTPException(422, "File must be an image")
+    max_bytes = _validate_progress_upload(file)
     try:
-        stored = await _progress_storage.save_upload(file)
+        kwargs = {} if max_bytes is None else {"max_bytes": max_bytes}
+        stored = await _progress_storage.save_upload(file, **kwargs)
     except ValueError as exc:
         raise HTTPException(422, str(exc)) from exc
     return TaskProgressPhotoUploadPublic(photo_url=stored.public_url)
@@ -427,9 +451,7 @@ async def add_progress_report(
     GPS coordinates OR a checkin_skip_reason (device cannot locate) — the latter
     flags the report for manager/director review.
     """
-    content_type = (file.content_type or "").lower()
-    if not content_type.startswith("image/"):
-        raise HTTPException(422, "File must be an image")
+    max_bytes = _validate_progress_upload(file)
 
     svc = _svc(session)
     task = await svc._task_repo.get_or_404(task_id)
@@ -447,7 +469,8 @@ async def add_progress_report(
         note = " ".join(filter(None, [note, reason]))
 
     try:
-        stored = await _progress_storage.save_upload(file)
+        kwargs = {} if max_bytes is None else {"max_bytes": max_bytes}
+        stored = await _progress_storage.save_upload(file, **kwargs)
     except ValueError as exc:
         raise HTTPException(422, str(exc)) from exc
 

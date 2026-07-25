@@ -130,6 +130,30 @@ def worker_role(mdb: Session, company: Company) -> Role:
     return role
 
 
+@pytest.fixture(scope="module")
+def dept_head_role(mdb: Session, company: Company) -> Role:
+    """Level-2 role (e.g. department_head) with NO explicit TASK_DELETE
+    RolePermission row — relies on MANAGER_AUTO_PERMISSION_CODES auto-grant."""
+    role = Role(
+        company_id=company.id,
+        name=f"dept_head_{uuid.uuid4().hex[:6]}",
+        display_name="Dept Head Test",
+        level=2,
+        is_system=False,
+    )
+    mdb.add(role)
+    mdb.flush()
+
+    needed = ["TASK_CREATE", "TASK_VIEW", "TASK_VIEW_ALL", "TASK_UPDATE"]
+    perms = mdb.exec(select(Permission).where(Permission.code.in_(needed))).all()  # type: ignore[arg-type]
+    for p in perms:
+        mdb.add(RolePermission(role_id=role.id, permission_id=p.id))
+
+    mdb.commit()
+    mdb.refresh(role)
+    return role
+
+
 # ---------------------------------------------------------------------------
 # Per-module user fixtures (manager + worker pair)
 # ---------------------------------------------------------------------------
@@ -174,6 +198,23 @@ def mgr_headers(client: TestClient, manager_user: tuple[User, str]) -> dict[str,
 @pytest.fixture(scope="module")
 def wkr_headers(client: TestClient, worker_user: tuple[User, str]) -> dict[str, str]:
     user, pwd = worker_user
+    return _login(client, user.email, pwd)
+
+
+@pytest.fixture(scope="module")
+def dept_head_user(mdb: Session, company: Company, dept_head_role: Role) -> tuple[User, str]:
+    user, pwd = _make_user(mdb, "dh")
+    user.company_id = company.id
+    mdb.add(user)
+    mdb.add(UserCompanyRole(user_id=user.id, company_id=company.id, role_id=dept_head_role.id, is_primary=True))
+    mdb.commit()
+    mdb.refresh(user)
+    return user, pwd
+
+
+@pytest.fixture(scope="module")
+def dept_head_headers(client: TestClient, dept_head_user: tuple[User, str]) -> dict[str, str]:
+    user, pwd = dept_head_user
     return _login(client, user.email, pwd)
 
 
@@ -648,6 +689,125 @@ class TestProgressAutoTransition:
             f"Expected status 'review' after 100% approved progress, got '{final_status}'. "
             "Auto-transition must stop at review for assignor confirmation."
         )
+
+
+# ---------------------------------------------------------------------------
+# Tests: progress report accepts documents (Word/Excel/PowerPoint/PDF)
+# ---------------------------------------------------------------------------
+
+class TestProgressReportDocumentUpload:
+    def test_pdf_report_accepted(
+        self,
+        client: TestClient,
+        project: dict,
+        manager_user: tuple[User, str],
+        worker_user: tuple[User, str],
+        mgr_headers: dict,
+        wkr_headers: dict,
+    ) -> None:
+        wkr, _ = worker_user
+        task = create_task(client, mgr_headers, project["id"], str(wkr.id), name="PDF Report")
+
+        import io
+        fake_pdf = io.BytesIO(b"%PDF-1.4 fake pdf content")
+        r = client.post(
+            f"{API}/tasks/{task['id']}/progress-reports",
+            data={"progress_percent": "20", "note": "báo cáo tài liệu"},
+            files={"file": ("bao-cao.pdf", fake_pdf, "application/pdf")},
+            headers=wkr_headers,
+        )
+        assert r.status_code == 201, r.text
+        assert r.json()["photo_url"].endswith(".pdf")
+
+    def test_docx_report_accepted(
+        self,
+        client: TestClient,
+        project: dict,
+        manager_user: tuple[User, str],
+        worker_user: tuple[User, str],
+        mgr_headers: dict,
+        wkr_headers: dict,
+    ) -> None:
+        wkr, _ = worker_user
+        task = create_task(client, mgr_headers, project["id"], str(wkr.id), name="DOCX Report")
+
+        import io
+        fake_docx = io.BytesIO(b"PK\x03\x04 fake docx content")
+        r = client.post(
+            f"{API}/tasks/{task['id']}/progress-reports",
+            data={"progress_percent": "20", "note": "báo cáo word"},
+            files={
+                "file": (
+                    "bao-cao.docx",
+                    fake_docx,
+                    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                )
+            },
+            headers=wkr_headers,
+        )
+        assert r.status_code == 201, r.text
+
+    def test_unsupported_file_type_rejected(
+        self,
+        client: TestClient,
+        project: dict,
+        manager_user: tuple[User, str],
+        worker_user: tuple[User, str],
+        mgr_headers: dict,
+        wkr_headers: dict,
+    ) -> None:
+        wkr, _ = worker_user
+        task = create_task(client, mgr_headers, project["id"], str(wkr.id), name="Bad File Type")
+
+        import io
+        fake_txt = io.BytesIO(b"plain text content")
+        r = client.post(
+            f"{API}/tasks/{task['id']}/progress-reports",
+            data={"progress_percent": "20"},
+            files={"file": ("notes.txt", fake_txt, "text/plain")},
+            headers=wkr_headers,
+        )
+        assert r.status_code == 422
+
+
+# ---------------------------------------------------------------------------
+# Tests: TASK_DELETE auto-granted to level 1/2 managers (hạng mục deletion)
+# ---------------------------------------------------------------------------
+
+class TestTaskDeletePermissionLevels:
+    def test_level2_manager_can_delete_without_explicit_permission_row(
+        self,
+        client: TestClient,
+        project: dict,
+        dept_head_user: tuple[User, str],
+        dept_head_headers: dict,
+    ) -> None:
+        """dept_head_role (level=2) has no explicit TASK_DELETE RolePermission
+        row — deletion must still succeed via MANAGER_AUTO_PERMISSION_CODES."""
+        dh, _ = dept_head_user
+        task = create_task(client, dept_head_headers, project["id"], str(dh.id), name="L2 Delete")
+
+        r = client.delete(f"{API}/tasks/{task['id']}", headers=dept_head_headers)
+        assert r.status_code == 204, r.text
+
+        r = client.get(f"{API}/tasks/{task['id']}", headers=dept_head_headers)
+        assert r.status_code == 404
+
+    def test_worker_level3_cannot_delete_task(
+        self,
+        client: TestClient,
+        project: dict,
+        manager_user: tuple[User, str],
+        worker_user: tuple[User, str],
+        mgr_headers: dict,
+        wkr_headers: dict,
+    ) -> None:
+        """worker_role (level=3) has no TASK_DELETE — must be forbidden."""
+        wkr, _ = worker_user
+        task = create_task(client, mgr_headers, project["id"], str(wkr.id), name="Worker Delete Guard")
+
+        r = client.delete(f"{API}/tasks/{task['id']}", headers=wkr_headers)
+        assert r.status_code == 403
 
 
 # ---------------------------------------------------------------------------

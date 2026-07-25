@@ -63,6 +63,16 @@ import {
 } from "@/utils/dateTime"
 import { resolveBackendMediaUrl } from "@/utils/mediaUrl"
 
+const PROGRESS_DOCUMENT_MIME_TYPES = new Set([
+  "application/pdf",
+  "application/msword",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "application/vnd.ms-excel",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  "application/vnd.ms-powerpoint",
+  "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+])
+
 export const Route = createFileRoute("/_layout/tasks/$taskId")({
   component: TaskDetailPage,
   // ?addChild=true lets other pages deep-link straight into the "add subtask"
@@ -1787,17 +1797,17 @@ function TaskDetailPage() {
                       htmlFor="progress-photo-file"
                       className="text-[11px] font-semibold text-muted-foreground"
                     >
-                      Ảnh hiện trường
+                      Ảnh / tài liệu hiện trường
                     </label>
                     <div className="flex flex-wrap items-center gap-2">
                       <input
                         id="progress-photo-file"
                         ref={progressPhotoInputRef}
                         type="file"
-                        accept="image/*"
+                        accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation"
                         capture="environment"
-                        title="Chọn hoặc chụp ảnh báo cáo"
-                        aria-label="Chọn hoặc chụp ảnh báo cáo tiến độ"
+                        title="Chọn ảnh hoặc tài liệu báo cáo"
+                        aria-label="Chọn ảnh hoặc tài liệu báo cáo tiến độ"
                         className="sr-only"
                         disabled={task?.status === "done"}
                         onChange={(eventValue) => {
@@ -1805,8 +1815,14 @@ function TaskDetailPage() {
                           if (!file) {
                             return
                           }
-                          if (!file.type.startsWith("image/")) {
-                            showErrorToast("Chỉ chọn file ảnh")
+                          const isImage = file.type.startsWith("image/")
+                          const isDocument = PROGRESS_DOCUMENT_MIME_TYPES.has(
+                            file.type,
+                          )
+                          if (!isImage && !isDocument) {
+                            showErrorToast(
+                              "Chỉ chọn ảnh hoặc tài liệu Word/Excel/PowerPoint/PDF",
+                            )
                             return
                           }
                           setProgressPhotoFile(file)
@@ -1814,27 +1830,27 @@ function TaskDetailPage() {
                             if (previous) {
                               URL.revokeObjectURL(previous)
                             }
-                            return URL.createObjectURL(file)
+                            return isImage ? URL.createObjectURL(file) : null
                           })
                         }}
                       />
                       <button
                         type="button"
-                        title="Chọn hoặc chụp ảnh"
+                        title="Chọn ảnh hoặc tài liệu"
                         disabled={task?.status === "done"}
                         className="h-9 rounded-md border bg-slate-50 px-3 text-xs font-bold text-slate-700 disabled:opacity-60"
                         onClick={() => progressPhotoInputRef.current?.click()}
                       >
-                        Chọn / chụp ảnh
+                        Chọn ảnh / tài liệu
                       </button>
                       {progressPhotoFile ? (
                         <button
                           type="button"
-                          title="Bỏ ảnh"
+                          title="Bỏ file"
                           className="h-9 rounded-md border border-input bg-transparent px-3 text-xs font-semibold text-muted-foreground"
                           onClick={clearProgressPhotoPick}
                         >
-                          Bỏ ảnh
+                          Bỏ file
                         </button>
                       ) : null}
                     </div>
@@ -1853,6 +1869,10 @@ function TaskDetailPage() {
                           className="h-24 max-w-full rounded-md border object-cover"
                         />
                       </button>
+                    ) : progressPhotoFile ? (
+                      <p className="mt-1 max-w-full truncate text-xs text-muted-foreground">
+                        📄 {progressPhotoFile.name}
+                      </p>
                     ) : null}
                   </div>
                   <div className="w-full space-y-1 sm:w-32">
@@ -1916,7 +1936,7 @@ function TaskDetailPage() {
                       progressPercentInput.trim(),
                     )
                     if (!progressPhotoFile) {
-                      showErrorToast("Chọn ảnh từ máy")
+                      showErrorToast("Chọn ảnh hoặc tài liệu từ máy")
                       return
                     }
                     if (pct === null) {
@@ -1949,13 +1969,28 @@ function TaskDetailPage() {
               {(progressReportsQuery.data ?? []).map((row) => {
                 const thumbSrc = resolveBackendMediaUrl(row.photo_url)
                 const thumbFailed = Boolean(progressReportPhotoFailed[row.id])
-                const showThumb = Boolean(thumbSrc) && !thumbFailed
+                const isDocumentFile = /\.(pdf|docx?|xlsx?|pptx?)$/i.test(
+                  row.photo_url ?? "",
+                )
+                const showThumb =
+                  Boolean(thumbSrc) && !thumbFailed && !isDocumentFile
                 return (
                   <div
                     key={row.id}
                     className="flex min-w-0 gap-3 rounded-lg border bg-slate-50 p-3"
                   >
-                    {showThumb ? (
+                    {isDocumentFile && thumbSrc ? (
+                      <a
+                        href={thumbSrc}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        title="Mở tài liệu"
+                        className="flex h-20 w-20 shrink-0 flex-col items-center justify-center gap-1 rounded-md border border-dashed bg-muted px-1 text-center text-[9px] font-medium leading-tight text-blue-600"
+                      >
+                        <span className="text-lg">📄</span>
+                        Xem file
+                      </a>
+                    ) : showThumb ? (
                       <button
                         type="button"
                         title="Xem ảnh báo cáo"
