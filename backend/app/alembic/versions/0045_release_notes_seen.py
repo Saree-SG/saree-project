@@ -1,7 +1,7 @@
 """Add User.last_seen_release_version (release-notes read-state per account).
 
-Revision ID: 0002_release_notes_seen
-Revises: 0001_initial_schema
+Revision ID: 0045_release_notes_seen
+Revises: 0044_attendance_absent_reminder
 Create Date: 2026-07-25
 """
 
@@ -12,8 +12,8 @@ from alembic import op
 from sqlalchemy import inspect
 
 # revision identifiers, used by Alembic.
-revision = "0002_release_notes_seen"
-down_revision = "0001_initial_schema"
+revision = "0045_release_notes_seen"
+down_revision = "0044_attendance_absent_reminder"
 branch_labels = None
 depends_on = None
 
