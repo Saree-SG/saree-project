@@ -79,3 +79,11 @@ jobs:
         shell: cmd
         run: |
           powershell -NoProfile -ExecutionPolicy Bypass -Command "$ok = $false; for ($i = 0; $i -lt 60; $i++) { $h = (docker inspect --format='{{.State.Health.Status}}' saree-dev-backend-1 2>$null); if ($h -eq 'healthy') { $ok = $true; break }; Start-Sleep -Seconds 3 }; if (-not $ok) { docker logs --tail 200 saree-dev-backend-1; throw 'Backend health check timed out' }"
+
+      - name: Prune old images and build cache
+        if: always()
+        shell: cmd
+        run: |
+          docker image prune -f
+          docker builder prune -f --filter "until=168h"
+          docker system df
