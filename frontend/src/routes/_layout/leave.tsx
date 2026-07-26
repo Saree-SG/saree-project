@@ -317,7 +317,7 @@ function LeavePage() {
 
       {/* Approver queue */}
       {canApprove ? (
-        <Card>
+        <Card id="pending">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-lg">
               <Inbox className="size-5" /> Cần tôi duyệt
@@ -384,7 +384,7 @@ function LeavePage() {
       ) : null}
 
       {/* My requests */}
-      <Card>
+      <Card id="my-requests">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-lg">
             <Clock className="size-5" /> Đơn của tôi

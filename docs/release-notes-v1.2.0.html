@@ -1,0 +1,661 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Release Notes v1.2.0 — Saree ERP</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #f8fafc;
+      color: #1e293b;
+      line-height: 1.6;
+    }
+    .page { max-width: 860px; margin: 0 auto; padding: 40px 24px 80px; }
+
+    /* Header */
+    .header {
+      background: linear-gradient(135deg, #1e40af 0%, #6d28d9 100%);
+      border-radius: 20px;
+      padding: 40px 40px 36px;
+      color: white;
+      margin-bottom: 40px;
+    }
+    .header-badge {
+      display: inline-block;
+      background: rgba(255,255,255,0.2);
+      border: 1px solid rgba(255,255,255,0.3);
+      border-radius: 100px;
+      padding: 4px 14px;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      margin-bottom: 16px;
+    }
+    .header h1 { font-size: 32px; font-weight: 800; margin-bottom: 8px; }
+    .header p  { font-size: 15px; opacity: 0.85; }
+    .header-meta { margin-top: 20px; display: flex; gap: 24px; font-size: 13px; opacity: 0.75; }
+    .header-meta span::before { content: "• "; }
+    .header-meta span:first-child::before { content: ""; }
+
+    /* Section */
+    .section { margin-bottom: 48px; }
+    .section-label {
+      display: flex; align-items: center; gap: 10px;
+      font-size: 11px; font-weight: 800; letter-spacing: 1px;
+      text-transform: uppercase; color: #64748b;
+      margin-bottom: 20px;
+    }
+    .section-label::after {
+      content: ""; flex: 1; height: 1px; background: #e2e8f0;
+    }
+
+    /* Feature card */
+    .card {
+      background: white;
+      border-radius: 16px;
+      border: 1px solid #e2e8f0;
+      overflow: hidden;
+      margin-bottom: 20px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+    }
+    .card-header {
+      display: flex; align-items: flex-start; gap: 14px;
+      padding: 20px 24px 16px;
+    }
+    .card-icon {
+      width: 40px; height: 40px; border-radius: 12px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 18px; flex-shrink: 0;
+    }
+    .card-header-text h3 { font-size: 16px; font-weight: 700; color: #0f172a; margin-bottom: 4px; }
+    .card-header-text p  { font-size: 13px; color: #64748b; }
+
+    .card-body { padding: 0 24px 20px; }
+
+    /* Mock UI illustrations */
+    .mockup {
+      border-radius: 12px;
+      overflow: hidden;
+      border: 1px solid #e2e8f0;
+      margin: 12px 0 16px;
+      background: #f8fafc;
+    }
+    .mockup-bar {
+      background: #f1f5f9;
+      border-bottom: 1px solid #e2e8f0;
+      padding: 8px 12px;
+      display: flex; gap: 6px; align-items: center;
+    }
+    .mockup-dot { width: 10px; height: 10px; border-radius: 50%; }
+    .mockup-dot.r { background: #fca5a5; }
+    .mockup-dot.y { background: #fde68a; }
+    .mockup-dot.g { background: #86efac; }
+    .mockup-url {
+      background: white; border-radius: 6px; border: 1px solid #e2e8f0;
+      padding: 3px 10px; font-size: 11px; color: #94a3b8; flex: 1; margin: 0 8px;
+    }
+    .mockup-body { padding: 16px; }
+
+    /* Inline UI components */
+    .ui-card {
+      background: white; border-radius: 12px; border: 1px solid #e2e8f0;
+      padding: 12px 16px; margin-bottom: 8px;
+      display: flex; align-items: center; gap: 12px;
+    }
+    .ui-icon-box {
+      width: 28px; height: 28px; border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 13px; flex-shrink: 0;
+    }
+    .ui-label { font-size: 12px; font-weight: 600; color: #334155; flex: 1; }
+    .ui-sub   { font-size: 11px; color: #94a3b8; }
+    .ui-badge {
+      border-radius: 100px; padding: 2px 8px;
+      font-size: 10px; font-weight: 700;
+    }
+    .badge-amber  { background: #fef3c7; color: #92400e; }
+    .badge-teal   { background: #ccfbf1; color: #115e59; }
+    .badge-violet { background: #ede9fe; color: #5b21b6; }
+    .badge-indigo { background: #e0e7ff; color: #3730a3; }
+    .badge-green  { background: #dcfce7; color: #14532d; }
+    .badge-red    { background: #fee2e2; color: #991b1b; }
+
+    .divider { height: 1px; background: #f1f5f9; margin: 4px 0; }
+
+    /* Approval mockup */
+    .approval-header {
+      background: #f0fdf4; border-radius: 10px 10px 0 0;
+      padding: 10px 14px;
+      display: flex; align-items: center; justify-content: space-between;
+      border: 1px solid #bbf7d0; border-bottom: none;
+    }
+    .approval-body {
+      border: 1px solid #bbf7d0; border-radius: 0 0 10px 10px;
+      overflow: hidden;
+    }
+    .approval-row {
+      display: flex; align-items: center; padding: 10px 14px; gap: 10px;
+      background: white;
+    }
+    .approval-row + .approval-row { border-top: 1px solid #f1f5f9; }
+    .btn-approve {
+      background: #16a34a; color: white; border: none;
+      border-radius: 8px; padding: 4px 10px; font-size: 11px; font-weight: 600; cursor: pointer;
+    }
+    .btn-reject {
+      background: white; color: #dc2626; border: 1px solid #fca5a5;
+      border-radius: 8px; padding: 4px 10px; font-size: 11px; font-weight: 600; cursor: pointer;
+    }
+
+    /* Map mockup */
+    .map-bg {
+      background: #dbeafe;
+      border-radius: 10px; position: relative; height: 140px;
+      overflow: hidden; display: flex; align-items: center; justify-content: center;
+    }
+    .map-grid {
+      position: absolute; inset: 0;
+      background-image: repeating-linear-gradient(#bfdbfe 0, #bfdbfe 1px, transparent 1px, transparent 40px),
+                        repeating-linear-gradient(90deg, #bfdbfe 0, #bfdbfe 1px, transparent 1px, transparent 40px);
+    }
+    .map-marker {
+      position: absolute;
+      border-radius: 50%; display: flex; align-items: center;
+      justify-content: center; font-size: 14px;
+      border: 2px solid white; box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+      z-index: 1;
+    }
+    .map-cluster {
+      position: absolute; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 11px; font-weight: 800; color: white;
+      border: 3px solid rgba(255,255,255,0.8); box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+      z-index: 2;
+    }
+    .map-filter-bar {
+      display: flex; gap: 6px; padding: 8px 12px;
+      background: white; border-top: 1px solid #e2e8f0;
+    }
+    .map-filter-btn {
+      border-radius: 100px; padding: 3px 10px;
+      font-size: 11px; font-weight: 600; border: 1px solid #e2e8f0;
+      cursor: pointer;
+    }
+    .map-filter-btn.active-blue  { background: #dbeafe; color: #1d4ed8; border-color: #93c5fd; }
+    .map-filter-btn.active-green { background: #dcfce7; color: #15803d; border-color: #86efac; }
+    .map-filter-btn.active-orange{ background: #ffedd5; color: #c2410c; border-color: #fdba74; }
+
+    /* Pending approval widget */
+    .pending-widget {
+      background: white; border-radius: 12px; border: 1px solid #e2e8f0;
+      overflow: hidden;
+    }
+    .pending-widget-header {
+      background: #f8fafc; padding: 10px 14px;
+      display: flex; align-items: center; justify-content: space-between;
+      border-bottom: 1px solid #f1f5f9;
+    }
+    .pending-item {
+      display: flex; align-items: center; gap: 10px; padding: 10px 14px;
+    }
+    .pending-item + .pending-item { border-top: 1px solid #f1f5f9; }
+    .pending-item-icon {
+      width: 28px; height: 28px; border-radius: 8px;
+      display: flex; align-items: center; justify-content: center; font-size: 13px;
+    }
+
+    /* Feature list */
+    .feature-list { list-style: none; }
+    .feature-list li {
+      padding: 6px 0 6px 22px; font-size: 13px; color: #334155; position: relative;
+    }
+    .feature-list li::before {
+      content: "✓"; position: absolute; left: 0;
+      color: #10b981; font-weight: 700;
+    }
+
+    /* Tag */
+    .tag {
+      display: inline-block; border-radius: 6px; padding: 2px 8px;
+      font-size: 11px; font-weight: 600; margin-right: 4px; margin-bottom: 4px;
+    }
+    .tag-new      { background: #d1fae5; color: #065f46; }
+    .tag-fix      { background: #fee2e2; color: #991b1b; }
+    .tag-improve  { background: #dbeafe; color: #1e40af; }
+    .tag-backend  { background: #f3e8ff; color: #6b21a8; }
+
+    /* Permission table */
+    .perm-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    .perm-table th {
+      background: #f1f5f9; padding: 8px 12px; text-align: left;
+      font-weight: 700; color: #475569;
+    }
+    .perm-table td { padding: 8px 12px; border-top: 1px solid #f1f5f9; color: #334155; }
+    .perm-table tr:hover td { background: #f8fafc; }
+
+    /* Footer */
+    .footer {
+      border-top: 1px solid #e2e8f0; margin-top: 60px; padding-top: 24px;
+      font-size: 12px; color: #94a3b8; text-align: center;
+    }
+    .footer strong { color: #64748b; }
+  </style>
+</head>
+<body>
+<div class="page">
+
+  <!-- ══ HEADER ══════════════════════════════════════════════════════════════ -->
+  <div class="header">
+    <div class="header-badge">SAREE ERP RELEASE NOTES</div>
+    <h1>Phiên bản 1.2.0</h1>
+    <p>Bản đồ tổng quan, trang phê duyệt chung, thiết kế lại trang công việc và quản lý quyền kỹ năng</p>
+    <div class="header-meta">
+      <span>26/07/2026</span>
+      <span>7 tính năng mới</span>
+      <span>4 sửa lỗi</span>
+      <span>1 cải thiện bảo mật</span>
+    </div>
+  </div>
+
+  <!-- ══ BẢN ĐỒ ════════════════════════════════════════════════════════════ -->
+  <div class="section">
+    <div class="section-label">Bản đồ tổng quan</div>
+
+    <div class="card">
+      <div class="card-header">
+        <div class="card-icon" style="background:#dbeafe;">🗺️</div>
+        <div class="card-header-text">
+          <h3>Icon bản đồ được làm lại — dễ đọc hơn</h3>
+          <p>Thay thế các chấm màu khó phân biệt bằng icon emoji có nhãn rõ ràng theo loại</p>
+        </div>
+      </div>
+      <div class="card-body">
+        <div class="mockup">
+          <div class="mockup-bar">
+            <div class="mockup-dot r"></div><div class="mockup-dot y"></div><div class="mockup-dot g"></div>
+            <div class="mockup-url">saree.local/map</div>
+          </div>
+          <div class="mockup-body">
+            <div class="map-bg">
+              <div class="map-grid"></div>
+              <!-- Site markers -->
+              <div class="map-marker" style="width:46px;height:46px;background:#eff6ff;top:20px;left:80px;flex-direction:column;gap:1px;">
+                <span style="font-size:13px;">🏗</span>
+                <span style="font-size:9px;font-weight:700;color:#1d4ed8;">72%</span>
+              </div>
+              <!-- Customer -->
+              <div class="map-marker" style="width:38px;height:38px;background:#f0fdf4;top:55px;left:200px;">
+                🏢
+              </div>
+              <!-- Staff -->
+              <div class="map-marker" style="width:36px;height:36px;background:#fff7ed;top:30px;left:300px;">
+                👷
+              </div>
+              <!-- Cluster -->
+              <div class="map-cluster" style="width:44px;height:44px;background:#1d4ed8;bottom:20px;left:140px;">
+                🏗 3
+              </div>
+              <div class="map-cluster" style="width:44px;height:44px;background:#d97706;bottom:20px;right:80px;">
+                👷 5
+              </div>
+            </div>
+            <div class="map-filter-bar">
+              <button class="map-filter-btn active-blue">🏗 Công trình</button>
+              <button class="map-filter-btn active-green">🏢 Khách hàng</button>
+              <button class="map-filter-btn active-orange">👷 Nhân sự</button>
+            </div>
+          </div>
+        </div>
+        <ul class="feature-list">
+          <li>🏗 Công trình: icon hình chữ nhật xanh kèm phần trăm tiến độ</li>
+          <li>🏢 Khách hàng: icon vuông xanh lá</li>
+          <li>👷 Nhân sự: icon tròn màu theo trạng thái (on-site / nghỉ / tại nhà)</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <div class="card-icon" style="background:#fef3c7;">📍</div>
+        <div class="card-header-text">
+          <h3>Marker tự gom cụm — không còn chồng đè lên nhau</h3>
+          <p>Khi nhiều điểm nằm gần nhau, tự động gom thành 1 bubble kèm số lượng. Bấm vào để phân tán ra</p>
+        </div>
+      </div>
+      <div class="card-body">
+        <ul class="feature-list">
+          <li>3 lớp cluster riêng biệt: công trình (xanh) / khách hàng (xanh lá) / nhân sự (cam)</li>
+          <li>Bấm vào cluster nhân sự: phân tán kiểu mạng nhện (spiderfy) thay vì zoom</li>
+          <li>Hiệu năng tốt dù có hàng trăm điểm trên bản đồ</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <div class="card-icon" style="background:#f3e8ff;">🔀</div>
+        <div class="card-header-text">
+          <h3>Bộ lọc lớp bản đồ</h3>
+          <p>Chọn hiển thị theo loại: chỉ công trình, chỉ nhân sự, hoặc kết hợp tùy ý</p>
+        </div>
+      </div>
+      <div class="card-body">
+        <div class="map-filter-bar" style="background:#f8fafc;border-radius:10px;border:1px solid #e2e8f0;margin-bottom:12px;">
+          <button class="map-filter-btn active-blue">🏗 Công trình</button>
+          <button class="map-filter-btn" style="color:#64748b;">🏢 Khách hàng</button>
+          <button class="map-filter-btn active-orange">👷 Nhân sự</button>
+        </div>
+        <ul class="feature-list">
+          <li>3 nút toggle ngay dưới bản đồ — bật/tắt từng lớp độc lập</li>
+          <li>Trạng thái filter không ảnh hưởng lẫn nhau</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ TRANG CÔNG VIỆC ════════════════════════════════════════════════════ -->
+  <div class="section">
+    <div class="section-label">Trang Công việc (/tasks)</div>
+
+    <div class="card">
+      <div class="card-header">
+        <div class="card-icon" style="background:#fef3c7;">⏳</div>
+        <div class="card-header-text">
+          <h3>Widget "Chờ phê duyệt" — thiết kế lại, dữ liệu thật</h3>
+          <p>Thay mock data bằng API thật, mỗi item có icon riêng và đường kẻ phân tách rõ ràng</p>
+        </div>
+      </div>
+      <div class="card-body">
+        <div class="mockup">
+          <div class="mockup-bar">
+            <div class="mockup-dot r"></div><div class="mockup-dot y"></div><div class="mockup-dot g"></div>
+            <div class="mockup-url">saree.local/tasks</div>
+          </div>
+          <div class="mockup-body">
+            <div class="pending-widget">
+              <div class="pending-widget-header">
+                <div style="display:flex;align-items:center;gap:8px;">
+                  <span>⏳</span>
+                  <span style="font-size:13px;font-weight:700;color:#334155;">Chờ phê duyệt</span>
+                  <span style="background:#ef4444;color:white;border-radius:100px;padding:1px 7px;font-size:10px;font-weight:700;">3</span>
+                </div>
+                <span style="font-size:12px;font-weight:600;color:#3b82f6;">Xem &amp; duyệt ›</span>
+              </div>
+              <div class="pending-item">
+                <div class="pending-item-icon" style="background:#ccfbf1;">📅</div>
+                <div style="flex:1">
+                  <div style="font-size:12px;font-weight:600;color:#0f172a;">Nghỉ phép năm</div>
+                  <div style="font-size:11px;color:#94a3b8;">04/08/2026 · 3 ngày</div>
+                </div>
+                <span class="ui-badge badge-amber">Chờ duyệt</span>
+              </div>
+              <div class="pending-item">
+                <div class="pending-item-icon" style="background:#ede9fe;">⭐</div>
+                <div style="flex:1">
+                  <div style="font-size:12px;font-weight:600;color:#0f172a;">Hệ thống lạnh công nghiệp, Máy nén lạnh...</div>
+                  <div style="font-size:11px;color:#94a3b8;">2 kỹ năng · 26/07/2026</div>
+                </div>
+                <span class="ui-badge badge-amber">Chờ duyệt</span>
+              </div>
+              <div class="pending-item">
+                <div class="pending-item-icon" style="background:#fef9c3;">📋</div>
+                <div style="flex:1">
+                  <div style="font-size:12px;font-weight:600;color:#0f172a;">Hệ thống Máy nén QAC</div>
+                  <div style="font-size:11px;color:#94a3b8;">Siêu Thị Lotte Mart · #BG-2026-001</div>
+                </div>
+                <span class="ui-badge badge-amber">Duyệt Khảo sát</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <ul class="feature-list">
+          <li>Dữ liệu thật từ API: nghỉ phép, kỹ năng, báo giá, hợp đồng</li>
+          <li>Icon nền màu riêng cho từng loại (teal / violet / amber / indigo)</li>
+          <li>Divider màu slate-100 rõ ràng giữa các item</li>
+          <li>Kỹ năng hiển thị tên cụ thể thay vì "2 kỹ năng"</li>
+          <li>Nghỉ phép có số ngày ở sub-text</li>
+          <li>Nhấn vào widget → mở trang /approvals</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ TRANG PHÊ DUYỆT CHUNG ════════════════════════════════════════════ -->
+  <div class="section">
+    <div class="section-label">Trang Phê duyệt chung (/approvals) — Mới</div>
+
+    <div class="card">
+      <div class="card-header">
+        <div class="card-icon" style="background:#dcfce7;">✅</div>
+        <div class="card-header-text">
+          <h3>Trang phê duyệt tập trung — 1 chỗ xử lý tất cả</h3>
+          <p>Gom 4 loại phê duyệt vào một trang, phân quyền rõ ràng theo role</p>
+        </div>
+      </div>
+      <div class="card-body">
+        <div class="mockup">
+          <div class="mockup-bar">
+            <div class="mockup-dot r"></div><div class="mockup-dot y"></div><div class="mockup-dot g"></div>
+            <div class="mockup-url">saree.local/approvals</div>
+          </div>
+          <div class="mockup-body" style="space-y:12px;">
+
+            <!-- Leave section -->
+            <div style="margin-bottom:12px;">
+              <div class="approval-header" style="background:#f0fdfa;border-color:#99f6e4;">
+                <div style="display:flex;align-items:center;gap:8px;">
+                  <span>📅</span>
+                  <span style="font-size:12px;font-weight:700;color:#115e59;">Nghỉ phép chờ duyệt</span>
+                </div>
+                <span style="font-size:11px;color:#94a3b8;">3 mục</span>
+              </div>
+              <div class="approval-body" style="border-color:#99f6e4;">
+                <div class="approval-row">
+                  <div style="flex:1">
+                    <div style="font-size:12px;font-weight:700;">Vũ Huỳnh</div>
+                    <div style="font-size:11px;color:#64748b;">Nghỉ bệnh · 28/07/2026 → 28/07/2026 · <strong>1 ngày</strong></div>
+                    <div style="font-size:10px;color:#94a3b8;font-style:italic;">"Khám bệnh định kỳ"</div>
+                  </div>
+                  <button class="btn-approve">✓ Duyệt</button>
+                  <button class="btn-reject">✗ Từ chối</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Quotation -->
+            <div style="margin-bottom:12px;">
+              <div class="approval-header" style="background:#fffbeb;border-color:#fde68a;">
+                <div style="display:flex;align-items:center;gap:8px;">
+                  <span>📋</span>
+                  <span style="font-size:12px;font-weight:700;color:#92400e;">Báo giá chờ xử lý</span>
+                </div>
+                <span style="font-size:11px;color:#94a3b8;">1 mục</span>
+              </div>
+              <div class="approval-body" style="border-color:#fde68a;">
+                <div class="approval-row" style="cursor:pointer;">
+                  <div style="flex:1">
+                    <div style="font-size:12px;font-weight:700;">Hệ thống Máy nén QAC</div>
+                    <div style="font-size:11px;color:#64748b;">Siêu Thị Lotte Mart · #BG-2026-001</div>
+                  </div>
+                  <span class="ui-badge badge-amber">Duyệt Khảo sát</span>
+                  <span style="color:#cbd5e1;margin-left:6px;">›</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Skills -->
+            <div>
+              <div class="approval-header" style="background:#faf5ff;border-color:#d8b4fe;">
+                <div style="display:flex;align-items:center;gap:8px;">
+                  <span>⭐</span>
+                  <span style="font-size:12px;font-weight:700;color:#6b21a8;">Yêu cầu kỹ năng của tôi</span>
+                </div>
+                <span style="font-size:11px;color:#94a3b8;">1 mục</span>
+              </div>
+              <div class="approval-body" style="border-color:#d8b4fe;">
+                <div class="approval-row">
+                  <div style="flex:1">
+                    <div style="font-size:11px;color:#94a3b8;margin-bottom:4px;">Gửi 26/07/2026</div>
+                    <div style="display:flex;gap:4px;flex-wrap:wrap;">
+                      <span style="background:#ede9fe;color:#5b21b6;border-radius:100px;padding:2px 8px;font-size:10px;font-weight:600;">Hệ thống lạnh · Nâng cao</span>
+                      <span style="background:#ede9fe;color:#5b21b6;border-radius:100px;padding:2px 8px;font-size:10px;font-weight:600;">Máy nén lạnh · Trung cấp</span>
+                    </div>
+                    <div style="font-size:10px;color:#94a3b8;margin-top:4px;font-style:italic;">"Đã hoàn thành khoá đào tạo nội bộ Q2/2026"</div>
+                  </div>
+                  <span class="ui-badge badge-amber">Chờ duyệt</span>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+        <ul class="feature-list">
+          <li><strong>Nghỉ phép</strong>: duyệt/từ chối inline, hiện đầy đủ ngày + lý do + số ngày</li>
+          <li><strong>Báo giá / Hợp đồng</strong>: nhấn vào → mở trang chi tiết đúng đơn đó</li>
+          <li><strong>Yêu cầu kỹ năng của tôi</strong>: mọi user thấy đơn bản thân đã gửi kèm status</li>
+          <li><strong>Hàng đợi duyệt kỹ năng</strong>: chỉ hiện với role có quyền SKILL_APPROVE</li>
+          <li>Hợp đồng chỉ hiện khi user có quyền CONTRACT_APPROVE</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ TRANG KỸ NĂNG ═══════════════════════════════════════════════════ -->
+  <div class="section">
+    <div class="section-label">Trang Yêu cầu kỹ năng (/skill-requests) — Mới</div>
+
+    <div class="card">
+      <div class="card-header">
+        <div class="card-icon" style="background:#ede9fe;">⭐</div>
+        <div class="card-header-text">
+          <h3>Trang quản lý kỹ năng riêng biệt</h3>
+          <p>Nhân viên theo dõi đơn của mình, quản lý có hàng đợi phê duyệt</p>
+        </div>
+      </div>
+      <div class="card-body">
+        <ul class="feature-list">
+          <li>Section "Cần tôi duyệt" — chỉ hiện khi có quyền SKILL_APPROVE</li>
+          <li>Section "Đơn của tôi" — mọi nhân viên đều thấy, kèm status badge</li>
+          <li>Danh sách kỹ năng với tên đầy đủ và cấp độ (Cơ bản / Trung cấp / Nâng cao / Giỏi / Chuyên gia)</li>
+          <li>Duyệt/từ chối có form nhập lý do từ chối</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ PHÂN QUYỀN ════════════════════════════════════════════════════════ -->
+  <div class="section">
+    <div class="section-label">Cập nhật phân quyền</div>
+
+    <div class="card">
+      <div class="card-header">
+        <div class="card-icon" style="background:#f3e8ff;">🔐</div>
+        <div class="card-header-text">
+          <h3>Thêm quyền SKILL_APPROVE — tự động gán cho level 1–2</h3>
+          <p>Migration 0052 — chạy tự động khi deploy, không cần gán thủ công</p>
+        </div>
+      </div>
+      <div class="card-body">
+        <table class="perm-table" style="margin-bottom:12px;">
+          <thead>
+            <tr>
+              <th>Permission</th>
+              <th>Mô tả</th>
+              <th>Role được gán</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code style="background:#f3e8ff;color:#6b21a8;border-radius:4px;padding:2px 6px;">SKILL_APPROVE</code></td>
+              <td>Duyệt/từ chối yêu cầu nâng cấp kỹ năng nhân viên</td>
+              <td>admin, director, department_head, workshop_lead, engineer, materials, planner...</td>
+            </tr>
+          </tbody>
+        </table>
+        <ul class="feature-list">
+          <li>Permission tạo qua migration idempotent (<code>ON CONFLICT DO NOTHING</code>)</li>
+          <li>Gán cho tất cả role có <code>level ≤ 2</code> — không cần config thủ công</li>
+          <li>Cập nhật <code>seed_defaults.py</code> cho tenant mới</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ SỬA LỖI ════════════════════════════════════════════════════════════ -->
+  <div class="section">
+    <div class="section-label">Sửa lỗi</div>
+
+    <div class="card">
+      <div class="card-body" style="padding-top:16px;">
+        <div class="ui-card" style="border-left:3px solid #f87171;">
+          <span class="tag tag-fix">FIX</span>
+          <div>
+            <div class="ui-label">Vite reload vô hạn (x70 lần)</div>
+            <div class="ui-sub"><code>routeTree.gen.ts</code> liên tục trigger HMR. Fix: thêm <code>watch.ignored</code> trong vite.config.ts</div>
+          </div>
+        </div>
+        <div class="ui-card" style="border-left:3px solid #f87171;">
+          <span class="tag tag-fix">FIX</span>
+          <div>
+            <div class="ui-label">Trang /approvals "page not found"</div>
+            <div class="ui-sub">Icon <code>FileSignature</code> không tồn tại trong lucide-react đang cài → crash runtime. Thay bằng <code>ScrollText</code></div>
+          </div>
+        </div>
+        <div class="ui-card" style="border-left:3px solid #f87171;">
+          <span class="tag tag-fix">FIX</span>
+          <div>
+            <div class="ui-label">Trang /tasks title xuống dòng 1 chữ/dòng trên mobile</div>
+            <div class="ui-sub">Bỏ <code>max-w-2xl mx-auto</code> trong layout header, thiết kế lại toàn bộ trang</div>
+          </div>
+        </div>
+        <div class="ui-card" style="border-left:3px solid #f87171;">
+          <span class="tag tag-fix">FIX</span>
+          <div>
+            <div class="ui-label">Skills chờ duyệt không hiện dù đã gửi đơn</div>
+            <div class="ui-sub">Frontend gate <code>useCan("SKILL_APPROVE")</code> luôn false vì permission chưa tồn tại trong DB. Đã thêm permission + migration</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ DATA SEED ════════════════════════════════════════════════════════ -->
+  <div class="section">
+    <div class="section-label">Dữ liệu test</div>
+
+    <div class="card">
+      <div class="card-header">
+        <div class="card-icon" style="background:#ecfdf5;">🗄️</div>
+        <div class="card-header-text">
+          <h3>Seed dữ liệu mẫu cho môi trường test</h3>
+          <p>Tạo đơn nghỉ phép và yêu cầu kỹ năng pending để test toàn bộ luồng phê duyệt</p>
+        </div>
+      </div>
+      <div class="card-body">
+        <table class="perm-table">
+          <thead>
+            <tr><th>Loại</th><th>Nhân viên</th><th>Chi tiết</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Nghỉ phép</td><td>Tuấn Anh</td><td>Nghỉ phép năm 04–06/08, 3 ngày</td></tr>
+            <tr><td>Nghỉ phép</td><td>Vũ Huỳnh</td><td>Nghỉ bệnh 28/07, 1 ngày</td></tr>
+            <tr><td>Nghỉ phép</td><td>Bích Vân</td><td>Nghỉ phép năm 11–12/08, 2 ngày</td></tr>
+            <tr><td>Kỹ năng</td><td>Tuấn Anh</td><td>Hệ thống lạnh công nghiệp (Nâng cao), Máy nén lạnh (Trung cấp)</td></tr>
+            <tr><td>Kỹ năng</td><td>Vũ Huỳnh</td><td>Lắp đặt IQF (Giỏi)</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ FOOTER ═══════════════════════════════════════════════════════════ -->
+  <div class="footer">
+    <strong>Saree ERP v1.2.0</strong> · Phát hành 26/07/2026 ·
+    Xem lịch sử phát hành đầy đủ tại <code>docs/internal/release-notes.md</code>
+  </div>
+
+</div>
+</body>
+</html>

@@ -25,6 +25,19 @@ export type ReleaseNote = {
 
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    version: "1.2.0",
+    date: "26/07/2026",
+    title: "Bản đồ mới, trang phê duyệt chung & quản lý kỹ năng",
+    items: [
+      "Bản đồ tổng quan: icon mới dễ đọc (🏗 công trình / 🏢 khách hàng / 👷 nhân sự), tự gom cụm khi nhiều điểm chồng nhau, bật/tắt từng lớp riêng biệt.",
+      "Trang /approvals mới: xem và xử lý tất cả phê duyệt ở một chỗ — nghỉ phép, báo giá, hợp đồng, kỹ năng.",
+      "Trang /skill-requests mới: nhân viên theo dõi đơn kỹ năng của mình, quản lý duyệt inline có lý do từ chối.",
+      "Widget 'Chờ phê duyệt' trong /tasks dùng dữ liệu thật, thiết kế lại rõ ràng hơn với icon và divider từng loại.",
+      "Báo giá và hợp đồng trong trang phê duyệt: nhấn vào mở đúng trang chi tiết.",
+      "Quyền SKILL_APPROVE tự động gán cho giám đốc và quản lý — không cần cấu hình thủ công.",
+    ],
+  },
+  {
     version: "1.1.0",
     date: "26/07/2026",
     title: "Biểu đồ Gantt mới",

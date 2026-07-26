@@ -136,6 +136,9 @@ ALL_PERMISSIONS = [
     {"code": "LEAVE_APPROVE",            "module": "leave", "action": "approve","scope": "team",   "description": "Duyệt/từ chối đơn xin nghỉ phép"},
     {"code": "LEAVE_VIEW_TEAM",          "module": "leave", "action": "read",   "scope": "team",   "description": "Xem đơn nghỉ phép của nhân viên/phòng ban"},
     {"code": "LEAVE_CONFIG",             "module": "leave", "action": "update", "scope": "global", "description": "Cấu hình người/role duyệt nghỉ phép (Giám đốc+)"},
+
+    # --- Skills (kỹ năng nhân viên) ---
+    {"code": "SKILL_APPROVE",            "module": "skill", "action": "approve","scope": "company","description": "Duyệt/từ chối yêu cầu nâng cấp kỹ năng nhân viên"},
 ]
 # fmt: on
 
@@ -154,6 +157,8 @@ _DEPT_HEAD_LIKE_PERMS: list[str] = [
     "INCIDENT_CREATE", "INCIDENT_VIEW", "INCIDENT_RESOLVE",
     # Leave — request own + view the team's leave
     "LEAVE_CREATE", "LEAVE_VIEW_TEAM",
+    # Skills — approve skill requests from their team
+    "SKILL_APPROVE",
     # Quotation — base read
     "QUOTATION_VIEW", "QUOTATION_REPORT",
     # Contract — view only
@@ -212,6 +217,7 @@ ROLE_PERMISSION_MAP: dict[str, list[str]] = {
         "ATTENDANCE_CHECKIN", "ATTENDANCE_VIEW_TEAM", "ATTENDANCE_VIEW_ALL", "ATTENDANCE_CONFIG_SITE",
         "INCIDENT_CREATE", "INCIDENT_VIEW", "INCIDENT_RESOLVE",
         "LEAVE_CREATE", "LEAVE_APPROVE", "LEAVE_VIEW_TEAM", "LEAVE_CONFIG",
+        "SKILL_APPROVE",
         *_DIRECTOR_QUOTATION_PERMS,
         "CONTRACT_VIEW_ALL", "CONTRACT_APPROVE", "CONTRACT_START_PRODUCTION", "CONTRACT_COMPLETE", "CONTRACT_DELETE",
     ],
