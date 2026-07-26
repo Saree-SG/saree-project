@@ -4,8 +4,7 @@ import { useMemo, useState } from "react"
 import { CheckCircle2, Clock, AlertTriangle, ChevronRight, Star, CalendarOff } from "lucide-react"
 
 import { type TaskPublic, TasksService } from "@/client"
-import { useMyPermissions, useCan } from "@/hooks/useMyPermissions"
-import { hasPermission } from "@/utils/accountAccess"
+import { useCan } from "@/hooks/useMyPermissions"
 import { cn } from "@/lib/utils"
 import { listMyLeaveRequests } from "@/modules/leave/leaveApi"
 import { fetchMySkillRequests } from "@/modules/skills/skillApi"
@@ -246,10 +245,6 @@ function PendingApprovalsBox() {
 
 // ── Main ──────────────────────────────────────────────────────────────────────
 function MyTasksPage() {
-  const permissionsQuery = useMyPermissions()
-  const permissions = permissionsQuery.data ?? []
-  const canContractApprove = hasPermission(permissions, "CONTRACT_APPROVE")
-
   const dashboardQuery = useQuery({
     queryKey: ["my-tasks-dashboard"],
     queryFn: async () => (await TasksService.myDashboard()) as MyDashboardPayload,
