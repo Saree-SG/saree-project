@@ -39,7 +39,6 @@ type MyDashboardPayload = {
 }
 
 const LEAVE_TYPE_VN: Record<string, string> = { annual: "Nghỉ phép năm", sick: "Nghỉ bệnh", unpaid: "Nghỉ không lương" }
-const LEVEL_LABEL: Record<number, string> = { 1: "Cơ bản", 2: "Trung cấp", 3: "Nâng cao", 4: "Chuyên gia" }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function formatDeadline(endTime: string): string {
@@ -266,8 +265,6 @@ function MyTasksPage() {
     enabled: canContractApprove,
   })
 
-  const pendingQuotations = pendingQuotationsQuery.data ?? []
-  const pendingContracts = pendingContractsQuery.data?.data ?? []
 
   const data = dashboardQuery.data
   const [filterProjectId, setFilterProjectId] = useState("")
