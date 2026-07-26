@@ -7,12 +7,34 @@ import react from "@vitejs/plugin-react-swc"
 import { defineConfig, type Plugin } from "vite"
 
 // ─── Version identity (computed once per build) ─────────────────────────────
-// `version` is the human-readable semver from package.json (bump it per
-// release). `build` is the git commit short hash — it changes on every deploy
-// automatically, so update detection still works even if semver isn't bumped.
+// `version` is the semver of the newest entry in src/data/releaseNotes.ts, NOT
+// package.json. Reason: a release note must be added for every user-facing
+// release anyway (the unread badge keys off its version), so it is the one place
+// that cannot be forgotten. Bumping package.json by hand was a second
+// bookkeeping step that just went stale — the header sat at v1.0.0 forever.
+// `build` is the git commit short hash — it changes on every deploy
+// automatically, and update detection keys off it alone.
 const pkg = JSON.parse(
   readFileSync(path.resolve(__dirname, "package.json"), "utf-8"),
 ) as { version: string }
+
+function resolveVersion(): string {
+  // Read the first quoted `version:` in the RELEASE_NOTES array. The type
+  // declaration above it uses `version: string` (unquoted), so the first quoted
+  // hit is always the newest entry.
+  try {
+    const src = readFileSync(
+      path.resolve(__dirname, "src/data/releaseNotes.ts"),
+      "utf-8",
+    )
+    const match = /version:\s*"([^"]+)"/.exec(src)
+    if (match?.[1]) return match[1]
+  } catch {
+    // fall through
+  }
+  // Never fail a build over a version string.
+  return pkg.version
+}
 
 function resolveBuild(): string {
   // CI / Docker injects the hash because the build context has no .git dir.
@@ -31,7 +53,7 @@ function resolveBuild(): string {
   }
 }
 
-const APP_VERSION = pkg.version
+const APP_VERSION = resolveVersion()
 const APP_BUILD = resolveBuild()
 const APP_VERSION_LABEL = `v${APP_VERSION} (${APP_BUILD})`
 

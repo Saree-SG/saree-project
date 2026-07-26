@@ -3,6 +3,16 @@
  * this array on every user-facing release — `version` must be unique and is
  * what gets stored as the user's `last_seen_release_version` once they open
  * the popup, so it must change for the unread badge to reappear.
+ *
+ * `version` is ALSO the version shown in the app header (vite.config.ts reads
+ * the newest entry here). This file is the single source of truth: package.json
+ * is not used for the displayed version, because keeping two places in sync by
+ * hand is what left the header stuck at v1.0.0.
+ *
+ * Use semver:
+ *   patch (1.0.0 → 1.0.1)  sửa lỗi, không đổi cách dùng
+ *   minor (1.0.1 → 1.1.0)  thêm tính năng, không phá cái cũ
+ *   major (1.1.0 → 2.0.0)  refactor lớn / thay đổi phá vỡ cách dùng cũ
  */
 export type ReleaseNote = {
   version: string
@@ -12,6 +22,21 @@ export type ReleaseNote = {
 }
 
 export const RELEASE_NOTES: ReleaseNote[] = [
+  {
+    version: "1.1.0",
+    date: "26/07/2026",
+    title: "Biểu đồ Gantt mới",
+    items: [
+      "Biểu đồ Gantt được làm lại: mở lên là tự nhảy tới hôm nay, vạch vàng đánh dấu ngày hiện tại, kéo ngang luôn thấy mình đang ở ngày nào.",
+      "Dùng tốt trên điện thoại — vừa kéo ngang biểu đồ vừa cuộn dọc trang được.",
+      "Thêm tab “Tổng quan dự án”: mỗi dòng là một dự án kèm % tiến độ, bấm vào để mở chi tiết.",
+      "Công việc trễ hạn và sắp đến hạn hiện rõ bằng màu, kèm bảng chú thích màu ngay dưới biểu đồ.",
+      "Có mũi tên nối các công việc phụ thuộc nhau; bấm vào công việc để mở trang chi tiết.",
+      "Lọc theo trạng thái, người phụ trách, hoặc chỉ xem việc trên đường găng (critical path).",
+      "Xuất ảnh PNG giờ ra trọn biểu đồ, không còn cắt mất phần ngoài màn hình.",
+      "Giám đốc và quản lý cấp 1–2 xem được toàn bộ dự án của công ty trong phần Tổng quan.",
+    ],
+  },
   {
     version: "2026.07.25",
     date: "25/07/2026",
