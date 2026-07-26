@@ -13,6 +13,8 @@
  *   patch (1.0.0 → 1.0.1)  sửa lỗi, không đổi cách dùng
  *   minor (1.0.1 → 1.1.0)  thêm tính năng, không phá cái cũ
  *   major (1.1.0 → 2.0.0)  refactor lớn / thay đổi phá vỡ cách dùng cũ
+ *
+ * Quy trình phát hành đầy đủ: docs/release-process.md
  */
 export type ReleaseNote = {
   version: string
