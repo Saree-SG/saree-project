@@ -11,8 +11,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
 from app.core.database.repository import BaseRepository
-from app.models.org import ProjectMemberRole
+from app.models.org import Department, ProjectMemberRole
 from app.models.project import Project, TaskLevelConfig
+
+# Projects in these states are hidden from the timeline overview by default —
+# mirrors the demo, which only charts work still in flight.
+FINISHED_PROJECT_STATUSES = ("completed", "cancelled")
 
 
 class ProjectRepository(BaseRepository[Project]):
@@ -73,6 +77,54 @@ class ProjectRepository(BaseRepository[Project]):
 
         result = await self._execute(stmt.offset(skip).limit(limit))
         return result.scalars().all(), total
+
+    async def list_timeline_for_user(
+        self,
+        company_id: uuid.UUID,
+        user_id: uuid.UUID,
+        company_wide: bool,
+        department_id: uuid.UUID | None = None,
+        include_finished: bool = False,
+    ) -> Sequence[tuple[Project, str | None]]:
+        """Return (project, department_name) for the timeline overview.
+
+        Unpaginated on purpose — the overview charts every project the user can see
+        on one axis, and paging would break the shared time scale.
+
+        `company_wide` = the caller oversees the whole company (board/manager, see
+        has_company_wide_scope) and gets every project in it. Everyone else sees
+        only projects they belong to or created.
+        """
+        stmt = (
+            select(Project, Department.name)
+            .outerjoin(Department, Department.id == Project.department_id)
+            .where(
+                Project.company_id == company_id,
+                Project.is_deleted == False,  # noqa: E712
+            )
+            .order_by(Project.start_date, Project.name)
+        )
+        if not company_wide:
+            member_ids_stmt = select(ProjectMemberRole.project_id).where(
+                ProjectMemberRole.user_id == user_id
+            )
+            member_result = await self._execute(member_ids_stmt)
+            member_project_ids = member_result.scalars().all()
+            stmt = stmt.where(
+                or_(
+                    Project.id.in_(member_project_ids),  # type: ignore[arg-type]
+                    Project.created_by == user_id,
+                )
+            )
+        if department_id:
+            stmt = stmt.where(Project.department_id == department_id)
+        if not include_finished:
+            stmt = stmt.where(
+                Project.status.notin_(FINISHED_PROJECT_STATUSES)  # type: ignore[attr-defined]
+            )
+
+        result = await self._execute(stmt)
+        return result.all()  # type: ignore[return-value]
 
     # ------------------------------------------------------------------
     # Project writes

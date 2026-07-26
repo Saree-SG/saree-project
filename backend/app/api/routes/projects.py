@@ -18,6 +18,7 @@ from app.models.project import (
     ProjectCreate,
     ProjectPublic,
     ProjectsPublic,
+    ProjectTimelinePublic,
     ProjectUpdate,
     TaskLevelConfigCreate,
     TaskLevelConfigPublic,
@@ -49,6 +50,23 @@ async def list_projects(
     """List projects visible to current user."""
     return await _svc(session).list_projects(
         current_user, status_filter=status_filter, skip=skip, limit=limit
+    )
+
+
+# NOTE: must stay above GET /{project_id} — otherwise "timeline" is matched as a
+# project_id path param and rejected as an invalid UUID.
+@router.get("/timeline", response_model=list[ProjectTimelinePublic])
+async def list_project_timeline(
+    session: AsyncSessionDep,
+    current_user: CurrentUser,
+    department_id: uuid.UUID | None = Query(default=None),
+    include_finished: bool = Query(default=False),
+) -> list[ProjectTimelinePublic]:
+    """Project-level Gantt overview: 1 row per project, unpaginated."""
+    return await _svc(session).list_timeline(
+        current_user,
+        department_id=department_id,
+        include_finished=include_finished,
     )
 
 

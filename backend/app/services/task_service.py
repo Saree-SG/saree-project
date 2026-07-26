@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import uuid
 from collections import defaultdict, deque
+from collections.abc import Sequence
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
@@ -270,6 +271,98 @@ async def _rollup_completion_pct(
     if cache is not None:
         cache[task_id] = result
     return result
+
+
+def _weights_for_siblings(
+    siblings: list[uuid.UUID], weight_of: dict[uuid.UUID, int | None]
+) -> dict[uuid.UUID, float]:
+    """Resolve the effective weight of each sibling in a group.
+
+    Same rule as _rollup_completion_pct: siblings that left progress_weight blank
+    split the unallocated weight (100 - Σ explicit) evenly between them.
+    """
+    explicit_total = sum(
+        float(weight_of[s]) for s in siblings if weight_of.get(s) is not None
+    )
+    auto = [s for s in siblings if weight_of.get(s) is None]
+    auto_weight = (max(0.0, 100.0 - explicit_total) / len(auto)) if auto else 0.0
+    return {
+        s: (float(weight_of[s]) if weight_of.get(s) is not None else auto_weight)
+        for s in siblings
+    }
+
+
+async def rollup_progress_for_projects(
+    session: AsyncSession, project_ids: Sequence[uuid.UUID]
+) -> dict[uuid.UUID, int]:
+    """Batch project-level completion % (0–100) for many projects at once.
+
+    Uses the same WBS weighted formula as _rollup_completion_pct(), but loads the
+    whole tree shape and all approved progress sums in 2 queries and folds them in
+    memory — the per-node version is N+1 and unusable for a project list view.
+
+    The project is treated as the virtual parent of its root tasks, so roots follow
+    the same explicit/auto weight-sharing rule as any other sibling group.
+    """
+    if not project_ids:
+        return {}
+
+    repo = TaskRepository(session)
+    shape = await repo.list_tree_shape_for_projects(project_ids)
+    if not shape:
+        return dict.fromkeys(project_ids, 0)
+
+    progress_of = await repo.sum_progress_for_projects(project_ids)
+
+    weight_of: dict[uuid.UUID, int | None] = {}
+    children_of: dict[uuid.UUID | None, list[uuid.UUID]] = defaultdict(list)
+    roots_of: dict[uuid.UUID, list[uuid.UUID]] = defaultdict(list)
+    live_ids = {row[0] for row in shape}
+
+    for task_id, project_id, parent_id, weight in shape:
+        weight_of[task_id] = weight
+        # A task whose parent was soft-deleted is treated as a root of its project,
+        # otherwise its subtree would be dropped from the rollup entirely.
+        if parent_id is None or parent_id not in live_ids:
+            roots_of[project_id].append(task_id)
+        else:
+            children_of[parent_id].append(task_id)
+
+    memo: dict[uuid.UUID, float] = {}
+
+    def total_for(task_id: uuid.UUID) -> float:
+        """Completion % of one task including its whole subtree."""
+        if task_id in memo:
+            return memo[task_id]
+        memo[task_id] = 0.0  # cycle guard — a malformed parent chain returns 0
+
+        self_progress = float(progress_of.get(task_id, 0))
+        children = children_of.get(task_id, [])
+        if not children:
+            result = min(100.0, self_progress)
+        else:
+            weights = _weights_for_siblings(children, weight_of)
+            child_contribution = sum(
+                weights[c] * total_for(c) / 100.0 for c in children
+            )
+            w_report = max(0.0, 100.0 - sum(weights.values()))
+            result = min(
+                100.0, child_contribution + w_report * self_progress / 100.0
+            )
+
+        memo[task_id] = result
+        return result
+
+    out: dict[uuid.UUID, int] = {}
+    for project_id in project_ids:
+        roots = roots_of.get(project_id, [])
+        if not roots:
+            out[project_id] = 0
+            continue
+        weights = _weights_for_siblings(roots, weight_of)
+        total = sum(weights[r] * total_for(r) / 100.0 for r in roots)
+        out[project_id] = int(round(min(100.0, max(0.0, total))))
+    return out
 
 
 async def _enrich(

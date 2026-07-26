@@ -125,6 +125,55 @@ class TaskRepository(BaseRepository[Task]):
         result = await self._execute(stmt)
         return result.scalars().all()
 
+    async def list_tree_shape_for_projects(
+        self, project_ids: Sequence[uuid.UUID]
+    ) -> Sequence[tuple[uuid.UUID, uuid.UUID, uuid.UUID | None, int | None]]:
+        """Return (id, project_id, parent_id, progress_weight) for every live task
+        in the given projects — the minimum needed to rebuild the task trees in
+        memory for batch progress rollup (avoids per-node queries).
+        """
+        if not project_ids:
+            return []
+        stmt = select(
+            Task.id, Task.project_id, Task.parent_id, Task.progress_weight
+        ).where(
+            Task.project_id.in_(project_ids),  # type: ignore[attr-defined]
+            Task.is_deleted == False,  # noqa: E712
+        )
+        result = await self._execute(stmt)
+        return result.all()  # type: ignore[return-value]
+
+    async def sum_progress_for_projects(
+        self, project_ids: Sequence[uuid.UUID]
+    ) -> dict[uuid.UUID, int]:
+        """Return {task_id: approved progress %} for all live tasks in the given
+        projects, in one grouped query. Mirrors sum_progress() semantics: only
+        manager-approved reports count.
+        """
+        if not project_ids:
+            return {}
+        stmt = (
+            select(
+                TaskProgressReport.task_id,
+                func.coalesce(func.sum(TaskProgressReport.progress_percent), 0),
+            )
+            .join(Task, Task.id == TaskProgressReport.task_id)
+            .where(
+                Task.project_id.in_(project_ids),  # type: ignore[attr-defined]
+                Task.is_deleted == False,  # noqa: E712
+                TaskProgressReport.review_status == "approved",
+            )
+            .group_by(TaskProgressReport.task_id)
+        )
+        result = await self._execute(stmt)
+        out: dict[uuid.UUID, int] = {}
+        for task_id, raw in result.all():
+            try:
+                out[task_id] = int(raw) if raw is not None else 0
+            except (TypeError, ValueError):
+                out[task_id] = 0
+        return out
+
     async def list_overlapping_for_assignee(
         self,
         assignee_id: uuid.UUID,

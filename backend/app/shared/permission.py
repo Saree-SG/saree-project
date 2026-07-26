@@ -115,6 +115,35 @@ async def get_user_role_ids(
     return list({row[0] for row in result.all()})
 
 
+async def has_company_wide_scope(
+    session: AsyncSession,
+    user: User,
+    company_id: uuid.UUID,
+) -> bool:
+    """True when the user oversees the whole company rather than single projects.
+
+    Board/manager roles (level 1–2) held at company scope see everything in that
+    company; everyone else is limited to the projects they belong to. Mirrors the
+    check already used for task websocket access.
+    """
+    if user.is_superuser:
+        return True
+    result = await session.execute(
+        select(Role.level)
+        .join(UserCompanyRole, UserCompanyRole.role_id == Role.id)
+        .where(
+            UserCompanyRole.user_id == user.id,
+            UserCompanyRole.company_id == company_id,
+        )
+    )
+    return any(_is_company_manager_role_level(row[0]) for row in result.all())
+
+
+def _is_company_manager_role_level(level: int) -> bool:
+    """Level-only variant of _is_company_manager_role (avoids loading the Role)."""
+    return level <= 2
+
+
 async def has_permission(
     session: AsyncSession,
     user: User,

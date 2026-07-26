@@ -16,6 +16,7 @@ from app.models.project import (
     ProjectCreate,
     ProjectPublic,
     ProjectsPublic,
+    ProjectTimelinePublic,
     ProjectUpdate,
     TaskLevelConfigCreate,
     TaskLevelConfigPublic,
@@ -28,6 +29,8 @@ from app.repositories.project_repository import ProjectRepository
 from app.repositories.role_repository import RoleRepository
 from app.repositories.task_repository import TaskRepository
 from app.services.delay_analyzer import ProjectDelayAnalyzer
+from app.services.task_service import rollup_progress_for_projects
+from app.shared.permission import has_company_wide_scope
 from app.shared.task_realtime import broadcast_task_user_event
 
 
@@ -155,6 +158,53 @@ class ProjectService:
             limit=limit,
         )
         return ProjectsPublic(data=list(projects), count=total)
+
+    async def list_timeline(
+        self,
+        current_user: User,
+        department_id: uuid.UUID | None = None,
+        include_finished: bool = False,
+    ) -> list[ProjectTimelinePublic]:
+        """Return one timeline row per visible project, with rolled-up progress.
+
+        Cost is 3 queries total regardless of project count: projects, task tree
+        shape, approved progress sums.
+        """
+        if not current_user.company_id:
+            return []
+
+        # Board/manager (role level 1–2) at company scope oversees every project in
+        # the company; others see only the projects they belong to.
+        company_wide = await has_company_wide_scope(
+            self._session, current_user, current_user.company_id
+        )
+        rows = await self._project_repo.list_timeline_for_user(
+            company_id=current_user.company_id,
+            user_id=current_user.id,
+            company_wide=company_wide,
+            department_id=department_id,
+            include_finished=include_finished,
+        )
+        if not rows:
+            return []
+
+        progress_map = await rollup_progress_for_projects(
+            self._session, [p.id for p, _ in rows]
+        )
+        return [
+            ProjectTimelinePublic(
+                id=p.id,
+                code=p.code,
+                name=p.name,
+                start_date=p.start_date,
+                end_date=p.end_date,
+                progress=progress_map.get(p.id, 0),
+                status=p.status,
+                department_id=p.department_id,
+                department_name=dept_name,
+            )
+            for p, dept_name in rows
+        ]
 
     async def get_project(self, project_id: uuid.UUID) -> ProjectPublic:
         """Return project or raise 404."""

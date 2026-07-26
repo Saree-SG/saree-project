@@ -80,6 +80,33 @@ export async function fetchProjectGantt(projectId: string): Promise<GanttData> {
   return r.data
 }
 
+/** One row of the project-level overview timeline (1 row = 1 project). */
+export type ProjectTimelineRow = {
+  id: string
+  code: string
+  name: string
+  start_date: string // YYYY-MM-DD
+  end_date: string // YYYY-MM-DD
+  progress: number // 0..100
+  status: string
+  department_id?: string | null
+  department_name?: string | null
+}
+
+export async function fetchProjectTimeline(filter?: {
+  department_id?: string
+  include_finished?: boolean
+}): Promise<ProjectTimelineRow[]> {
+  const qs = new URLSearchParams()
+  if (filter?.department_id) qs.set("department_id", filter.department_id)
+  if (filter?.include_finished) qs.set("include_finished", "true")
+  const r = await axios.get<ProjectTimelineRow[]>(
+    `${OpenAPI.BASE}/api/v1/projects/timeline${qs.toString() ? `?${qs}` : ""}`,
+    { headers: authHeaders() },
+  )
+  return r.data
+}
+
 export async function updateTaskTimeline(
   taskId: string,
   startTime: string,

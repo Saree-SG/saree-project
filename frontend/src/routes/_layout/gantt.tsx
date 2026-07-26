@@ -1,18 +1,16 @@
 import { useQuery } from "@tanstack/react-query"
-import { createFileRoute } from "@tanstack/react-router"
+import { createFileRoute, useNavigate } from "@tanstack/react-router"
 import { CalendarRange } from "lucide-react"
 import { useMemo, useRef, useState } from "react"
 
 import { ProjectsService, RolesService } from "@/client"
 import GanttToolbar from "@/components/Gantt/GanttToolbar"
-import GanttView, { type GanttViewHandle } from "@/components/Gantt/GanttView"
+import ProjectTimelineCard from "@/components/Gantt/ProjectTimelineCard"
+import TaskTimeline from "@/components/Gantt/TaskTimeline"
+import { WEEK_PX_BY_SCALE } from "@/components/Gantt/TimelineChart"
+import TimelineLegend from "@/components/Gantt/TimelineLegend"
 import { toGanttLink, toGanttRow } from "@/components/Gantt/transformers"
-import type {
-  GanttFilter,
-  GanttGroupBy,
-  GanttScale,
-} from "@/components/Gantt/types"
-import { Input } from "@/components/ui/input"
+import type { GanttFilter, GanttScale } from "@/components/Gantt/types"
 import { Label } from "@/components/ui/label"
 import {
   Select,
@@ -21,6 +19,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { fetchCompanyGantt } from "@/modules/gantt/ganttApi"
 import { listDepartments } from "@/modules/org/departmentApi"
 
@@ -31,20 +30,22 @@ export const Route = createFileRoute("/_layout/gantt")({
   head: () => ({ meta: [{ title: "Gantt tổng" }] }),
 })
 
+type TabKey = "overview" | "tasks"
+
 function CompanyGanttPage() {
+  const navigate = useNavigate()
+  const [tab, setTab] = useState<TabKey>("overview")
+
   // Server-side filters (sent to API)
   const [companyId, setCompanyId] = useState<string>("")
   const [projectId, setProjectId] = useState<string>(ALL)
   const [departmentId, setDepartmentId] = useState<string>(ALL)
-  const [startDate, setStartDate] = useState<string>("")
-  const [endDate, setEndDate] = useState<string>("")
 
   // Client-side filters (toolbar)
-  const [scale, setScale] = useState<GanttScale>("day")
-  const [groupBy, setGroupBy] = useState<GanttGroupBy>("project")
+  const [scale, setScale] = useState<GanttScale>("week")
   const [clientFilter, setClientFilter] = useState<GanttFilter>({})
   const [scrollToToday, setScrollToToday] = useState(0)
-  const ganttRef = useRef<GanttViewHandle>(null)
+  const chartRef = useRef<HTMLDivElement>(null)
 
   const { data: companies = [] } = useQuery({
     queryKey: ["roles", "companies"],
@@ -63,25 +64,14 @@ function CompanyGanttPage() {
   })
 
   const ganttQuery = useQuery({
-    queryKey: [
-      "gantt",
-      "company",
-      projectId,
-      departmentId,
-      startDate,
-      endDate,
-    ],
+    queryKey: ["gantt", "company", projectId, departmentId],
     queryFn: () =>
       fetchCompanyGantt({
         project_id: projectId === ALL ? undefined : projectId,
         department_id: departmentId === ALL ? undefined : departmentId,
-        start_date: startDate
-          ? new Date(`${startDate}T00:00:00`).toISOString()
-          : undefined,
-        end_date: endDate
-          ? new Date(`${endDate}T23:59:59`).toISOString()
-          : undefined,
       }),
+    // Don't pull the full task set while the overview tab is showing.
+    enabled: tab === "tasks",
   })
 
   const rows = useMemo(
@@ -113,116 +103,119 @@ function CompanyGanttPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-3 rounded-md border bg-card p-3 md:grid-cols-5">
-        <div className="space-y-1">
-          <Label className="text-xs">Công ty</Label>
-          <Select value={companyId} onValueChange={setCompanyId}>
-            <SelectTrigger>
-              <SelectValue placeholder="Chọn công ty" />
-            </SelectTrigger>
-            <SelectContent>
-              {companies.map((c) => (
-                <SelectItem key={c.id} value={c.id}>
-                  {c.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="space-y-1">
-          <Label className="text-xs">Phòng ban</Label>
-          <Select
-            value={departmentId}
-            onValueChange={setDepartmentId}
-            disabled={!companyId}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="Tất cả" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={ALL}>Tất cả phòng ban</SelectItem>
-              {departments.map((d) => (
-                <SelectItem key={d.id} value={d.id}>
-                  {d.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="space-y-1">
-          <Label className="text-xs">Dự án</Label>
-          <Select value={projectId} onValueChange={setProjectId}>
-            <SelectTrigger>
-              <SelectValue placeholder="Tất cả dự án" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={ALL}>Tất cả dự án</SelectItem>
-              {(((projects as any)?.data ?? projects ?? []) as Array<{
-                id: string
-                name: string
-              }>).map((p) => (
-                <SelectItem key={p.id} value={p.id}>
-                  {p.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="space-y-1">
-          <Label className="text-xs">Từ ngày</Label>
-          <Input
-            type="date"
-            value={startDate}
-            onChange={(e) => setStartDate(e.target.value)}
-          />
-        </div>
-        <div className="space-y-1">
-          <Label className="text-xs">Đến ngày</Label>
-          <Input
-            type="date"
-            value={endDate}
-            onChange={(e) => setEndDate(e.target.value)}
-          />
-        </div>
-      </div>
+      {/* Both tabs are plain-DOM timelines now, so mobile can use either one —
+          the old forced redirect existed only because SVAR needed a fixed height. */}
+      <Tabs value={tab} onValueChange={(v) => setTab(v as TabKey)}>
+        <TabsList>
+          <TabsTrigger value="overview">Tổng quan dự án</TabsTrigger>
+          <TabsTrigger value="tasks">Chi tiết task</TabsTrigger>
+        </TabsList>
+      </Tabs>
 
-      <GanttToolbar
-        rows={rows}
-        scale={scale}
-        onScaleChange={setScale}
-        groupBy={groupBy}
-        onGroupByChange={setGroupBy}
-        filter={clientFilter}
-        onFilterChange={setClientFilter}
-        onScrollToToday={() => setScrollToToday((n) => n + 1)}
-        enableProjectGroup
-        enableDepartmentGroup
-        getExportElement={() => ganttRef.current?.getElement() ?? null}
-      />
-
-      {ganttQuery.isLoading ? (
-        <div className="flex h-64 items-center justify-center rounded-md border text-muted-foreground">
-          Đang tải...
-        </div>
-      ) : ganttQuery.error ? (
-        <div className="rounded-md border border-destructive/40 bg-destructive/5 p-6 text-sm text-destructive">
-          Không tải được Gantt.
-        </div>
-      ) : rows.length === 0 ? (
-        <div className="rounded-md border border-dashed p-10 text-center text-muted-foreground">
-          Không có công việc trong phạm vi đã lọc.
-        </div>
+      {/* The overview intentionally has no filters of its own — the filter panel
+          below belongs to the task view, and reusing its department selection here
+          would apply a filter the user cannot see on this tab. */}
+      {tab === "overview" ? (
+        <ProjectTimelineCard />
       ) : (
-        <GanttView
-          ref={ganttRef}
-          rows={rows}
-          links={links}
-          scale={scale}
-          groupBy={groupBy}
-          filter={clientFilter}
-          scrollToToday={scrollToToday}
-          readOnly
-        />
+        <>
+          <div className="grid grid-cols-1 gap-3 rounded-md border bg-card p-3 md:grid-cols-3">
+            <div className="space-y-1">
+              <Label className="text-xs">Công ty</Label>
+              <Select value={companyId} onValueChange={setCompanyId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Chọn công ty" />
+                </SelectTrigger>
+                <SelectContent>
+                  {companies.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>
+                      {c.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">Phòng ban</Label>
+              <Select
+                value={departmentId}
+                onValueChange={setDepartmentId}
+                disabled={!companyId}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Tất cả" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={ALL}>Tất cả phòng ban</SelectItem>
+                  {departments.map((d) => (
+                    <SelectItem key={d.id} value={d.id}>
+                      {d.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">Dự án</Label>
+              <Select value={projectId} onValueChange={setProjectId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Tất cả dự án" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={ALL}>Tất cả dự án</SelectItem>
+                  {(
+                    ((projects as any)?.data ?? projects ?? []) as Array<{
+                      id: string
+                      name: string
+                    }>
+                  ).map((p) => (
+                    <SelectItem key={p.id} value={p.id}>
+                      {p.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <GanttToolbar
+            rows={rows}
+            scale={scale}
+            onScaleChange={setScale}
+            filter={clientFilter}
+            onFilterChange={setClientFilter}
+            onScrollToToday={() => setScrollToToday((n) => n + 1)}
+            getExportElement={() => chartRef.current}
+          />
+
+          {ganttQuery.isLoading ? (
+            <div className="flex h-64 items-center justify-center rounded-md border text-muted-foreground">
+              Đang tải...
+            </div>
+          ) : ganttQuery.error ? (
+            <div className="rounded-md border border-destructive/40 bg-destructive/5 p-6 text-sm text-destructive">
+              Không tải được Gantt.
+            </div>
+          ) : (
+            <div ref={chartRef} className="rounded-md border bg-card p-3">
+              <TaskTimeline
+                rows={rows}
+                links={links}
+                filter={clientFilter}
+                scrollToToday={scrollToToday}
+                weekPx={WEEK_PX_BY_SCALE[scale]}
+                onTaskClick={(taskId) =>
+                  navigate({ to: "/tasks/$taskId", params: { taskId } })
+                }
+              />
+              {rows.length > 0 ? (
+                <div className="mt-3 border-t pt-2">
+                  <TimelineLegend variant="task" showDependencyHint />
+                </div>
+              ) : null}
+            </div>
+          )}
+        </>
       )}
     </div>
   )

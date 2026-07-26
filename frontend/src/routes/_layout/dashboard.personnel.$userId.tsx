@@ -1,5 +1,10 @@
 import { useQuery } from "@tanstack/react-query"
-import { createFileRoute, Link, redirect } from "@tanstack/react-router"
+import {
+  createFileRoute,
+  Link,
+  redirect,
+  useNavigate,
+} from "@tanstack/react-router"
 import axios from "axios"
 import { ArrowLeft, CalendarRange, Loader2 } from "lucide-react"
 import { useMemo, useState } from "react"
@@ -15,13 +20,11 @@ import {
 
 import { ApiError, OpenAPI, RolesService, UsersService } from "@/client"
 import GanttToolbar from "@/components/Gantt/GanttToolbar"
-import GanttView from "@/components/Gantt/GanttView"
+import TaskTimeline from "@/components/Gantt/TaskTimeline"
+import { WEEK_PX_BY_SCALE } from "@/components/Gantt/TimelineChart"
+import TimelineLegend from "@/components/Gantt/TimelineLegend"
 import { toGanttLink, toGanttRow } from "@/components/Gantt/transformers"
-import type {
-  GanttFilter,
-  GanttGroupBy,
-  GanttScale,
-} from "@/components/Gantt/types"
+import type { GanttFilter, GanttScale } from "@/components/Gantt/types"
 import { Button } from "@/components/ui/button"
 import { clearSession, getAccessToken } from "@/modules/auth/tokenStore"
 import { fetchUserGantt } from "@/modules/gantt/ganttApi"
@@ -82,6 +85,7 @@ export const Route = createFileRoute("/_layout/dashboard/personnel/$userId")({
 function DashboardPersonnelPage() {
   const { userId } = Route.useParams()
   const { name: nameFromSearch } = Route.useSearch()
+  const navigate = useNavigate()
 
   const leaderboardQuery = useQuery({
     queryKey: ["dashboard", "leaderboard"],
@@ -99,8 +103,7 @@ function DashboardPersonnelPage() {
     queryFn: () => fetchUserGantt(userId),
   })
 
-  const [scale, setScale] = useState<GanttScale>("day")
-  const [groupBy, setGroupBy] = useState<GanttGroupBy>("project")
+  const [scale, setScale] = useState<GanttScale>("week")
   const [filter, setFilter] = useState<GanttFilter>({})
   const [scrollToToday, setScrollToToday] = useState(0)
 
@@ -203,29 +206,27 @@ function DashboardPersonnelPage() {
             rows={rows}
             scale={scale}
             onScaleChange={setScale}
-            groupBy={groupBy}
-            onGroupByChange={setGroupBy}
             filter={filter}
             onFilterChange={setFilter}
             onScrollToToday={() => setScrollToToday((n) => n + 1)}
-            enableProjectGroup
           />
         </div>
-        {rows.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
-            Chưa có task để hiển thị.
-          </p>
-        ) : (
-          <GanttView
-            rows={rows}
-            links={links}
-            scale={scale}
-            groupBy={groupBy}
-            filter={filter}
-            scrollToToday={scrollToToday}
-            readOnly
-          />
-        )}
+        <TaskTimeline
+          rows={rows}
+          links={links}
+          filter={filter}
+          scrollToToday={scrollToToday}
+          weekPx={WEEK_PX_BY_SCALE[scale]}
+          emptyText="Chưa có task để hiển thị."
+          onTaskClick={(taskId) =>
+            navigate({ to: "/tasks/$taskId", params: { taskId } })
+          }
+        />
+        {rows.length > 0 ? (
+          <div className="mt-3 border-t pt-2">
+            <TimelineLegend variant="task" showDependencyHint />
+          </div>
+        ) : null}
       </section>
 
       <section className="rounded-xl border bg-card p-4">

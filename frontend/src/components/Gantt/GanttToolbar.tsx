@@ -1,7 +1,5 @@
 import { Calendar, Download, Filter, Target } from "lucide-react"
 import { useState } from "react"
-
-import useCustomToast from "@/hooks/useCustomToast"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import {
@@ -19,14 +17,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import useCustomToast from "@/hooks/useCustomToast"
 
-import type {
-  GanttFilter,
-  GanttGroupBy,
-  GanttRow,
-  GanttRowStatus,
-  GanttScale,
-} from "./types"
+import { prepareTimelineExport } from "./TimelineChart"
+import type { GanttFilter, GanttRow, GanttRowStatus, GanttScale } from "./types"
 
 const STATUS_OPTIONS: { value: GanttRowStatus; label: string }[] = [
   { value: "todo", label: "Chưa làm" },
@@ -39,17 +33,12 @@ const STATUS_OPTIONS: { value: GanttRowStatus; label: string }[] = [
 
 type Props = {
   rows: GanttRow[]
+  /** Zoom level of the timeline (week column width). */
   scale: GanttScale
   onScaleChange: (s: GanttScale) => void
-  groupBy: GanttGroupBy
-  onGroupByChange: (g: GanttGroupBy) => void
   filter: GanttFilter
   onFilterChange: (f: GanttFilter) => void
   onScrollToToday: () => void
-  /** Show "project" option in groupBy */
-  enableProjectGroup?: boolean
-  /** Show "department" option */
-  enableDepartmentGroup?: boolean
   /** Provide element to export as PNG (Gantt container) */
   getExportElement?: () => HTMLElement | null
 }
@@ -58,13 +47,9 @@ export default function GanttToolbar({
   rows,
   scale,
   onScaleChange,
-  groupBy,
-  onGroupByChange,
   filter,
   onFilterChange,
   onScrollToToday,
-  enableProjectGroup,
-  enableDepartmentGroup,
   getExportElement,
 }: Props) {
   const { showSuccessToast, showErrorToast } = useCustomToast()
@@ -74,9 +59,18 @@ export default function GanttToolbar({
     const el = getExportElement?.()
     if (!el) return
     setExporting(true)
+    let restore: (() => void) | undefined
     try {
+      // Unfold the chart first — otherwise the capture shows a different date
+      // range than the screen, with the needle pointing at the wrong day.
+      const prepared = await prepareTimelineExport(el)
+      if (!prepared) {
+        showErrorToast("Không tìm thấy biểu đồ để xuất")
+        return
+      }
+      restore = prepared.restore
       const { toPng } = await import("html-to-image")
-      const dataUrl = await toPng(el, {
+      const dataUrl = await toPng(prepared.element, {
         cacheBust: true,
         backgroundColor: "#ffffff",
         pixelRatio: 2,
@@ -90,6 +84,7 @@ export default function GanttToolbar({
       showErrorToast("Xuất PNG thất bại")
       console.error(err)
     } finally {
+      restore?.()
       setExporting(false)
     }
   }
@@ -122,31 +117,17 @@ export default function GanttToolbar({
 
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <Select value={scale} onValueChange={(v) => onScaleChange(v as GanttScale)}>
+      <Select
+        value={scale}
+        onValueChange={(v) => onScaleChange(v as GanttScale)}
+      >
         <SelectTrigger className="w-32">
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="day">Ngày</SelectItem>
-          <SelectItem value="week">Tuần</SelectItem>
-          <SelectItem value="month">Tháng</SelectItem>
-        </SelectContent>
-      </Select>
-
-      <Select value={groupBy} onValueChange={(v) => onGroupByChange(v as GanttGroupBy)}>
-        <SelectTrigger className="w-44">
-          <SelectValue placeholder="Nhóm theo" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="none">Không nhóm</SelectItem>
-          <SelectItem value="assignee">Theo người</SelectItem>
-          <SelectItem value="status">Theo trạng thái</SelectItem>
-          {enableDepartmentGroup ? (
-            <SelectItem value="department">Theo phòng ban</SelectItem>
-          ) : null}
-          {enableProjectGroup ? (
-            <SelectItem value="project">Theo dự án</SelectItem>
-          ) : null}
+          <SelectItem value="day">Phóng to</SelectItem>
+          <SelectItem value="week">Vừa</SelectItem>
+          <SelectItem value="month">Thu nhỏ</SelectItem>
         </SelectContent>
       </Select>
 

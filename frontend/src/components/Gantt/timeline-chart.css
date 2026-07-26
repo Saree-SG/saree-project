@@ -1,0 +1,395 @@
+/* Timeline chart — ported from the client's demo Gantt.
+   Plain DOM, no charting library: a fixed week ruler, one scroller per row kept
+   in sync, and a pinned date needle. Used for both the project-level overview
+   (1 row = 1 project) and the task tree. Colors come from the app's design
+   tokens, not the demo's hardcoded palette. */
+
+.tlc-root {
+  --tlc-wkpx: 80px;
+  --tlc-head-h: 42px;
+  /* Reserved strip under the ruler for the floating date tooltip, so it never
+     covers the first data row. */
+  --tlc-tip-h: 18px;
+  /* Fixed so dependency arrows can compute row centres from the row index
+     instead of measuring the DOM. Labels are single-line + ellipsis, so nothing
+     can grow a row past this. */
+  --tlc-row-h: 44px;
+  --tlc-lbl-w: clamp(120px, 26vw, 190px);
+  position: relative;
+}
+
+/* Vertical week gridlines, drawn once and translated to follow the scroll. */
+.tlc-wk-overlay {
+  position: absolute;
+  left: var(--tlc-lbl-w);
+  top: calc(var(--tlc-head-h) + var(--tlc-tip-h));
+  right: 0;
+  bottom: 0;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 2;
+}
+.tlc-wk-lines {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  height: 100%;
+}
+.tlc-wk-line {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 0;
+  border-left: 1.2px solid var(--border);
+}
+
+/* Dependency arrows: same scroll-follow trick as the gridlines, but above the
+   bars. Sits between the header and the bottom of the body. */
+.tlc-arrow-overlay {
+  position: absolute;
+  left: var(--tlc-lbl-w);
+  top: calc(var(--tlc-head-h) + var(--tlc-tip-h));
+  right: 0;
+  bottom: 0;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 10;
+}
+.tlc-arrow-layer {
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+.tlc-arrow path {
+  stroke: var(--muted-foreground);
+  stroke-width: 1.5;
+  opacity: 0.75;
+}
+.tlc-arrow polygon {
+  fill: var(--muted-foreground);
+  opacity: 0.9;
+}
+
+.tlc-sticky {
+  position: sticky;
+  top: 0;
+  z-index: 25;
+  background: var(--card);
+  overflow: visible;
+  padding-bottom: var(--tlc-tip-h);
+}
+.tlc-row-flex {
+  display: flex;
+  align-items: stretch;
+  min-height: var(--tlc-head-h);
+}
+.tlc-lbl-col {
+  width: var(--tlc-lbl-w);
+  flex-shrink: 0;
+  min-height: var(--tlc-head-h);
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--card-foreground);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 0 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  border-right: 2px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  box-sizing: border-box;
+}
+
+/* One scroller per row, kept in sync by JS. A single big scroll container would
+   trap vertical page scrolling on mobile. */
+.tlc-scroll {
+  overflow-x: auto;
+  overflow-y: hidden;
+  flex: 1;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-x pan-y;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.tlc-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+.tlc-ruler {
+  position: relative;
+  height: var(--tlc-head-h);
+  flex-shrink: 0;
+  border-bottom: 1px solid var(--border);
+}
+.tlc-week {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 4px;
+  font-size: 10px;
+  line-height: 1.25;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: var(--muted-foreground);
+  font-weight: 600;
+  box-sizing: border-box;
+  white-space: nowrap;
+  text-align: center;
+  border-right: 1.2px solid var(--border);
+}
+
+/* Pinned "needle" + date tooltip: the reason this chart reads well on a phone. */
+.tlc-needle {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 0;
+  z-index: 15;
+  pointer-events: none;
+}
+.tlc-needle-line {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 2px;
+  margin-left: -1px;
+  background: var(--accent);
+  box-shadow: 0 0 10px color-mix(in srgb, var(--accent) 70%, transparent);
+}
+.tlc-date-tip {
+  position: absolute;
+  /* Sits in the reserved strip: vertically straddles the ruler's bottom edge. */
+  top: calc(var(--tlc-head-h) - 8px);
+  left: 0;
+  z-index: 50;
+  background: var(--popover);
+  border: 1.5px solid var(--accent);
+  color: var(--popover-foreground);
+  font-size: 11px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 6px;
+  white-space: nowrap;
+  pointer-events: none;
+  transform: translateX(-50%);
+  box-shadow: 0 4px 16px rgb(0 0 0 / 0.2);
+}
+
+.tlc-body-row {
+  display: flex;
+  align-items: stretch;
+  height: var(--tlc-row-h);
+  border-bottom: 1px solid var(--border);
+  box-sizing: border-box;
+}
+.tlc-body-row:last-child {
+  border-bottom: none;
+}
+.tlc-body-row > .tlc-scroll {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  min-width: 0;
+}
+
+.tlc-lbl {
+  width: var(--tlc-lbl-w);
+  flex-shrink: 0;
+  padding: 6px 8px;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  align-self: stretch;
+  gap: 3px;
+  min-width: 0;
+  text-align: left;
+  border-right: 2px solid var(--border);
+  box-sizing: border-box;
+}
+/* Name + dates stacked, sharing one left edge to the right of the toggle. */
+.tlc-lbl-text {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+.tlc-name-title {
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.25;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  width: 100%;
+  text-align: left;
+}
+.tlc-name-dates {
+  font-size: 11px;
+  color: var(--muted-foreground);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  width: 100%;
+  text-align: left;
+  line-height: 1.2;
+}
+.tlc-name {
+  cursor: pointer;
+  color: var(--primary);
+  background: none;
+  border: 0;
+  padding: 0;
+  transition: color 0.15s;
+}
+.tlc-name:hover {
+  text-decoration: underline;
+}
+
+/* Tree rows: the label column indents by depth and carries the expand toggle.
+   Indent is small because the label column is narrow on a phone. */
+.tlc-toggle {
+  flex: 0 0 auto;
+  width: 14px;
+  height: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  color: var(--muted-foreground);
+  font-size: 9px;
+  line-height: 1;
+}
+.tlc-toggle:hover {
+  color: var(--foreground);
+}
+/* Keeps leaf labels aligned with their expandable siblings. */
+.tlc-toggle-spacer {
+  flex: 0 0 auto;
+  width: 14px;
+}
+.tlc-row-parent .tlc-name-title {
+  font-weight: 700;
+}
+
+.tlc-track-px {
+  position: relative;
+  height: 36px;
+  flex-shrink: 0;
+}
+.tlc-bar-wrap {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  height: 20px;
+  z-index: 4;
+}
+.tlc-bar-bg {
+  position: absolute;
+  inset: 0;
+  border-radius: 999px;
+  border: 1px solid;
+}
+.tlc-bar {
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: 100%;
+  border-radius: 999px;
+  min-width: 3px;
+  z-index: 1;
+}
+.tlc-bar-clickable {
+  cursor: pointer;
+}
+.tlc-bar-clickable:hover .tlc-bar-bg,
+.tlc-bar-clickable:focus-visible .tlc-bar-bg {
+  filter: brightness(0.94);
+}
+.tlc-bar-clickable:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+  border-radius: 999px;
+}
+/* Bar text laid out as a flex row (name | days | %) rather than three absolutely
+   positioned pieces — with real task names the absolute version overlapped. */
+.tlc-bar-text {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 7px;
+  z-index: 5;
+  pointer-events: none;
+  overflow: hidden;
+}
+.tlc-bar-label {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 10px;
+  font-weight: 600;
+  color: #fff;
+  text-shadow: 0 1px 3px rgb(0 0 0 / 0.85);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* Days/% often land on the pale unfilled part of the bar, where white-on-light is
+   unreadable — so they get their own dark chip instead of relying on a shadow. */
+.tlc-bar-days,
+.tlc-pct {
+  flex: 0 0 auto;
+  font-size: 9px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-weight: 700;
+  color: #fff;
+  white-space: nowrap;
+  background: rgb(15 23 42 / 0.55);
+  border-radius: 4px;
+  padding: 1px 4px;
+}
+/* When the bar is too narrow for a name, the days/% still centre nicely. */
+.tlc-bar-text.tlc-bar-text-compact {
+  justify-content: center;
+  gap: 4px;
+}
+
+/* ---------------------------------------------------------------------------
+   Export mode — see prepareTimelineExport() in TimelineChart.tsx.
+   Unfolds every scroller so an image capture contains the whole timeline rather
+   than just the visible window, and drops the needle/tooltip, whose pixel
+   position is only meaningful for the scrolled view.
+   Kept last in the file so these rules win on order, without !important.
+   --------------------------------------------------------------------------- */
+.tlc-root.tlc-exporting {
+  width: max-content;
+}
+.tlc-root.tlc-exporting .tlc-scroll {
+  overflow: visible;
+}
+.tlc-root.tlc-exporting .tlc-needle,
+.tlc-root.tlc-exporting .tlc-date-tip {
+  display: none;
+}
+.tlc-root.tlc-exporting .tlc-sticky {
+  position: static;
+  padding-bottom: 0;
+}
+.tlc-root.tlc-exporting .tlc-wk-lines {
+  transform: none;
+}
+.tlc-root.tlc-exporting .tlc-wk-overlay {
+  top: var(--tlc-head-h);
+}

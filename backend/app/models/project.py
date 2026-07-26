@@ -90,6 +90,23 @@ class ProjectsPublic(SQLModel):
     count: int
 
 
+class ProjectTimelinePublic(SQLModel):
+    """One row of the project-level Gantt overview (1 row = 1 project).
+
+    Deliberately flat and small: this view renders every live project at once, so
+    it carries only what the timeline bar needs — no members, no task list.
+    """
+    id: uuid.UUID
+    code: str
+    name: str
+    start_date: date
+    end_date: date
+    progress: int          # 0–100, WBS weighted rollup over the project's tasks
+    status: str
+    department_id: uuid.UUID | None = None
+    department_name: str | None = None
+
+
 # ---------------------------------------------------------------------------
 # TaskLevelConfig — defines the hierarchy per project
 # ---------------------------------------------------------------------------

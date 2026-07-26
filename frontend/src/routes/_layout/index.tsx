@@ -22,6 +22,7 @@ import {
   RolesService,
   UsersService,
 } from "@/client"
+import ProjectTimelineCard from "@/components/Gantt/ProjectTimelineCard"
 import { PermissionGuard } from "@/components/PermissionGuard"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -55,7 +56,11 @@ import { clearSession } from "@/modules/auth/tokenStore"
 import { getMyPendingQuotations } from "@/modules/quotation/quotationApi"
 import { STAGE_CONFIG } from "@/modules/quotation/stageConfig"
 
-import { listCompanyMembers, listMyCompanies, readMyPermissions } from "@/modules/rbac/rbacApi"
+import {
+  listCompanyMembers,
+  listMyCompanies,
+  readMyPermissions,
+} from "@/modules/rbac/rbacApi"
 import { canAccessDashboard } from "@/utils/accountAccess"
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -175,12 +180,18 @@ function ProgressBar({
 }
 
 function StatusBadge({ status }: { status: string }) {
-  const map: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
-    planning:    { label: "Lên kế hoạch", variant: "secondary" },
+  const map: Record<
+    string,
+    {
+      label: string
+      variant: "default" | "secondary" | "destructive" | "outline"
+    }
+  > = {
+    planning: { label: "Lên kế hoạch", variant: "secondary" },
     in_progress: { label: "Đang thực hiện", variant: "default" },
-    on_hold:     { label: "Tạm dừng", variant: "outline" },
-    completed:   { label: "Hoàn thành", variant: "default" },
-    cancelled:   { label: "Hủy", variant: "destructive" },
+    on_hold: { label: "Tạm dừng", variant: "outline" },
+    completed: { label: "Hoàn thành", variant: "default" },
+    cancelled: { label: "Hủy", variant: "destructive" },
   }
   const entry = map[status] ?? { label: status, variant: "secondary" as const }
   return <Badge variant={entry.variant}>{entry.label}</Badge>
@@ -240,7 +251,9 @@ function Dashboard() {
   const [createProjectOpen, setCreateProjectOpen] = useState(false)
   const [projectNameDraft, setProjectNameDraft] = useState("")
   const [projectDescriptionDraft, setProjectDescriptionDraft] = useState("")
-  const [projectTypeDraft, setProjectTypeDraft] = useState<"client" | "internal">("client")
+  const [projectTypeDraft, setProjectTypeDraft] = useState<
+    "client" | "internal"
+  >("client")
   const [projectStartDateDraft, setProjectStartDateDraft] = useState("")
   const [projectEndDateDraft, setProjectEndDateDraft] = useState("")
   const [selectedCompanyId, setSelectedCompanyId] = useState<string>("")
@@ -248,16 +261,21 @@ function Dashboard() {
   const [projectPmKeyword, setProjectPmKeyword] = useState("")
   const [projectPmPickerOpen, setProjectPmPickerOpen] = useState(false)
   const [projectStatsKeyword, setProjectStatsKeyword] = useState("")
-  const [projectWarningFilter, setProjectWarningFilter] = useState<"all" | ProjectWarning["severity"]>("all")
+  const [projectWarningFilter, setProjectWarningFilter] = useState<
+    "all" | ProjectWarning["severity"]
+  >("all")
   const [projectMemberKeyword, setProjectMemberKeyword] = useState("")
   const [selectedMemberIds, setSelectedMemberIds] = useState<string[]>([])
   const [projectMemberPickerOpen, setProjectMemberPickerOpen] = useState(false)
   const [workloadNameFilter, setWorkloadNameFilter] = useState("")
-  const [workloadDepartmentFilter, setWorkloadDepartmentFilter] = useState("all")
+  const [workloadDepartmentFilter, setWorkloadDepartmentFilter] =
+    useState("all")
   const [workloadLevelFilter, setWorkloadLevelFilter] = useState<
     "all" | "high" | "medium" | "low"
   >("all")
-  const [highlightedSectionId, setHighlightedSectionId] = useState<string | null>(null)
+  const [highlightedSectionId, setHighlightedSectionId] = useState<
+    string | null
+  >(null)
   const highlightTimeoutRef = useRef<number | null>(null)
   const queryClient = useQueryClient()
 
@@ -330,17 +348,23 @@ function Dashboard() {
   const projectStatsQuery = useQuery({
     queryKey: ["dashboard", "project-stats", dashboardParams],
     queryFn: async () =>
-      (await DashboardService.projectStats(dashboardParams)) as ProjectStatsPayload[],
+      (await DashboardService.projectStats(
+        dashboardParams,
+      )) as ProjectStatsPayload[],
   })
   const leaderboardQuery = useQuery({
     queryKey: ["dashboard", "leaderboard", dashboardParams],
     queryFn: async () =>
-      (await DashboardService.leaderboard(dashboardParams)) as LeaderboardPayload[],
+      (await DashboardService.leaderboard(
+        dashboardParams,
+      )) as LeaderboardPayload[],
   })
   const workloadQuery = useQuery({
     queryKey: ["dashboard", "workload", dashboardParams],
     queryFn: async () =>
-      (await DashboardService.userWorkload(dashboardParams)) as WorkloadPayload[],
+      (await DashboardService.userWorkload(
+        dashboardParams,
+      )) as WorkloadPayload[],
   })
   const overdueQuery = useQuery({
     queryKey: ["dashboard", "overdue", dashboardParams],
@@ -367,7 +391,8 @@ function Dashboard() {
       )
     },
     enabled: Boolean(
-      currentUser && (currentUser.is_superuser || primaryMembership?.company_id),
+      currentUser &&
+        (currentUser.is_superuser || primaryMembership?.company_id),
     ),
   })
   const meQuery = useQuery({
@@ -396,7 +421,12 @@ function Dashboard() {
   })
 
   const createProjectMutation = useMutation({
-    mutationFn: async (payload: ProjectCreate & { company_id?: string | null; pm_id?: string | null }) => {
+    mutationFn: async (
+      payload: ProjectCreate & {
+        company_id?: string | null
+        pm_id?: string | null
+      },
+    ) => {
       const project = (await ProjectsService.createProject({
         requestBody: payload as ProjectCreate,
       })) as ProjectPublic
@@ -470,19 +500,21 @@ function Dashboard() {
   const projectWarnings = useMemo(() => {
     const od = overdueQuery.data
     if (!od) return []
-    return [
-      ...od.critical,
-      ...od.warning,
-      ...od.watch,
-    ].sort((a, b) => {
+    return [...od.critical, ...od.warning, ...od.watch].sort((a, b) => {
       const order = { critical: 0, warning: 1, watch: 2 }
-      if (order[a.severity] !== order[b.severity]) return order[a.severity] - order[b.severity]
-      return new Date(a.nearest_task_end_time).getTime() - new Date(b.nearest_task_end_time).getTime()
+      if (order[a.severity] !== order[b.severity])
+        return order[a.severity] - order[b.severity]
+      return (
+        new Date(a.nearest_task_end_time).getTime() -
+        new Date(b.nearest_task_end_time).getTime()
+      )
     })
   }, [overdueQuery.data])
   const filteredProjectWarnings = useMemo(() => {
     if (projectWarningFilter === "all") return projectWarnings
-    return projectWarnings.filter((item) => item.severity === projectWarningFilter)
+    return projectWarnings.filter(
+      (item) => item.severity === projectWarningFilter,
+    )
   }, [projectWarningFilter, projectWarnings])
 
   const topWorkers = useMemo(
@@ -540,7 +572,9 @@ function Dashboard() {
 
   const memberCandidates = useMemo(() => {
     const keyword = projectMemberKeyword.trim().toLowerCase()
-    const rows = (usersQuery.data ?? []).filter((r) => r.id !== meQuery.data?.id)
+    const rows = (usersQuery.data ?? []).filter(
+      (r) => r.id !== meQuery.data?.id,
+    )
     if (!keyword) return rows.slice(0, 15)
     return rows
       .filter((r) => {
@@ -566,7 +600,6 @@ function Dashboard() {
 
   return (
     <div className="mx-auto w-full max-w-6xl space-y-6 px-3 pb-24 md:px-0">
-
       {/* ── Header ──────────────────────────────────────────────────────────── */}
       <div className="flex flex-col gap-3 pt-2 sm:flex-row sm:items-start sm:justify-between">
         <div>
@@ -641,7 +674,9 @@ function Dashboard() {
             <FolderOpen className="size-4" />
             <span className="text-xs font-medium">Dự án</span>
           </div>
-          <p className="mt-2 text-3xl font-black">{overview?.total_projects ?? "—"}</p>
+          <p className="mt-2 text-3xl font-black">
+            {overview?.total_projects ?? "—"}
+          </p>
         </button>
         <button
           type="button"
@@ -668,7 +703,9 @@ function Dashboard() {
             <AlertTriangle className="size-4" />
             <span className="text-xs font-medium">Cảnh báo dự án</span>
           </div>
-          <p className={`mt-2 text-3xl font-black ${projectWarnings.length > 0 ? "text-red-600" : "text-muted-foreground"}`}>
+          <p
+            className={`mt-2 text-3xl font-black ${projectWarnings.length > 0 ? "text-red-600" : "text-muted-foreground"}`}
+          >
             {projectWarnings.length}
           </p>
         </button>
@@ -684,7 +721,10 @@ function Dashboard() {
           <p className="mt-2 text-3xl font-black text-primary">
             {overview?.completion_rate_pct ?? "—"}%
           </p>
-          <ProgressBar value={overview?.completion_rate_pct ?? 0} className="mt-2" />
+          <ProgressBar
+            value={overview?.completion_rate_pct ?? 0}
+            className="mt-2"
+          />
         </button>
       </div>
 
@@ -718,10 +758,16 @@ function Dashboard() {
                   className="flex items-center justify-between gap-3 rounded-xl border bg-card p-3 hover:bg-muted/40 transition-colors"
                 >
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium">{q.project_name}</p>
-                    <p className="truncate text-xs text-muted-foreground">{q.client_company_name} · {q.quote_number}</p>
+                    <p className="truncate text-sm font-medium">
+                      {q.project_name}
+                    </p>
+                    <p className="truncate text-xs text-muted-foreground">
+                      {q.client_company_name} · {q.quote_number}
+                    </p>
                   </div>
-                  <span className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${stageCfg.badgeBg} ${stageCfg.badgeText}`}>
+                  <span
+                    className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${stageCfg.badgeBg} ${stageCfg.badgeText}`}
+                  >
                     {stageCfg.shortLabel}
                   </span>
                 </Link>
@@ -730,7 +776,6 @@ function Dashboard() {
           </div>
         </section>
       )}
-
 
       {/* ── Cảnh báo dự án ───────────────────────────────────────────────────── */}
       {projectWarnings.length > 0 && (
@@ -747,7 +792,9 @@ function Dashboard() {
             <Select
               value={projectWarningFilter}
               onValueChange={(value) =>
-                setProjectWarningFilter(value as "all" | ProjectWarning["severity"])
+                setProjectWarningFilter(
+                  value as "all" | ProjectWarning["severity"],
+                )
               }
             >
               <SelectTrigger className="h-9 w-full sm:w-[200px]">
@@ -764,61 +811,75 @@ function Dashboard() {
           <div className="overflow-hidden rounded-xl border border-red-100">
             <div className="overflow-x-auto">
               <Table className="min-w-[780px]">
-              <TableHeader>
-                <TableRow className="bg-red-50 hover:bg-red-50">
-                  <TableHead className="text-red-700">Dự án</TableHead>
-                  <TableHead className="w-[220px] text-red-700">Task gần nhất</TableHead>
-                  <TableHead className="text-red-700">Trạng thái</TableHead>
-                  <TableHead className="text-red-700">Mốc gần nhất</TableHead>
-                  <TableHead className="text-red-700">Mức cảnh báo</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredProjectWarnings.slice(0, 8).map((project) => (
-                  <TableRow key={project.project_id} className="hover:bg-red-50/50">
-                    <TableCell className="text-muted-foreground">
-                      <Link
-                        to="/projects/$projectId"
-                        params={{ projectId: project.project_id }}
-                        className="font-medium text-primary hover:underline"
-                      >
-                        {project.project_name ?? project.project_id}
-                      </Link>
-                    </TableCell>
-                    <TableCell className="max-w-[220px]">
-                      <p className="truncate font-medium">{project.nearest_task_name}</p>
-                    </TableCell>
-                    <TableCell>
-                      <StatusBadge status={project.project_status || "in_progress"} />
-                    </TableCell>
-                    <TableCell className="font-medium text-red-600">
-                      {formatDate(project.nearest_task_end_time)}
-                    </TableCell>
-                    <TableCell>
-                      {(() => {
-                        const severity = getProjectWarningSeverity(
-                          project.severity,
-                          project.delay_days,
-                          project.days_left,
-                        )
-                        return (
-                          <span
-                            className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium ${severity.badgeClassName}`}
-                          >
-                            <severity.IconComponent className="h-3.5 w-3.5" />
-                            {severity.label}
-                          </span>
-                        )
-                      })()}
-                    </TableCell>
+                <TableHeader>
+                  <TableRow className="bg-red-50 hover:bg-red-50">
+                    <TableHead className="text-red-700">Dự án</TableHead>
+                    <TableHead className="w-[220px] text-red-700">
+                      Task gần nhất
+                    </TableHead>
+                    <TableHead className="text-red-700">Trạng thái</TableHead>
+                    <TableHead className="text-red-700">Mốc gần nhất</TableHead>
+                    <TableHead className="text-red-700">Mức cảnh báo</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
+                </TableHeader>
+                <TableBody>
+                  {filteredProjectWarnings.slice(0, 8).map((project) => (
+                    <TableRow
+                      key={project.project_id}
+                      className="hover:bg-red-50/50"
+                    >
+                      <TableCell className="text-muted-foreground">
+                        <Link
+                          to="/projects/$projectId"
+                          params={{ projectId: project.project_id }}
+                          className="font-medium text-primary hover:underline"
+                        >
+                          {project.project_name ?? project.project_id}
+                        </Link>
+                      </TableCell>
+                      <TableCell className="max-w-[220px]">
+                        <p className="truncate font-medium">
+                          {project.nearest_task_name}
+                        </p>
+                      </TableCell>
+                      <TableCell>
+                        <StatusBadge
+                          status={project.project_status || "in_progress"}
+                        />
+                      </TableCell>
+                      <TableCell className="font-medium text-red-600">
+                        {formatDate(project.nearest_task_end_time)}
+                      </TableCell>
+                      <TableCell>
+                        {(() => {
+                          const severity = getProjectWarningSeverity(
+                            project.severity,
+                            project.delay_days,
+                            project.days_left,
+                          )
+                          return (
+                            <span
+                              className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium ${severity.badgeClassName}`}
+                            >
+                              <severity.IconComponent className="h-3.5 w-3.5" />
+                              {severity.label}
+                            </span>
+                          )
+                        })()}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
               </Table>
             </div>
           </div>
         </section>
       )}
+
+      {/* ── Tiến độ dự án (Gantt) ───────────────────────────────────────────── */}
+      <section id="project-timeline-section">
+        <ProjectTimelineCard />
+      </section>
 
       {/* ── Danh sách dự án ─────────────────────────────────────────────────── */}
       <section
@@ -835,7 +896,9 @@ function Dashboard() {
         <div className="mb-3">
           <Input
             value={projectStatsKeyword}
-            onChange={(eventValue) => setProjectStatsKeyword(eventValue.target.value)}
+            onChange={(eventValue) =>
+              setProjectStatsKeyword(eventValue.target.value)
+            }
             placeholder="Tìm theo tên dự án..."
             className="h-9 max-w-sm"
           />
@@ -853,25 +916,37 @@ function Dashboard() {
             <TabsList className="mb-3 h-auto w-full justify-start overflow-x-auto whitespace-nowrap">
               <TabsTrigger value="all">
                 Tất cả
-                <Badge variant="secondary" className="ml-1.5 px-1.5 py-0 text-[10px]">
+                <Badge
+                  variant="secondary"
+                  className="ml-1.5 px-1.5 py-0 text-[10px]"
+                >
                   {filteredProjects.length}
                 </Badge>
               </TabsTrigger>
               <TabsTrigger value="active">
                 Đang thực hiện
-                <Badge variant="secondary" className="ml-1.5 px-1.5 py-0 text-[10px]">
+                <Badge
+                  variant="secondary"
+                  className="ml-1.5 px-1.5 py-0 text-[10px]"
+                >
                   {projectsByStatus.active.length}
                 </Badge>
               </TabsTrigger>
               <TabsTrigger value="notStarted">
                 Chưa bắt đầu
-                <Badge variant="secondary" className="ml-1.5 px-1.5 py-0 text-[10px]">
+                <Badge
+                  variant="secondary"
+                  className="ml-1.5 px-1.5 py-0 text-[10px]"
+                >
                   {projectsByStatus.notStarted.length}
                 </Badge>
               </TabsTrigger>
               <TabsTrigger value="done">
                 Hoàn thành
-                <Badge variant="secondary" className="ml-1.5 px-1.5 py-0 text-[10px]">
+                <Badge
+                  variant="secondary"
+                  className="ml-1.5 px-1.5 py-0 text-[10px]"
+                >
                   {projectsByStatus.done.length}
                 </Badge>
               </TabsTrigger>
@@ -896,78 +971,104 @@ function Dashboard() {
                     ) : (
                       <div className="overflow-x-auto">
                         <Table className="min-w-[760px] table-fixed">
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead className="w-[280px]">Tên dự án</TableHead>
-                            <TableHead className="w-[140px]">Trạng thái</TableHead>
-                            <TableHead className="w-[120px]">Deadline</TableHead>
-                            <TableHead className="w-[90px] text-center">Task</TableHead>
-                            <TableHead className="w-[70px] text-center">Trễ</TableHead>
-                            <TableHead className="w-[160px]">Hoàn thành</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {rows.slice(0, 50).map((project) => (
-                            <TableRow key={project.project_id}>
-                              <TableCell className="w-[280px] max-w-[280px]">
-                                <Link
-                                  to="/projects/$projectId"
-                                  params={{ projectId: project.project_id }}
-                                  className="block w-full truncate font-semibold hover:text-primary hover:underline"
-                                  title={project.name}
-                                >
-                                  {project.name}
-                                </Link>
-                                {project.code && (
-                                  <p
-                                    className="w-full truncate text-xs text-muted-foreground"
-                                    title={project.code}
-                                  >
-                                    {project.code}
-                                  </p>
-                                )}
-                              </TableCell>
-                              <TableCell>
-                                <StatusBadge status={project.status ?? "planning"} />
-                              </TableCell>
-                              <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
-                                {project.end_date ? (
-                                  <span className={new Date(project.end_date).getTime() < Date.now() && project.status !== "completed" ? "text-red-600 font-semibold" : ""}>
-                                    {formatDate(project.end_date)}
-                                  </span>
-                                ) : "—"}
-                              </TableCell>
-                              <TableCell className="text-center text-sm">
-                                <span className="font-semibold text-green-600">
-                                  {project.done_tasks}
-                                </span>
-                                <span className="text-muted-foreground">
-                                  /{project.total_tasks}
-                                </span>
-                              </TableCell>
-                              <TableCell className="text-center">
-                                {project.overdue_tasks > 0 ? (
-                                  <span className="font-semibold text-red-600">
-                                    {project.overdue_tasks}
-                                  </span>
-                                ) : (
-                                  <span className="text-muted-foreground">0</span>
-                                )}
-                              </TableCell>
-                              <TableCell>
-                                <div className="flex items-center gap-2">
-                                  <ProgressBar
-                                    value={project.completion_pct}
-                                    className="flex-1"
-                                  />
-                                  <span className="w-8 text-right text-xs font-bold text-primary">
-                                    {project.completion_pct}%
-                                  </span>
-                                </div>
-                              </TableCell>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead className="w-[280px]">
+                                Tên dự án
+                              </TableHead>
+                              <TableHead className="w-[140px]">
+                                Trạng thái
+                              </TableHead>
+                              <TableHead className="w-[120px]">
+                                Deadline
+                              </TableHead>
+                              <TableHead className="w-[90px] text-center">
+                                Task
+                              </TableHead>
+                              <TableHead className="w-[70px] text-center">
+                                Trễ
+                              </TableHead>
+                              <TableHead className="w-[160px]">
+                                Hoàn thành
+                              </TableHead>
                             </TableRow>
-                          ))}
-                        </TableBody>
+                          </TableHeader>
+                          <TableBody>
+                            {rows.slice(0, 50).map((project) => (
+                              <TableRow key={project.project_id}>
+                                <TableCell className="w-[280px] max-w-[280px]">
+                                  <Link
+                                    to="/projects/$projectId"
+                                    params={{ projectId: project.project_id }}
+                                    className="block w-full truncate font-semibold hover:text-primary hover:underline"
+                                    title={project.name}
+                                  >
+                                    {project.name}
+                                  </Link>
+                                  {project.code && (
+                                    <p
+                                      className="w-full truncate text-xs text-muted-foreground"
+                                      title={project.code}
+                                    >
+                                      {project.code}
+                                    </p>
+                                  )}
+                                </TableCell>
+                                <TableCell>
+                                  <StatusBadge
+                                    status={project.status ?? "planning"}
+                                  />
+                                </TableCell>
+                                <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
+                                  {project.end_date ? (
+                                    <span
+                                      className={
+                                        new Date(project.end_date).getTime() <
+                                          Date.now() &&
+                                        project.status !== "completed"
+                                          ? "text-red-600 font-semibold"
+                                          : ""
+                                      }
+                                    >
+                                      {formatDate(project.end_date)}
+                                    </span>
+                                  ) : (
+                                    "—"
+                                  )}
+                                </TableCell>
+                                <TableCell className="text-center text-sm">
+                                  <span className="font-semibold text-green-600">
+                                    {project.done_tasks}
+                                  </span>
+                                  <span className="text-muted-foreground">
+                                    /{project.total_tasks}
+                                  </span>
+                                </TableCell>
+                                <TableCell className="text-center">
+                                  {project.overdue_tasks > 0 ? (
+                                    <span className="font-semibold text-red-600">
+                                      {project.overdue_tasks}
+                                    </span>
+                                  ) : (
+                                    <span className="text-muted-foreground">
+                                      0
+                                    </span>
+                                  )}
+                                </TableCell>
+                                <TableCell>
+                                  <div className="flex items-center gap-2">
+                                    <ProgressBar
+                                      value={project.completion_pct}
+                                      className="flex-1"
+                                    />
+                                    <span className="w-8 text-right text-xs font-bold text-primary">
+                                      {project.completion_pct}%
+                                    </span>
+                                  </div>
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
                         </Table>
                       </div>
                     )}
@@ -981,7 +1082,6 @@ function Dashboard() {
 
       {/* ── Workload + Leaderboard ───────────────────────────────────────────── */}
       <div className="grid gap-4 md:grid-cols-2">
-
         {/* Workload */}
         <section
           id="workload-section"
@@ -995,7 +1095,9 @@ function Dashboard() {
           <div className="mb-3 space-y-2">
             <Input
               value={workloadNameFilter}
-              onChange={(eventValue) => setWorkloadNameFilter(eventValue.target.value)}
+              onChange={(eventValue) =>
+                setWorkloadNameFilter(eventValue.target.value)
+              }
               placeholder="Tìm nhân sự..."
               className="h-9"
             />
@@ -1019,7 +1121,9 @@ function Dashboard() {
               <Select
                 value={workloadLevelFilter}
                 onValueChange={(value) =>
-                  setWorkloadLevelFilter(value as "all" | "high" | "medium" | "low")
+                  setWorkloadLevelFilter(
+                    value as "all" | "high" | "medium" | "low",
+                  )
                 }
               >
                 <SelectTrigger className="h-9">
@@ -1071,7 +1175,9 @@ function Dashboard() {
           <div className="mb-3 flex items-center gap-2">
             <Clock className="size-4 text-muted-foreground" />
             <h2 className="text-sm font-bold">Hiệu suất nhân sự</h2>
-            <span className="text-xs text-muted-foreground">top hoàn thành task</span>
+            <span className="text-xs text-muted-foreground">
+              top hoàn thành task
+            </span>
           </div>
           {topWorkers.length === 0 ? (
             <p className="text-xs text-muted-foreground">Không có dữ liệu.</p>
@@ -1112,7 +1218,9 @@ function Dashboard() {
                       {worker.overdue > 0 && (
                         <>
                           <span>·</span>
-                          <span className="text-red-500">{worker.overdue} trễ</span>
+                          <span className="text-red-500">
+                            {worker.overdue} trễ
+                          </span>
                         </>
                       )}
                     </div>
@@ -1128,10 +1236,23 @@ function Dashboard() {
       </div>
 
       {/* ── Create Project Dialog ────────────────────────────────────────────── */}
-      <Dialog open={createProjectOpen} onOpenChange={(open) => {
-        setCreateProjectOpen(open)
-        if (!open) { setProjectNameDraft(""); setProjectDescriptionDraft(""); setProjectTypeDraft("client"); setProjectStartDateDraft(""); setProjectEndDateDraft(""); setSelectedCompanyId(""); setSelectedMemberIds([]); setProjectPmId(""); setProjectPmKeyword("") }
-      }}>
+      <Dialog
+        open={createProjectOpen}
+        onOpenChange={(open) => {
+          setCreateProjectOpen(open)
+          if (!open) {
+            setProjectNameDraft("")
+            setProjectDescriptionDraft("")
+            setProjectTypeDraft("client")
+            setProjectStartDateDraft("")
+            setProjectEndDateDraft("")
+            setSelectedCompanyId("")
+            setSelectedMemberIds([])
+            setProjectPmId("")
+            setProjectPmKeyword("")
+          }
+        }}
+      >
         <DialogContent className="max-w-xl">
           <DialogHeader>
             <DialogTitle>Tạo dự án mới</DialogTitle>
@@ -1150,7 +1271,9 @@ function Dashboard() {
                 >
                   <option value="">-- Chọn công ty --</option>
                   {myCompaniesQuery.data?.map((c) => (
-                    <option key={c.id} value={c.id}>{c.name}</option>
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
                   ))}
                 </select>
               </div>
@@ -1176,11 +1299,15 @@ function Dashboard() {
               />
             </div>
             <div className="space-y-1">
-              <p className="text-xs font-semibold text-muted-foreground">Loại dự án</p>
+              <p className="text-xs font-semibold text-muted-foreground">
+                Loại dự án
+              </p>
               <select
                 title="Loại dự án"
                 value={projectTypeDraft}
-                onChange={(e) => setProjectTypeDraft(e.target.value as "client" | "internal")}
+                onChange={(e) =>
+                  setProjectTypeDraft(e.target.value as "client" | "internal")
+                }
                 className="h-9 w-full rounded-md border bg-background px-3 text-sm"
               >
                 <option value="client">Dự án khách hàng</option>
@@ -1189,12 +1316,24 @@ function Dashboard() {
             </div>
             <div className="grid grid-cols-2 gap-2">
               <div className="space-y-1">
-                <p className="text-xs font-semibold text-muted-foreground">Ngày bắt đầu</p>
-                <Input type="date" value={projectStartDateDraft} onChange={(e) => setProjectStartDateDraft(e.target.value)} />
+                <p className="text-xs font-semibold text-muted-foreground">
+                  Ngày bắt đầu
+                </p>
+                <Input
+                  type="date"
+                  value={projectStartDateDraft}
+                  onChange={(e) => setProjectStartDateDraft(e.target.value)}
+                />
               </div>
               <div className="space-y-1">
-                <p className="text-xs font-semibold text-muted-foreground">Ngày kết thúc</p>
-                <Input type="date" value={projectEndDateDraft} onChange={(e) => setProjectEndDateDraft(e.target.value)} />
+                <p className="text-xs font-semibold text-muted-foreground">
+                  Ngày kết thúc
+                </p>
+                <Input
+                  type="date"
+                  value={projectEndDateDraft}
+                  onChange={(e) => setProjectEndDateDraft(e.target.value)}
+                />
               </div>
             </div>
             <div className="space-y-1">
@@ -1204,32 +1343,52 @@ function Dashboard() {
               <Input
                 value={projectPmKeyword}
                 onFocus={() => setProjectPmPickerOpen(true)}
-                onBlur={() => { setTimeout(() => setProjectPmPickerOpen(false), 120) }}
-                onChange={(e) => { setProjectPmKeyword(e.target.value); setProjectPmId("") }}
+                onBlur={() => {
+                  setTimeout(() => setProjectPmPickerOpen(false), 120)
+                }}
+                onChange={(e) => {
+                  setProjectPmKeyword(e.target.value)
+                  setProjectPmId("")
+                }}
                 placeholder="Gõ tên hoặc email PM..."
               />
               {projectPmPickerOpen ? (
                 <div className="max-h-48 overflow-auto rounded-md border">
                   {pmCandidates.length === 0 ? (
-                    <p className="p-2 text-xs text-muted-foreground">Không có nhân viên phù hợp.</p>
+                    <p className="p-2 text-xs text-muted-foreground">
+                      Không có nhân viên phù hợp.
+                    </p>
                   ) : (
                     pmCandidates.map((user) => (
                       <button
                         key={user.id}
                         type="button"
-                        className={["flex w-full items-center justify-between px-3 py-2 text-left text-xs hover:bg-muted", projectPmId === user.id ? "bg-muted" : ""].join(" ")}
+                        className={[
+                          "flex w-full items-center justify-between px-3 py-2 text-left text-xs hover:bg-muted",
+                          projectPmId === user.id ? "bg-muted" : "",
+                        ].join(" ")}
                         onMouseDown={(e) => e.preventDefault()}
-                        onClick={() => { setProjectPmId(user.id); setProjectPmKeyword(user.full_name || user.email); setProjectPmPickerOpen(false) }}
+                        onClick={() => {
+                          setProjectPmId(user.id)
+                          setProjectPmKeyword(user.full_name || user.email)
+                          setProjectPmPickerOpen(false)
+                        }}
                       >
-                        <span className="font-medium">{user.full_name || "N/A"}</span>
-                        <span className="text-muted-foreground">{user.email}</span>
+                        <span className="font-medium">
+                          {user.full_name || "N/A"}
+                        </span>
+                        <span className="text-muted-foreground">
+                          {user.email}
+                        </span>
                       </button>
                     ))
                   )}
                 </div>
               ) : null}
               {projectPmId && (
-                <p className="text-xs text-muted-foreground">PM: {projectPmKeyword}</p>
+                <p className="text-xs text-muted-foreground">
+                  PM: {projectPmKeyword}
+                </p>
               )}
             </div>
             <div className="space-y-1">
@@ -1269,7 +1428,9 @@ function Dashboard() {
                         <span className="font-medium">
                           {user.full_name || "N/A"}
                         </span>
-                        <span className="text-muted-foreground">{user.email}</span>
+                        <span className="text-muted-foreground">
+                          {user.email}
+                        </span>
                       </button>
                     )
                   })}
