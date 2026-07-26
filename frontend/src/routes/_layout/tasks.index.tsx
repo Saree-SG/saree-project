@@ -255,17 +255,6 @@ function MyTasksPage() {
     queryFn: async () => (await TasksService.myDashboard()) as MyDashboardPayload,
   })
 
-  const pendingQuotationsQuery = useQuery({
-    queryKey: ["my-pending-quotations"],
-    queryFn: getMyPendingQuotations,
-  })
-  const pendingContractsQuery = useQuery({
-    queryKey: ["my-pending-contracts", "pending_approval"],
-    queryFn: () => listContracts({ status: "pending_approval", limit: 100 }),
-    enabled: canContractApprove,
-  })
-
-
   const data = dashboardQuery.data
   const [filterProjectId, setFilterProjectId] = useState("")
   const projects = data?.projects ?? []
