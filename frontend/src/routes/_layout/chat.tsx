@@ -4,6 +4,7 @@ import {
   ArrowLeft,
   Download,
   FileText,
+  Megaphone,
   MessageCircle,
   MoreVertical,
   Paperclip,
@@ -30,7 +31,9 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { useSidebar } from "@/components/ui/sidebar"
+import { RolesService } from "@/client"
 import useAuth from "@/hooks/useAuth"
+import { isManagementUser } from "@/utils/accountAccess"
 import { useChatSocket } from "@/hooks/useChatSocket"
 import useCustomToast from "@/hooks/useCustomToast"
 import {
@@ -41,6 +44,7 @@ import {
   type ChatRoom,
   createChatRoom,
   deleteChatRoom,
+  ensureAnnouncementRoom,
   getUserByEmail,
   listMyChatRooms,
   listRoomMembers,
@@ -227,6 +231,23 @@ function ChatPage() {
       createChatRoom({ room_type: "group", name: "Nhóm mới", member_user_ids: [] }),
     onSuccess: async (r) => {
       showSuccessToast("Đã tạo nhóm chat")
+      await queryClient.invalidateQueries({ queryKey: ["chat", "rooms"] })
+      setSelectedRoomId(r.id)
+    },
+    onError: handleError.bind(showErrorToast),
+  })
+
+  // Quản lý = superuser hoặc role cấp công ty (level ≤2) — khớp backend gate.
+  const accountProfileQuery = useQuery({
+    queryKey: ["roles", "my-account-profile"],
+    queryFn: () => RolesService.myAccountProfile(),
+    enabled: Boolean(currentUser),
+  })
+  const isManager = Boolean(currentUser?.is_superuser) || isManagementUser(accountProfileQuery.data)
+
+  const announcementMutation = useMutation({
+    mutationFn: async () => ensureAnnouncementRoom(),
+    onSuccess: async (r) => {
       await queryClient.invalidateQueries({ queryKey: ["chat", "rooms"] })
       setSelectedRoomId(r.id)
     },
@@ -430,6 +451,16 @@ function ChatPage() {
               className="flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground hover:bg-muted"
             >
               <Search className="h-4 w-4" />
+            </button>
+            <button
+              type="button"
+              aria-label="Thông báo chung"
+              title="Thông báo chung"
+              disabled={announcementMutation.isPending}
+              onClick={() => announcementMutation.mutate()}
+              className="flex h-8 w-8 items-center justify-center rounded-full text-amber-600 hover:bg-amber-50 disabled:opacity-50"
+            >
+              <Megaphone className="h-4 w-4" />
             </button>
             <button
               type="button"
@@ -753,6 +784,11 @@ function ChatPage() {
 
             {/* Input bar */}
             <div className="shrink-0 border-t bg-background px-3 py-2.5">
+              {selectedRoom?.room_type === "announcement" && !isManager ? (
+                <p className="rounded-2xl border bg-muted/30 px-3 py-2.5 text-center text-xs text-muted-foreground">
+                  📢 Phòng Thông báo chung — chỉ quản lý được gửi.
+                </p>
+              ) : (
               <form
                 onSubmit={(e) => {
                   e.preventDefault()
@@ -805,6 +841,7 @@ function ChatPage() {
                   <SendHorizontal className="h-4 w-4" />
                 </button>
               </form>
+              )}
             </div>
           </>
         )}

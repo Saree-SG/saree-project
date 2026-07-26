@@ -817,6 +817,24 @@ function AttendancePage() {
                       giới hạn 8h
                     </Badge>
                   )}
+                  {/* KPI flag badge (Bước 8) */}
+                  {(r as { attendance_flag?: string }).attendance_flag &&
+                    (r as { attendance_flag?: string }).attendance_flag !== "ok" && (
+                      <Badge
+                        className={[
+                          "h-5 px-1.5 text-[10px]",
+                          (r as { attendance_flag?: string }).attendance_flag === "full_day"
+                            ? "bg-red-100 text-red-700"
+                            : (r as { attendance_flag?: string }).attendance_flag === "half_day"
+                              ? "bg-orange-100 text-orange-700"
+                              : "bg-amber-100 text-amber-700",
+                        ].join(" ")}
+                        variant="outline"
+                      >
+                        {(r as { attendance_label?: string }).attendance_label ??
+                          (r as { attendance_flag?: string }).attendance_flag}
+                      </Badge>
+                    )}
                   {canSeeValidity &&
                     (r.check_in_valid ? (
                       <Badge

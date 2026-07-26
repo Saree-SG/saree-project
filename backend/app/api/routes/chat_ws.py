@@ -24,6 +24,7 @@ from app.repositories.chat_repository import ChatRepository
 from app.repositories.user_repository import UserRepository
 from app.services.chat_service import ChatService
 from app.shared.chat_realtime import chat_fanout, chat_manager
+from app.shared.permission import has_company_wide_scope
 
 router = APIRouter(tags=["chat"])
 
@@ -181,6 +182,12 @@ async def chat_ws(
                         async with msg_session.begin():
                             msg_repo = ChatRepository(msg_session)
                             await msg_repo.require_active_member(room_id, current_user.id)
+                            # Phòng Thông báo chung: chỉ quản lý được gửi.
+                            _room = await msg_repo.get_room_or_404(room_id)
+                            if _room.room_type == "announcement" and not await has_company_wide_scope(
+                                msg_session, current_user, _room.company_id
+                            ):
+                                raise HTTPException(403, "Chỉ quản lý được gửi vào phòng Thông báo chung")
                             m = await msg_repo.create_message({
                                 "room_id": room_id,
                                 "sender_id": current_user.id,

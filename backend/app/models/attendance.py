@@ -13,7 +13,7 @@ the device clock. `work_hours` is computed at check-out.
 from __future__ import annotations
 
 import uuid
-from datetime import date, datetime, timezone
+from datetime import date, datetime, time, timezone
 
 from sqlalchemy import DateTime, Text
 from sqlmodel import Field, SQLModel
@@ -21,6 +21,22 @@ from sqlmodel import Field, SQLModel
 
 def _utcnow() -> datetime:
     return datetime.now(timezone.utc)
+
+
+class AttendanceShiftConfig(SQLModel, table=True):
+    """Per-company shift thresholds for KPI scoring (Bước 8).
+
+    One row per company — created on demand via PATCH /attendance/shift-config.
+    All times are in the company's local timezone.
+    """
+
+    company_id: uuid.UUID = Field(foreign_key="company.id", primary_key=True)
+    check_in_deadline: time = Field(default=time(8, 0))    # late if after this
+    check_out_earliest: time = Field(default=time(17, 0))  # early if before this
+    tolerance_minutes: int = Field(default=10)             # grace ≤ this → ok
+    half_day_minutes: int = Field(default=60)              # > this → half_day (kpi 0.5)
+    full_day_minutes: int = Field(default=180)             # > this → full_day (kpi 0.0)
+    timezone: str = Field(default="Asia/Ho_Chi_Minh", max_length=50)
 
 
 class AttendanceRecord(SQLModel, table=True):
@@ -70,6 +86,16 @@ class AttendanceRecord(SQLModel, table=True):
     )
     note: str | None = Field(default=None, sa_type=Text)
 
+    # KPI scoring fields (Bước 8) — computed at check-out using AttendanceShiftConfig
+    # deviation_minutes: lệch giờ so với deadline/earliest (dương=trễ/về sớm, âm=đúng giờ)
+    deviation_minutes: int = Field(default=0)
+    # attendance_flag: ok | late | early | half_day | full_day
+    attendance_flag: str = Field(default="ok", max_length=20)
+    # attendance_label: "Đúng giờ" / "Đi trễ N phút" / "Về sớm N phút" / ...
+    attendance_label: str | None = Field(default=None, max_length=100)
+    # kpi_weight: 1.0 (ok/late/early) | 0.5 (half_day) | 0.0 (full_day)
+    kpi_weight: float = Field(default=1.0)
+
     created_at: datetime = Field(
         default_factory=_utcnow, sa_type=DateTime(timezone=True)  # type: ignore
     )
@@ -107,7 +133,21 @@ class AttendanceRecordPublic(SQLModel):
     is_absent: bool
     reminder_sent_at: datetime | None
     note: str | None
+    deviation_minutes: int = 0
+    attendance_flag: str = "ok"
+    attendance_label: str | None = None
+    kpi_weight: float = 1.0
     created_at: datetime
+
+
+class AttendanceShiftConfigPublic(SQLModel):
+    company_id: uuid.UUID
+    check_in_deadline: time
+    check_out_earliest: time
+    tolerance_minutes: int
+    half_day_minutes: int
+    full_day_minutes: int
+    timezone: str
 
 
 class AttendanceRecordsPublic(SQLModel):

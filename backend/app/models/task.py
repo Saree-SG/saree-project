@@ -69,6 +69,13 @@ class Task(TaskBase, table=True):
     color: str | None = Field(default=None, max_length=30)
     performance_coefficient: float | None = None
 
+    # Staffing & workload (điều phối / cân bằng tải)
+    # required_headcount: số người cần cho task (để phát hiện "thiếu người")
+    required_headcount: int = Field(default=1)
+    # estimated_hours: giờ ước tính để làm task — tử số của tải trọng.
+    # None => coi như DEFAULT_TASK_HOURS (8h) khi tính workload.
+    estimated_hours: float | None = Field(default=None)
+
     # If True, the assignee must capture GPS location when submitting a progress
     # report (proof %). Set/edited by the task creator.
     requires_checkin: bool = Field(default=False)
@@ -79,6 +86,18 @@ class Task(TaskBase, table=True):
     checkin_lat: float | None = None
     checkin_lng: float | None = None
     checkin_radius_m: int = Field(default=150)
+
+    # Giờ phải có mặt tại điểm công trình (để phát hiện xung đột di chuyển).
+    # None = không yêu cầu check giờ đến.
+    arrive_at: datetime | None = None
+
+    # Vòng đời mở rộng (Bước 7)
+    # pause_note: lý do tạm dừng (bắt buộc khi status → paused)
+    pause_note: str | None = None
+    # handoff_from_user_id: task này tiếp nhận bàn giao từ ai
+    handoff_from_user_id: uuid.UUID | None = Field(default=None, foreign_key="user.id")
+    # continues_task_id: task gốc mà task này bàn giao từ đó
+    continues_task_id: uuid.UUID | None = Field(default=None, foreign_key="task.id")
 
     # Soft delete
     is_deleted: bool = False
@@ -170,6 +189,9 @@ class TaskCreate(TaskBase):
     checkin_lat: float | None = None
     checkin_lng: float | None = None
     checkin_radius_m: int | None = None
+    required_headcount: int = 1
+    estimated_hours: float | None = None
+    arrive_at: datetime | None = None
 
 
 class TaskUpdate(SQLModel):
@@ -189,11 +211,16 @@ class TaskUpdate(SQLModel):
     checkin_lat: float | None = None
     checkin_lng: float | None = None
     checkin_radius_m: int | None = None
+    required_headcount: int | None = None
+    estimated_hours: float | None = None
+    arrive_at: datetime | None = None
+    pause_note: str | None = None
 
 
 class TaskStatusUpdate(SQLModel):
-    status: str   # todo | in_progress | review | done
+    status: str   # todo | in_progress | paused | review | done
     note: str | None = None  # Required when status → done (proof description)
+    pause_note: str | None = None  # Required when status → paused
 
 
 class BlockerInfo(SQLModel):
@@ -235,6 +262,12 @@ class TaskPublic(TaskBase):
     observers: list["TaskObserverPublic"] = []  # watch-only users
     color: str | None = None
     performance_coefficient: float | None = None
+    required_headcount: int = 1
+    estimated_hours: float | None = None
+    arrive_at: datetime | None = None
+    pause_note: str | None = None
+    handoff_from_user_id: uuid.UUID | None = None
+    continues_task_id: uuid.UUID | None = None
 
 
 class TasksPublic(SQLModel):

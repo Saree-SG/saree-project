@@ -1,47 +1,36 @@
 import type { LucideIcon } from "lucide-react"
-
 import { cn } from "@/lib/utils"
-
-/**
- * StatCard — thẻ chỉ số lớn theo phong cách POC "QL Thi Công".
- * Số to + nhãn nhỏ + màu semantic mềm. Dùng cho Tổng quan / KPI.
- */
 
 export type StatTone = "neutral" | "info" | "success" | "warning" | "danger"
 
-const TONE: Record<StatTone, { bg: string; label: string; value: string }> = {
-  neutral: { bg: "bg-slate-50 ring-slate-200", label: "text-slate-500", value: "text-slate-900" },
-  info: { bg: "bg-blue-50 ring-blue-200", label: "text-blue-600", value: "text-blue-700" },
-  success: { bg: "bg-green-50 ring-green-200", label: "text-green-700", value: "text-green-700" },
-  warning: { bg: "bg-amber-50 ring-amber-200", label: "text-amber-700", value: "text-amber-700" },
-  danger: { bg: "bg-red-50 ring-red-200", label: "text-red-700", value: "text-red-700" },
+const TONE: Record<StatTone, { icon: string; bg: string; val: string }> = {
+  neutral: { icon: "text-slate-500",  bg: "bg-slate-100",  val: "text-slate-800" },
+  info:    { icon: "text-blue-600",   bg: "bg-blue-50",    val: "text-blue-700"  },
+  success: { icon: "text-emerald-600",bg: "bg-emerald-50", val: "text-emerald-700"},
+  warning: { icon: "text-amber-600",  bg: "bg-amber-50",   val: "text-amber-700" },
+  danger:  { icon: "text-red-600",    bg: "bg-red-50",     val: "text-red-700"   },
 }
 
 export function StatCard({
-  label,
-  value,
-  suffix,
-  tone = "neutral",
-  icon: Icon,
-  className,
+  label, value, suffix, tone = "neutral", icon: Icon, className,
 }: {
-  label: string
-  value: string | number
-  suffix?: string
-  tone?: StatTone
-  icon?: LucideIcon
-  className?: string
+  label: string; value: string | number; suffix?: string
+  tone?: StatTone; icon?: LucideIcon; className?: string
 }) {
   const t = TONE[tone]
   return (
-    <div className={cn("rounded-xl p-4 ring-1", t.bg, className)}>
-      <div className={cn("flex items-center gap-1.5 text-xs font-medium", t.label)}>
-        {Icon ? <Icon className="h-3.5 w-3.5" /> : null}
-        {label}
-      </div>
-      <div className={cn("mt-1 text-2xl font-bold leading-tight", t.value)}>
-        {value}
-        {suffix ? <span className="ml-0.5 text-base font-semibold">{suffix}</span> : null}
+    <div className={cn("flex items-center gap-3 rounded-2xl border border-slate-100 bg-white px-4 py-3.5 shadow-sm", className)}>
+      {Icon && (
+        <div className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-xl", t.bg)}>
+          <Icon className={cn("h-4.5 w-4.5", t.icon)} strokeWidth={2} />
+        </div>
+      )}
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-xs font-medium text-slate-400">{label}</p>
+        <p className={cn("text-xl font-bold leading-tight", t.val)}>
+          {value}
+          {suffix && <span className="ml-0.5 text-sm font-semibold">{suffix}</span>}
+        </p>
       </div>
     </div>
   )

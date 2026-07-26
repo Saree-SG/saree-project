@@ -41,14 +41,15 @@ export function MobileBottomNav() {
     isSuperuser || canAccessContract(permissions),
   )
 
-  const tabItems = allItems.slice(0, 3)
-  const drawerItems = allItems.slice(3)
+  // 4 tab chính + nút "Thêm" = 5 mục (đủ cho worker: Công việc/Chấm công/Nghỉ phép/Sự cố).
+  const tabItems = allItems.slice(0, 4)
+  const drawerItems = allItems.slice(4)
   const drawerHasActive = drawerItems.some((i) => isLayoutNavItemActive(i, pathname))
 
   return (
     <>
       <nav className="fixed inset-x-0 bottom-0 z-60 block border-t bg-background shadow-[0_-2px_10px_rgba(0,0,0,0.08)] pb-[env(safe-area-inset-bottom,0px)] md:hidden">
-        <div className="grid h-14 grid-cols-4 px-1">
+        <div className="grid h-14 grid-cols-5 px-1">
           {tabItems.map((item) => (
             <RouterLink
               key={item.path}

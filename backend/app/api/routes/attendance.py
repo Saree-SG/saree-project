@@ -14,6 +14,8 @@ from app.core.config import settings
 from app.models.attendance import (
     AttendanceRecordPublic,
     AttendanceRecordsPublic,
+    AttendanceShiftConfig,
+    AttendanceShiftConfigPublic,
     AttendanceTeamRecordPublic,
     AttendanceTeamRecordsPublic,
     SiteLocationUpdate,
@@ -224,3 +226,58 @@ async def set_site_location(
         project_id, body.site_lat, body.site_lng, body.site_radius_m
     )
     return ProjectPublic.model_validate(project, from_attributes=True)
+
+
+# ---------------------------------------------------------------------------
+# Shift config (KPI scoring thresholds, Bước 8)
+# ---------------------------------------------------------------------------
+
+from datetime import time as _time  # noqa: E402
+from pydantic import BaseModel as _BM  # noqa: E402
+
+
+class _ShiftConfigBody(_BM):
+    check_in_deadline: _time | None = None
+    check_out_earliest: _time | None = None
+    tolerance_minutes: int | None = None
+    half_day_minutes: int | None = None
+    full_day_minutes: int | None = None
+    timezone: str | None = None
+
+
+@router.get("/attendance/shift-config", response_model=AttendanceShiftConfigPublic)
+async def get_shift_config(
+    session: AsyncSessionDep,
+    current_user: CurrentUser,
+) -> AttendanceShiftConfigPublic:
+    """Lấy cấu hình ca làm việc của công ty (dùng để tính KPI chấm công)."""
+    if not current_user.company_id:
+        raise HTTPException(400, "User chưa thuộc công ty nào.")
+    cfg = await session.get(AttendanceShiftConfig, current_user.company_id)
+    if not cfg:
+        cfg = AttendanceShiftConfig(company_id=current_user.company_id)
+    return AttendanceShiftConfigPublic.model_validate(cfg, from_attributes=True)
+
+
+@router.patch(
+    "/attendance/shift-config",
+    response_model=AttendanceShiftConfigPublic,
+)
+async def update_shift_config(
+    body: _ShiftConfigBody,
+    session: AsyncSessionDep,
+    current_user: User = Depends(require_permission("ATTENDANCE_CONFIG_SITE")),
+) -> AttendanceShiftConfigPublic:
+    """Cập nhật cấu hình ca làm việc (chỉ quản lý)."""
+    if not current_user.company_id:
+        raise HTTPException(400, "User chưa thuộc công ty nào.")
+    cfg = await session.get(AttendanceShiftConfig, current_user.company_id)
+    if not cfg:
+        cfg = AttendanceShiftConfig(company_id=current_user.company_id)
+        session.add(cfg)
+    for field, val in body.model_dump(exclude_none=True).items():
+        setattr(cfg, field, val)
+    session.add(cfg)
+    await session.flush()
+    await session.refresh(cfg)
+    return AttendanceShiftConfigPublic.model_validate(cfg, from_attributes=True)

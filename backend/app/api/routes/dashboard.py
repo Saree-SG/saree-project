@@ -15,9 +15,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import AsyncSessionDep, CurrentUser
 from app.models.attendance import AttendanceRecord
+from app.models.customer_company import CustomerCompany
+from app.models.incident import Incident
+from app.models.org import Department
 from app.models.project import Project
-from app.models.task import Task, TaskDependency, TaskProgressReport
+from app.models.task import Task, TaskAssignee, TaskDependency, TaskProgressReport
 from app.models.user import User
+from app.services import workload as _wl
+from app.services.province_coords import coords_for_province
 from app.services.task_service import compute_task_status
 from app.shared.permission import require_any_permission
 
@@ -79,6 +84,16 @@ def _effective_task_progress(task: Task, raw_progress_sum: int) -> int:
     if task.status in ("done", "review"):
         return 100
     return max(0, min(100, int(raw_progress_sum)))
+
+
+# --- Cân bằng tải (workload) — Bước 2, Cách A. Logic thuần ở app.services.workload ---
+STANDARD_SHIFT_HOURS = _wl.STANDARD_SHIFT_HOURS
+DEFAULT_TASK_HOURS = _wl.DEFAULT_TASK_HOURS
+FREE_THRESHOLD = _wl.FREE_THRESHOLD
+OVERLOAD_THRESHOLD = _wl.OVERLOAD_THRESHOLD
+_business_days = _wl.business_days
+_load_status = _wl.load_status
+_load_recommendation = _wl.load_recommendation
 
 
 @router.get("/overview")
@@ -270,6 +285,141 @@ async def user_workload(
         }
         for r in rows
     ]
+
+
+async def _open_task_assignee_hours(
+    session: AsyncSession, project_ids: list[uuid.UUID]
+) -> dict[str, float]:
+    """Tổng giờ ước tính task CHƯA XONG theo từng người phụ trách (assignee chính)."""
+    result = await session.execute(
+        select(Task.assignee_id, Task.estimated_hours).where(
+            Task.project_id.in_(project_ids),  # type: ignore[arg-type]
+            Task.status != "done",
+            Task.is_deleted == False,  # noqa: E712
+        )
+    )
+    hours: dict[str, float] = {}
+    for assignee_id, est in result.all():
+        uid = str(assignee_id)
+        hours[uid] = hours.get(uid, 0.0) + (est if est is not None else DEFAULT_TASK_HOURS)
+    return hours
+
+
+@router.get("/staffing-summary")
+async def staffing_summary(
+    session: AsyncSessionDep,
+    current_user: CurrentUser,
+    project_id: uuid.UUID | None = Query(default=None),
+    department_id: uuid.UUID | None = Query(default=None),
+) -> dict[str, int]:
+    """Đếm nhanh cho Tổng quan: rảnh / được giao / quá tải / việc thiếu người / sự cố mở."""
+    project_ids = await _project_ids_scope(session, current_user, project_id, department_id)
+    today = _utcnow().date()
+    first = date(today.year, today.month, 1)
+    last = date(today.year + (today.month // 12), (today.month % 12) + 1, 1)
+    capacity = _business_days(first, last) * STANDARD_SHIFT_HOURS
+
+    alloc = await _open_task_assignee_hours(session, project_ids) if project_ids else {}
+
+    # Tất cả nhân sự đang hoạt động trong công ty (mẫu số cho "rảnh").
+    users_stmt = select(User.id).where(
+        User.company_id == current_user.company_id,
+        User.is_active == True,  # noqa: E712
+    )
+    if department_id is not None:
+        users_stmt = users_stmt.where(User.department_id == department_id)
+    all_uids = {str(uid) for uid in (await session.execute(users_stmt)).scalars().all()}
+
+    free = assigned = overloaded = 0
+    for uid in all_uids:
+        pct = (alloc.get(uid, 0.0) / capacity * 100) if capacity > 0 else 0.0
+        if alloc.get(uid, 0.0) > 0:
+            assigned += 1
+        if pct > OVERLOAD_THRESHOLD:
+            overloaded += 1
+        elif pct < FREE_THRESHOLD:
+            free += 1
+
+    # Việc thiếu người (open, required_headcount > số người đã gán).
+    understaffed = 0
+    if project_ids:
+        understaffed = await _count_understaffed(session, project_ids)
+
+    open_incidents = 0
+    if project_ids:
+        open_incidents = (await session.execute(
+            select(func.count(Incident.id)).where(
+                Incident.project_id.in_(project_ids),  # type: ignore[arg-type]
+                Incident.status.notin_(["resolved", "closed"]),  # type: ignore[attr-defined]
+            )
+        )).scalar_one()
+
+    return {
+        "free": free,
+        "assigned": assigned,
+        "overloaded": overloaded,
+        "understaffed_tasks": understaffed,
+        "open_incidents": int(open_incidents),
+    }
+
+
+async def _count_understaffed(session: AsyncSession, project_ids: list[uuid.UUID]) -> int:
+    tasks = await _understaffed_task_rows(session, project_ids)
+    return len(tasks)
+
+
+async def _understaffed_task_rows(
+    session: AsyncSession, project_ids: list[uuid.UUID]
+) -> list[dict]:
+    """Task đang mở mà required_headcount > số người đã gán (1 chính + phụ)."""
+    result = await session.execute(
+        select(Task).where(
+            Task.project_id.in_(project_ids),  # type: ignore[arg-type]
+            Task.status != "done",
+            Task.is_deleted == False,  # noqa: E712
+            Task.required_headcount > 1,
+        )
+    )
+    tasks = result.scalars().all()
+    if not tasks:
+        return []
+    task_ids = [t.id for t in tasks]
+    extra_result = await session.execute(
+        select(TaskAssignee.task_id, func.count(TaskAssignee.id))
+        .where(TaskAssignee.task_id.in_(task_ids))  # type: ignore[arg-type]
+        .group_by(TaskAssignee.task_id)
+    )
+    extra_by_task = {row[0]: int(row[1]) for row in extra_result.all()}
+    out: list[dict] = []
+    for t in tasks:
+        assigned_n = 1 + extra_by_task.get(t.id, 0)
+        shortage = t.required_headcount - assigned_n
+        if shortage > 0:
+            out.append(
+                {
+                    "task_id": str(t.id),
+                    "name": t.name,
+                    "project_id": str(t.project_id),
+                    "required": t.required_headcount,
+                    "assigned": assigned_n,
+                    "shortage": shortage,
+                }
+            )
+    return out
+
+
+@router.get("/understaffed-tasks")
+async def understaffed_tasks(
+    session: AsyncSessionDep,
+    current_user: CurrentUser,
+    project_id: uuid.UUID | None = Query(default=None),
+    department_id: uuid.UUID | None = Query(default=None),
+) -> list[dict]:
+    """Danh sách task đang thiếu người (để nút 'Bố trí ngay')."""
+    project_ids = await _project_ids_scope(session, current_user, project_id, department_id)
+    if not project_ids:
+        return []
+    return await _understaffed_task_rows(session, project_ids)
 
 
 @router.get("/leaderboard")
@@ -502,10 +652,15 @@ async def company_gantt(
     )
     if assignee_id is not None:
         stmt = stmt.where(Task.assignee_id == assignee_id)
-    if start_date is not None:
-        stmt = stmt.where(Task.end_time >= start_date)
-    if end_date is not None:
-        stmt = stmt.where(Task.start_time <= end_date)
+    # The UI sends ISO strings with a Z offset, but start_time/end_time are
+    # TIMESTAMP WITHOUT TIME ZONE — binding an aware datetime makes asyncpg raise
+    # DataError, which surfaced as "Không tải được Gantt".
+    start_naive = _naive_utc(start_date)
+    end_naive = _naive_utc(end_date)
+    if start_naive is not None:
+        stmt = stmt.where(Task.end_time >= start_naive)
+    if end_naive is not None:
+        stmt = stmt.where(Task.start_time <= end_naive)
     stmt = stmt.order_by(Task.start_time)
     tasks = (await session.execute(stmt)).scalars().all()
     if not tasks:
@@ -824,6 +979,8 @@ async def team_productivity(
             func.coalesce(func.sum(AttendanceRecord.work_hours), 0.0).label("hours"),
             func.count(func.distinct(AttendanceRecord.work_date)).label("days"),
             func.count(AttendanceRecord.id).label("checkins"),
+            # kpi_weight: ngày công thực tế (Σ weight, mỗi ngày max 1.0)
+            func.coalesce(func.sum(AttendanceRecord.kpi_weight), 0.0).label("kpi_days"),
         )
         .where(
             AttendanceRecord.project_id.in_(project_ids),  # type: ignore[arg-type]
@@ -838,6 +995,7 @@ async def team_productivity(
             "work_hours": round(float(row.hours or 0.0), 2),
             "days_worked": int(row.days or 0),
             "checkins": int(row.checkins or 0),
+            "kpi_days": round(float(row.kpi_days or 0.0), 2),
         }
 
     # --- Tasks: completion within month (by actual end / due date) ---
@@ -851,38 +1009,65 @@ async def team_productivity(
     task_stats: dict[str, dict] = {}
     for t in tasks_result.scalars().all():
         uid = str(t.assignee_id)
-        s = task_stats.setdefault(uid, {"total": 0, "done": 0, "overdue": 0})
+        s = task_stats.setdefault(
+            uid, {"total": 0, "done": 0, "overdue": 0, "allocated_hours": 0.0}
+        )
         s["total"] += 1
         end_time = _naive_utc(t.end_time)
         if t.status == "done":
             s["done"] += 1
-        elif end_time and end_time < now:
-            s["overdue"] += 1
+        else:
+            # Giờ đã phân công (tử số tải trọng) = tổng giờ ước tính task chưa xong.
+            s["allocated_hours"] += (
+                t.estimated_hours if t.estimated_hours is not None else DEFAULT_TASK_HOURS
+            )
+            if end_time and end_time < now:
+                s["overdue"] += 1
+
+    # Giờ khả dụng (Cách A): số ngày công chuẩn trong kỳ × ca 8h.
+    capacity_hours = round(_business_days(first, last) * STANDARD_SHIFT_HOURS, 1)
 
     # --- Merge + resolve user names ---
     all_uids = set(att_by_user) | set(task_stats)
     all_uids.discard("None")
     uuid_ids = [uuid.UUID(u) for u in all_uids]
     users_by_id: dict[str, User] = {}
+    dept_name_by_id: dict[uuid.UUID, str] = {}
     if uuid_ids:
         ures = await session.execute(
             select(User).where(User.id.in_(uuid_ids))  # type: ignore[arg-type]
         )
         users_by_id = {str(u.id): u for u in ures.scalars().all()}
+        dept_ids = {u.department_id for u in users_by_id.values() if u.department_id}
+        if dept_ids:
+            dres = await session.execute(
+                select(Department.id, Department.name).where(
+                    Department.id.in_(dept_ids)  # type: ignore[arg-type]
+                )
+            )
+            dept_name_by_id = {row[0]: row[1] for row in dres.all()}
 
     rows = []
     for uid in all_uids:
         att = att_by_user.get(uid, {})
-        ts = task_stats.get(uid, {"total": 0, "done": 0, "overdue": 0})
+        ts = task_stats.get(uid, {"total": 0, "done": 0, "overdue": 0, "allocated_hours": 0.0})
         u = users_by_id.get(uid)
         hours = att.get("work_hours", 0.0)
         done = ts["done"]
+        allocated = round(ts.get("allocated_hours", 0.0), 1)
+        workload_pct = (
+            round(allocated / capacity_hours * 100, 1) if capacity_hours > 0 else 0.0
+        )
         rows.append(
             {
                 "user_id": uid,
                 "user_name": (u.full_name or u.email) if u else uid,
+                "department_name": (
+                    dept_name_by_id.get(u.department_id) if u and u.department_id else None
+                ),
                 "work_hours": hours,
                 "days_worked": att.get("days_worked", 0),
+                "kpi_days": att.get("kpi_days", 0.0),
                 "tasks_total": ts["total"],
                 "tasks_done": done,
                 "tasks_overdue": ts["overdue"],
@@ -891,6 +1076,12 @@ async def team_productivity(
                 else 0.0,
                 # Output per work-hour — simple efficiency proxy.
                 "tasks_per_hour": round(done / hours, 3) if hours > 0 else None,
+                # --- Cân bằng tải (Bước 2, Cách A) ---
+                "capacity_hours": capacity_hours,
+                "allocated_hours": allocated,
+                "workload_pct": workload_pct,
+                "load_status": _load_status(workload_pct),
+                "recommendation": _load_recommendation(workload_pct),
             }
         )
 
@@ -1111,3 +1302,215 @@ async def year_summary(
     for i, r in enumerate(rows, start=1):
         r["rank"] = i
     return {**label, "rows": rows}
+
+
+# ---------------------------------------------------------------------------
+# Map overview endpoint (Bước 9 — Gap 49–56)
+# ---------------------------------------------------------------------------
+
+@router.get("/map")
+async def map_overview(
+    session: AsyncSessionDep,
+    current_user: CurrentUser,
+    company_id: uuid.UUID | None = None,
+) -> dict:
+    """Trả dữ liệu cho Sơ đồ vị trí: sites, customers, staff với vị trí suy luận.
+
+    Thứ tự suy luận vị trí NV:
+      1. Task đang in_progress → Project.site_lat/lng
+      2. GPS check-in AttendanceRecord gần nhất (work_date hôm nay)
+      3. Fallback: toạ độ trung tâm quốc gia (chưa có province trên User)
+
+    Superuser có thể pass ?company_id= để xem công ty khác.
+    """
+    if company_id and current_user.is_superuser:
+        pass  # dùng company_id từ query param
+    else:
+        company_id = current_user.company_id
+
+    # 1. Sites — projects của công ty có toạ độ
+    proj_result = await session.execute(
+        select(Project).where(
+            Project.company_id == company_id,
+            Project.is_deleted == False,  # noqa: E712
+            Project.status.not_in(["completed", "cancelled"]),  # type: ignore[union-attr]
+        )
+    )
+    projects = proj_result.scalars().all()
+
+    # Progress per project (avg of done tasks)
+    proj_ids = [p.id for p in projects]
+    sites = []
+    for p in projects:
+        sites.append({
+            "project_id": str(p.id),
+            "name": p.name,
+            "lat": p.site_lat,
+            "lng": p.site_lng,
+            "status": p.status,
+            "priority": p.priority,
+            "progress_pct": 0,  # filled below
+            "staff_count": 0,
+        })
+
+    # Task progress per project
+    if proj_ids:
+        task_q = await session.execute(
+            select(
+                Task.project_id,
+                func.count(Task.id).label("total"),
+                func.sum(
+                    cast(Task.status == "done", Integer)
+                ).label("done"),
+            )
+            .where(
+                Task.project_id.in_(proj_ids),  # type: ignore[arg-type]
+                Task.is_deleted == False,  # noqa: E712
+            )
+            .group_by(Task.project_id)
+        )
+        for row in task_q.all():
+            total = row.total or 0
+            done = int(row.done or 0)
+            pct = round(done / total * 100) if total else 0
+            for s in sites:
+                if s["project_id"] == str(row.project_id):
+                    s["progress_pct"] = pct
+
+        # Staff count per project (today's attendances)
+        from datetime import date as _date
+        today = _date.today()
+        att_q = await session.execute(
+            select(
+                AttendanceRecord.project_id,
+                func.count(func.distinct(AttendanceRecord.user_id)).label("cnt"),
+            )
+            .where(
+                AttendanceRecord.project_id.in_(proj_ids),  # type: ignore[arg-type]
+                AttendanceRecord.work_date == today,
+            )
+            .group_by(AttendanceRecord.project_id)
+        )
+        for row in att_q.all():
+            for s in sites:
+                if s["project_id"] == str(row.project_id):
+                    s["staff_count"] = int(row.cnt or 0)
+
+    # 2. Customers with coords
+    cust_result = await session.execute(
+        select(CustomerCompany).where(
+            CustomerCompany.company_id == company_id,
+            CustomerCompany.site_lat != None,  # noqa: E711
+        )
+    )
+    customers = [
+        {
+            "id": str(c.id),
+            "name": c.name,
+            "lat": c.site_lat,
+            "lng": c.site_lng,
+            "phone": c.contact_phone,
+            "address": c.address,
+        }
+        for c in cust_result.scalars().all()
+    ]
+
+    # 3. Staff location inference
+    # active members of company
+    user_result = await session.execute(
+        select(User).where(
+            User.company_id == company_id,
+            User.is_active == True,  # noqa: E712
+        )
+    )
+    users = user_result.scalars().all()
+
+    # Map project_id → (lat, lng) for quick lookup
+    proj_coords: dict[str, tuple[float, float]] = {
+        str(p.id): (p.site_lat, p.site_lng)
+        for p in projects
+        if p.site_lat and p.site_lng
+    }
+
+    # Task in_progress per user → project coords
+    active_task_q = await session.execute(
+        select(Task.assignee_id, Task.project_id)
+        .where(
+            Task.project_id.in_(proj_ids),  # type: ignore[arg-type]
+            Task.status == "in_progress",
+            Task.is_deleted == False,  # noqa: E712
+            Task.assignee_id != None,  # noqa: E711
+        )
+    )
+    user_active_proj: dict[str, str] = {}
+    for row in active_task_q.all():
+        user_active_proj[str(row.assignee_id)] = str(row.project_id)
+
+    # Cũng include extra assignees từ TaskAssignee table
+    extra_assignee_q = await session.execute(
+        select(TaskAssignee.user_id, Task.project_id)
+        .join(Task, TaskAssignee.task_id == Task.id)
+        .where(
+            Task.project_id.in_(proj_ids),  # type: ignore[arg-type]
+            Task.status == "in_progress",
+            Task.is_deleted == False,  # noqa: E712
+        )
+    )
+    for row in extra_assignee_q.all():
+        uid = str(row.user_id)
+        if uid not in user_active_proj:
+            user_active_proj[uid] = str(row.project_id)
+
+    # Today's attendance GPS per user
+    from datetime import date as _date2
+    today2 = _date2.today()
+    today_att_q = await session.execute(
+        select(AttendanceRecord.user_id, AttendanceRecord.check_in_lat, AttendanceRecord.check_in_lng)
+        .where(
+            AttendanceRecord.company_id == company_id,
+            AttendanceRecord.work_date == today2,
+            AttendanceRecord.check_in_lat != None,  # noqa: E711
+        )
+        .order_by(AttendanceRecord.check_in_at.desc())  # type: ignore[union-attr]
+    )
+    user_att_gps: dict[str, tuple[float, float]] = {}
+    for row in today_att_q.all():
+        uid = str(row.user_id)
+        if uid not in user_att_gps:
+            user_att_gps[uid] = (row.check_in_lat, row.check_in_lng)
+
+    staff = []
+    fallback_lat, fallback_lng = coords_for_province(None)
+    for u in users:
+        uid = str(u.id)
+        # Determine status
+        if uid in user_active_proj:
+            status = "working"
+        elif uid in user_att_gps:
+            status = "working"
+        else:
+            status = "free"
+
+        # Infer location
+        loc_source = "province"
+        lat, lng = fallback_lat, fallback_lng
+
+        if uid in user_active_proj:
+            pcoords = proj_coords.get(user_active_proj[uid])
+            if pcoords:
+                lat, lng = pcoords
+                loc_source = "task"
+        elif uid in user_att_gps:
+            lat, lng = user_att_gps[uid]
+            loc_source = "attendance"
+
+        staff.append({
+            "user_id": uid,
+            "name": u.full_name or u.email,
+            "status": status,
+            "lat": lat,
+            "lng": lng,
+            "loc_source": loc_source,
+        })
+
+    return {"sites": sites, "customers": customers, "staff": staff}

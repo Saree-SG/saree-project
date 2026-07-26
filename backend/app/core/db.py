@@ -16,7 +16,7 @@ engine = sync_engine
 
 
 def init_db(session: Session) -> None:
-    """Create the first superuser if it does not exist yet (called by initial_data.py)."""
+    """Create the first superuser + seed default skills if not exist (called by initial_data.py)."""
     from app import crud
     from app.core.config import settings
     from app.models.user import User, UserCreate
@@ -29,3 +29,14 @@ def init_db(session: Session) -> None:
             is_superuser=True,
         )
         crud.create_user(session=session, user_create=user_in)
+
+    # Seed default skills for every company that has none yet
+    from app.scripts.seed_skills import seed_skills_for_company
+    from app.models.org import Company
+
+    companies = session.exec(select(Company)).all()
+    for company in companies:
+        created = seed_skills_for_company(session, company)
+        if created:
+            import logging
+            logging.getLogger(__name__).info("Seeded %d default skills for company %s", created, company.name)

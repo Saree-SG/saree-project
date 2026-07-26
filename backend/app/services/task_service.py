@@ -1059,8 +1059,15 @@ class TaskService:
         if old_status == "done":
             raise HTTPException(422, "Công việc đã hoàn thành, không thể thay đổi trạng thái.")
 
+        # paused requires a reason note
+        if body.status == "paused":
+            if not (body.pause_note or "").strip():
+                raise HTTPException(422, "Cần nhập lý do tạm dừng (pause_note).")
+            if not is_assignee and not is_assignor and not current_user.is_superuser:
+                raise HTTPException(403, "Chỉ người thực hiện hoặc người giao việc mới có thể tạm dừng.")
+
         # "review" → "done" or "review" → "in_progress": only assignor (or superuser) can decide.
-        if old_status == "review" and body.status in ("done", "in_progress"):
+        elif old_status == "review" and body.status in ("done", "in_progress"):
             if not is_assignor and not current_user.is_superuser:
                 raise HTTPException(403, "Chỉ người giao việc mới có thể duyệt hoặc từ chối công việc đang review.")
         elif not is_assignee and not current_user.is_superuser:
@@ -1104,6 +1111,10 @@ class TaskService:
                 )
 
         task = await self._task_repo.set_status(task, body.status)
+        if body.status == "paused" and body.pause_note:
+            task.pause_note = body.pause_note.strip()
+            self._session.add(task)
+            await self._session.flush()
         await self._audit_repo.write(
             actor_id=current_user.id,
             action="task.status_changed",

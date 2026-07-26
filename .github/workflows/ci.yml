@@ -1,0 +1,67 @@
+name: CI (test + build gate)
+
+# Cổng chặn lỗi TRƯỚC khi deploy prod: chạy trên mọi push và PR.
+# - Backend: `alembic upgrade head` trên Postgres sạch (mô phỏng đúng prestart.sh của prod)
+#            + unit test cân bằng tải + kiểm tra alembic đúng 1 head.
+# - Frontend: typecheck + build (bắt lỗi TS / build vỡ trước khi lên prod).
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    services:
+      db:
+        image: postgres:16
+        env:
+          POSTGRES_USER: saree
+          POSTGRES_PASSWORD: saree
+          POSTGRES_DB: saree-erp-project
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U saree"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      POSTGRES_SERVER: localhost
+      POSTGRES_PORT: "5432"
+      POSTGRES_USER: saree
+      POSTGRES_PASSWORD: saree
+      POSTGRES_DB: saree-erp-project
+      SECRET_KEY: ci-secret-key-not-for-prod
+      FIRST_SUPERUSER: admin@example.com
+      FIRST_SUPERUSER_PASSWORD: changethis123
+      ENVIRONMENT: local
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v5
+      - name: Sync deps
+        run: uv sync --frozen || uv sync
+      - name: Alembic upgrade head (mô phỏng deploy prod)
+        working-directory: backend
+        run: uv run alembic upgrade head
+      - name: Unit tests (workload + alembic head)
+        working-directory: backend
+        run: uv run python -m pytest tests/test_workload_service.py tests/test_alembic_single_head.py -q
+
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup bun
+        uses: oven-sh/setup-bun@v2
+      - name: Install deps
+        working-directory: frontend
+        run: bun install --frozen-lockfile || bun install
+      - name: Typecheck + build
+        working-directory: frontend
+        run: bunx tsc -p tsconfig.build.json --noEmit && bunx vite build

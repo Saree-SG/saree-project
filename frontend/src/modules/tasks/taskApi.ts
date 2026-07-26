@@ -111,6 +111,57 @@ export async function removeTaskObserver(
   return res.data
 }
 
+// ---------------------------------------------------------------------------
+// Dispatch conflict check (Bước 6 — Gap 29–31)
+// ---------------------------------------------------------------------------
+
+export type ConflictOverlap = {
+  task_id: string
+  task_name: string
+  project_name: string
+}
+
+export type TravelInfo = {
+  distance_km: number
+  travel_minutes: number
+  feasible: boolean
+  earliest_arrival: string
+  message: string
+}
+
+export type ConflictCheckResult = {
+  overlaps: ConflictOverlap[]
+  travel: TravelInfo | null
+}
+
+export async function checkDispatchConflict(params: {
+  assignee_id: string
+  project_id: string
+  start_time: string   // ISO datetime
+  end_time: string
+  arrive_at?: string | null
+}): Promise<ConflictCheckResult> {
+  const res = await axios.post<ConflictCheckResult>(
+    `${OpenAPI.BASE}/api/v1/tasks/check-conflict`,
+    params,
+    { headers: authHeaders() },
+  )
+  return res.data
+}
+
+export async function handoffTask(
+  taskId: string,
+  newAssigneeId: string,
+  note?: string,
+): Promise<TaskWithPeople> {
+  const res = await axios.post<TaskWithPeople>(
+    `${OpenAPI.BASE}/api/v1/tasks/${taskId}/handoff`,
+    { new_assignee_id: newAssigneeId, note: note ?? null },
+    { headers: authHeaders() },
+  )
+  return res.data
+}
+
 /**
  * Reassign primary assignee of a task.
  */

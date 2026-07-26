@@ -1,6 +1,7 @@
 import type { LucideIcon } from "lucide-react"
 import {
   AlertTriangle,
+  BarChart3,
   Building2,
   CalendarOff,
   CalendarRange,
@@ -10,10 +11,12 @@ import {
   FileText,
   FolderOpen,
   LayoutDashboard,
+  Map,
   MessageCircle,
   Settings,
   UserRound,
   Users,
+  Workflow,
 } from "lucide-react"
 
 export type LayoutNavItem = {
@@ -77,6 +80,26 @@ export function buildLayoutNavItems(
       icon: CalendarRange,
       title: "Gantt tổng",
       path: "/gantt",
+    })
+    items.push({
+      icon: Map,
+      title: "Bản đồ",
+      path: "/map",
+    })
+    items.push({
+      icon: Users,
+      title: "Nhân viên",
+      path: "/staff",
+    })
+    items.push({
+      icon: Workflow,
+      title: "Điều phối",
+      path: "/dispatch",
+    })
+    items.push({
+      icon: BarChart3,
+      title: "KPI",
+      path: "/kpi",
     })
   }
   if (canAccessQuotations) {

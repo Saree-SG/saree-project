@@ -44,6 +44,7 @@ import {
   type TaskExtraAssigneePublic,
   type TaskObserverPublic,
   type TaskWithPeople,
+  handoffTask,
 } from "@/modules/tasks/taskApi"
 import {
   listProgressReportsWithReview,
@@ -196,6 +197,11 @@ function TaskDetailPage() {
   const [taskNameDraft, setTaskNameDraft] = useState("")
   const [taskDescriptionDraft, setTaskDescriptionDraft] = useState("")
   const [taskPriorityDraft, setTaskPriorityDraft] = useState("medium")
+  const [pauseDialogOpen, setPauseDialogOpen] = useState(false)
+  const [pauseNote, setPauseNote] = useState("")
+  const [handoffDialogOpen, setHandoffDialogOpen] = useState(false)
+  const [handoffAssigneeId, setHandoffAssigneeId] = useState("")
+  const [handoffNote, setHandoffNote] = useState("")
   const [subtaskDialogOpen, setSubtaskDialogOpen] = useState(false)
   const [subtaskName, setSubtaskName] = useState("")
   const [subtaskDescription, setSubtaskDescription] = useState("")
@@ -319,6 +325,35 @@ function TaskDetailPage() {
       await queryClient.invalidateQueries({
         queryKey: ["task-detail", "project-tasks"],
       })
+      await queryClient.invalidateQueries({ queryKey: ["project-dashboard"] })
+    },
+    onError: handleError.bind(showErrorToast),
+  })
+
+  const pauseMutation = useMutation({
+    mutationFn: () =>
+      TasksService.updateTaskStatus({
+        taskId,
+        requestBody: { status: "paused", pause_note: pauseNote } as never,
+      }),
+    onSuccess: async () => {
+      showSuccessToast("Đã tạm dừng công việc")
+      setPauseDialogOpen(false)
+      setPauseNote("")
+      await queryClient.invalidateQueries({ queryKey: ["task-detail", "task", taskId] })
+      await queryClient.invalidateQueries({ queryKey: ["project-dashboard"] })
+    },
+    onError: handleError.bind(showErrorToast),
+  })
+
+  const handoffMutation = useMutation({
+    mutationFn: () => handoffTask(taskId, handoffAssigneeId, handoffNote || undefined),
+    onSuccess: async (newTask) => {
+      showSuccessToast(`Đã bàn giao — task mới: ${newTask.name}`)
+      setHandoffDialogOpen(false)
+      setHandoffAssigneeId("")
+      setHandoffNote("")
+      await queryClient.invalidateQueries({ queryKey: ["task-detail", "task", taskId] })
       await queryClient.invalidateQueries({ queryKey: ["project-dashboard"] })
     },
     onError: handleError.bind(showErrorToast),
@@ -1288,6 +1323,18 @@ function TaskDetailPage() {
                           }}
                         >
                           ✅ Đánh dấu: Hoàn thành
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          disabled={task.status === "done" || task.status === "paused"}
+                          onClick={() => setPauseDialogOpen(true)}
+                        >
+                          ⏸ Tạm dừng công việc
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          disabled={task.status === "done"}
+                          onClick={() => setHandoffDialogOpen(true)}
+                        >
+                          🔄 Bàn giao cho người khác
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
@@ -3450,6 +3497,88 @@ function TaskDetailPage() {
               onClick={() => addDefectNoteMutation.mutate()}
             >
               Ghi nhận lỗi
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Dialog Tạm dừng ── */}
+      <Dialog open={pauseDialogOpen} onOpenChange={setPauseDialogOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>⏸ Tạm dừng công việc</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2">
+            <p className="text-sm text-muted-foreground">
+              Nhập lý do tạm dừng (bắt buộc). Task sẽ chuyển sang trạng thái{" "}
+              <strong>Paused</strong> và không tính vào workload.
+            </p>
+            <textarea
+              className="w-full rounded-md border px-3 py-2 text-sm"
+              rows={3}
+              placeholder="VD: Chờ vật tư, thời tiết xấu..."
+              value={pauseNote}
+              onChange={(e) => setPauseNote(e.target.value)}
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPauseDialogOpen(false)}>
+              Hủy
+            </Button>
+            <Button
+              disabled={!pauseNote.trim() || pauseMutation.isPending}
+              onClick={() => pauseMutation.mutate()}
+            >
+              Xác nhận tạm dừng
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Dialog Bàn giao ── */}
+      <Dialog open={handoffDialogOpen} onOpenChange={setHandoffDialogOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>🔄 Bàn giao công việc</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <p className="text-sm text-muted-foreground">
+              Task gốc sẽ được tạm dừng. Task mới được tạo cho người tiếp nhận,
+              giữ nguyên{" "}
+              <strong>{task?.reported_progress_total ?? 0}%</strong> tiến độ hiện tại.
+            </p>
+            <div className="space-y-1">
+              <p className="text-xs font-semibold">Người tiếp nhận (user ID)</p>
+              <input
+                className="w-full rounded-md border px-3 py-1.5 text-sm"
+                placeholder="Dán user ID hoặc chọn từ danh sách..."
+                value={handoffAssigneeId}
+                onChange={(e) => setHandoffAssigneeId(e.target.value)}
+              />
+              <p className="text-[11px] text-muted-foreground">
+                Hiện tại cần nhập user ID thủ công — sẽ có picker sau khi Bước 3 (Skill) hoàn tất.
+              </p>
+            </div>
+            <div className="space-y-1">
+              <p className="text-xs font-semibold">Ghi chú (tuỳ chọn)</p>
+              <textarea
+                className="w-full rounded-md border px-3 py-2 text-sm"
+                rows={2}
+                placeholder="Lý do bàn giao..."
+                value={handoffNote}
+                onChange={(e) => setHandoffNote(e.target.value)}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setHandoffDialogOpen(false)}>
+              Hủy
+            </Button>
+            <Button
+              disabled={!handoffAssigneeId.trim() || handoffMutation.isPending}
+              onClick={() => handoffMutation.mutate()}
+            >
+              Xác nhận bàn giao
             </Button>
           </DialogFooter>
         </DialogContent>

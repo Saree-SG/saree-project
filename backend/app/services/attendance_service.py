@@ -21,9 +21,10 @@ from fastapi import HTTPException
 from sqlmodel import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.attendance import AttendanceRecord
+from app.models.attendance import AttendanceRecord, AttendanceShiftConfig
 from app.models.customer_company import CustomerCompany
 from app.models.org import Company, ProjectMemberRole, UserCompanyRole
+from app.services.kpi_scoring import ShiftThresholds, score_attendance
 from app.models.project import Project
 from app.models.user import User
 
@@ -369,6 +370,28 @@ class AttendanceService:
         hours, capped = self._capped_hours(record.check_in_at, now)
         record.work_hours = hours
         record.is_capped = capped
+
+        # KPI scoring — use company shift config if available, else defaults
+        company_id = record.company_id
+        if company_id is None and record.project_id:
+            proj = await self._session.get(Project, record.project_id)
+            if proj:
+                company_id = proj.company_id
+        cfg_row = await self._session.get(AttendanceShiftConfig, company_id) if company_id else None
+        cfg = ShiftThresholds(
+            check_in_deadline=cfg_row.check_in_deadline if cfg_row else ShiftThresholds().check_in_deadline,
+            check_out_earliest=cfg_row.check_out_earliest if cfg_row else ShiftThresholds().check_out_earliest,
+            tolerance_minutes=cfg_row.tolerance_minutes if cfg_row else ShiftThresholds().tolerance_minutes,
+            half_day_minutes=cfg_row.half_day_minutes if cfg_row else ShiftThresholds().half_day_minutes,
+            full_day_minutes=cfg_row.full_day_minutes if cfg_row else ShiftThresholds().full_day_minutes,
+            tz=cfg_row.timezone if cfg_row else ShiftThresholds().tz,
+        )
+        kpi = score_attendance(record.check_in_at, now, cfg)
+        record.deviation_minutes = kpi.deviation_minutes
+        record.attendance_flag = kpi.attendance_flag
+        record.attendance_label = kpi.attendance_label
+        record.kpi_weight = kpi.kpi_weight
+
         self._session.add(record)
         await self._session.flush()
         return record

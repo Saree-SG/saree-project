@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+# Pre-push gate — chặn push nếu lỗi cơ bản (nhanh, KHÔNG cần Postgres).
+# Bật một lần: git config core.hooksPath .githooks
+#
+# Kiểm:
+#   1) Frontend typecheck (bắt lỗi TS trước khi lên CI/prod)
+#   2) Backend unit test cân bằng tải + alembic đúng 1 head (chặn lỗi migration deploy)
+# CI (.github/workflows/ci.yml) sẽ chạy thêm alembic upgrade head + build đầy đủ.
+
+set -e
+ROOT="$(git rev-parse --show-toplevel)"
+
+# Chọn runner cho tsc: ưu tiên bunx, không có thì npx.
+if command -v bunx >/dev/null 2>&1; then TSC="bunx"; else TSC="npx -y"; fi
+
+echo "▶ [pre-push] Frontend typecheck..."
+( cd "$ROOT/frontend" && $TSC tsc -p tsconfig.build.json --noEmit )
+
+echo "▶ [pre-push] Backend unit tests (workload + alembic head)..."
+( cd "$ROOT/backend" && uv run python -m pytest tests/test_workload_service.py tests/test_alembic_single_head.py -q )
+
+echo "✓ [pre-push] OK — cho phép push."

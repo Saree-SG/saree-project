@@ -18,6 +18,7 @@ from app.api.routes import (
     projects,
     quotations,
     roles,
+    skills,
     task_profiles,
     task_ws,
     tasks,
@@ -50,6 +51,7 @@ api_router.include_router(admin_users.router)
 api_router.include_router(attendance.router)
 api_router.include_router(incidents.router)
 api_router.include_router(leave.router)
+api_router.include_router(skills.router)
 
 if settings.ENVIRONMENT == "local":
     api_router.include_router(private.router)

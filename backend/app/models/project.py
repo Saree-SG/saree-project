@@ -26,6 +26,8 @@ class ProjectBase(SQLModel):
     # planning | active | on_hold | completed | cancelled
     project_type: str = Field(default="client", max_length=20)
     # client | internal
+    priority: str = Field(default="normal", max_length=20)
+    # high | normal | low
 
 
 class Project(ProjectBase, table=True):
@@ -70,6 +72,7 @@ class ProjectUpdate(SQLModel):
     status: str | None = None
     pm_id: uuid.UUID | None = None
     project_type: str | None = None
+    priority: str | None = None
 
 
 class ProjectPublic(ProjectBase):

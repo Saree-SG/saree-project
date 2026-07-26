@@ -6,6 +6,7 @@ Import order matters: base models first, then relations.
 # Core / Auth (keep backward compat with existing code)
 # Push subscriptions
 from app.models.push_subscription import PushSubscription  # noqa: F401
+from app.models.skill_request import SkillChangeRequest  # noqa: F401
 
 # Notifications
 from app.models.notification import (  # noqa: F401

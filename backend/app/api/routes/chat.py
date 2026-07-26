@@ -16,16 +16,22 @@ from app.models.chat import (
     ChatMessage,
     ChatMessageCreate,
     ChatMessagePublic,
+    ChatRoom,
     ChatRoomCreate,
     ChatRoomPublic,
     ChatRoomUpdate,
     ChatUnreadCountPublic,
 )
+from app.models.user import User
 from app.repositories.chat_repository import ChatRepository
 from app.repositories.user_repository import UserRepository
 from app.services.chat_service import ChatService
 from app.shared.chat_realtime import chat_fanout
+from app.shared.permission import has_company_wide_scope
 from app.shared.storage import LocalStorage
+
+ANNOUNCEMENT_ROOM_TYPE = "announcement"
+ANNOUNCEMENT_ROOM_NAME = "📢 Thông báo chung"
 
 router = APIRouter(tags=["chat"])
 
@@ -81,6 +87,60 @@ async def list_my_rooms(
     repo = ChatRepository(session)
     rooms_data = await repo.list_rooms_for_user(current_user.id)
     return [ChatRoomPublic(**d) for d in rooms_data]
+
+
+async def _ensure_announcement_room(
+    session: AsyncSessionDep, current_user: CurrentUser
+) -> ChatRoom:
+    """Get-or-create phòng "Thông báo chung" của công ty + đồng bộ thành viên.
+
+    Mọi nhân viên đang hoạt động của công ty được thêm làm member (để đọc + nhận
+    push). Chỉ quản lý được gửi (gate ở create_message). Gọi lại sẽ tự bù thành
+    viên mới.
+    """
+    repo = ChatRepository(session)
+    company_id = await repo.get_user_company_id(current_user.id, current_user.company_id)
+
+    room = (await session.execute(
+        select(ChatRoom).where(
+            ChatRoom.company_id == company_id,
+            ChatRoom.room_type == ANNOUNCEMENT_ROOM_TYPE,
+        )
+    )).scalars().first()
+    if room is None:
+        room = await repo.create_room({
+            "company_id": company_id,
+            "room_type": ANNOUNCEMENT_ROOM_TYPE,
+            "name": ANNOUNCEMENT_ROOM_NAME,
+            "created_by": current_user.id,
+        })
+
+    # Đồng bộ thành viên = mọi user active trong công ty.
+    user_ids = (await session.execute(
+        select(User.id).where(
+            User.company_id == company_id,
+            User.is_active == True,  # noqa: E712
+        )
+    )).scalars().all()
+    for uid in user_ids:
+        existing = await repo.get_member(room.id, uid)
+        if existing is None:
+            await repo.add_member(room.id, uid, "owner" if uid == current_user.id else "member")
+        elif existing.left_at is not None:
+            existing.left_at = None
+            session.add(existing)
+    await session.flush()
+    return room
+
+
+@router.post("/chat/announcement-room", response_model=ChatRoomPublic)
+async def ensure_announcement_room(
+    session: AsyncSessionDep,
+    current_user: CurrentUser,
+) -> ChatRoomPublic:
+    """Trả về (tạo nếu chưa có) phòng Thông báo chung của công ty."""
+    room = await _ensure_announcement_room(session, current_user)
+    return await ChatRepository(session).get_room_or_404(room.id)  # type: ignore[return-value]
 
 
 @router.get("/chat/rooms/{room_id}", response_model=ChatRoomPublic)
@@ -320,9 +380,20 @@ async def create_message(
     current_user: CurrentUser,
 ) -> ChatMessagePublic:
     """Send a text message (member-only); notifies + pushes to other members."""
+    await _require_can_post(session, room_id, current_user)
     service = ChatService(session)
     msg = await service.send_message(room_id, body.content, current_user)
     return msg  # type: ignore[return-value]
+
+
+async def _require_can_post(
+    session: AsyncSessionDep, room_id: uuid.UUID, current_user: CurrentUser
+) -> None:
+    """Phòng Thông báo chung: chỉ quản lý (company-wide scope) được gửi."""
+    room = await ChatRepository(session).get_room_or_404(room_id)
+    if room.room_type == ANNOUNCEMENT_ROOM_TYPE:
+        if not await has_company_wide_scope(session, current_user, room.company_id):
+            raise HTTPException(403, "Chỉ quản lý được gửi vào phòng Thông báo chung")
 
 
 @router.post(
@@ -339,6 +410,7 @@ async def upload_attachment(
     """Upload an attachment and create a file-message in the room."""
     repo = ChatRepository(session)
     await repo.require_active_member(room_id, current_user.id)
+    await _require_can_post(session, room_id, current_user)
     try:
         stored = await _storage.save_upload(file)
     except ValueError as exc:

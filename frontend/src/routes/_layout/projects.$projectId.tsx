@@ -28,6 +28,7 @@ import {
   TasksService,
   UsersService,
 } from "@/client"
+import { checkDispatchConflict } from "@/modules/tasks/taskApi"
 import ProjectGantt from "@/components/Gantt/ProjectGanttV2"
 import { PermissionGuard } from "@/components/PermissionGuard"
 import { DelayWarnings } from "@/components/Project/DelayWarnings"
@@ -228,6 +229,8 @@ function ProjectTaskDashboardPage() {
   const [taskExtraSearchDraft, setTaskExtraSearchDraft] = useState("")
   const [taskStartDateDraft, setTaskStartDateDraft] = useState("")
   const [taskEndDateDraft, setTaskEndDateDraft] = useState("")
+  const [taskArriveAt, setTaskArriveAt] = useState("")
+  const [taskConflict, setTaskConflict] = useState<import("@/modules/tasks/taskApi").ConflictCheckResult | null>(null)
   const [taskWorkingDays, setTaskWorkingDays] = useState("")
   const [taskDependencyDraft, setTaskDependencyDraft] = useState("none")
   const [selectedProfileId, setSelectedProfileId] = useState("")
@@ -403,6 +406,8 @@ function ProjectTaskDashboardPage() {
     setTaskWorkingDays("")
     setTaskDependencyDraft("none")
     setSelectedProfileId("")
+    setTaskArriveAt("")
+    setTaskConflict(null)
   }, [taskOpen])
 
   const updateProjectMutation = useMutation({
@@ -727,7 +732,9 @@ function ProjectTaskDashboardPage() {
         end_time: `${end}T23:59:59`,
         assignee_id: assigneeId,
         extra_assignee_ids: extraIds,
-      }
+        // arrive_at not yet in generated client types; cast to include it
+        ...(taskArriveAt ? { arrive_at: `${taskArriveAt}:00` } : {}),
+      } as TaskCreate & { arrive_at?: string }
       const createdTask = await TasksService.createRootTask({
         projectId,
         requestBody: body,
@@ -766,6 +773,29 @@ function ProjectTaskDashboardPage() {
         })),
     [tasksQuery.data],
   )
+
+  // Gọi check-conflict mỗi khi assignee + start + end đủ (debounce 400ms)
+  useEffect(() => {
+    const assigneeId = taskAssigneeSelectedUserId
+    const start = taskStartDateDraft.trim()
+    const end = taskEndDateDraft.trim()
+    if (!assigneeId || !start || !end) {
+      setTaskConflict(null)
+      return
+    }
+    const timer = setTimeout(() => {
+      checkDispatchConflict({
+        assignee_id: assigneeId,
+        project_id: projectId,
+        start_time: `${start}T00:00:00`,
+        end_time: `${end}T23:59:59`,
+        arrive_at: taskArriveAt ? `${taskArriveAt}:00` : null,
+      })
+        .then(setTaskConflict)
+        .catch(() => setTaskConflict(null))
+    }, 400)
+    return () => clearTimeout(timer)
+  }, [taskAssigneeSelectedUserId, taskStartDateDraft, taskEndDateDraft, taskArriveAt, projectId])
 
   const teamCards = useMemo(() => {
     const workloadMap = new Map<string, number>()
@@ -1845,6 +1875,61 @@ function ProjectTaskDashboardPage() {
                   </Select>
                 </div>
               </>
+            )}
+
+            {/* ── Giờ hẹn có mặt (arrive_at) + cảnh báo xung đột ── */}
+            <div className="space-y-1">
+              <p className="text-xs font-semibold text-muted-foreground">
+                Giờ hẹn có mặt tại công trình (tuỳ chọn)
+              </p>
+              <input
+                type="datetime-local"
+                className="w-full rounded-md border px-3 py-1.5 text-sm"
+                value={taskArriveAt}
+                onChange={(e) => setTaskArriveAt(e.target.value)}
+              />
+              <p className="text-[11px] text-muted-foreground">
+                Nếu điền, hệ thống kiểm tra xem nhân viên có kịp di chuyển từ task trước không.
+              </p>
+            </div>
+
+            {taskConflict && (
+              <div className="space-y-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs">
+                {taskConflict.overlaps.length > 0 && (
+                  <div>
+                    <p className="font-semibold text-amber-800">
+                      ⚠️ Trùng lịch ({taskConflict.overlaps.length} task)
+                    </p>
+                    <ul className="mt-1 space-y-0.5 text-amber-700">
+                      {taskConflict.overlaps.map((o) => (
+                        <li key={o.task_id}>
+                          · {o.task_name}{" "}
+                          <span className="text-muted-foreground">({o.project_name})</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {taskConflict.travel && (
+                  <div>
+                    <p
+                      className={
+                        taskConflict.travel.feasible
+                          ? "font-semibold text-green-700"
+                          : "font-semibold text-red-700"
+                      }
+                    >
+                      {taskConflict.travel.feasible ? "✓" : "✗"} {taskConflict.travel.message}
+                    </p>
+                  </div>
+                )}
+                {taskConflict.overlaps.length === 0 && !taskConflict.travel && (
+                  <p className="text-green-700">✓ Không phát hiện xung đột lịch.</p>
+                )}
+                <p className="text-muted-foreground">
+                  GĐ vẫn có thể xác nhận giao việc sau khi xem xét cảnh báo.
+                </p>
+              </div>
             )}
           </div>
           <DialogFooter>

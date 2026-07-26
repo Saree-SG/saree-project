@@ -83,6 +83,19 @@ export async function createChatRoom(body: {
 }
 
 /**
+ * Get (or create) phòng "Thông báo chung" của công ty. Mọi nhân viên đọc được,
+ * chỉ quản lý gửi được (backend gate).
+ */
+export async function ensureAnnouncementRoom(): Promise<ChatRoom> {
+  const r = await axios.post<ChatRoom>(
+    `${OpenAPI.BASE}/api/v1/chat/announcement-room`,
+    {},
+    { headers: authHeaders() },
+  )
+  return r.data
+}
+
+/**
  * Create (or ensure) a chat room for a given project.
  */
 export async function createProjectChatRoom(

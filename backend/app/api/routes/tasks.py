@@ -33,7 +33,9 @@ from app.models.task import (
     TaskStatusUpdate,
     TaskUpdate,
 )
+from app.models.project import Project
 from app.models.user import User
+from app.services import travel as _travel
 from app.services.task_service import TaskService
 from app.shared.permission import require_permission
 from app.shared.storage import LocalStorage
@@ -543,3 +545,227 @@ async def check_conflicts(
 ) -> dict:
     """Check timeline conflicts for a task."""
     return await _svc(session).check_conflicts(task_id)
+
+
+# ---------------------------------------------------------------------------
+# Dispatch conflict check (Gap 29-31, Bước 6)
+# ---------------------------------------------------------------------------
+
+from datetime import datetime as _dt  # noqa: E402
+from pydantic import BaseModel as _BM  # noqa: E402
+from sqlmodel import select as _select  # noqa: E402
+
+
+class _ConflictCheckBody(_BM):
+    assignee_id: uuid.UUID
+    project_id: uuid.UUID
+    start_time: _dt
+    end_time: _dt
+    arrive_at: _dt | None = None
+
+
+@router.post("/tasks/check-conflict", response_model=dict)
+async def check_dispatch_conflict(
+    body: _ConflictCheckBody,
+    session: AsyncSessionDep,
+    current_user: CurrentUser,
+) -> dict:
+    """Kiểm tra xung đột lịch và khả năng di chuyển trước khi giao việc.
+
+    Trả về:
+    - overlaps: danh sách task đang trùng khung giờ của assignee.
+    - travel: ước tính thời gian di chuyển (nếu arrive_at được cung cấp và
+      task trước có vị trí).
+    """
+    from sqlalchemy import and_
+
+    # 1. Overlap check — open tasks of assignee overlapping [start, end]
+    overlap_q = await session.execute(
+        _select(Task, Project.name.label("project_name"))
+        .join(Project, Task.project_id == Project.id)  # type: ignore[arg-type]
+        .where(
+            Task.assignee_id == body.assignee_id,
+            Task.project_id != body.project_id,
+            Task.status.not_in(["done", "cancelled"]),  # type: ignore[union-attr]
+            Task.is_deleted == False,  # noqa: E712
+            and_(Task.start_time < body.end_time, Task.end_time > body.start_time),
+        )
+    )
+    overlap_rows = overlap_q.all()
+    overlaps = [
+        {"task_id": str(row.Task.id), "task_name": row.Task.name, "project_name": row.project_name}
+        for row in overlap_rows
+    ]
+
+    # 2. Travel feasibility — requires arrive_at + previous task location
+    travel_info: dict | None = None
+    if body.arrive_at:
+        # Find the task that ends most recently before body.start_time
+        prev_q = await session.execute(
+            _select(Task, Project.site_lat.label("slat"), Project.site_lng.label("slng"))
+            .join(Project, Task.project_id == Project.id)  # type: ignore[arg-type]
+            .where(
+                Task.assignee_id == body.assignee_id,
+                Task.status.not_in(["done", "cancelled"]),  # type: ignore[union-attr]
+                Task.is_deleted == False,  # noqa: E712
+                Task.end_time <= body.start_time,
+            )
+            .order_by(Task.end_time.desc())  # type: ignore[union-attr]
+            .limit(1)
+        )
+        prev_row = prev_q.first()
+
+        # Destination site coords
+        dest_q = await session.execute(
+            _select(Project.site_lat, Project.site_lng).where(Project.id == body.project_id)
+        )
+        dest = dest_q.first()
+
+        if prev_row and prev_row.slat and prev_row.slng and dest and dest.site_lat and dest.site_lng:
+            travel_info = _travel.check_travel_feasibility(
+                from_lat=prev_row.slat,
+                from_lng=prev_row.slng,
+                to_lat=dest.site_lat,
+                to_lng=dest.site_lng,
+                departure_time=prev_row.Task.end_time,
+                must_arrive_by=body.arrive_at,
+            )
+        elif dest and dest.site_lat and dest.site_lng:
+            # No previous located task — can't compute travel, just note destination exists
+            travel_info = None
+
+    return {"overlaps": overlaps, "travel": travel_info}
+
+
+# ---------------------------------------------------------------------------
+# Task handoff — bàn giao giữ % (Bước 7)
+# ---------------------------------------------------------------------------
+
+class _HandoffBody(_BM):
+    new_assignee_id: uuid.UUID
+    note: str | None = None   # lý do bàn giao (tuỳ chọn)
+
+
+@router.post("/tasks/{task_id}/handoff", response_model=TaskPublic)
+async def handoff_task(
+    task_id: uuid.UUID,
+    body: _HandoffBody,
+    session: AsyncSessionDep,
+    current_user: CurrentUser,
+) -> TaskPublic:
+    """Bàn giao công việc sang người khác — giữ nguyên % tiến độ hiện tại.
+
+    - Tạo task mới cùng project/parent, copy reported_progress_total,
+      set continues_task_id → task gốc, handoff_from_user_id → người bàn giao.
+    - Task gốc chuyển sang status=paused với pause_note ghi lý do bàn giao.
+    - Chỉ assignee hiện tại hoặc assignor hoặc superuser được bàn giao.
+    """
+    task = await _svc(session).get_task(task_id)
+    if task.status == "done":
+        raise HTTPException(422, "Công việc đã hoàn thành, không thể bàn giao.")
+
+    is_assignee = task.assignee_id == current_user.id
+    is_assignor = task.assignor_id == current_user.id
+    if not is_assignee and not is_assignor and not current_user.is_superuser:
+        raise HTTPException(403, "Chỉ người thực hiện hoặc người giao việc mới có thể bàn giao.")
+
+    from app.models.task import Task as _Task
+    from sqlmodel import select as _sel2
+
+    # Load raw task to access all fields
+    raw_q = await session.execute(_sel2(_Task).where(_Task.id == task_id))
+    raw = raw_q.scalar_one_or_none()
+    if not raw:
+        raise HTTPException(404, "Task not found")
+
+    pause_note = body.note or f"Bàn giao cho nhân viên khác (tiến độ giữ nguyên {raw.reported_progress_total}%)"
+
+    # Pause the original task
+    await _svc(session).update_task_status(
+        task_id,
+        __import__("app.models.task", fromlist=["TaskStatusUpdate"]).TaskStatusUpdate(
+            status="paused", pause_note=pause_note
+        ),
+        current_user,
+    )
+
+    # Create continuation task
+    new_task = _Task(
+        project_id=raw.project_id,
+        parent_id=raw.parent_id,
+        name=raw.name,
+        description=raw.description,
+        priority=raw.priority,
+        start_time=raw.start_time,
+        end_time=raw.end_time,
+        assignor_id=raw.assignor_id,
+        assignee_id=body.new_assignee_id,
+        level=raw.level,
+        status="in_progress",
+        requires_checkin=raw.requires_checkin,
+        checkin_lat=raw.checkin_lat,
+        checkin_lng=raw.checkin_lng,
+        checkin_radius_m=raw.checkin_radius_m,
+        required_headcount=raw.required_headcount,
+        estimated_hours=raw.estimated_hours,
+        module_tag=raw.module_tag,
+        handoff_from_user_id=raw.assignee_id,
+        continues_task_id=raw.id,
+    )
+    session.add(new_task)
+    await session.flush()
+    await session.refresh(new_task)
+
+    # Copy reported progress so new assignee starts from where previous left off
+    if raw.reported_progress_total and raw.reported_progress_total > 0:
+        new_task.reported_progress_total = raw.reported_progress_total
+        session.add(new_task)
+        await session.flush()
+
+    from app.repositories.audit_repository import AuditRepository
+    audit = AuditRepository(session)
+    await audit.write(
+        actor_id=current_user.id,
+        action="task.handoff",
+        entity_type="task",
+        entity_id=task_id,
+        old_value=str(raw.assignee_id),
+        new_value=str(body.new_assignee_id),
+    )
+
+    await session.refresh(new_task)
+    return await _svc(session).get_task(new_task.id)
+
+
+# ── Điều phối: gợi ý nhân sự ─────────────────────────────────────────────────
+
+class _CandidateOut(_BM):
+    user_id: uuid.UUID
+    user_name: str
+    skill_name: str
+    skill_level: int
+    workload_pct: float
+    load_status: str
+    current_task_name: str | None
+    current_site_name: str | None
+    distance_km: float | None
+    eta_minutes: int | None
+    score: float
+    impact: str
+
+
+@router.get("/tasks/{task_id}/suggest-assignees", response_model=list[_CandidateOut])
+async def suggest_assignees(
+    task_id: uuid.UUID,
+    session: AsyncSessionDep,
+    current_user: CurrentUser,
+    limit: int = 10,
+):
+    """Trả danh sách nhân sự phù hợp nhất để bổ sung vào task."""
+    from app.services.dispatch import suggest_assignees as _suggest
+    return await _suggest(
+        session=session,
+        task_id=task_id,
+        company_id=current_user.company_id,
+        limit=limit,
+    )
