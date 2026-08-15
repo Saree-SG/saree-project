@@ -35,27 +35,46 @@ export interface TaskProfile {
 }
 
 export async function listProfiles(): Promise<TaskProfile[]> {
-  const res = await axios.get(apiUrl("/task-profiles/"), { headers: authHeaders() })
+  const res = await axios.get(apiUrl("/task-profiles/"), {
+    headers: authHeaders(),
+  })
   return res.data
 }
 
-export async function listProfilesByCompany(companyId: string): Promise<TaskProfile[]> {
-  const res = await axios.get(apiUrl(`/task-profiles/?company_id=${companyId}`), { headers: authHeaders() })
+export async function listProfilesByCompany(
+  companyId: string,
+): Promise<TaskProfile[]> {
+  const res = await axios.get(
+    apiUrl(`/task-profiles/?company_id=${companyId}`),
+    { headers: authHeaders() },
+  )
   return res.data
 }
 
 export async function getProfile(id: string): Promise<TaskProfile> {
-  const res = await axios.get(apiUrl(`/task-profiles/${id}`), { headers: authHeaders() })
+  const res = await axios.get(apiUrl(`/task-profiles/${id}`), {
+    headers: authHeaders(),
+  })
   return res.data
 }
 
-export async function createProfile(body: { name: string; description?: string }): Promise<TaskProfile> {
-  const res = await axios.post(apiUrl("/task-profiles/"), body, { headers: authHeaders() })
+export async function createProfile(body: {
+  name: string
+  description?: string
+}): Promise<TaskProfile> {
+  const res = await axios.post(apiUrl("/task-profiles/"), body, {
+    headers: authHeaders(),
+  })
   return res.data
 }
 
-export async function updateProfile(id: string, body: { name?: string; description?: string }): Promise<TaskProfile> {
-  const res = await axios.patch(apiUrl(`/task-profiles/${id}`), body, { headers: authHeaders() })
+export async function updateProfile(
+  id: string,
+  body: { name?: string; description?: string },
+): Promise<TaskProfile> {
+  const res = await axios.patch(apiUrl(`/task-profiles/${id}`), body, {
+    headers: authHeaders(),
+  })
   return res.data
 }
 
@@ -65,9 +84,18 @@ export async function deleteProfile(id: string): Promise<void> {
 
 export async function applyProfile(
   profileId: string,
-  body: { project_id: string; parent_task_id: string | null; assignee_id: string; extra_assignee_ids?: string[] }
+  body: {
+    project_id: string
+    parent_task_id: string | null
+    assignee_id: string
+    extra_assignee_ids?: string[]
+  },
 ): Promise<{ id: string; name: string; level: number }[]> {
-  const res = await axios.post(apiUrl(`/task-profiles/${profileId}/apply`), body, { headers: authHeaders() })
+  const res = await axios.post(
+    apiUrl(`/task-profiles/${profileId}/apply`),
+    body,
+    { headers: authHeaders() },
+  )
   return res.data
 }
 
@@ -114,8 +142,12 @@ export async function deleteProfileItem(itemId: string): Promise<void> {
 
 export async function saveTaskAsProfile(
   taskId: string,
-  body: { name: string; description?: string; company_id?: string | null }
+  body: { name: string; description?: string; company_id?: string | null },
 ): Promise<TaskProfile> {
-  const res = await axios.post(apiUrl(`/task-profiles/from-task/${taskId}`), body, { headers: authHeaders() })
+  const res = await axios.post(
+    apiUrl(`/task-profiles/from-task/${taskId}`),
+    body,
+    { headers: authHeaders() },
+  )
   return res.data
 }

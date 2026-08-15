@@ -16,6 +16,7 @@ import {
 } from "lucide-react"
 import { useEffect, useMemo, useRef, useState } from "react"
 import { z } from "zod"
+import { RolesService } from "@/client"
 import {
   Dialog,
   DialogContent,
@@ -31,9 +32,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { useSidebar } from "@/components/ui/sidebar"
-import { RolesService } from "@/client"
 import useAuth from "@/hooks/useAuth"
-import { isManagementUser } from "@/utils/accountAccess"
 import { useChatSocket } from "@/hooks/useChatSocket"
 import useCustomToast from "@/hooks/useCustomToast"
 import {
@@ -56,6 +55,7 @@ import {
   uploadRoomAttachment,
 } from "@/modules/chat/chatApi"
 import { handleError } from "@/utils"
+import { isManagementUser } from "@/utils/accountAccess"
 import { resolveBackendMediaUrl } from "@/utils/mediaUrl"
 
 const searchSchema = z.object({
@@ -93,7 +93,11 @@ function formatDateSeparator(iso: string | null | undefined): string {
   yesterday.setDate(today.getDate() - 1)
   if (d.toDateString() === today.toDateString()) return "Hôm nay"
   if (d.toDateString() === yesterday.toDateString()) return "Hôm qua"
-  return d.toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit", year: "numeric" })
+  return d.toLocaleDateString("vi-VN", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  })
 }
 
 function isSameDay(a: string | null | undefined, b: string | null | undefined) {
@@ -113,18 +117,10 @@ function isImageAttachment(att: ChatAttachment): boolean {
   return /\.(png|jpe?g|gif|webp|bmp|svg|heic|heif)$/i.test(att.filename || "")
 }
 
-function AttachmentView({
-  att,
-  isMe,
-}: {
-  att: ChatAttachment
-  isMe: boolean
-}) {
+function AttachmentView({ att, isMe }: { att: ChatAttachment; isMe: boolean }) {
   const url = att.public_url ? resolveBackendMediaUrl(att.public_url) : ""
   if (!url) {
-    return (
-      <p className="text-sm italic opacity-70">📎 {att.filename}</p>
-    )
+    return <p className="text-sm italic opacity-70">📎 {att.filename}</p>
   }
 
   if (isImageAttachment(att)) {
@@ -162,7 +158,9 @@ function AttachmentView({
     >
       <FileText className="h-7 w-7 shrink-0 opacity-80" />
       <span className="min-w-0 flex-1">
-        <span className="block truncate text-sm font-medium">{att.filename}</span>
+        <span className="block truncate text-sm font-medium">
+          {att.filename}
+        </span>
         {att.size_bytes != null && (
           <span className="block text-[11px] opacity-70">
             {formatFileSize(att.size_bytes)}
@@ -182,7 +180,9 @@ function ChatPage() {
   const navigate = useNavigate()
 
   const { room } = Route.useSearch()
-  const [selectedRoomId, setSelectedRoomId] = useState<string | null>(room ?? null)
+  const [selectedRoomId, setSelectedRoomId] = useState<string | null>(
+    room ?? null,
+  )
   const [roomQuery, setRoomQuery] = useState("")
   const [searchOpen, setSearchOpen] = useState(false)
   const [draft, setDraft] = useState("")
@@ -197,7 +197,9 @@ function ChatPage() {
   const prevRoomIdRef = useRef<string | null>(null)
 
   const socket = useChatSocket(selectedRoomId, () => {
-    void queryClient.invalidateQueries({ queryKey: ["chat", "messages", selectedRoomId] })
+    void queryClient.invalidateQueries({
+      queryKey: ["chat", "messages", selectedRoomId],
+    })
   })
 
   // Collapse app sidebar when entering chat
@@ -211,24 +213,33 @@ function ChatPage() {
   })
 
   const selectedRoomExists = Boolean(
-    selectedRoomId && (roomsQuery.data ?? []).some((r) => r.id === selectedRoomId),
+    selectedRoomId &&
+      (roomsQuery.data ?? []).some((r) => r.id === selectedRoomId),
   )
 
   const messagesQuery = useQuery({
-    enabled: Boolean(selectedRoomId && roomsQuery.isSuccess && selectedRoomExists),
+    enabled: Boolean(
+      selectedRoomId && roomsQuery.isSuccess && selectedRoomExists,
+    ),
     queryKey: ["chat", "messages", selectedRoomId],
     queryFn: () => listRoomMessages({ roomId: selectedRoomId! }),
   })
 
   const membersQuery = useQuery({
-    enabled: Boolean(selectedRoomId && roomsQuery.isSuccess && selectedRoomExists),
+    enabled: Boolean(
+      selectedRoomId && roomsQuery.isSuccess && selectedRoomExists,
+    ),
     queryKey: ["chat", "members", selectedRoomId],
     queryFn: () => listRoomMembers(selectedRoomId!),
   })
 
   const createRoomMutation = useMutation({
     mutationFn: async () =>
-      createChatRoom({ room_type: "group", name: "Nhóm mới", member_user_ids: [] }),
+      createChatRoom({
+        room_type: "group",
+        name: "Nhóm mới",
+        member_user_ids: [],
+      }),
     onSuccess: async (r) => {
       showSuccessToast("Đã tạo nhóm chat")
       await queryClient.invalidateQueries({ queryKey: ["chat", "rooms"] })
@@ -243,7 +254,9 @@ function ChatPage() {
     queryFn: () => RolesService.myAccountProfile(),
     enabled: Boolean(currentUser),
   })
-  const isManager = Boolean(currentUser?.is_superuser) || isManagementUser(accountProfileQuery.data)
+  const isManager =
+    Boolean(currentUser?.is_superuser) ||
+    isManagementUser(accountProfileQuery.data)
 
   const announcementMutation = useMutation({
     mutationFn: async () => ensureAnnouncementRoom(),
@@ -255,8 +268,11 @@ function ChatPage() {
   })
 
   const updateRoomMutation = useMutation({
-    mutationFn: async (params: { roomId: string; name: string | null; room_color: string | null }) =>
-      updateChatRoom(params),
+    mutationFn: async (params: {
+      roomId: string
+      name: string | null
+      room_color: string | null
+    }) => updateChatRoom(params),
     onSuccess: async (r) => {
       showSuccessToast("Đã cập nhật nhóm")
       setRoomEditOpen(false)
@@ -279,10 +295,13 @@ function ChatPage() {
   })
 
   const uploadMutation = useMutation({
-    mutationFn: async (file: File) => uploadRoomAttachment({ roomId: selectedRoomId!, file }),
+    mutationFn: async (file: File) =>
+      uploadRoomAttachment({ roomId: selectedRoomId!, file }),
     onSuccess: async () => {
       showSuccessToast("Đã tải lên")
-      await queryClient.invalidateQueries({ queryKey: ["chat", "messages", selectedRoomId] })
+      await queryClient.invalidateQueries({
+        queryKey: ["chat", "messages", selectedRoomId],
+      })
     },
     onError: handleError.bind(showErrorToast),
   })
@@ -290,21 +309,30 @@ function ChatPage() {
   const inviteMutation = useMutation({
     mutationFn: async (email: string) => {
       const u = await getUserByEmail(email)
-      return addRoomMember({ roomId: selectedRoomId!, userId: u.id, role: "member" })
+      return addRoomMember({
+        roomId: selectedRoomId!,
+        userId: u.id,
+        role: "member",
+      })
     },
     onSuccess: async () => {
       showSuccessToast("Đã mời thành viên")
       setInviteEmail("")
-      await queryClient.invalidateQueries({ queryKey: ["chat", "members", selectedRoomId] })
+      await queryClient.invalidateQueries({
+        queryKey: ["chat", "members", selectedRoomId],
+      })
     },
     onError: handleError.bind(showErrorToast),
   })
 
   const removeMemberMutation = useMutation({
-    mutationFn: async (userId: string) => removeRoomMember({ roomId: selectedRoomId!, userId }),
+    mutationFn: async (userId: string) =>
+      removeRoomMember({ roomId: selectedRoomId!, userId }),
     onSuccess: async () => {
       showSuccessToast("Đã xoá thành viên")
-      await queryClient.invalidateQueries({ queryKey: ["chat", "members", selectedRoomId] })
+      await queryClient.invalidateQueries({
+        queryKey: ["chat", "members", selectedRoomId],
+      })
     },
     onError: handleError.bind(showErrorToast),
   })
@@ -332,8 +360,10 @@ function ChatPage() {
   const filteredRooms = useMemo(() => {
     const q = roomQuery.trim().toLowerCase()
     if (!q) return roomsQuery.data ?? []
-    return (roomsQuery.data ?? []).filter((r) =>
-      (r.name || "").toLowerCase().includes(q) || (r.room_type || "").toLowerCase().includes(q),
+    return (roomsQuery.data ?? []).filter(
+      (r) =>
+        (r.name || "").toLowerCase().includes(q) ||
+        (r.room_type || "").toLowerCase().includes(q),
     )
   }, [roomQuery, roomsQuery.data])
 
@@ -345,10 +375,18 @@ function ChatPage() {
       map.set(m.user_id, (m.full_name || m.email || m.user_id).trim())
     }
     if (currentUser?.id) {
-      map.set(currentUser.id, currentUser.full_name || currentUser.email || "Bạn")
+      map.set(
+        currentUser.id,
+        currentUser.full_name || currentUser.email || "Bạn",
+      )
     }
     return map
-  }, [currentUser?.email, currentUser?.full_name, currentUser?.id, membersQuery.data])
+  }, [
+    currentUser?.email,
+    currentUser?.full_name,
+    currentUser?.id,
+    membersQuery.data,
+  ])
 
   const liveMessages = useMemo(() => {
     const base = (messagesQuery.data ?? []).slice().reverse()
@@ -360,7 +398,9 @@ function ChatPage() {
   }, [messagesQuery.data, socket.events])
 
   // Mark as read when new messages arrive in current room
-  const incomingCount = socket.events.filter((e) => e.type === "message.new").length
+  const incomingCount = socket.events.filter(
+    (e) => e.type === "message.new",
+  ).length
   useEffect(() => {
     if (!selectedRoomId || incomingCount === 0) return
     void markRoomAsRead(selectedRoomId).then(() => {
@@ -380,7 +420,7 @@ function ChatPage() {
         }
       })
     }
-  }, [selectedRoomId, messagesQuery.data])
+  }, [selectedRoomId])
 
   // Auto-scroll on new message if near bottom
   useEffect(() => {
@@ -418,7 +458,11 @@ function ChatPage() {
     if (sent === false) {
       setDraft("")
       sendRoomMessage({ roomId: selectedRoomId, content: text })
-        .then(() => queryClient.invalidateQueries({ queryKey: ["chat", "messages", selectedRoomId] }))
+        .then(() =>
+          queryClient.invalidateQueries({
+            queryKey: ["chat", "messages", selectedRoomId],
+          }),
+        )
         .catch(() => {
           showErrorToast("Gửi tin nhắn thất bại")
           setDraft(text)
@@ -480,7 +524,6 @@ function ChatPage() {
             <div className="flex items-center gap-2 rounded-lg border bg-muted/50 px-3">
               <Search className="h-4 w-4 shrink-0 text-muted-foreground" />
               <input
-                autoFocus
                 value={roomQuery}
                 onChange={(e) => setRoomQuery(e.target.value)}
                 placeholder="Tìm nhóm chat..."
@@ -500,7 +543,10 @@ function ChatPage() {
           {roomsQuery.isLoading ? (
             <div className="flex flex-col gap-1 p-2">
               {[1, 2, 3].map((i) => (
-                <div key={i} className="flex items-center gap-3 rounded-xl p-2.5">
+                <div
+                  key={i}
+                  className="flex items-center gap-3 rounded-xl p-2.5"
+                >
                   <div className="h-10 w-10 animate-pulse rounded-full bg-muted" />
                   <div className="flex-1 space-y-1.5">
                     <div className="h-3 w-3/4 animate-pulse rounded bg-muted" />
@@ -552,7 +598,8 @@ function ChatPage() {
                       {r.name || "Untitled"}
                     </p>
                     <p className="truncate text-xs text-muted-foreground">
-                      {r.last_message_content || (r.room_type === "direct" ? "Trực tiếp" : "Nhóm")}
+                      {r.last_message_content ||
+                        (r.room_type === "direct" ? "Trực tiếp" : "Nhóm")}
                     </p>
                   </div>
                 </button>
@@ -648,8 +695,10 @@ function ChatPage() {
                   <DropdownMenuItem
                     variant="destructive"
                     onClick={() => {
-                      if (!selectedRoomId || deleteRoomMutation.isPending) return
-                      if (!window.confirm("Xoá nhóm chat này vĩnh viễn?")) return
+                      if (!selectedRoomId || deleteRoomMutation.isPending)
+                        return
+                      if (!window.confirm("Xoá nhóm chat này vĩnh viễn?"))
+                        return
                       deleteRoomMutation.mutate(selectedRoomId)
                     }}
                   >
@@ -669,14 +718,16 @@ function ChatPage() {
                   const isMe = msg.sender_id === currentUser?.id
                   const prevMsg = liveMessages[idx - 1]
                   const nextMsg = liveMessages[idx + 1]
-                  const showDate = !prevMsg || !isSameDay(prevMsg.created_at, msg.created_at)
+                  const showDate =
+                    !prevMsg || !isSameDay(prevMsg.created_at, msg.created_at)
                   const isSameSenderAsPrev =
                     !showDate && prevMsg?.sender_id === msg.sender_id
                   const isSameSenderAsNext =
                     nextMsg?.sender_id === msg.sender_id &&
                     isSameDay(msg.created_at, nextMsg?.created_at)
                   const showName = !isMe && !isSameSenderAsPrev
-                  const senderName = memberNameById.get(msg.sender_id) || msg.sender_id
+                  const senderName =
+                    memberNameById.get(msg.sender_id) || msg.sender_id
 
                   return (
                     <div key={msg.id}>
@@ -789,58 +840,58 @@ function ChatPage() {
                   📢 Phòng Thông báo chung — chỉ quản lý được gửi.
                 </p>
               ) : (
-              <form
-                onSubmit={(e) => {
-                  e.preventDefault()
-                  handleSend()
-                }}
-                className="flex items-end gap-2 rounded-2xl border bg-muted/30 px-2 py-1.5"
-              >
-                <label
-                  aria-label="Đính kèm tệp"
-                  className="flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-full text-muted-foreground hover:bg-muted"
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault()
+                    handleSend()
+                  }}
+                  className="flex items-end gap-2 rounded-2xl border bg-muted/30 px-2 py-1.5"
                 >
-                  <Paperclip className="h-4 w-4" />
-                  <input
-                    type="file"
-                    className="hidden"
+                  <label
+                    aria-label="Đính kèm tệp"
+                    className="flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-full text-muted-foreground hover:bg-muted"
+                  >
+                    <Paperclip className="h-4 w-4" />
+                    <input
+                      type="file"
+                      className="hidden"
+                      onChange={(e) => {
+                        const f = e.target.files?.[0]
+                        if (!f) return
+                        uploadMutation.mutate(f)
+                        e.target.value = ""
+                      }}
+                    />
+                  </label>
+
+                  <textarea
+                    ref={inputRef}
+                    value={draft}
                     onChange={(e) => {
-                      const f = e.target.files?.[0]
-                      if (!f) return
-                      uploadMutation.mutate(f)
-                      e.target.value = ""
+                      setDraft(e.target.value)
+                      e.target.style.height = "auto"
+                      e.target.style.height = `${Math.min(e.target.scrollHeight, 120)}px`
                     }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && !e.shiftKey) {
+                        e.preventDefault()
+                        handleSend()
+                      }
+                    }}
+                    placeholder="Nhập tin nhắn... (Enter để gửi)"
+                    rows={1}
+                    className="max-h-[120px] min-h-[36px] flex-1 resize-none bg-transparent py-1.5 text-sm outline-none placeholder:text-muted-foreground"
                   />
-                </label>
 
-                <textarea
-                  ref={inputRef}
-                  value={draft}
-                  onChange={(e) => {
-                    setDraft(e.target.value)
-                    e.target.style.height = "auto"
-                    e.target.style.height = Math.min(e.target.scrollHeight, 120) + "px"
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && !e.shiftKey) {
-                      e.preventDefault()
-                      handleSend()
-                    }
-                  }}
-                  placeholder="Nhập tin nhắn... (Enter để gửi)"
-                  rows={1}
-                  className="max-h-[120px] min-h-[36px] flex-1 resize-none bg-transparent py-1.5 text-sm outline-none placeholder:text-muted-foreground"
-                />
-
-                <button
-                  type="submit"
-                  disabled={!draft.trim()}
-                  aria-label="Gửi"
-                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground transition-opacity disabled:opacity-40"
-                >
-                  <SendHorizontal className="h-4 w-4" />
-                </button>
-              </form>
+                  <button
+                    type="submit"
+                    disabled={!draft.trim()}
+                    aria-label="Gửi"
+                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground transition-opacity disabled:opacity-40"
+                  >
+                    <SendHorizontal className="h-4 w-4" />
+                  </button>
+                </form>
               )}
             </div>
           </>
@@ -852,7 +903,9 @@ function ChatPage() {
         <DialogContent className="max-w-sm">
           <DialogHeader>
             <DialogTitle>Chỉnh sửa nhóm</DialogTitle>
-            <DialogDescription>Cập nhật tên và màu nhóm chat.</DialogDescription>
+            <DialogDescription>
+              Cập nhật tên và màu nhóm chat.
+            </DialogDescription>
           </DialogHeader>
           <form
             className="space-y-4"
@@ -912,7 +965,9 @@ function ChatPage() {
           <div className="border-b p-4">
             <DialogHeader>
               <DialogTitle>Thành viên nhóm</DialogTitle>
-              <DialogDescription>Quản lý thành viên trong nhóm chat này.</DialogDescription>
+              <DialogDescription>
+                Quản lý thành viên trong nhóm chat này.
+              </DialogDescription>
             </DialogHeader>
           </div>
           <form
@@ -950,13 +1005,17 @@ function ChatPage() {
                   >
                     <div className="flex min-w-0 items-center gap-3">
                       <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
-                        {(m.full_name || m.email || "?").slice(0, 1).toUpperCase()}
+                        {(m.full_name || m.email || "?")
+                          .slice(0, 1)
+                          .toUpperCase()}
                       </div>
                       <div className="min-w-0">
                         <p className="truncate text-sm font-medium">
                           {m.full_name || m.email || m.user_id}
                         </p>
-                        <p className="text-xs text-muted-foreground capitalize">{m.role}</p>
+                        <p className="text-xs text-muted-foreground capitalize">
+                          {m.role}
+                        </p>
                       </div>
                     </div>
                     <button

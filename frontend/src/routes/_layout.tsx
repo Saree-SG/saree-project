@@ -31,7 +31,7 @@ import { listMyChatRooms } from "@/modules/chat/chatApi"
 import { subscribeRoom } from "@/modules/chat/chatWs"
 import { ResilientWebSocket } from "@/modules/realtime/resilientWs"
 import { buildTaskGlobalWsUrl } from "@/modules/tasks/taskWs"
-import { APP_VERSION_LABEL } from "@/utils/appVersion"
+import { APP_VERSION_SHORT } from "@/utils/appVersion"
 
 export const Route = createFileRoute("/_layout")({
   component: Layout,
@@ -292,27 +292,30 @@ function Layout() {
       <AppSidebar />
       <SidebarInset className="flex min-h-svh flex-col">
         <MobileAppHeader />
-        <header className="supports-backdrop-filter:bg-background/80 sticky top-0 z-20 hidden h-16 shrink-0 items-center gap-2 border-b bg-background/95 px-4 backdrop-blur md:flex">
-          <SidebarTrigger className="-ml-1 text-muted-foreground" />
+        <header className="app-chrome sticky top-0 z-20 hidden h-16 shrink-0 items-center gap-3 px-4 md:flex">
+          <SidebarTrigger className="-ml-1" />
           {greetingName ? (
-            <p className="text-sm text-foreground">
+            <p className="text-sm">
               Xin chào, <span className="font-semibold">{greetingName}</span>
             </p>
           ) : null}
           <div className="ml-auto flex items-center gap-2">
             <span
-              className="hidden text-[11px] text-muted-foreground lg:inline"
+              className="hidden text-[11px] text-header-muted lg:inline"
               title="Phiên bản ứng dụng"
             >
-              {APP_VERSION_LABEL}
+              {APP_VERSION_SHORT}
             </span>
             {roleLabel ? (
-              <Badge variant="secondary" className="font-medium">
+              <Badge
+                variant="secondary"
+                className="bg-white/15 font-medium text-white ring-1 ring-white/25 ring-inset hover:bg-white/20"
+              >
                 {roleLabel}
               </Badge>
             ) : null}
             {isRefreshing ? (
-              <p className="text-xs text-muted-foreground">
+              <p className="text-xs text-header-muted">
                 Re-authenticating session...
               </p>
             ) : null}
@@ -320,7 +323,7 @@ function Layout() {
               to="/help"
               title="Hướng dẫn sử dụng"
               aria-label="Hướng dẫn sử dụng"
-              className="inline-flex size-9 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
+              className="inline-flex size-9 items-center justify-center rounded-md"
             >
               <HelpCircle className="size-5" />
             </Link>

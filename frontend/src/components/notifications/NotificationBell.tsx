@@ -11,6 +11,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { usePushNotifications } from "@/hooks/usePushNotifications"
 import {
   getUnreadCount,
   listNotifications,
@@ -19,7 +20,6 @@ import {
   type Notification,
   type NotificationCategory,
 } from "@/modules/notifications/notificationApi"
-import { usePushNotifications } from "@/hooks/usePushNotifications"
 
 function notifLink(notif: Notification): string {
   if (notif.entity_type === "task") return `/tasks/${notif.entity_id}`
@@ -103,7 +103,9 @@ export function NotificationBell() {
   })
 
   function invalidateAll() {
-    void queryClient.invalidateQueries({ queryKey: ["notifications-unread-count"] })
+    void queryClient.invalidateQueries({
+      queryKey: ["notifications-unread-count"],
+    })
     void queryClient.invalidateQueries({ queryKey: ["notifications-list"] })
   }
 
@@ -138,7 +140,12 @@ export function NotificationBell() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="icon" className="relative" aria-label="Thông báo">
+        <Button
+          variant="ghost"
+          size="icon"
+          className="relative"
+          aria-label="Thông báo"
+        >
           <Bell className="size-5" />
           {totalUnread > 0 && (
             <span className="absolute -right-0.5 -top-0.5 flex size-4 items-center justify-center rounded-full bg-destructive text-[10px] font-bold text-white">
@@ -175,41 +182,47 @@ export function NotificationBell() {
             </button>
           )}
         </div>
-        <>
-          <DropdownMenuSeparator />
-          <div className="px-3 py-2">
-            {!push.isSupported ? (
-              <p className="text-xs text-muted-foreground">
-                {"Trình duyệt chưa hỗ trợ thông báo"}
-                {typeof window !== "undefined" && !("serviceWorker" in navigator) && " (thiếu SW)"}
-                {typeof window !== "undefined" && !("PushManager" in window) && " (thiếu Push)"}
-                {typeof window !== "undefined" && !("Notification" in window) && " (thiếu Notif API)"}
-              </p>
-            ) : push.isSubscribed ? (
-              <button
-                className="flex w-full items-center gap-2 text-xs text-muted-foreground hover:text-foreground"
-                onClick={() => void push.unsubscribe()}
-              >
-                <BellOff className="size-3.5" />
-                Tắt thông báo thiết bị này
-              </button>
-            ) : (
-              <button
-                className="flex w-full items-center gap-2 text-xs text-primary hover:text-primary/80 font-medium"
-                onClick={() => void push.subscribe()}
-              >
-                <Smartphone className="size-3.5" />
-                Bật thông báo thiết bị này
-              </button>
-            )}
-          </div>
-        </>
+        <DropdownMenuSeparator />
+        <div className="px-3 py-2">
+          {!push.isSupported ? (
+            <p className="text-xs text-muted-foreground">
+              {"Trình duyệt chưa hỗ trợ thông báo"}
+              {typeof window !== "undefined" &&
+                !("serviceWorker" in navigator) &&
+                " (thiếu SW)"}
+              {typeof window !== "undefined" &&
+                !("PushManager" in window) &&
+                " (thiếu Push)"}
+              {typeof window !== "undefined" &&
+                !("Notification" in window) &&
+                " (thiếu Notif API)"}
+            </p>
+          ) : push.isSubscribed ? (
+            <button
+              className="flex w-full items-center gap-2 text-xs text-muted-foreground hover:text-foreground"
+              onClick={() => void push.unsubscribe()}
+            >
+              <BellOff className="size-3.5" />
+              Tắt thông báo thiết bị này
+            </button>
+          ) : (
+            <button
+              className="flex w-full items-center gap-2 text-xs text-primary hover:text-primary/80 font-medium"
+              onClick={() => void push.subscribe()}
+            >
+              <Smartphone className="size-3.5" />
+              Bật thông báo thiết bị này
+            </button>
+          )}
+        </div>
 
         <DropdownMenuSeparator />
 
         {items.length === 0 ? (
           <div className="px-3 py-6 text-center text-sm text-muted-foreground">
-            {tab === "chat" ? "Không có tin nhắn nào" : "Không có thông báo nào"}
+            {tab === "chat"
+              ? "Không có tin nhắn nào"
+              : "Không có thông báo nào"}
           </div>
         ) : (
           <div className="max-h-96 overflow-y-auto">
@@ -224,7 +237,9 @@ export function NotificationBell() {
                     <span className="mt-1.5 size-2 shrink-0 rounded-full bg-primary" />
                   )}
                   <div className={`flex-1 ${notif.is_read ? "pl-4" : ""}`}>
-                    <p className="text-sm font-medium leading-snug">{notif.title}</p>
+                    <p className="text-sm font-medium leading-snug">
+                      {notif.title}
+                    </p>
                     {notif.body && (
                       <p className="mt-0.5 text-xs text-muted-foreground line-clamp-2">
                         {notif.body}

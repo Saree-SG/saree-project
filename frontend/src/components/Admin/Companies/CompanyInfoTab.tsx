@@ -18,7 +18,7 @@ export default function CompanyInfoTab({ company }: Props) {
 
   useEffect(() => {
     setName(company.name)
-  }, [company.id, company.name])
+  }, [company.name])
 
   const mutation = useMutation({
     mutationFn: () =>

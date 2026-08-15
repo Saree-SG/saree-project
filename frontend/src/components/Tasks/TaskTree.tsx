@@ -104,11 +104,13 @@ export function TaskTree({
   )
 
   const roots =
-    showRoot && rootTask ? [rootTask] : childrenByParent.get(rootId) ?? []
+    showRoot && rootTask ? [rootTask] : (childrenByParent.get(rootId) ?? [])
 
   if (roots.length === 0) {
     return (
-      <p className="text-xs text-muted-foreground">Chưa có công việc con nào.</p>
+      <p className="text-xs text-muted-foreground">
+        Chưa có công việc con nào.
+      </p>
     )
   }
 
@@ -255,7 +257,8 @@ function TaskCard({
     <div
       className={cn(
         "inline-flex w-60 flex-col gap-2 rounded-xl border bg-card p-3 text-left shadow-sm",
-        isCurrent && "border-2 border-primary bg-primary/10 ring-2 ring-primary/20",
+        isCurrent &&
+          "border-2 border-primary bg-primary/10 ring-2 ring-primary/20",
       )}
     >
       <div className="flex items-start gap-2">

@@ -105,7 +105,10 @@ export default function CompanyMembersTab({ company }: Props) {
           <TableBody>
             {members.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} className="text-center text-muted-foreground">
+                <TableCell
+                  colSpan={6}
+                  className="text-center text-muted-foreground"
+                >
                   Công ty chưa có thành viên.
                 </TableCell>
               </TableRow>
@@ -136,10 +139,7 @@ export default function CompanyMembersTab({ company }: Props) {
                             {roles
                               .filter((r) => Boolean(r.id))
                               .map((r) => (
-                                <SelectItem
-                                  key={r.id}
-                                  value={r.id as string}
-                                >
+                                <SelectItem key={r.id} value={r.id as string}>
                                   {r.display_name}
                                 </SelectItem>
                               ))}

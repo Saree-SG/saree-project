@@ -38,7 +38,8 @@ export function Main({ items }: MainProps) {
         <SidebarMenu>
           {items.map((item) => {
             const isActive = isLayoutNavItemActive(item, currentPath)
-            const unreadCount = item.path === "/chat" ? (chatUnread?.count ?? 0) : 0
+            const unreadCount =
+              item.path === "/chat" ? (chatUnread?.count ?? 0) : 0
 
             return (
               <SidebarMenuItem key={item.title}>

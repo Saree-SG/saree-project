@@ -77,7 +77,8 @@ export default function UserListTable({ users }: Props) {
     const departments = new Map<string, string>()
     const roles = new Map<string, string>()
     for (const u of users) {
-      if (u.company_id && u.company_name) companies.set(u.company_id, u.company_name)
+      if (u.company_id && u.company_name)
+        companies.set(u.company_id, u.company_name)
       if (u.department_id && u.department_name)
         departments.set(u.department_id, u.department_name)
       if (u.primary_role_id && u.primary_role_display_name)
@@ -233,14 +234,18 @@ export default function UserListTable({ users }: Props) {
                     {u.company_name ? (
                       <Badge variant="secondary">{u.company_name}</Badge>
                     ) : (
-                      <span className="text-xs text-muted-foreground">Chưa gán</span>
+                      <span className="text-xs text-muted-foreground">
+                        Chưa gán
+                      </span>
                     )}
                   </TableCell>
                   <TableCell>
                     {u.department_name ? (
                       <Badge variant="outline">{u.department_name}</Badge>
                     ) : (
-                      <span className="text-xs text-muted-foreground">Chưa gán</span>
+                      <span className="text-xs text-muted-foreground">
+                        Chưa gán
+                      </span>
                     )}
                   </TableCell>
                   <TableCell>
@@ -252,7 +257,9 @@ export default function UserListTable({ users }: Props) {
                           : ""}
                       </Badge>
                     ) : (
-                      <span className="text-xs text-muted-foreground">Chưa có</span>
+                      <span className="text-xs text-muted-foreground">
+                        Chưa có
+                      </span>
                     )}
                   </TableCell>
                   <TableCell>
@@ -261,7 +268,10 @@ export default function UserListTable({ users }: Props) {
                         Active
                       </Badge>
                     ) : (
-                      <Badge variant="outline" className="text-muted-foreground">
+                      <Badge
+                        variant="outline"
+                        className="text-muted-foreground"
+                      >
                         Inactive
                       </Badge>
                     )}

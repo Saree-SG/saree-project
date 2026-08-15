@@ -49,7 +49,9 @@ export const Route = createFileRoute("/_layout/contracts/")({
       ])
       ;[permissions] = await Promise.all([
         rbac.readMyPermissions(),
-        UsersService.readUserMe().then((u) => { isSuperuser = Boolean(u.is_superuser) }),
+        UsersService.readUserMe().then((u) => {
+          isSuperuser = Boolean(u.is_superuser)
+        }),
       ])
     } catch (err: unknown) {
       const e = err as { status?: number }
@@ -133,13 +135,19 @@ function ContractsPage() {
           <TableBody>
             {isLoading ? (
               <TableRow>
-                <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
+                <TableCell
+                  colSpan={5}
+                  className="text-center text-muted-foreground py-8"
+                >
                   Đang tải...
                 </TableCell>
               </TableRow>
             ) : contracts.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
+                <TableCell
+                  colSpan={5}
+                  className="text-center text-muted-foreground py-8"
+                >
                   Chưa có hợp đồng nào
                 </TableCell>
               </TableRow>
@@ -172,7 +180,8 @@ function ContractsPage() {
                     <span
                       className={`text-xs font-medium px-2 py-1 rounded-full ${STATUS_COLORS[c.status as ContractStatus] ?? ""}`}
                     >
-                      {c.status_label ?? CONTRACT_STATUS_LABELS[c.status as ContractStatus]}
+                      {c.status_label ??
+                        CONTRACT_STATUS_LABELS[c.status as ContractStatus]}
                     </span>
                   </TableCell>
                 </TableRow>

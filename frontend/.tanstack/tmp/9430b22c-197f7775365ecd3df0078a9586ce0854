@@ -20,7 +20,6 @@ import { Route as LayoutStaffRouteImport } from './routes/_layout/staff'
 import { Route as LayoutSkillRequestsRouteImport } from './routes/_layout/skill-requests'
 import { Route as LayoutSettingsRouteImport } from './routes/_layout/settings'
 import { Route as LayoutReportsRouteImport } from './routes/_layout/reports'
-import { Route as LayoutReleasesRouteImport } from './routes/_layout/releases'
 import { Route as LayoutProfileRouteImport } from './routes/_layout/profile'
 import { Route as LayoutProductivityRouteImport } from './routes/_layout/productivity'
 import { Route as LayoutOverviewDemoRouteImport } from './routes/_layout/overview-demo'
@@ -110,11 +109,6 @@ const LayoutSettingsRoute = LayoutSettingsRouteImport.update({
 const LayoutReportsRoute = LayoutReportsRouteImport.update({
   id: '/reports',
   path: '/reports',
-  getParentRoute: () => LayoutRoute,
-} as any)
-const LayoutReleasesRoute = LayoutReleasesRouteImport.update({
-  id: '/releases',
-  path: '/releases',
   getParentRoute: () => LayoutRoute,
 } as any)
 const LayoutProfileRoute = LayoutProfileRouteImport.update({
@@ -323,7 +317,6 @@ export interface FileRoutesByFullPath {
   '/overview-demo': typeof LayoutOverviewDemoRoute
   '/productivity': typeof LayoutProductivityRoute
   '/profile': typeof LayoutProfileRoute
-  '/releases': typeof LayoutReleasesRoute
   '/reports': typeof LayoutReportsRoute
   '/settings': typeof LayoutSettingsRoute
   '/skill-requests': typeof LayoutSkillRequestsRoute
@@ -370,7 +363,6 @@ export interface FileRoutesByTo {
   '/overview-demo': typeof LayoutOverviewDemoRoute
   '/productivity': typeof LayoutProductivityRoute
   '/profile': typeof LayoutProfileRoute
-  '/releases': typeof LayoutReleasesRoute
   '/reports': typeof LayoutReportsRoute
   '/settings': typeof LayoutSettingsRoute
   '/skill-requests': typeof LayoutSkillRequestsRoute
@@ -421,7 +413,6 @@ export interface FileRoutesById {
   '/_layout/overview-demo': typeof LayoutOverviewDemoRoute
   '/_layout/productivity': typeof LayoutProductivityRoute
   '/_layout/profile': typeof LayoutProfileRoute
-  '/_layout/releases': typeof LayoutReleasesRoute
   '/_layout/reports': typeof LayoutReportsRoute
   '/_layout/settings': typeof LayoutSettingsRoute
   '/_layout/skill-requests': typeof LayoutSkillRequestsRoute
@@ -473,7 +464,6 @@ export interface FileRouteTypes {
     | '/overview-demo'
     | '/productivity'
     | '/profile'
-    | '/releases'
     | '/reports'
     | '/settings'
     | '/skill-requests'
@@ -520,7 +510,6 @@ export interface FileRouteTypes {
     | '/overview-demo'
     | '/productivity'
     | '/profile'
-    | '/releases'
     | '/reports'
     | '/settings'
     | '/skill-requests'
@@ -570,7 +559,6 @@ export interface FileRouteTypes {
     | '/_layout/overview-demo'
     | '/_layout/productivity'
     | '/_layout/profile'
-    | '/_layout/releases'
     | '/_layout/reports'
     | '/_layout/settings'
     | '/_layout/skill-requests'
@@ -684,13 +672,6 @@ declare module '@tanstack/react-router' {
       path: '/reports'
       fullPath: '/reports'
       preLoaderRoute: typeof LayoutReportsRouteImport
-      parentRoute: typeof LayoutRoute
-    }
-    '/_layout/releases': {
-      id: '/_layout/releases'
-      path: '/releases'
-      fullPath: '/releases'
-      preLoaderRoute: typeof LayoutReleasesRouteImport
       parentRoute: typeof LayoutRoute
     }
     '/_layout/profile': {
@@ -989,7 +970,6 @@ interface LayoutRouteChildren {
   LayoutOverviewDemoRoute: typeof LayoutOverviewDemoRoute
   LayoutProductivityRoute: typeof LayoutProductivityRoute
   LayoutProfileRoute: typeof LayoutProfileRoute
-  LayoutReleasesRoute: typeof LayoutReleasesRoute
   LayoutReportsRoute: typeof LayoutReportsRoute
   LayoutSettingsRoute: typeof LayoutSettingsRoute
   LayoutSkillRequestsRoute: typeof LayoutSkillRequestsRoute
@@ -1028,7 +1008,6 @@ const LayoutRouteChildren: LayoutRouteChildren = {
   LayoutOverviewDemoRoute: LayoutOverviewDemoRoute,
   LayoutProductivityRoute: LayoutProductivityRoute,
   LayoutProfileRoute: LayoutProfileRoute,
-  LayoutReleasesRoute: LayoutReleasesRoute,
   LayoutReportsRoute: LayoutReportsRoute,
   LayoutSettingsRoute: LayoutSettingsRoute,
   LayoutSkillRequestsRoute: LayoutSkillRequestsRoute,

@@ -1,4 +1,4 @@
-import { Outlet, createFileRoute, redirect } from "@tanstack/react-router"
+import { createFileRoute, Outlet, redirect } from "@tanstack/react-router"
 import { Menu } from "lucide-react"
 import { useState } from "react"
 
@@ -56,10 +56,7 @@ function AdminLayout() {
             </Button>
           </SheetTrigger>
           <SheetContent side="left" className="w-64 p-0">
-            <AdminSidebar
-              embedded
-              onNavigate={() => setMobileOpen(false)}
-            />
+            <AdminSidebar embedded onNavigate={() => setMobileOpen(false)} />
           </SheetContent>
         </Sheet>
       </div>

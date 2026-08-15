@@ -81,7 +81,13 @@ export default defineConfig({
   },
   server: {
     // Entries starting with "." match as suffix (any *.ngrok-free.app tunnel).
-    allowedHosts: [".ngrok-free.app", ".ngrok.io", "localhost", "127.0.0.1","workably-pianic-wanita.ngrok-free.dev"],
+    allowedHosts: [
+      ".ngrok-free.app",
+      ".ngrok.io",
+      "localhost",
+      "127.0.0.1",
+      "workably-pianic-wanita.ngrok-free.dev",
+    ],
     watch: {
       // Prevent infinite reload loop: router plugin writes this file,
       // Vite detects the change and triggers another regen cycle.

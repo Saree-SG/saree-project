@@ -1,6 +1,9 @@
 import { Button } from "@/components/ui/button"
-import { OWNER_ROLE_WAITING_LABEL, STAGE_CONFIG } from "@/modules/quotation/stageConfig"
 import type { QuotationPublic } from "@/modules/quotation/quotationTypes"
+import {
+  OWNER_ROLE_WAITING_LABEL,
+  STAGE_CONFIG,
+} from "@/modules/quotation/stageConfig"
 
 export type QuotationActionId =
   | "submit_survey"
@@ -38,10 +41,16 @@ function getAvailableActions(
 ): QuotationActionId[] {
   const stage = quotation.current_stage
 
-  if (stage === "S1_SALES_COLLECT" && canDo(permissions, "QUOTATION_SUBMIT_SURVEY")) {
+  if (
+    stage === "S1_SALES_COLLECT" &&
+    canDo(permissions, "QUOTATION_SUBMIT_SURVEY")
+  ) {
     return ["submit_survey"]
   }
-  if (stage === "S2_DIRECTOR_APPROVE_SURVEY" && canDo(permissions, "QUOTATION_APPROVE_SURVEY")) {
+  if (
+    stage === "S2_DIRECTOR_APPROVE_SURVEY" &&
+    canDo(permissions, "QUOTATION_APPROVE_SURVEY")
+  ) {
     return ["approve_survey", "reject_survey"]
   }
   if (stage === "S3_TECH_DESIGN" && canDo(permissions, "QUOTATION_DESIGN")) {
@@ -50,16 +59,28 @@ function getAvailableActions(
   if (stage === "S3B_BOC_TACH" && canDo(permissions, "QUOTATION_BOC_TACH")) {
     return ["submit_boc_tach"]
   }
-  if (stage === "S4_DIRECTOR_APPROVE_DESIGN" && canDo(permissions, "QUOTATION_APPROVE_DESIGN")) {
+  if (
+    stage === "S4_DIRECTOR_APPROVE_DESIGN" &&
+    canDo(permissions, "QUOTATION_APPROVE_DESIGN")
+  ) {
     return ["approve_design", "reject_design"]
   }
-  if (stage === "S5_PROCUREMENT_PRICING" && canDo(permissions, "QUOTATION_FILL_PRICE")) {
+  if (
+    stage === "S5_PROCUREMENT_PRICING" &&
+    canDo(permissions, "QUOTATION_FILL_PRICE")
+  ) {
     return ["submit_pricing"]
   }
-  if (stage === "S6_SALES_FINALIZE" && canDo(permissions, "QUOTATION_FINALIZE")) {
+  if (
+    stage === "S6_SALES_FINALIZE" &&
+    canDo(permissions, "QUOTATION_FINALIZE")
+  ) {
     return ["finalize"]
   }
-  if (stage === "S7_DIRECTOR_APPROVE_QUOTE" && canDo(permissions, "QUOTATION_APPROVE_FINAL")) {
+  if (
+    stage === "S7_DIRECTOR_APPROVE_QUOTE" &&
+    canDo(permissions, "QUOTATION_APPROVE_FINAL")
+  ) {
     return ["approve_final", "reject_final"]
   }
   if (stage === "S8_SENT_TO_CLIENT") {
@@ -80,7 +101,10 @@ function getAvailableActions(
     }
     return actions
   }
-  if (stage === "S8B_NEGOTIATION_REVIEW" && canDo(permissions, "QUOTATION_APPROVE_NEGOTIATION")) {
+  if (
+    stage === "S8B_NEGOTIATION_REVIEW" &&
+    canDo(permissions, "QUOTATION_APPROVE_NEGOTIATION")
+  ) {
     return ["approve_negotiation", "reject_negotiation"]
   }
   return []
@@ -99,7 +123,8 @@ function actionLabel(actionId: QuotationActionId): string {
   if (actionId === "approve_final") return "Duyệt báo giá"
   if (actionId === "reject_final") return "Yêu cầu chỉnh lại"
   if (actionId === "send_to_client") return "Ghi nhận đã gửi khách"
-  if (actionId === "submit_negotiation") return "Trình thương lượng lên Giám đốc"
+  if (actionId === "submit_negotiation")
+    return "Trình thương lượng lên Giám đốc"
   if (actionId === "approve_negotiation") return "Đồng ý điều chỉnh"
   if (actionId === "reject_negotiation") return "Tiếp tục trao đổi thêm"
   if (actionId === "close_won") return "Thắng hợp đồng"
@@ -117,16 +142,26 @@ function isDestructiveAction(actionId: QuotationActionId): boolean {
 }
 
 function actionHint(stage: QuotationPublic["current_stage"]): string {
-  if (stage === "S1_SALES_COLLECT") return "Điền đầy đủ thông tin khảo sát, đính kèm tài liệu nếu có, rồi nộp cho Giám đốc duyệt."
-  if (stage === "S2_DIRECTOR_APPROVE_SURVEY") return "Xem lại nội dung khảo sát. Duyệt để chuyển sang Kỹ thuật, hoặc yêu cầu bổ sung nếu thông tin chưa đủ."
-  if (stage === "S3_TECH_DESIGN") return "Upload file thiết kế (tab Tài liệu), sau đó nộp để chuyển sang bước bóc tách khối lượng."
-  if (stage === "S3B_BOC_TACH") return "Thực hiện bóc tách khối lượng dựa trên thiết kế, sau đó hoàn thành để nộp Giám đốc duyệt."
-  if (stage === "S4_DIRECTOR_APPROVE_DESIGN") return "Xem lại file thiết kế & bóc tách. Duyệt để chuyển sang bước báo đơn giá, hoặc yêu cầu điều chỉnh."
-  if (stage === "S5_PROCUREMENT_PRICING") return "Upload file Excel đã điền giá (tab Tài liệu), nhập tổng giá trị hợp đồng, rồi xác nhận."
-  if (stage === "S6_SALES_FINALIZE") return "Upload file hợp đồng chào giá (tab Tài liệu), rồi hoàn thiện để Giám đốc duyệt."
-  if (stage === "S7_DIRECTOR_APPROVE_QUOTE") return "Xem xét báo giá tổng thể. Duyệt để gửi khách hàng, hoặc yêu cầu điều chỉnh."
-  if (stage === "S8_SENT_TO_CLIENT") return "Ghi nhận đã gửi khách hàng → khi khách trao đổi thương lượng thì trình lên Giám đốc để duyệt."
-  if (stage === "S8B_NEGOTIATION_REVIEW") return "Xem xét nội dung thương lượng. Đồng ý để Kinh doanh cập nhật bảng giá, hoặc từ chối để tiếp tục trao đổi thêm."
+  if (stage === "S1_SALES_COLLECT")
+    return "Điền đầy đủ thông tin khảo sát, đính kèm tài liệu nếu có, rồi nộp cho Giám đốc duyệt."
+  if (stage === "S2_DIRECTOR_APPROVE_SURVEY")
+    return "Xem lại nội dung khảo sát. Duyệt để chuyển sang Kỹ thuật, hoặc yêu cầu bổ sung nếu thông tin chưa đủ."
+  if (stage === "S3_TECH_DESIGN")
+    return "Upload file thiết kế (tab Tài liệu), sau đó nộp để chuyển sang bước bóc tách khối lượng."
+  if (stage === "S3B_BOC_TACH")
+    return "Thực hiện bóc tách khối lượng dựa trên thiết kế, sau đó hoàn thành để nộp Giám đốc duyệt."
+  if (stage === "S4_DIRECTOR_APPROVE_DESIGN")
+    return "Xem lại file thiết kế & bóc tách. Duyệt để chuyển sang bước báo đơn giá, hoặc yêu cầu điều chỉnh."
+  if (stage === "S5_PROCUREMENT_PRICING")
+    return "Upload file Excel đã điền giá (tab Tài liệu), nhập tổng giá trị hợp đồng, rồi xác nhận."
+  if (stage === "S6_SALES_FINALIZE")
+    return "Upload file hợp đồng chào giá (tab Tài liệu), rồi hoàn thiện để Giám đốc duyệt."
+  if (stage === "S7_DIRECTOR_APPROVE_QUOTE")
+    return "Xem xét báo giá tổng thể. Duyệt để gửi khách hàng, hoặc yêu cầu điều chỉnh."
+  if (stage === "S8_SENT_TO_CLIENT")
+    return "Ghi nhận đã gửi khách hàng → khi khách trao đổi thương lượng thì trình lên Giám đốc để duyệt."
+  if (stage === "S8B_NEGOTIATION_REVIEW")
+    return "Xem xét nội dung thương lượng. Đồng ý để Kinh doanh cập nhật bảng giá, hoặc từ chối để tiếp tục trao đổi thêm."
   return ""
 }
 
@@ -144,7 +179,9 @@ export function QuotationActionsPanel({
   if (quotation.current_stage === "S9_CLOSED") {
     return (
       <div className="rounded-lg border bg-card px-4 py-3">
-        <p className="text-sm font-medium text-muted-foreground">Hồ sơ đã kết thúc.</p>
+        <p className="text-sm font-medium text-muted-foreground">
+          Hồ sơ đã kết thúc.
+        </p>
       </div>
     )
   }
@@ -165,7 +202,9 @@ export function QuotationActionsPanel({
   }
 
   return (
-    <div className={`rounded-lg border ${stageConfig.badgeBg}/30 bg-card px-4 py-3`}>
+    <div
+      className={`rounded-lg border ${stageConfig.badgeBg}/30 bg-card px-4 py-3`}
+    >
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="min-w-0">
           <span

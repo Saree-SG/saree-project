@@ -19,10 +19,10 @@ import {
   addProfileItem,
   deleteProfile,
   deleteProfileItem,
-  updateProfile,
-  updateProfileItem,
   type TaskProfile,
   type TaskProfileItem,
+  updateProfile,
+  updateProfileItem,
 } from "@/modules/taskProfile/taskProfileApi"
 import { handleError } from "@/utils"
 
@@ -47,7 +47,9 @@ function buildTree(items: TaskProfileItem[]) {
     byParent.get(key)!.push(it)
   }
   for (const arr of byParent.values()) {
-    arr.sort((a, b) => a.order_index - b.order_index || a.name.localeCompare(b.name))
+    arr.sort(
+      (a, b) => a.order_index - b.order_index || a.name.localeCompare(b.name),
+    )
   }
   const out: TaskProfileItem[] = []
   const walk = (parent: string | null) => {
@@ -173,8 +175,7 @@ export default function EditProfileDialog({ open, onClose, profile }: Props) {
     const d = drafts[it.id]
     if (!d) return false
     return (
-      d.name.trim() !== it.name.trim() ||
-      d.duration_days !== it.duration_days
+      d.name.trim() !== it.name.trim() || d.duration_days !== it.duration_days
     )
   }
 
@@ -272,7 +273,9 @@ export default function EditProfileDialog({ open, onClose, profile }: Props) {
                           })
                         }
                       />
-                      <span className="text-xs text-muted-foreground">ngày</span>
+                      <span className="text-xs text-muted-foreground">
+                        ngày
+                      </span>
                       {it.level < 4 ? (
                         <Button
                           size="sm"
@@ -300,11 +303,7 @@ export default function EditProfileDialog({ open, onClose, profile }: Props) {
                         variant="ghost"
                         className="text-destructive"
                         onClick={() => {
-                          if (
-                            confirm(
-                              `Xoá "${it.name}" và mọi mục con?`,
-                            )
-                          ) {
+                          if (confirm(`Xoá "${it.name}" và mọi mục con?`)) {
                             deleteItemMutation.mutate(it.id)
                           }
                         }}
@@ -324,7 +323,8 @@ export default function EditProfileDialog({ open, onClose, profile }: Props) {
                   {addingUnder === "__ROOT__"
                     ? "Thêm hạng mục gốc mới"
                     : `Thêm hạng mục con dưới "${
-                        profile.items.find((i) => i.id === addingUnder)?.name ?? ""
+                        profile.items.find((i) => i.id === addingUnder)?.name ??
+                        ""
                       }"`}
                 </div>
                 <div className="flex items-center gap-2">
@@ -380,7 +380,9 @@ export default function EditProfileDialog({ open, onClose, profile }: Props) {
             variant="destructive"
             onClick={() => {
               if (
-                confirm(`Xoá mẫu "${profile.name}"? Hành động không thể hoàn tác.`)
+                confirm(
+                  `Xoá mẫu "${profile.name}"? Hành động không thể hoàn tác.`,
+                )
               ) {
                 deleteProfileMutation.mutate()
               }

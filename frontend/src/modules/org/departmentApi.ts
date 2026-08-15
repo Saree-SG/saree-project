@@ -15,7 +15,9 @@ function authHeaders() {
   return { Authorization: `Bearer ${getAccessToken() || ""}` }
 }
 
-export async function listDepartments(companyId: string): Promise<Department[]> {
+export async function listDepartments(
+  companyId: string,
+): Promise<Department[]> {
   const response = await axios.get<Department[]>(
     `${OpenAPI.BASE}/api/v1/roles/companies/${companyId}/departments`,
     { headers: authHeaders() },

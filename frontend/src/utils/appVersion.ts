@@ -7,3 +7,6 @@
 export const APP_VERSION = __APP_VERSION__
 export const APP_BUILD = __APP_BUILD__
 export const APP_VERSION_LABEL = __APP_VERSION_LABEL__
+// Short display form for UI chrome (header, badges) — no commit hash, e.g. "v1.2.0".
+// Use APP_VERSION_LABEL instead wherever the build hash is actually useful (support/debug).
+export const APP_VERSION_SHORT = `v${APP_VERSION}`

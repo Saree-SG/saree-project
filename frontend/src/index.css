@@ -4,6 +4,8 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
+  --font-sans:
+    "Be Vietnam Pro", "Noto Sans", ui-sans-serif, system-ui, sans-serif;
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
@@ -39,75 +41,190 @@
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
+
+  /* Chrome (header) */
+  --color-header-foreground: var(--header-foreground);
+  --color-header-muted: var(--header-muted);
+
+  /* Semantic tones — dùng chung cho badge, stat card, chip trạng thái */
+  --color-tone-info: var(--tone-info);
+  --color-tone-info-bg: var(--tone-info-bg);
+  --color-tone-info-border: var(--tone-info-border);
+  --color-tone-success: var(--tone-success);
+  --color-tone-success-bg: var(--tone-success-bg);
+  --color-tone-success-border: var(--tone-success-border);
+  --color-tone-warning: var(--tone-warning);
+  --color-tone-warning-bg: var(--tone-warning-bg);
+  --color-tone-warning-border: var(--tone-warning-border);
+  --color-tone-danger: var(--tone-danger);
+  --color-tone-danger-bg: var(--tone-danger-bg);
+  --color-tone-danger-border: var(--tone-danger-border);
+  --color-tone-neutral: var(--tone-neutral);
+  --color-tone-neutral-bg: var(--tone-neutral-bg);
+  --color-tone-neutral-border: var(--tone-neutral-border);
+
+  /* Thang brand */
+  --color-brand-50: var(--brand-50);
+  --color-brand-100: var(--brand-100);
+  --color-brand-200: var(--brand-200);
+  --color-brand-400: var(--brand-400);
+  --color-brand-500: var(--brand-500);
+  --color-brand-600: var(--brand-600);
+  --color-brand-700: var(--brand-700);
+  --color-brand-800: var(--brand-800);
+  --color-brand-900: var(--brand-900);
+  --color-brand-gold: var(--brand-gold);
+  --color-brand-gold-light: var(--brand-gold-light);
+
+  /* Shadow ám xanh thay vì ám đen (Soft UI Evolution) */
+  --shadow-xs: 0 1px 2px rgba(15, 45, 89, 0.06);
+  --shadow-sm:
+    0 1px 3px rgba(15, 45, 89, 0.08), 0 1px 2px rgba(15, 45, 89, 0.04);
+  --shadow-md: 0 4px 12px -2px rgba(15, 45, 89, 0.1);
+  --shadow-lg: 0 12px 28px -8px rgba(15, 45, 89, 0.18);
 }
 
 :root {
   --radius: 0.625rem;
-  --background: #ffffff;
-  --foreground: #1b2a3d;
+
+  /* Thang brand (primitive) */
+  --brand-50: #f2f7ff;
+  --brand-100: #e3efff;
+  --brand-200: #bcd8fb;
+  --brand-400: #4d97ff;
+  --brand-500: #1d6ee8;
+  --brand-600: #1552a8;
+  --brand-700: #16407c;
+  --brand-800: #123a72;
+  --brand-900: #0c2549;
+  --brand-gold: #b07d00;
+  --brand-gold-light: #cc9900;
+
+  /* Canvas */
+  --background: #f4f8ff;
+  --foreground: #0f2444;
   --card: #ffffff;
-  --card-foreground: #1b2a3d;
+  --card-foreground: #0f2444;
   --popover: #ffffff;
-  --popover-foreground: #1b2a3d;
-  --primary: #276bd0;
+  --popover-foreground: #0f2444;
+  --muted: #eef4ff;
+  --muted-foreground: #5b7194;
+
+  /* Brand */
+  --primary: #1d6ee8;
   --primary-foreground: #ffffff;
-  --secondary: #f3f7ff;
-  --secondary-foreground: #1b2a3d;
-  --muted: #f7f9fc;
-  --muted-foreground: #4d5f77;
-  --accent: #d69e00;
-  --accent-foreground: #ffffff;
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: #dce5f4;
-  --input: #e7edf7;
-  --ring: #276bd0;
-  --chart-1: oklch(0.646 0.222 41.116);
-  --chart-2: oklch(0.6 0.118 184.704);
-  --chart-3: oklch(0.398 0.07 227.392);
-  --chart-4: oklch(0.828 0.189 84.429);
-  --chart-5: oklch(0.769 0.188 70.08);
-  --sidebar: #ffffff;
-  --sidebar-foreground: #1b2a3d;
-  --sidebar-primary: #276bd0;
-  --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #d69e00;
+  --secondary: #e8f1ff;
+  --secondary-foreground: #16407c;
+
+  /* accent = nền hover/active của menu, ghost button, dropdown */
+  --accent: #e3efff;
+  --accent-foreground: #16407c;
+
+  --border: #d7e4f7;
+  --input: #dfeafa;
+  --ring: #1d6ee8;
+  --destructive: #dc2626;
+
+  /* Chrome: header xanh — 3 điểm dừng để có chiều sâu, tránh cảm giác phẳng/gắt */
+  --header-from: #0f2d59;
+  --header-via: #1a4f8f;
+  --header-to: #2c6fc4;
+  --header-foreground: #ffffff;
+  --header-muted: #b9d3f5;
+
+  /* Sidebar navy — liền khối với header */
+  --sidebar: #0f2d59;
+  --sidebar-foreground: #c7dbf7;
+  --sidebar-primary: #ffffff;
+  --sidebar-primary-foreground: #0f2d59;
+  --sidebar-accent: #1b477f;
   --sidebar-accent-foreground: #ffffff;
-  --sidebar-border: #dce5f4;
-  --sidebar-ring: #276bd0;
+  --sidebar-border: #1c3f70;
+  --sidebar-ring: #4d97ff;
+
+  /* Tone ngữ nghĩa */
+  --tone-info: #1d6ee8;
+  --tone-info-bg: #e8f1ff;
+  --tone-info-border: #bcd8fb;
+  --tone-success: #0e9f6e;
+  --tone-success-bg: #e6f8f1;
+  --tone-success-border: #b6e8d4;
+  --tone-warning: #c2740a;
+  --tone-warning-bg: #fdf3e2;
+  --tone-warning-border: #f5dcae;
+  --tone-danger: #dc2626;
+  --tone-danger-bg: #fdeaea;
+  --tone-danger-border: #f7c5c5;
+  --tone-neutral: #5b7194;
+  --tone-neutral-bg: #eef4ff;
+  --tone-neutral-border: #d7e4f7;
+
+  /* Chart theo brand */
+  --chart-1: #1d6ee8;
+  --chart-2: #4d97ff;
+  --chart-3: #0e9f6e;
+  --chart-4: #c2740a;
+  --chart-5: #7c5cff;
 }
 
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.65 0.10687 182.4689);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.488 0.243 264.376);
-  --chart-2: oklch(0.696 0.17 162.48);
-  --chart-3: oklch(0.769 0.188 70.08);
-  --chart-4: oklch(0.627 0.265 303.9);
-  --chart-5: oklch(0.645 0.246 16.439);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.65 0.10687 182.4689);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+  --background: #0b1220;
+  --foreground: #e8f0fb;
+  --card: #121c2e;
+  --card-foreground: #e8f0fb;
+  --popover: #121c2e;
+  --popover-foreground: #e8f0fb;
+  --muted: #17233a;
+  --muted-foreground: #93a9c8;
+
+  --primary: #5aa2ff;
+  --primary-foreground: #06162c;
+  --secondary: #17253d;
+  --secondary-foreground: #cfe1fa;
+  --accent: #1c3252;
+  --accent-foreground: #e8f0fb;
+
+  --border: #23334f;
+  --input: #26385a;
+  --ring: #5aa2ff;
+  --destructive: #f87171;
+
+  --header-from: #0a1830;
+  --header-via: #123157;
+  --header-to: #1c4a80;
+  --header-foreground: #e8f0fb;
+  --header-muted: #93a9c8;
+
+  --sidebar: #0a1424;
+  --sidebar-foreground: #b6cdea;
+  --sidebar-primary: #ffffff;
+  --sidebar-primary-foreground: #0a1424;
+  --sidebar-accent: #172a47;
+  --sidebar-accent-foreground: #ffffff;
+  --sidebar-border: #1b2c48;
+  --sidebar-ring: #5aa2ff;
+
+  --tone-info: #6ab0ff;
+  --tone-info-bg: #14284a;
+  --tone-info-border: #24467c;
+  --tone-success: #34d399;
+  --tone-success-bg: #0f2b25;
+  --tone-success-border: #1d4d41;
+  --tone-warning: #fbbf24;
+  --tone-warning-bg: #2e2411;
+  --tone-warning-border: #5a4620;
+  --tone-danger: #f87171;
+  --tone-danger-bg: #2e1618;
+  --tone-danger-border: #5c2b2e;
+  --tone-neutral: #93a9c8;
+  --tone-neutral-bg: #17233a;
+  --tone-neutral-border: #23334f;
+
+  --chart-1: #5aa2ff;
+  --chart-2: #8ec2ff;
+  --chart-3: #34d399;
+  --chart-4: #fbbf24;
+  --chart-5: #a78bfa;
 }
 
 @layer base {
@@ -121,6 +238,100 @@
   [role="button"] {
     cursor: pointer;
   }
+}
+
+/* Tôn trọng cài đặt giảm chuyển động của hệ điều hành */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms;
+    animation-iteration-count: 1;
+    transition-duration: 0.01ms;
+    scroll-behavior: auto;
+  }
+}
+
+/*
+ * Vùng "chrome" nền xanh (header desktop + mobile). Các icon dùng chung
+ * (NotificationBell, ReleaseNotesBell, SidebarTrigger) mặc định là
+ * text-muted-foreground / hover:bg-accent — trên nền xanh sẽ tàng hình.
+ * Scope này lật chúng sang tông trắng mà không phải truyền prop xuống từng
+ * component. Nội dung dropdown/dialog render qua portal nên không bị ảnh hưởng.
+ */
+.app-chrome {
+  background-image:
+    radial-gradient(
+      140% 220% at 0% -30%,
+      rgb(255 255 255 / 0.16),
+      transparent 55%
+    ),
+    linear-gradient(
+      112deg,
+      var(--header-from) 0%,
+      var(--header-via) 55%,
+      var(--header-to) 100%
+    );
+  color: var(--header-foreground);
+  box-shadow:
+    0 10px 24px -16px rgb(9 30 64 / 0.5),
+    inset 0 -1px 0 rgb(255 255 255 / 0.08);
+}
+.app-chrome a,
+.app-chrome button,
+.app-chrome [role="button"] {
+  color: var(--header-foreground);
+}
+.app-chrome a:hover,
+.app-chrome button:hover,
+.app-chrome [role="button"]:hover {
+  background-color: rgb(255 255 255 / 0.14);
+  color: #fff;
+}
+.app-chrome :focus-visible {
+  outline: 2px solid rgb(255 255 255 / 0.75);
+  outline-offset: 2px;
+  box-shadow: none;
+}
+/* Chấm/badge trên chuông cần viền theo nền xanh để tách khỏi gradient */
+.app-chrome .absolute.rounded-full {
+  box-shadow: 0 0 0 2px var(--header-to);
+}
+
+/* Sidebar: cùng logic ánh sáng với header (góc trên-trái sáng hơn) để hai
+   vùng chrome đọc như một khối liền, không phải hai hình chữ nhật phẳng ghép lại. */
+[data-slot="sidebar-inner"] {
+  background-image:
+    radial-gradient(
+      120% 160% at 0% 0%,
+      rgb(255 255 255 / 0.05),
+      transparent 45%
+    ),
+    linear-gradient(165deg, var(--brand-900) 0%, var(--sidebar) 55%);
+}
+
+/* Thanh chỉ thị mục đang mở trong sidebar */
+[data-sidebar="menu-button"][data-active="true"] {
+  position: relative;
+}
+[data-sidebar="menu-button"][data-active="true"]::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 50%;
+  translate: 0 -50%;
+  height: 60%;
+  width: 3px;
+  border-radius: 9999px;
+  background: var(--sidebar-ring);
+}
+
+/* Sidebar navy: các component dùng chung bên trong (Appearance, User) viết
+   text-muted-foreground — trên nền navy chỉ đạt ~2:1. Định nghĩa lại biến
+   trong phạm vi sidebar để chúng tự sáng lên, không phải sửa từng file. */
+[data-slot="sidebar"] {
+  --muted-foreground: #9dbde4;
+  --border: var(--sidebar-border);
 }
 
 .manual-content {
@@ -173,12 +384,26 @@
 .leaflet-top,
 .leaflet-bottom,
 .leaflet-control {
-  z-index: 10 !important;
+  z-index: 10;
 }
-.leaflet-tile-pane    { z-index: 1 !important; }
-.leaflet-overlay-pane { z-index: 4 !important; }
-.leaflet-shadow-pane  { z-index: 5 !important; }
-.leaflet-marker-pane  { z-index: 6 !important; }
-.leaflet-tooltip-pane { z-index: 7 !important; }
-.leaflet-popup-pane   { z-index: 8 !important; }
-.leaflet-control      { z-index: 10 !important; }
+.leaflet-tile-pane {
+  z-index: 1;
+}
+.leaflet-overlay-pane {
+  z-index: 4;
+}
+.leaflet-shadow-pane {
+  z-index: 5;
+}
+.leaflet-marker-pane {
+  z-index: 6;
+}
+.leaflet-tooltip-pane {
+  z-index: 7;
+}
+.leaflet-popup-pane {
+  z-index: 8;
+}
+.leaflet-control {
+  z-index: 10;
+}

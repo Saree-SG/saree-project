@@ -45,7 +45,9 @@ export default function KpiCard({
           </p>
           <p className="mt-1 text-2xl font-bold tabular-nums">{value}</p>
           {hint ? (
-            <p className="mt-1 truncate text-xs text-muted-foreground">{hint}</p>
+            <p className="mt-1 truncate text-xs text-muted-foreground">
+              {hint}
+            </p>
           ) : null}
         </div>
       </CardContent>

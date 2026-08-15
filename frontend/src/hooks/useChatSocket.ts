@@ -11,7 +11,10 @@ import {
 
 type HookStatus = "idle" | "connecting" | "open" | "closed" | "error"
 
-export function useChatSocket(roomId: string | null, onReconnected?: () => void) {
+export function useChatSocket(
+  roomId: string | null,
+  onReconnected?: () => void,
+) {
   const [status, setStatus] = useState<HookStatus>(() =>
     roomId ? mapStatus(getStatus()) : "idle",
   )

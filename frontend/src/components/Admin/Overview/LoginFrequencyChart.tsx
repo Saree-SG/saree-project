@@ -37,7 +37,10 @@ export default function LoginFrequencyChart({ days = 30 }: Props) {
             </div>
           ) : (
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={data} margin={{ top: 8, right: 16, left: 0, bottom: 0 }}>
+              <LineChart
+                data={data}
+                margin={{ top: 8, right: 16, left: 0, bottom: 0 }}
+              >
                 <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
                 <XAxis dataKey="date" fontSize={11} />
                 <YAxis allowDecimals={false} fontSize={11} />

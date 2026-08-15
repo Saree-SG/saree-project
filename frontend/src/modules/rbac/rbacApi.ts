@@ -83,7 +83,9 @@ export async function readMyPermissions(): Promise<string[]> {
 /**
  * Read full permissions catalog for role editor UI.
  */
-export async function listPermissionsCatalog(): Promise<PermissionCatalogItem[]> {
+export async function listPermissionsCatalog(): Promise<
+  PermissionCatalogItem[]
+> {
   const response = await axios.get<PermissionCatalogItem[]>(
     `${OpenAPI.BASE}/api/v1/roles/permissions-catalog`,
     { headers: authHeaders() },
@@ -119,7 +121,9 @@ export async function listCompanyMembers(
  * List roles available in a company for dropdown/selection UI.
  * Excludes admin by default (backend handles this).
  */
-export async function listCompanyRoles(companyId: string): Promise<CompanyRole[]> {
+export async function listCompanyRoles(
+  companyId: string,
+): Promise<CompanyRole[]> {
   const response = await axios.get<CompanyRole[]>(
     `${OpenAPI.BASE}/api/v1/roles/catalog`,
     { headers: authHeaders(), params: { company_id: companyId } },

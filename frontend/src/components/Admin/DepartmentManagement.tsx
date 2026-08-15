@@ -33,10 +33,10 @@ import {
 import useCustomToast from "@/hooks/useCustomToast"
 import {
   createDepartment,
+  type Department,
   deleteDepartment,
   listDepartments,
   updateDepartment,
-  type Department,
 } from "@/modules/org/departmentApi"
 import { handleError } from "@/utils"
 
@@ -82,7 +82,9 @@ export default function DepartmentManagement({ companyId }: Props) {
     queryClient.invalidateQueries({ queryKey: ["departments", companyId] })
 
   const invalidateOrgTree = () =>
-    queryClient.invalidateQueries({ queryKey: ["roles", "org-tree", companyId] })
+    queryClient.invalidateQueries({
+      queryKey: ["roles", "org-tree", companyId],
+    })
 
   const toNullable = (v: string) => (v && v !== "none" ? v : null)
 
@@ -146,9 +148,7 @@ export default function DepartmentManagement({ companyId }: Props) {
     setEditParentId(dept.parent_id ?? "")
   }
 
-  const parentOptions = departments.filter(
-    (d) => d.id !== editingDept?.id,
-  )
+  const parentOptions = departments.filter((d) => d.id !== editingDept?.id)
 
   return (
     <div className="space-y-3">
@@ -280,7 +280,9 @@ export default function DepartmentManagement({ companyId }: Props) {
       {/* ── Edit Dialog ───────────────────────────────────────────────────── */}
       <Dialog
         open={Boolean(editingDept)}
-        onOpenChange={(open) => { if (!open) setEditingDept(null) }}
+        onOpenChange={(open) => {
+          if (!open) setEditingDept(null)
+        }}
       >
         <DialogContent className="max-w-md">
           <DialogHeader>
@@ -305,10 +307,7 @@ export default function DepartmentManagement({ companyId }: Props) {
                 ))}
               </SelectContent>
             </Select>
-            <Select
-              value={editParentId}
-              onValueChange={setEditParentId}
-            >
+            <Select value={editParentId} onValueChange={setEditParentId}>
               <SelectTrigger>
                 <SelectValue placeholder="Thuộc phòng ban" />
               </SelectTrigger>
@@ -348,7 +347,9 @@ export default function DepartmentManagement({ companyId }: Props) {
       {/* ── Delete Confirm ────────────────────────────────────────────────── */}
       <Dialog
         open={Boolean(deletingDept)}
-        onOpenChange={(open) => { if (!open) setDeletingDept(null) }}
+        onOpenChange={(open) => {
+          if (!open) setDeletingDept(null)
+        }}
       >
         <DialogContent className="max-w-sm">
           <DialogHeader>

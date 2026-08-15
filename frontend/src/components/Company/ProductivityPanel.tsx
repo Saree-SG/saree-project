@@ -45,7 +45,9 @@ function StatCard({
         <div className="min-w-0">
           <div className="text-muted-foreground text-xs">{label}</div>
           <div className="truncate text-lg font-semibold">{value}</div>
-          {sub && <div className="text-muted-foreground truncate text-xs">{sub}</div>}
+          {sub && (
+            <div className="text-muted-foreground truncate text-xs">{sub}</div>
+          )}
         </div>
       </CardContent>
     </Card>
@@ -53,7 +55,11 @@ function StatCard({
 }
 
 /** Monthly team productivity (giờ công + hoàn thành), reusable inside tabs/pages. */
-export default function ProductivityPanel({ showHeader = true }: { showHeader?: boolean }) {
+export default function ProductivityPanel({
+  showHeader = true,
+}: {
+  showHeader?: boolean
+}) {
   const [month, setMonth] = useState<string>(currentMonth())
 
   const query = useQuery({
@@ -80,7 +86,8 @@ export default function ProductivityPanel({ showHeader = true }: { showHeader?: 
               <Gauge className="text-primary size-5" /> Năng suất theo tháng
             </h2>
             <p className="text-muted-foreground mt-0.5 text-sm">
-              Giờ công + tỷ lệ hoàn thành công việc — cơ sở thi đua, khen thưởng.
+              Giờ công + tỷ lệ hoàn thành công việc — cơ sở thi đua, khen
+              thưởng.
             </p>
           </div>
         ) : (
@@ -112,7 +119,11 @@ export default function ProductivityPanel({ showHeader = true }: { showHeader?: 
           icon={<Award className="size-5" />}
           label="Nhiều giờ công nhất"
           value={totals.topHours?.user_name ?? "—"}
-          sub={totals.topHours ? `${totals.topHours.work_hours.toFixed(1)} h` : undefined}
+          sub={
+            totals.topHours
+              ? `${totals.topHours.work_hours.toFixed(1)} h`
+              : undefined
+          }
         />
         <StatCard
           icon={<Award className="size-5" />}
@@ -131,7 +142,9 @@ export default function ProductivityPanel({ showHeader = true }: { showHeader?: 
         </CardHeader>
         <CardContent className="overflow-x-auto">
           {query.isLoading ? (
-            <p className="text-muted-foreground py-6 text-center text-sm">Đang tải…</p>
+            <p className="text-muted-foreground py-6 text-center text-sm">
+              Đang tải…
+            </p>
           ) : query.isError ? (
             <p className="text-destructive py-6 text-center text-sm">
               Không tải được dữ liệu (cần quyền xem báo cáo).
@@ -160,16 +173,22 @@ export default function ProductivityPanel({ showHeader = true }: { showHeader?: 
                     <TableCell className="text-right">
                       {r.work_hours.toFixed(1)}
                     </TableCell>
-                    <TableCell className="text-right">{r.days_worked}</TableCell>
+                    <TableCell className="text-right">
+                      {r.days_worked}
+                    </TableCell>
                     <TableCell className="text-right">
                       {r.tasks_done}/{r.tasks_total}
                     </TableCell>
                     <TableCell className="text-right text-red-500">
                       {r.tasks_overdue || ""}
                     </TableCell>
-                    <TableCell className="text-right">{r.completion_pct}%</TableCell>
                     <TableCell className="text-right">
-                      {r.tasks_per_hour != null ? r.tasks_per_hour.toFixed(2) : "—"}
+                      {r.completion_pct}%
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {r.tasks_per_hour != null
+                        ? r.tasks_per_hour.toFixed(2)
+                        : "—"}
                     </TableCell>
                   </TableRow>
                 ))}

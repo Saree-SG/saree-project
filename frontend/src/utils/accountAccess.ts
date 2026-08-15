@@ -60,14 +60,17 @@ export function hasPermission(
   if (!permissions) {
     return false
   }
-  const effective = permissions instanceof Set ? permissions : new Set(permissions)
+  const effective =
+    permissions instanceof Set ? permissions : new Set(permissions)
   return effective.has(code)
 }
 
 /**
  * Dashboard access by permission, not role name.
  */
-export function canAccessDashboard(permissions: Set<string> | string[] | undefined) {
+export function canAccessDashboard(
+  permissions: Set<string> | string[] | undefined,
+) {
   return (
     hasPermission(permissions, "REPORT_VIEW_ALL") ||
     hasPermission(permissions, "REPORT_VIEW_TEAM")
@@ -77,21 +80,27 @@ export function canAccessDashboard(permissions: Set<string> | string[] | undefin
 /**
  * Company management access by permission.
  */
-export function canManageCompany(permissions: Set<string> | string[] | undefined) {
+export function canManageCompany(
+  permissions: Set<string> | string[] | undefined,
+) {
   return hasPermission(permissions, "USER_MANAGE")
 }
 
 /**
  * Project creation permission gate.
  */
-export function canCreateProject(permissions: Set<string> | string[] | undefined) {
+export function canCreateProject(
+  permissions: Set<string> | string[] | undefined,
+) {
   return hasPermission(permissions, "PROJECT_CREATE")
 }
 
 /**
  * Project module access gate.
  */
-export function canAccessProject(permissions: Set<string> | string[] | undefined) {
+export function canAccessProject(
+  permissions: Set<string> | string[] | undefined,
+) {
   return (
     hasPermission(permissions, "PROJECT_VIEW") ||
     hasPermission(permissions, "PROJECT_VIEW_ALL")
@@ -101,7 +110,9 @@ export function canAccessProject(permissions: Set<string> | string[] | undefined
 /**
  * Quotation module access gate — any of the two view permissions suffices.
  */
-export function canAccessQuotation(permissions: Set<string> | string[] | undefined) {
+export function canAccessQuotation(
+  permissions: Set<string> | string[] | undefined,
+) {
   return (
     hasPermission(permissions, "QUOTATION_VIEW") ||
     hasPermission(permissions, "QUOTATION_VIEW_ALL")
@@ -111,10 +122,11 @@ export function canAccessQuotation(permissions: Set<string> | string[] | undefin
 /**
  * Contract module access gate.
  */
-export function canAccessContract(permissions: Set<string> | string[] | undefined) {
+export function canAccessContract(
+  permissions: Set<string> | string[] | undefined,
+) {
   return (
     hasPermission(permissions, "CONTRACT_VIEW") ||
     hasPermission(permissions, "CONTRACT_VIEW_ALL")
   )
 }
-

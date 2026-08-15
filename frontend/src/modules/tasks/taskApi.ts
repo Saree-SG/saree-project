@@ -137,7 +137,7 @@ export type ConflictCheckResult = {
 export async function checkDispatchConflict(params: {
   assignee_id: string
   project_id: string
-  start_time: string   // ISO datetime
+  start_time: string // ISO datetime
   end_time: string
   arrive_at?: string | null
 }): Promise<ConflictCheckResult> {

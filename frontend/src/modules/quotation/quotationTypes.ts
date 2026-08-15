@@ -56,7 +56,7 @@ export interface QuotationPublic {
   status: QuotationStatus
   current_stage: QuotationStage
   stage_label: string | null
-  site_survey_date: string | null    // ISO date
+  site_survey_date: string | null // ISO date
   survey_start_date?: string | null
   survey_end_date?: string | null
   created_by: string
@@ -264,7 +264,7 @@ export interface QuotationSendToClientRequest {
 }
 
 export interface QuotationSubmitNegotiationRequest {
-  note: string  // bắt buộc — nội dung thương lượng
+  note: string // bắt buộc — nội dung thương lượng
 }
 
 export interface QuotationCloseRequest {

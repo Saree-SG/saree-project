@@ -38,7 +38,10 @@ export async function getStaffingSummary(params?: {
     `${OpenAPI.BASE}/api/v1/dashboard/staffing-summary`,
     {
       headers: authHeaders(),
-      params: { department_id: params?.departmentId, project_id: params?.projectId },
+      params: {
+        department_id: params?.departmentId,
+        project_id: params?.projectId,
+      },
     },
   )
   return r.data
@@ -61,7 +64,10 @@ export async function getUnderstaffedTasks(params?: {
     `${OpenAPI.BASE}/api/v1/dashboard/understaffed-tasks`,
     {
       headers: authHeaders(),
-      params: { department_id: params?.departmentId, project_id: params?.projectId },
+      params: {
+        department_id: params?.departmentId,
+        project_id: params?.projectId,
+      },
     },
   )
   return r.data

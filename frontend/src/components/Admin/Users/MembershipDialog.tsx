@@ -23,9 +23,9 @@ import {
 } from "@/components/ui/select"
 import useCustomToast from "@/hooks/useCustomToast"
 import {
+  type AdminUserMembership,
   addUserMembership,
   updateUserMembership,
-  type AdminUserMembership,
 } from "@/modules/admin/adminUsersApi"
 import { listDepartments } from "@/modules/org/departmentApi"
 import { handleError } from "@/utils"
@@ -96,8 +96,7 @@ export default function MembershipDialog({
       if (isEdit && editing) {
         return updateUserMembership(userId, editing.company_id, {
           role_id: roleId !== editing.role_id ? roleId : null,
-          department_id:
-            departmentId === NONE ? null : departmentId,
+          department_id: departmentId === NONE ? null : departmentId,
           clear_department: departmentId === NONE,
           is_primary: isPrimary !== editing.is_primary ? isPrimary : null,
         })
@@ -120,8 +119,7 @@ export default function MembershipDialog({
     onError: handleError.bind(showErrorToast),
   })
 
-  const canSave =
-    Boolean(companyId) && Boolean(roleId) && !mutation.isPending
+  const canSave = Boolean(companyId) && Boolean(roleId) && !mutation.isPending
 
   return (
     <Dialog open={open} onOpenChange={(o) => (!o ? onClose() : null)}>

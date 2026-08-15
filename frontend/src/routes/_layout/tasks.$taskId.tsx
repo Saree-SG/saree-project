@@ -38,13 +38,13 @@ import {
 import {
   addTaskExtraAssignee,
   addTaskObserver,
+  handoffTask,
   reassignTask,
   removeTaskExtraAssignee,
   removeTaskObserver,
   type TaskExtraAssigneePublic,
   type TaskObserverPublic,
   type TaskWithPeople,
-  handoffTask,
 } from "@/modules/tasks/taskApi"
 import {
   listProgressReportsWithReview,
@@ -340,20 +340,25 @@ function TaskDetailPage() {
       showSuccessToast("Đã tạm dừng công việc")
       setPauseDialogOpen(false)
       setPauseNote("")
-      await queryClient.invalidateQueries({ queryKey: ["task-detail", "task", taskId] })
+      await queryClient.invalidateQueries({
+        queryKey: ["task-detail", "task", taskId],
+      })
       await queryClient.invalidateQueries({ queryKey: ["project-dashboard"] })
     },
     onError: handleError.bind(showErrorToast),
   })
 
   const handoffMutation = useMutation({
-    mutationFn: () => handoffTask(taskId, handoffAssigneeId, handoffNote || undefined),
+    mutationFn: () =>
+      handoffTask(taskId, handoffAssigneeId, handoffNote || undefined),
     onSuccess: async (newTask) => {
       showSuccessToast(`Đã bàn giao — task mới: ${newTask.name}`)
       setHandoffDialogOpen(false)
       setHandoffAssigneeId("")
       setHandoffNote("")
-      await queryClient.invalidateQueries({ queryKey: ["task-detail", "task", taskId] })
+      await queryClient.invalidateQueries({
+        queryKey: ["task-detail", "task", taskId],
+      })
       await queryClient.invalidateQueries({ queryKey: ["project-dashboard"] })
     },
     onError: handleError.bind(showErrorToast),
@@ -1325,7 +1330,9 @@ function TaskDetailPage() {
                           ✅ Đánh dấu: Hoàn thành
                         </DropdownMenuItem>
                         <DropdownMenuItem
-                          disabled={task.status === "done" || task.status === "paused"}
+                          disabled={
+                            task.status === "done" || task.status === "paused"
+                          }
                           onClick={() => setPauseDialogOpen(true)}
                         >
                           ⏸ Tạm dừng công việc
@@ -3544,8 +3551,8 @@ function TaskDetailPage() {
           <div className="space-y-3">
             <p className="text-sm text-muted-foreground">
               Task gốc sẽ được tạm dừng. Task mới được tạo cho người tiếp nhận,
-              giữ nguyên{" "}
-              <strong>{task?.reported_progress_total ?? 0}%</strong> tiến độ hiện tại.
+              giữ nguyên <strong>{task?.reported_progress_total ?? 0}%</strong>{" "}
+              tiến độ hiện tại.
             </p>
             <div className="space-y-1">
               <p className="text-xs font-semibold">Người tiếp nhận (user ID)</p>
@@ -3556,7 +3563,8 @@ function TaskDetailPage() {
                 onChange={(e) => setHandoffAssigneeId(e.target.value)}
               />
               <p className="text-[11px] text-muted-foreground">
-                Hiện tại cần nhập user ID thủ công — sẽ có picker sau khi Bước 3 (Skill) hoàn tất.
+                Hiện tại cần nhập user ID thủ công — sẽ có picker sau khi Bước 3
+                (Skill) hoàn tất.
               </p>
             </div>
             <div className="space-y-1">
@@ -3571,7 +3579,10 @@ function TaskDetailPage() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setHandoffDialogOpen(false)}>
+            <Button
+              variant="outline"
+              onClick={() => setHandoffDialogOpen(false)}
+            >
               Hủy
             </Button>
             <Button

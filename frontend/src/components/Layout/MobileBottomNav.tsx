@@ -4,7 +4,11 @@ import { Menu } from "lucide-react"
 import { useState } from "react"
 
 import { RolesService } from "@/client"
-import { buildMobileBottomNavItems, isLayoutNavItemActive, type LayoutNavItem } from "@/config/layoutNav"
+import {
+  buildMobileBottomNavItems,
+  isLayoutNavItemActive,
+  type LayoutNavItem,
+} from "@/config/layoutNav"
 import useAuth, { isLoggedIn } from "@/hooks/useAuth"
 import { useMyPermissions } from "@/hooks/useMyPermissions"
 import { cn } from "@/lib/utils"
@@ -34,7 +38,9 @@ export function MobileBottomNav() {
 
   const allItems: LayoutNavItem[] = buildMobileBottomNavItems(
     isSuperuser,
-    isSuperuser || isManagementUser(profileQuery.data) || canAccessDashboard(permissions),
+    isSuperuser ||
+      isManagementUser(profileQuery.data) ||
+      canAccessDashboard(permissions),
     isCompanyDirector(profileQuery.data),
     isSuperuser || canAccessProject(permissions),
     isSuperuser || canAccessQuotation(permissions),
@@ -44,7 +50,9 @@ export function MobileBottomNav() {
   // 4 tab chính + nút "Thêm" = 5 mục (đủ cho worker: Công việc/Chấm công/Nghỉ phép/Sự cố).
   const tabItems = allItems.slice(0, 4)
   const drawerItems = allItems.slice(4)
-  const drawerHasActive = drawerItems.some((i) => isLayoutNavItemActive(i, pathname))
+  const drawerHasActive = drawerItems.some((i) =>
+    isLayoutNavItemActive(i, pathname),
+  )
 
   return (
     <>
@@ -56,7 +64,9 @@ export function MobileBottomNav() {
               to={item.path}
               className={cn(
                 "flex flex-col items-center justify-center gap-0.5 rounded-lg px-1 text-[10px] font-semibold transition-colors",
-                isLayoutNavItemActive(item, pathname) ? "text-primary" : "text-muted-foreground",
+                isLayoutNavItemActive(item, pathname)
+                  ? "text-primary"
+                  : "text-muted-foreground",
               )}
             >
               <item.icon className="size-5 shrink-0" />
@@ -69,7 +79,9 @@ export function MobileBottomNav() {
             onClick={() => setMoreOpen(true)}
             className={cn(
               "flex flex-col items-center justify-center gap-0.5 rounded-lg px-1 text-[10px] font-semibold transition-colors",
-              drawerHasActive || moreOpen ? "text-primary" : "text-muted-foreground",
+              drawerHasActive || moreOpen
+                ? "text-primary"
+                : "text-muted-foreground",
             )}
           >
             <Menu className="size-5 shrink-0" />

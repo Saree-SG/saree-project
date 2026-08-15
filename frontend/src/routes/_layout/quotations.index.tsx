@@ -1,6 +1,15 @@
 import { useQuery } from "@tanstack/react-query"
 import { createFileRoute, Link, redirect } from "@tanstack/react-router"
-import { BarChart2, Eye, EyeOff, FileText, Plus, Search, SlidersHorizontal, X } from "lucide-react"
+import {
+  BarChart2,
+  Eye,
+  EyeOff,
+  FileText,
+  Plus,
+  Search,
+  SlidersHorizontal,
+  X,
+} from "lucide-react"
 import { useState } from "react"
 
 import { Button } from "@/components/ui/button"
@@ -24,17 +33,17 @@ import useAuth from "@/hooks/useAuth"
 import { useMyPermissions } from "@/hooks/useMyPermissions"
 import { clearSession } from "@/modules/auth/tokenStore"
 import { listQuotations } from "@/modules/quotation/quotationApi"
+import type {
+  QuotationPublic,
+  QuotationStage,
+  QuotationStatus,
+} from "@/modules/quotation/quotationTypes"
 import {
   EQUIPMENT_CATEGORIES,
   getStageFilterLabel,
   STAGE_CONFIG,
   STATUS_CONFIG,
 } from "@/modules/quotation/stageConfig"
-import type {
-  QuotationPublic,
-  QuotationStage,
-  QuotationStatus,
-} from "@/modules/quotation/quotationTypes"
 import { hasPermission } from "@/utils/accountAccess"
 
 // ---------------------------------------------------------------------------
@@ -52,7 +61,9 @@ export const Route = createFileRoute("/_layout/quotations/")({
       ])
       ;[permissions] = await Promise.all([
         rbac.readMyPermissions(),
-        UsersService.readUserMe().then((u) => { isSuperuser = Boolean(u.is_superuser) }),
+        UsersService.readUserMe().then((u) => {
+          isSuperuser = Boolean(u.is_superuser)
+        }),
       ])
     } catch (err: unknown) {
       const e = err as { status?: number }
@@ -193,13 +204,16 @@ function FilterBar({
         </SelectTrigger>
         <SelectContent>
           <SelectItem value="_all">Tất cả trạng thái</SelectItem>
-          {(Object.entries(STATUS_CONFIG) as [QuotationStatus, (typeof STATUS_CONFIG)[QuotationStatus]][]).map(
-            ([key, cfg]) => (
-              <SelectItem key={key} value={key}>
-                {cfg.label}
-              </SelectItem>
-            ),
-          )}
+          {(
+            Object.entries(STATUS_CONFIG) as [
+              QuotationStatus,
+              (typeof STATUS_CONFIG)[QuotationStatus],
+            ][]
+          ).map(([key, cfg]) => (
+            <SelectItem key={key} value={key}>
+              {cfg.label}
+            </SelectItem>
+          ))}
         </SelectContent>
       </Select>
 
@@ -215,13 +229,16 @@ function FilterBar({
         </SelectTrigger>
         <SelectContent>
           <SelectItem value="_all">Tất cả giai đoạn</SelectItem>
-          {(Object.entries(STAGE_CONFIG) as [QuotationStage, (typeof STAGE_CONFIG)[QuotationStage]][]).map(
-            ([key]) => (
-              <SelectItem key={key} value={key}>
-                {getStageFilterLabel(key)}
-              </SelectItem>
-            ),
-          )}
+          {(
+            Object.entries(STAGE_CONFIG) as [
+              QuotationStage,
+              (typeof STAGE_CONFIG)[QuotationStage],
+            ][]
+          ).map(([key]) => (
+            <SelectItem key={key} value={key}>
+              {getStageFilterLabel(key)}
+            </SelectItem>
+          ))}
         </SelectContent>
       </Select>
 
@@ -280,15 +297,34 @@ function MyActionBadge({
   const stage = quotation.current_stage
 
   const isMyTurn = (() => {
-    if (stage === "S1_SALES_COLLECT" && perms.has("QUOTATION_SUBMIT_SURVEY")) return true
-    if (stage === "S2_DIRECTOR_APPROVE_SURVEY" && perms.has("QUOTATION_APPROVE_SURVEY")) return true
+    if (stage === "S1_SALES_COLLECT" && perms.has("QUOTATION_SUBMIT_SURVEY"))
+      return true
+    if (
+      stage === "S2_DIRECTOR_APPROVE_SURVEY" &&
+      perms.has("QUOTATION_APPROVE_SURVEY")
+    )
+      return true
     if (stage === "S3_TECH_DESIGN" && perms.has("QUOTATION_DESIGN")) return true
-    if (stage === "S4_DIRECTOR_APPROVE_DESIGN" && perms.has("QUOTATION_APPROVE_DESIGN")) return true
-    if (stage === "S5_PROCUREMENT_PRICING" && perms.has("QUOTATION_FILL_PRICE")) return true
-    if (stage === "S6_SALES_FINALIZE" && perms.has("QUOTATION_FINALIZE")) return true
-    if (stage === "S7_DIRECTOR_APPROVE_QUOTE" && perms.has("QUOTATION_APPROVE_FINAL")) return true
-    if (stage === "S8_SENT_TO_CLIENT" && perms.has("QUOTATION_SEND_CLIENT")) return true
-    if (stage === "S8B_NEGOTIATION_REVIEW" && perms.has("QUOTATION_APPROVE_NEGOTIATION")) {
+    if (
+      stage === "S4_DIRECTOR_APPROVE_DESIGN" &&
+      perms.has("QUOTATION_APPROVE_DESIGN")
+    )
+      return true
+    if (stage === "S5_PROCUREMENT_PRICING" && perms.has("QUOTATION_FILL_PRICE"))
+      return true
+    if (stage === "S6_SALES_FINALIZE" && perms.has("QUOTATION_FINALIZE"))
+      return true
+    if (
+      stage === "S7_DIRECTOR_APPROVE_QUOTE" &&
+      perms.has("QUOTATION_APPROVE_FINAL")
+    )
+      return true
+    if (stage === "S8_SENT_TO_CLIENT" && perms.has("QUOTATION_SEND_CLIENT"))
+      return true
+    if (
+      stage === "S8B_NEGOTIATION_REVIEW" &&
+      perms.has("QUOTATION_APPROVE_NEGOTIATION")
+    ) {
       return true
     }
     return false
@@ -421,7 +457,7 @@ function QuotationsPage() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="w-8"></TableHead>
+                <TableHead className="w-8" />
                 <TableHead className="w-32">Mã HĐ</TableHead>
                 <TableHead>Tên dự án</TableHead>
                 <TableHead>Khách hàng</TableHead>
@@ -439,7 +475,9 @@ function QuotationsPage() {
                       className="h-7 w-7 shrink-0"
                       onClick={() => setPriceVisible((prev) => !prev)}
                       aria-pressed={priceVisible}
-                      aria-label={priceVisible ? "Ẩn cột giá bán" : "Hiện cột giá bán"}
+                      aria-label={
+                        priceVisible ? "Ẩn cột giá bán" : "Hiện cột giá bán"
+                      }
                       title={priceVisible ? "Ẩn giá bán" : "Hiện giá bán"}
                     >
                       {priceVisible ? (
@@ -451,7 +489,7 @@ function QuotationsPage() {
                   </div>
                 </TableHead>
                 <TableHead className="w-28">Ngày tạo</TableHead>
-                <TableHead className="w-28"></TableHead>
+                <TableHead className="w-28" />
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -507,7 +545,8 @@ function QuotationsPage() {
                     {q.client_response_deadline ? (
                       <span
                         className={
-                          new Date(q.client_response_deadline).getTime() < Date.now()
+                          new Date(q.client_response_deadline).getTime() <
+                          Date.now()
                             ? "text-red-600 font-semibold"
                             : ""
                         }
@@ -529,10 +568,7 @@ function QuotationsPage() {
                     {formatDate(q.created_at)}
                   </TableCell>
                   <TableCell>
-                    <MyActionBadge
-                      quotation={q}
-                      myPermissions={permissions}
-                    />
+                    <MyActionBadge quotation={q} myPermissions={permissions} />
                   </TableCell>
                 </TableRow>
               ))}

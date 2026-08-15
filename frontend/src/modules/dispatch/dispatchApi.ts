@@ -22,7 +22,10 @@ export type Candidate = {
   impact: "Ít ảnh hưởng" | "Ảnh hưởng vừa" | "Ảnh hưởng lớn"
 }
 
-export async function fetchCandidates(taskId: string, limit = 10): Promise<Candidate[]> {
+export async function fetchCandidates(
+  taskId: string,
+  limit = 10,
+): Promise<Candidate[]> {
   const res = await axios.get<Candidate[]>(
     `${OpenAPI.BASE}/api/v1/tasks/${taskId}/suggest-assignees`,
     { headers: authHeaders(), params: { limit } },

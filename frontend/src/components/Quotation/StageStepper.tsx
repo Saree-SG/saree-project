@@ -1,7 +1,6 @@
 import { Check, ChevronRight } from "lucide-react"
-
-import { STAGE_CONFIG, STAGE_ORDER } from "@/modules/quotation/stageConfig"
 import type { QuotationStage } from "@/modules/quotation/quotationTypes"
+import { STAGE_CONFIG, STAGE_ORDER } from "@/modules/quotation/stageConfig"
 
 export const QUOTATION_CREATE_STEP = "CREATE_DOSSIER"
 

@@ -9,7 +9,13 @@ import {
 import { buildLayoutNavItems } from "@/config/layoutNav"
 import useAuth from "@/hooks/useAuth"
 import { useMyPermissions } from "@/hooks/useMyPermissions"
-import { canAccessContract, canAccessDashboard, canAccessProject, canAccessQuotation, canManageCompany } from "@/utils/accountAccess"
+import {
+  canAccessContract,
+  canAccessDashboard,
+  canAccessProject,
+  canAccessQuotation,
+  canManageCompany,
+} from "@/utils/accountAccess"
 import { Main } from "./Main"
 import { User } from "./User"
 
@@ -45,7 +51,7 @@ export function AppSidebar() {
 
   return (
     <Sidebar collapsible="icon">
-      <SidebarHeader className="px-4 py-6 group-data-[collapsible=icon]:px-0 group-data-[collapsible=icon]:items-center">
+      <SidebarHeader className="items-center px-4 py-6 group-data-[collapsible=icon]:px-0">
         <Logo variant="responsive" />
       </SidebarHeader>
       <SidebarContent>

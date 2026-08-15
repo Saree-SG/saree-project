@@ -41,7 +41,9 @@ export default function InfoTab({ user }: Props) {
       showSuccessToast("Cập nhật thông tin thành công")
       setPassword("")
       await qc.invalidateQueries({ queryKey: ["admin", "users"] })
-      await qc.invalidateQueries({ queryKey: ["admin", "user-detail", user.id] })
+      await qc.invalidateQueries({
+        queryKey: ["admin", "user-detail", user.id],
+      })
     },
     onError: handleError.bind(showErrorToast),
   })
@@ -62,7 +64,10 @@ export default function InfoTab({ user }: Props) {
         </div>
         <div className="space-y-1">
           <Label>Họ và tên</Label>
-          <Input value={fullName} onChange={(e) => setFullName(e.target.value)} />
+          <Input
+            value={fullName}
+            onChange={(e) => setFullName(e.target.value)}
+          />
         </div>
         <div className="space-y-1">
           <Label>Đổi mật khẩu (để trống nếu không đổi)</Label>
@@ -90,13 +95,17 @@ export default function InfoTab({ user }: Props) {
           </label>
         </div>
         <div className="flex justify-end md:col-span-2">
-          <Button variant="outline" className="mr-2" onClick={() => {
-            setEmail(user.email)
-            setFullName(user.full_name ?? "")
-            setPassword("")
-            setIsActive(user.is_active)
-            setIsSuperuser(user.is_superuser)
-          }}>
+          <Button
+            variant="outline"
+            className="mr-2"
+            onClick={() => {
+              setEmail(user.email)
+              setFullName(user.full_name ?? "")
+              setPassword("")
+              setIsActive(user.is_active)
+              setIsSuperuser(user.is_superuser)
+            }}
+          >
             Hoàn tác
           </Button>
           <LoadingButton

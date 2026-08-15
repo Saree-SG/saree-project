@@ -4,12 +4,12 @@ import { OpenAPI } from "@/client"
 import { getAccessToken } from "@/modules/auth/tokenStore"
 
 import type {
+  ContractAttachmentPublic,
   ContractCreate,
   ContractPublic,
   ContractsPublic,
   ContractUpdate,
   ContractWithDetailsPublic,
-  ContractAttachmentPublic,
 } from "./contractTypes"
 
 const BASE = () => `${OpenAPI.BASE}/api/v1`
@@ -34,7 +34,9 @@ export async function listContracts(params?: {
   return res.data
 }
 
-export async function getContract(contractId: string): Promise<ContractWithDetailsPublic> {
+export async function getContract(
+  contractId: string,
+): Promise<ContractWithDetailsPublic> {
   const res = await axios.get<ContractWithDetailsPublic>(
     `${BASE()}/contracts/${contractId}`,
     { headers: authHeaders() },
@@ -42,12 +44,12 @@ export async function getContract(contractId: string): Promise<ContractWithDetai
   return res.data
 }
 
-export async function createContract(body: ContractCreate): Promise<ContractPublic> {
-  const res = await axios.post<ContractPublic>(
-    `${BASE()}/contracts/`,
-    body,
-    { headers: authHeaders() },
-  )
+export async function createContract(
+  body: ContractCreate,
+): Promise<ContractPublic> {
+  const res = await axios.post<ContractPublic>(`${BASE()}/contracts/`, body, {
+    headers: authHeaders(),
+  })
   return res.data
 }
 
@@ -64,11 +66,16 @@ export async function updateContract(
 }
 
 export async function deleteContract(contractId: string): Promise<void> {
-  await axios.delete(`${BASE()}/contracts/${contractId}`, { headers: authHeaders() })
+  await axios.delete(`${BASE()}/contracts/${contractId}`, {
+    headers: authHeaders(),
+  })
 }
 
 // Transitions
-export async function submitContract(contractId: string, note?: string): Promise<ContractPublic> {
+export async function submitContract(
+  contractId: string,
+  note?: string,
+): Promise<ContractPublic> {
   const res = await axios.post<ContractPublic>(
     `${BASE()}/contracts/${contractId}/submit`,
     { note: note ?? null },
@@ -77,7 +84,10 @@ export async function submitContract(contractId: string, note?: string): Promise
   return res.data
 }
 
-export async function approveContract(contractId: string, note?: string): Promise<ContractPublic> {
+export async function approveContract(
+  contractId: string,
+  note?: string,
+): Promise<ContractPublic> {
   const res = await axios.post<ContractPublic>(
     `${BASE()}/contracts/${contractId}/approve`,
     { note: note ?? null },
@@ -86,7 +96,10 @@ export async function approveContract(contractId: string, note?: string): Promis
   return res.data
 }
 
-export async function rejectContract(contractId: string, note?: string): Promise<ContractPublic> {
+export async function rejectContract(
+  contractId: string,
+  note?: string,
+): Promise<ContractPublic> {
   const res = await axios.post<ContractPublic>(
     `${BASE()}/contracts/${contractId}/reject`,
     { note: note ?? null },
@@ -116,13 +129,20 @@ export async function confirmAdvance(
 ): Promise<ContractPublic> {
   const res = await axios.post<ContractPublic>(
     `${BASE()}/contracts/${contractId}/confirm-advance`,
-    { advance_amount: advanceAmount, advance_paid_at: advancePaidAt, note: note ?? null },
+    {
+      advance_amount: advanceAmount,
+      advance_paid_at: advancePaidAt,
+      note: note ?? null,
+    },
     { headers: authHeaders() },
   )
   return res.data
 }
 
-export async function startProduction(contractId: string, note?: string): Promise<ContractPublic> {
+export async function startProduction(
+  contractId: string,
+  note?: string,
+): Promise<ContractPublic> {
   const res = await axios.post<ContractPublic>(
     `${BASE()}/contracts/${contractId}/start-production`,
     { note: note ?? null },
@@ -131,7 +151,10 @@ export async function startProduction(contractId: string, note?: string): Promis
   return res.data
 }
 
-export async function completeContract(contractId: string, note?: string): Promise<ContractPublic> {
+export async function completeContract(
+  contractId: string,
+  note?: string,
+): Promise<ContractPublic> {
   const res = await axios.post<ContractPublic>(
     `${BASE()}/contracts/${contractId}/complete`,
     { note: note ?? null },

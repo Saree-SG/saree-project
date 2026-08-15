@@ -6,10 +6,22 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { getUserPermissions } from "@/modules/admin/adminUsersApi"
 
 const sourceLabel: Record<string, { label: string; tone: string }> = {
-  superuser: { label: "Superuser — toàn quyền", tone: "bg-rose-100 text-rose-700" },
-  director: { label: "Giám đốc — toàn quyền công ty", tone: "bg-amber-100 text-amber-700" },
-  manager: { label: "Quản lý — quyền tự động + quyền gán", tone: "bg-blue-100 text-blue-700" },
-  assigned: { label: "Theo quyền được gán", tone: "bg-emerald-100 text-emerald-700" },
+  superuser: {
+    label: "Superuser — toàn quyền",
+    tone: "bg-rose-100 text-rose-700",
+  },
+  director: {
+    label: "Giám đốc — toàn quyền công ty",
+    tone: "bg-amber-100 text-amber-700",
+  },
+  manager: {
+    label: "Quản lý — quyền tự động + quyền gán",
+    tone: "bg-blue-100 text-blue-700",
+  },
+  assigned: {
+    label: "Theo quyền được gán",
+    tone: "bg-emerald-100 text-emerald-700",
+  },
   none: { label: "Chưa có vai trò", tone: "bg-slate-100 text-slate-700" },
 }
 

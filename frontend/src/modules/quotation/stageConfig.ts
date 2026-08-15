@@ -14,7 +14,7 @@ export interface StageConfig {
   badgeBg: string
   badgeText: string
   dotColor: string
-  stepBg: string      // for stepper active step
+  stepBg: string // for stepper active step
   stepText: string
 }
 
@@ -73,7 +73,8 @@ export const STAGE_CONFIG: Record<QuotationStage, StageConfig> = {
   S5_PROCUREMENT_PRICING: {
     label: "Vật tư định giá",
     shortLabel: "Định giá vật tư",
-    description: "Vật tư phải định giá xong trước khi Kinh doanh mới làm bước tiếp theo (S6).",
+    description:
+      "Vật tư phải định giá xong trước khi Kinh doanh mới làm bước tiếp theo (S6).",
     ownerRole: "procurement",
     badgeBg: "bg-orange-100",
     badgeText: "text-orange-700",
@@ -84,7 +85,8 @@ export const STAGE_CONFIG: Record<QuotationStage, StageConfig> = {
   S6_SALES_FINALIZE: {
     label: "Kinh doanh điều chỉnh chào giá",
     shortLabel: "Hồ sơ chào giá",
-    description: "Bước này chỉ thực hiện được sau khi Vật tư (S5) đã hoàn thành định giá.",
+    description:
+      "Bước này chỉ thực hiện được sau khi Vật tư (S5) đã hoàn thành định giá.",
     ownerRole: "sales",
     badgeBg: "bg-blue-100",
     badgeText: "text-blue-700",
@@ -256,7 +258,10 @@ export const CONTACT_METHOD_LABELS: Record<string, string> = {
 // Role → "đang chờ X" label for waiting state display
 // ---------------------------------------------------------------------------
 
-export const OWNER_ROLE_WAITING_LABEL: Record<StageConfig["ownerRole"], string> = {
+export const OWNER_ROLE_WAITING_LABEL: Record<
+  StageConfig["ownerRole"],
+  string
+> = {
   sales: "Chờ Kinh Doanh",
   director: "Chờ Ban Giám Đốc",
   technical: "Chờ Kỹ Thuật",

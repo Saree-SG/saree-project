@@ -28,7 +28,6 @@ import {
   TasksService,
   UsersService,
 } from "@/client"
-import { checkDispatchConflict } from "@/modules/tasks/taskApi"
 import ProjectGantt from "@/components/Gantt/ProjectGanttV2"
 import { PermissionGuard } from "@/components/PermissionGuard"
 import { DelayWarnings } from "@/components/Project/DelayWarnings"
@@ -67,6 +66,7 @@ import {
   saveTaskAsProfile,
   type TaskProfile,
 } from "@/modules/taskProfile/taskProfileApi"
+import { checkDispatchConflict } from "@/modules/tasks/taskApi"
 import { handleError } from "@/utils"
 import { hasPermission } from "@/utils/accountAccess"
 
@@ -230,7 +230,9 @@ function ProjectTaskDashboardPage() {
   const [taskStartDateDraft, setTaskStartDateDraft] = useState("")
   const [taskEndDateDraft, setTaskEndDateDraft] = useState("")
   const [taskArriveAt, setTaskArriveAt] = useState("")
-  const [taskConflict, setTaskConflict] = useState<import("@/modules/tasks/taskApi").ConflictCheckResult | null>(null)
+  const [taskConflict, setTaskConflict] = useState<
+    import("@/modules/tasks/taskApi").ConflictCheckResult | null
+  >(null)
   const [taskWorkingDays, setTaskWorkingDays] = useState("")
   const [taskDependencyDraft, setTaskDependencyDraft] = useState("none")
   const [selectedProfileId, setSelectedProfileId] = useState("")
@@ -795,7 +797,13 @@ function ProjectTaskDashboardPage() {
         .catch(() => setTaskConflict(null))
     }, 400)
     return () => clearTimeout(timer)
-  }, [taskAssigneeSelectedUserId, taskStartDateDraft, taskEndDateDraft, taskArriveAt, projectId])
+  }, [
+    taskAssigneeSelectedUserId,
+    taskStartDateDraft,
+    taskEndDateDraft,
+    taskArriveAt,
+    projectId,
+  ])
 
   const teamCards = useMemo(() => {
     const workloadMap = new Map<string, number>()
@@ -1889,7 +1897,8 @@ function ProjectTaskDashboardPage() {
                 onChange={(e) => setTaskArriveAt(e.target.value)}
               />
               <p className="text-[11px] text-muted-foreground">
-                Nếu điền, hệ thống kiểm tra xem nhân viên có kịp di chuyển từ task trước không.
+                Nếu điền, hệ thống kiểm tra xem nhân viên có kịp di chuyển từ
+                task trước không.
               </p>
             </div>
 
@@ -1904,7 +1913,9 @@ function ProjectTaskDashboardPage() {
                       {taskConflict.overlaps.map((o) => (
                         <li key={o.task_id}>
                           · {o.task_name}{" "}
-                          <span className="text-muted-foreground">({o.project_name})</span>
+                          <span className="text-muted-foreground">
+                            ({o.project_name})
+                          </span>
                         </li>
                       ))}
                     </ul>
@@ -1919,12 +1930,15 @@ function ProjectTaskDashboardPage() {
                           : "font-semibold text-red-700"
                       }
                     >
-                      {taskConflict.travel.feasible ? "✓" : "✗"} {taskConflict.travel.message}
+                      {taskConflict.travel.feasible ? "✓" : "✗"}{" "}
+                      {taskConflict.travel.message}
                     </p>
                   </div>
                 )}
                 {taskConflict.overlaps.length === 0 && !taskConflict.travel && (
-                  <p className="text-green-700">✓ Không phát hiện xung đột lịch.</p>
+                  <p className="text-green-700">
+                    ✓ Không phát hiện xung đột lịch.
+                  </p>
                 )}
                 <p className="text-muted-foreground">
                   GĐ vẫn có thể xác nhận giao việc sau khi xem xét cảnh báo.

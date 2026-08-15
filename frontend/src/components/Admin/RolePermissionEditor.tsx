@@ -20,29 +20,29 @@ import type { PermissionCatalogItem } from "@/modules/rbac/rbacApi"
 // ---------------------------------------------------------------------------
 
 const MODULE_META: Record<string, { label: string; order: number }> = {
-  quotation: { label: "Quy Trình Báo Giá",       order: 0 },
-  project:   { label: "Dự Án",                    order: 1 },
-  task:      { label: "Công Việc & Nhiệm Vụ",     order: 2 },
-  report:    { label: "Báo Cáo & Thống Kê",       order: 3 },
-  user:      { label: "Quản Lý Người Dùng",       order: 4 },
-  audit:     { label: "Nhật Ký Hệ Thống",         order: 5 },
-  company:   { label: "Công Ty",                  order: 6 },
+  quotation: { label: "Quy Trình Báo Giá", order: 0 },
+  project: { label: "Dự Án", order: 1 },
+  task: { label: "Công Việc & Nhiệm Vụ", order: 2 },
+  report: { label: "Báo Cáo & Thống Kê", order: 3 },
+  user: { label: "Quản Lý Người Dùng", order: 4 },
+  audit: { label: "Nhật Ký Hệ Thống", order: 5 },
+  company: { label: "Công Ty", order: 6 },
 }
 
 const ACTION_VI: Record<string, string> = {
-  read:    "Xem",
-  create:  "Tạo",
-  update:  "Chỉnh sửa",
-  delete:  "Xóa",
+  read: "Xem",
+  create: "Tạo",
+  update: "Chỉnh sửa",
+  delete: "Xóa",
   approve: "Phê duyệt",
 }
 
 const SCOPE_VI: Record<string, string> = {
-  global:   "Toàn công ty",
+  global: "Toàn công ty",
   assigned: "Chỉ hồ sơ/dự án được phân công",
-  own:      "Của bản thân",
-  team:     "Nhóm / Phòng ban",
-  project:  "Trong phạm vi dự án",
+  own: "Của bản thân",
+  team: "Nhóm / Phòng ban",
+  project: "Trong phạm vi dự án",
 }
 
 // ---------------------------------------------------------------------------
@@ -90,10 +90,7 @@ function PermissionInfoTooltip({ item }: { item: PermissionCatalogItem }) {
           <Info className="h-3.5 w-3.5" />
         </button>
       </TooltipTrigger>
-      <TooltipContent
-        side="right"
-        className="max-w-64 space-y-1.5 p-3 text-xs"
-      >
+      <TooltipContent side="right" className="max-w-64 space-y-1.5 p-3 text-xs">
         <p className="font-mono font-semibold text-foreground">{item.code}</p>
         <div className="space-y-0.5 text-muted-foreground">
           <p>
@@ -109,7 +106,9 @@ function PermissionInfoTooltip({ item }: { item: PermissionCatalogItem }) {
             {MODULE_META[item.module ?? ""]?.label ?? item.module ?? "—"}
           </p>
         </div>
-        <p className="border-t pt-1.5 text-muted-foreground">{item.description}</p>
+        <p className="border-t pt-1.5 text-muted-foreground">
+          {item.description}
+        </p>
       </TooltipContent>
     </Tooltip>
   )
@@ -188,7 +187,9 @@ export function RolePermissionEditor({
       </div>
 
       {/* Groups */}
-      <div className={`space-y-3 overflow-y-auto rounded-md border p-3 ${maxHeightClass}`}>
+      <div
+        className={`space-y-3 overflow-y-auto rounded-md border p-3 ${maxHeightClass}`}
+      >
         {filtered.length === 0 && (
           <p className="py-4 text-center text-xs text-muted-foreground">
             Không tìm thấy quyền nào.
@@ -197,7 +198,9 @@ export function RolePermissionEditor({
         {filtered.map((group) => {
           const allChecked = group.rows.every((r) => selected.has(r.code))
           const someChecked = group.rows.some((r) => selected.has(r.code))
-          const checkedCount = group.rows.filter((r) => selected.has(r.code)).length
+          const checkedCount = group.rows.filter((r) =>
+            selected.has(r.code),
+          ).length
 
           return (
             <div key={group.module} className="space-y-1.5">

@@ -1,4 +1,10 @@
-import { createContext, useCallback, useContext, useState, type ReactNode } from "react"
+import {
+  createContext,
+  type ReactNode,
+  useCallback,
+  useContext,
+  useState,
+} from "react"
 
 import {
   Dialog,
@@ -15,21 +21,38 @@ import { cn } from "@/lib/utils"
  */
 
 type Accent = "blue" | "green" | "amber" | "red" | "slate"
-type DetailPayload = { title: string; subtitle?: string; body: ReactNode; accent?: Accent }
+type DetailPayload = {
+  title: string
+  subtitle?: string
+  body: ReactNode
+  accent?: Accent
+}
 
 const ACCENT: Record<Accent, { band: string; avatar: string }> = {
   blue: { band: "from-blue-50 to-white", avatar: "bg-blue-100 text-blue-700" },
-  green: { band: "from-green-50 to-white", avatar: "bg-green-100 text-green-700" },
-  amber: { band: "from-amber-50 to-white", avatar: "bg-amber-100 text-amber-700" },
+  green: {
+    band: "from-green-50 to-white",
+    avatar: "bg-green-100 text-green-700",
+  },
+  amber: {
+    band: "from-amber-50 to-white",
+    avatar: "bg-amber-100 text-amber-700",
+  },
   red: { band: "from-red-50 to-white", avatar: "bg-red-100 text-red-700" },
-  slate: { band: "from-slate-100 to-white", avatar: "bg-slate-200 text-slate-700" },
+  slate: {
+    band: "from-slate-100 to-white",
+    avatar: "bg-slate-200 text-slate-700",
+  },
 }
 
 function initials(name: string) {
   const parts = name.trim().split(/\s+/)
   const last = parts[parts.length - 1] ?? ""
   const first = parts.length > 1 ? parts[parts.length - 2] : ""
-  return (first.charAt(0) + last.charAt(0)).toUpperCase() || name.charAt(0).toUpperCase()
+  return (
+    (first.charAt(0) + last.charAt(0)).toUpperCase() ||
+    name.charAt(0).toUpperCase()
+  )
 }
 
 const DetailCtx = createContext<(p: DetailPayload) => void>(() => {})
@@ -55,21 +78,34 @@ export function DetailProvider({ children }: { children: ReactNode }) {
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-h-[85vh] gap-0 overflow-hidden rounded-2xl p-0 sm:max-w-md">
           {/* Header màu mềm + avatar */}
-          <DialogHeader className={cn("gap-0 bg-gradient-to-b px-5 pb-4 pt-5", accent.band)}>
+          <DialogHeader
+            className={cn("gap-0 bg-gradient-to-b px-5 pb-4 pt-5", accent.band)}
+          >
             <div className="flex items-center gap-3">
-              <span className={cn("flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-sm font-bold", accent.avatar)}>
+              <span
+                className={cn(
+                  "flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-sm font-bold",
+                  accent.avatar,
+                )}
+              >
                 {payload ? initials(payload.title) : ""}
               </span>
               <div className="min-w-0 text-left">
-                <DialogTitle className="truncate text-base">{payload?.title}</DialogTitle>
+                <DialogTitle className="truncate text-base">
+                  {payload?.title}
+                </DialogTitle>
                 {payload?.subtitle ? (
-                  <DialogDescription className="truncate text-xs">{payload.subtitle}</DialogDescription>
+                  <DialogDescription className="truncate text-xs">
+                    {payload.subtitle}
+                  </DialogDescription>
                 ) : null}
               </div>
             </div>
           </DialogHeader>
           {/* Thân cuộn */}
-          <div className="max-h-[65vh] overflow-y-auto px-5 pb-6 pt-1">{payload?.body}</div>
+          <div className="max-h-[65vh] overflow-y-auto px-5 pb-6 pt-1">
+            {payload?.body}
+          </div>
         </DialogContent>
       </Dialog>
     </DetailCtx.Provider>

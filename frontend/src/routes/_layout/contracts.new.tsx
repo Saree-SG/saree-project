@@ -1,8 +1,13 @@
 import { useMutation, useQuery } from "@tanstack/react-query"
-import { createFileRoute, redirect, useNavigate, useSearch } from "@tanstack/react-router"
-import { z } from "zod"
+import {
+  createFileRoute,
+  redirect,
+  useNavigate,
+  useSearch,
+} from "@tanstack/react-router"
 import { useState } from "react"
 import { toast } from "sonner"
+import { z } from "zod"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -10,8 +15,8 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { clearSession } from "@/modules/auth/tokenStore"
 import { createContract, listContracts } from "@/modules/contract/contractApi"
-import { listQuotations } from "@/modules/quotation/quotationApi"
 import type { ContractCreate } from "@/modules/contract/contractTypes"
+import { listQuotations } from "@/modules/quotation/quotationApi"
 import { hasPermission } from "@/utils/accountAccess"
 
 const searchSchema = z.object({
@@ -91,7 +96,9 @@ function NewContractPage() {
 
   const wonQuotations = wonQuotationsQuery.data?.data ?? []
   const existingQuotationIds = new Set(
-    (existingContractsQuery.data?.data ?? []).map((contract) => contract.quotation_id),
+    (existingContractsQuery.data?.data ?? []).map(
+      (contract) => contract.quotation_id,
+    ),
   )
   const selectableWonQuotations = wonQuotations.filter(
     (quotation) => !existingQuotationIds.has(quotation.id),
@@ -116,15 +123,20 @@ function NewContractPage() {
             value={form.quotation_id}
             onChange={(e) => {
               const quotationId = e.target.value
-              const selectedQuotation = selectableWonQuotations.find((q) => q.id === quotationId)
+              const selectedQuotation = selectableWonQuotations.find(
+                (q) => q.id === quotationId,
+              )
               setForm((prev) => ({
                 ...prev,
                 quotation_id: quotationId,
-                total_value: selectedQuotation?.total_contract_value ?? prev.total_value,
+                total_value:
+                  selectedQuotation?.total_contract_value ?? prev.total_value,
               }))
             }}
             className="h-9 w-full rounded-md border bg-background px-3 text-sm"
-            disabled={wonQuotationsQuery.isLoading || existingContractsQuery.isLoading}
+            disabled={
+              wonQuotationsQuery.isLoading || existingContractsQuery.isLoading
+            }
           >
             <option value="">
               {wonQuotationsQuery.isLoading || existingContractsQuery.isLoading
@@ -142,7 +154,9 @@ function NewContractPage() {
               Không tải được dữ liệu báo giá/hợp đồng. Vui lòng thử lại.
             </p>
           ) : null}
-          {!wonQuotationsQuery.isLoading && !existingContractsQuery.isLoading && !selectableWonQuotations.length ? (
+          {!wonQuotationsQuery.isLoading &&
+          !existingContractsQuery.isLoading &&
+          !selectableWonQuotations.length ? (
             <p className="text-xs text-muted-foreground">
               Không còn báo giá thắng nào chưa tạo hợp đồng.
             </p>
@@ -188,7 +202,10 @@ function NewContractPage() {
               min={0}
               value={form.advance_amount ?? ""}
               onChange={(e) =>
-                setField("advance_amount", e.target.value ? Number(e.target.value) : null)
+                setField(
+                  "advance_amount",
+                  e.target.value ? Number(e.target.value) : null,
+                )
               }
             />
           </div>
@@ -205,7 +222,10 @@ function NewContractPage() {
       </div>
 
       <div className="flex gap-2 justify-end">
-        <Button variant="outline" onClick={() => navigate({ to: "/contracts" })}>
+        <Button
+          variant="outline"
+          onClick={() => navigate({ to: "/contracts" })}
+        >
           Hủy
         </Button>
         <Button

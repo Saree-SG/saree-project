@@ -24,8 +24,8 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import useAuth from "@/hooks/useAuth"
-import { useMyPermissions } from "@/hooks/useMyPermissions"
 import useCustomToast from "@/hooks/useCustomToast"
+import { useMyPermissions } from "@/hooks/useMyPermissions"
 import { cn } from "@/lib/utils"
 import { handleError } from "@/utils"
 
@@ -92,8 +92,8 @@ const UserInformation = ({ embedded = false }: UserInformationProps) => {
     enabled: Boolean(currentUser?.is_superuser && effectiveCompanyId),
   })
 
-  const validCompanyRoles = (companyRoles ?? []).filter(
-    (role) => Boolean(role.id),
+  const validCompanyRoles = (companyRoles ?? []).filter((role) =>
+    Boolean(role.id),
   )
 
   const toggleEditMode = () => {

@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query"
-import { Link, createFileRoute } from "@tanstack/react-router"
+import { createFileRoute, Link } from "@tanstack/react-router"
 import { ArrowLeft } from "lucide-react"
 
 import ActivityTab from "@/components/Admin/Users/ActivityTab"
@@ -25,7 +25,11 @@ function initials(name: string | null, email: string): string {
 function AdminUserDetailPage() {
   const { userId } = Route.useParams()
 
-  const { data: user, isLoading, error } = useQuery({
+  const {
+    data: user,
+    isLoading,
+    error,
+  } = useQuery({
     queryKey: ["admin", "user-detail", userId],
     queryFn: () => getAdminUserDetail(userId),
   })

@@ -18,11 +18,26 @@ type NavItem = {
 }
 
 const items: NavItem[] = [
-  { to: "/admin/overview", label: "Tổng quan", icon: LayoutDashboard, superuserOnly: true },
+  {
+    to: "/admin/overview",
+    label: "Tổng quan",
+    icon: LayoutDashboard,
+    superuserOnly: true,
+  },
   { to: "/admin/users", label: "Người dùng", icon: Users, superuserOnly: true },
   { to: "/admin/organization", label: "Sơ đồ tổ chức", icon: Network },
-  { to: "/admin/activity", label: "Nhật ký hoạt động", icon: Activity, superuserOnly: true },
-  { to: "/admin/companies", label: "Công ty & Phân quyền", icon: Building2, superuserOnly: true },
+  {
+    to: "/admin/activity",
+    label: "Nhật ký hoạt động",
+    icon: Activity,
+    superuserOnly: true,
+  },
+  {
+    to: "/admin/companies",
+    label: "Công ty & Phân quyền",
+    icon: Building2,
+    superuserOnly: true,
+  },
 ]
 
 type Props = {

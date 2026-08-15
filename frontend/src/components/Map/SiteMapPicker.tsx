@@ -69,7 +69,9 @@ export function SiteMapPicker({
   )
 
   return (
-    <div className={className ?? "h-64 w-full overflow-hidden rounded-md border"}>
+    <div
+      className={className ?? "h-64 w-full overflow-hidden rounded-md border"}
+    >
       <MapContainer
         center={[center.lat, center.lng]}
         zoom={value ? 17 : 12}

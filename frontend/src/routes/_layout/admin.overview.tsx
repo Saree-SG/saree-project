@@ -1,13 +1,6 @@
 import { useQuery } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
-import {
-  Activity,
-  Building2,
-  LogIn,
-  Network,
-  Users,
-  Wifi,
-} from "lucide-react"
+import { Activity, Building2, LogIn, Network, Users, Wifi } from "lucide-react"
 
 import ActiveSessionsTable from "@/components/Admin/Overview/ActiveSessionsTable"
 import KpiCard from "@/components/Admin/Overview/KpiCard"
@@ -32,7 +25,9 @@ function AdminOverview() {
   return (
     <div className="flex flex-col gap-6">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">Tổng quan hệ thống</h1>
+        <h1 className="text-2xl font-bold tracking-tight">
+          Tổng quan hệ thống
+        </h1>
         <p className="text-muted-foreground">
           Thống kê người dùng, phiên đăng nhập và hoạt động hệ thống.
         </p>

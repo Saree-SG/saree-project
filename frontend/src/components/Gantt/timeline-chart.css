@@ -73,11 +73,19 @@
 
 .tlc-sticky {
   position: sticky;
-  top: 0;
-  z-index: 25;
+  /* Stick just below the app's own sticky/fixed header, not at viewport y=0 —
+     otherwise this ruler overlaps (and, since it needs a higher z-index than
+     its own row content, visually covers) the app header when scrolled. */
+  top: calc(5.5rem + env(safe-area-inset-top, 0px));
+  z-index: 15;
   background: var(--card);
   overflow: visible;
   padding-bottom: var(--tlc-tip-h);
+}
+@media (min-width: 768px) {
+  .tlc-sticky {
+    top: 4rem;
+  }
 }
 .tlc-row-flex {
   display: flex;

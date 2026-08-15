@@ -15,10 +15,7 @@ import {
   YAxis,
 } from "recharts"
 
-import {
-  DashboardService,
-  RolesService,
-} from "@/client"
+import { DashboardService, RolesService } from "@/client"
 import { Button } from "@/components/ui/button"
 import {
   Select,
@@ -183,14 +180,18 @@ function DashboardReportsPage() {
   const projectsQuery = useQuery({
     queryKey: ["reports", "projects-catalog"],
     queryFn: () =>
-      import("@/client").then((m) => m.ProjectsService.listProjects({ limit: 200 })),
+      import("@/client").then((m) =>
+        m.ProjectsService.listProjects({ limit: 200 }),
+      ),
   })
 
   const departmentsQuery = useQuery({
     enabled: Boolean(primaryMembership?.company_id),
     queryKey: ["reports", "departments", primaryMembership?.company_id],
     queryFn: () =>
-      RolesService.listDepartments({ companyId: primaryMembership!.company_id }),
+      RolesService.listDepartments({
+        companyId: primaryMembership!.company_id,
+      }),
   })
 
   const membersQuery = useQuery({
@@ -203,7 +204,10 @@ function DashboardReportsPage() {
       if (!primaryMembership?.company_id) return []
       return listCompanyMembers(primaryMembership.company_id)
     },
-    enabled: Boolean(currentUser && (currentUser.is_superuser || primaryMembership?.company_id)),
+    enabled: Boolean(
+      currentUser &&
+        (currentUser.is_superuser || primaryMembership?.company_id),
+    ),
   })
 
   const projectStatsQuery = useQuery({
@@ -259,48 +263,51 @@ function DashboardReportsPage() {
   }, [projectStats])
 
   // Project completion bar chart (top 10 by total tasks)
-  const projectCompletionChart = useMemo(() =>
-    [...projectStats]
-      .sort((a, b) => b.total_tasks - a.total_tasks)
-      .slice(0, 10)
-      .map((p) => ({
-        name: p.code ?? p.name.slice(0, 12),
-        fullName: p.name,
-        "Hoàn thành": p.done_tasks,
-        "Còn lại": p.total_tasks - p.done_tasks,
-        "Trễ": p.overdue_tasks,
-        pct: p.completion_pct,
-      })),
+  const projectCompletionChart = useMemo(
+    () =>
+      [...projectStats]
+        .sort((a, b) => b.total_tasks - a.total_tasks)
+        .slice(0, 10)
+        .map((p) => ({
+          name: p.code ?? p.name.slice(0, 12),
+          fullName: p.name,
+          "Hoàn thành": p.done_tasks,
+          "Còn lại": p.total_tasks - p.done_tasks,
+          Trễ: p.overdue_tasks,
+          pct: p.completion_pct,
+        })),
     [projectStats],
   )
 
   // Leaderboard chart (top 10)
-  const leaderboardChart = useMemo(() =>
-    [...leaderboard]
-      .sort((a, b) => b.done - a.done)
-      .slice(0, 10)
-      .map((r) => ({
-        name: (r.user_name ?? r.user_id).split(" ").slice(-1)[0],
-        fullName: r.user_name ?? r.user_id,
-        "Đúng hạn": r.on_time,
-        "Trễ": r.overdue,
-        "Tổng done": r.done,
-        pct: r.completion_pct,
-      })),
+  const leaderboardChart = useMemo(
+    () =>
+      [...leaderboard]
+        .sort((a, b) => b.done - a.done)
+        .slice(0, 10)
+        .map((r) => ({
+          name: (r.user_name ?? r.user_id).split(" ").slice(-1)[0],
+          fullName: r.user_name ?? r.user_id,
+          "Đúng hạn": r.on_time,
+          Trễ: r.overdue,
+          "Tổng done": r.done,
+          pct: r.completion_pct,
+        })),
     [leaderboard],
   )
 
   // Workload chart
-  const workloadChart = useMemo(() =>
-    [...workload]
-      .sort((a, b) => b.active_tasks - a.active_tasks)
-      .slice(0, 10)
-      .map((r) => ({
-        name: (r.user_name ?? r.user_id).split(" ").slice(-1)[0],
-        fullName: r.user_name ?? r.user_id,
-        "Đang làm": r.active_tasks,
-        "Tổng giao": r.total_assigned,
-      })),
+  const workloadChart = useMemo(
+    () =>
+      [...workload]
+        .sort((a, b) => b.active_tasks - a.active_tasks)
+        .slice(0, 10)
+        .map((r) => ({
+          name: (r.user_name ?? r.user_id).split(" ").slice(-1)[0],
+          fullName: r.user_name ?? r.user_id,
+          "Đang làm": r.active_tasks,
+          "Tổng giao": r.total_assigned,
+        })),
     [workload],
   )
 
@@ -310,7 +317,9 @@ function DashboardReportsPage() {
       <div className="flex flex-col gap-3 pt-2 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1">
-            <Link to="/" className="hover:text-foreground">Tổng quan</Link>
+            <Link to="/" className="hover:text-foreground">
+              Tổng quan
+            </Link>
             <span>/</span>
             <span>Báo cáo</span>
           </div>
@@ -362,8 +371,12 @@ function DashboardReportsPage() {
               ))}
             </SelectContent>
           </Select>
-          <Button size="sm" onClick={handleApply}>Áp dụng</Button>
-          <Button size="sm" variant="ghost" onClick={handleReset}>Xóa bộ lọc</Button>
+          <Button size="sm" onClick={handleApply}>
+            Áp dụng
+          </Button>
+          <Button size="sm" variant="ghost" onClick={handleReset}>
+            Xóa bộ lọc
+          </Button>
         </div>
       </div>
 
@@ -372,7 +385,9 @@ function DashboardReportsPage() {
         {/* Project completion stacked bar */}
         <div className="rounded-xl border bg-card p-5 lg:col-span-2">
           <p className="font-semibold mb-1">Tiến độ hoàn thành theo dự án</p>
-          <p className="text-xs text-muted-foreground mb-4">Top 10 dự án nhiều task nhất</p>
+          <p className="text-xs text-muted-foreground mb-4">
+            Top 10 dự án nhiều task nhất
+          </p>
           {projectStatsQuery.isLoading ? (
             <p className="text-sm text-muted-foreground">Đang tải...</p>
           ) : !projectCompletionChart.length ? (
@@ -385,7 +400,11 @@ function DashboardReportsPage() {
                 margin={{ top: 4, right: 24, bottom: 4, left: 12 }}
               >
                 <CartesianGrid strokeDasharray="3 3" horizontal={false} />
-                <XAxis type="number" tick={{ fontSize: 11 }} allowDecimals={false} />
+                <XAxis
+                  type="number"
+                  tick={{ fontSize: 11 }}
+                  allowDecimals={false}
+                />
                 <YAxis
                   type="category"
                   dataKey="name"
@@ -395,7 +414,9 @@ function DashboardReportsPage() {
                 <Tooltip
                   formatter={(v, name) => [v, name]}
                   labelFormatter={(label, payload) => {
-                    const fullName = (payload?.[0]?.payload as { fullName?: string })?.fullName
+                    const fullName = (
+                      payload?.[0]?.payload as { fullName?: string }
+                    )?.fullName
                     const pct = (payload?.[0]?.payload as { pct?: number })?.pct
                     return `${fullName ?? label}${pct != null ? ` (${pct}%)` : ""}`
                   }}
@@ -412,7 +433,9 @@ function DashboardReportsPage() {
         {/* Status distribution radial */}
         <div className="rounded-xl border bg-card p-5">
           <p className="font-semibold mb-1">Phân bổ trạng thái dự án</p>
-          <p className="text-xs text-muted-foreground mb-4">{projectStats.length} dự án</p>
+          <p className="text-xs text-muted-foreground mb-4">
+            {projectStats.length} dự án
+          </p>
           {projectStatsQuery.isLoading ? (
             <p className="text-sm text-muted-foreground">Đang tải...</p>
           ) : !statusDistribution.length ? (
@@ -435,9 +458,15 @@ function DashboardReportsPage() {
               </ResponsiveContainer>
               <div className="mt-2 space-y-1">
                 {statusDistribution.map((s) => (
-                  <div key={s.name} className="flex items-center justify-between text-xs">
+                  <div
+                    key={s.name}
+                    className="flex items-center justify-between text-xs"
+                  >
                     <span className="flex items-center gap-1.5">
-                      <span className="h-2.5 w-2.5 rounded-full" style={{ background: s.fill }} />
+                      <span
+                        className="h-2.5 w-2.5 rounded-full"
+                        style={{ background: s.fill }}
+                      />
                       {s.name}
                     </span>
                     <span className="font-semibold">{s.value}</span>
@@ -454,28 +483,50 @@ function DashboardReportsPage() {
         {/* Leaderboard bar chart */}
         <div className="rounded-xl border bg-card p-5">
           <p className="font-semibold mb-1">Hiệu suất nhân sự</p>
-          <p className="text-xs text-muted-foreground mb-4">Task hoàn thành (top 10)</p>
+          <p className="text-xs text-muted-foreground mb-4">
+            Task hoàn thành (top 10)
+          </p>
           {leaderboardQuery.isLoading ? (
             <p className="text-sm text-muted-foreground">Đang tải...</p>
           ) : !leaderboardChart.length ? (
             <p className="text-sm text-muted-foreground">Chưa có dữ liệu.</p>
           ) : (
             <ResponsiveContainer width="100%" height={240}>
-              <BarChart data={leaderboardChart} layout="vertical" margin={{ top: 4, right: 40, bottom: 4, left: 0 }}>
+              <BarChart
+                data={leaderboardChart}
+                layout="vertical"
+                margin={{ top: 4, right: 40, bottom: 4, left: 0 }}
+              >
                 <CartesianGrid strokeDasharray="3 3" horizontal={false} />
-                <XAxis type="number" tick={{ fontSize: 11 }} allowDecimals={false} />
-                <YAxis type="category" dataKey="name" tick={{ fontSize: 11 }} width={54} />
+                <XAxis
+                  type="number"
+                  tick={{ fontSize: 11 }}
+                  allowDecimals={false}
+                />
+                <YAxis
+                  type="category"
+                  dataKey="name"
+                  tick={{ fontSize: 11 }}
+                  width={54}
+                />
                 <Tooltip
                   formatter={(v, name) => [v, name]}
                   labelFormatter={(label, payload) => {
-                    const full = (payload?.[0]?.payload as { fullName?: string })?.fullName
+                    const full = (
+                      payload?.[0]?.payload as { fullName?: string }
+                    )?.fullName
                     const pct = (payload?.[0]?.payload as { pct?: number })?.pct
                     return `${full ?? label}${pct != null ? ` — ${pct}%` : ""}`
                   }}
                 />
                 <Legend wrapperStyle={{ fontSize: 12 }} />
                 <Bar dataKey="Đúng hạn" stackId="a" fill="#22c55e" />
-                <Bar dataKey="Trễ" stackId="a" fill="#f87171" radius={[0, 4, 4, 0]} />
+                <Bar
+                  dataKey="Trễ"
+                  stackId="a"
+                  fill="#f87171"
+                  radius={[0, 4, 4, 0]}
+                />
               </BarChart>
             </ResponsiveContainer>
           )}
@@ -484,21 +535,37 @@ function DashboardReportsPage() {
         {/* Workload bar chart */}
         <div className="rounded-xl border bg-card p-5">
           <p className="font-semibold mb-1">Phân bổ nguồn lực</p>
-          <p className="text-xs text-muted-foreground mb-4">Task đang làm vs tổng được giao (top 10)</p>
+          <p className="text-xs text-muted-foreground mb-4">
+            Task đang làm vs tổng được giao (top 10)
+          </p>
           {workloadQuery.isLoading ? (
             <p className="text-sm text-muted-foreground">Đang tải...</p>
           ) : !workloadChart.length ? (
             <p className="text-sm text-muted-foreground">Chưa có dữ liệu.</p>
           ) : (
             <ResponsiveContainer width="100%" height={240}>
-              <BarChart data={workloadChart} layout="vertical" margin={{ top: 4, right: 40, bottom: 4, left: 0 }}>
+              <BarChart
+                data={workloadChart}
+                layout="vertical"
+                margin={{ top: 4, right: 40, bottom: 4, left: 0 }}
+              >
                 <CartesianGrid strokeDasharray="3 3" horizontal={false} />
-                <XAxis type="number" tick={{ fontSize: 11 }} allowDecimals={false} />
-                <YAxis type="category" dataKey="name" tick={{ fontSize: 11 }} width={54} />
+                <XAxis
+                  type="number"
+                  tick={{ fontSize: 11 }}
+                  allowDecimals={false}
+                />
+                <YAxis
+                  type="category"
+                  dataKey="name"
+                  tick={{ fontSize: 11 }}
+                  width={54}
+                />
                 <Tooltip
                   formatter={(v, name) => [v, name]}
                   labelFormatter={(_label, payload) =>
-                    (payload?.[0]?.payload as { fullName?: string })?.fullName ?? _label
+                    (payload?.[0]?.payload as { fullName?: string })
+                      ?.fullName ?? _label
                   }
                 />
                 <Legend wrapperStyle={{ fontSize: 12 }} />
@@ -514,7 +581,9 @@ function DashboardReportsPage() {
       <div className="rounded-xl border bg-card">
         <div className="border-b px-5 py-4 flex items-center justify-between">
           <p className="font-semibold">Chi tiết tiến độ dự án</p>
-          <span className="text-xs text-muted-foreground">{projectStats.length} dự án</span>
+          <span className="text-xs text-muted-foreground">
+            {projectStats.length} dự án
+          </span>
         </div>
         {projectStatsQuery.isLoading ? (
           <p className="p-5 text-sm text-muted-foreground">Đang tải...</p>
@@ -549,7 +618,9 @@ function DashboardReportsPage() {
                           {p.name}
                         </Link>
                         {p.code ? (
-                          <p className="text-xs text-muted-foreground">{p.code}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {p.code}
+                          </p>
                         ) : null}
                       </TableCell>
                       <TableCell>
@@ -563,9 +634,15 @@ function DashboardReportsPage() {
                           {STATUS_LABEL[p.status] ?? p.status}
                         </span>
                       </TableCell>
-                      <TableCell className="text-right tabular-nums">{p.total_tasks}</TableCell>
-                      <TableCell className="text-right tabular-nums text-green-600">{p.done_tasks}</TableCell>
-                      <TableCell className="text-right tabular-nums text-red-500">{p.overdue_tasks}</TableCell>
+                      <TableCell className="text-right tabular-nums">
+                        {p.total_tasks}
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums text-green-600">
+                        {p.done_tasks}
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums text-red-500">
+                        {p.overdue_tasks}
+                      </TableCell>
                       <TableCell className="text-right tabular-nums font-semibold">
                         {p.completion_pct}%
                       </TableCell>
@@ -577,7 +654,9 @@ function DashboardReportsPage() {
                           />
                         </div>
                       </TableCell>
-                      <TableCell className="text-xs text-muted-foreground">{fmtDate(p.end_date)}</TableCell>
+                      <TableCell className="text-xs text-muted-foreground">
+                        {fmtDate(p.end_date)}
+                      </TableCell>
                     </TableRow>
                   ))}
               </TableBody>
@@ -590,7 +669,9 @@ function DashboardReportsPage() {
       <div className="rounded-xl border bg-card">
         <div className="border-b px-5 py-4 flex items-center justify-between">
           <p className="font-semibold">Hiệu suất nhân sự chi tiết</p>
-          <span className="text-xs text-muted-foreground">{leaderboard.length} nhân viên</span>
+          <span className="text-xs text-muted-foreground">
+            {leaderboard.length} nhân viên
+          </span>
         </div>
         {leaderboardQuery.isLoading ? (
           <p className="p-5 text-sm text-muted-foreground">Đang tải...</p>
@@ -603,7 +684,9 @@ function DashboardReportsPage() {
                 <TableHead className="w-8">#</TableHead>
                 <TableHead>Nhân viên</TableHead>
                 <TableHead className="text-right">Tổng task</TableHead>
-                <TableHead className="text-right text-green-600">Hoàn thành</TableHead>
+                <TableHead className="text-right text-green-600">
+                  Hoàn thành
+                </TableHead>
                 <TableHead className="text-right">Đúng hạn</TableHead>
                 <TableHead className="text-right text-red-500">Trễ</TableHead>
                 <TableHead className="text-right">Tỷ lệ HT</TableHead>
@@ -614,14 +697,32 @@ function DashboardReportsPage() {
                 .sort((a, b) => b.done - a.done)
                 .map((r, idx) => (
                   <TableRow key={r.user_id}>
-                    <TableCell className="text-xs text-muted-foreground">{idx + 1}</TableCell>
-                    <TableCell className="font-medium">{r.user_name ?? r.user_id}</TableCell>
-                    <TableCell className="text-right tabular-nums">{r.total}</TableCell>
-                    <TableCell className="text-right tabular-nums text-green-600">{r.done}</TableCell>
-                    <TableCell className="text-right tabular-nums">{r.on_time}</TableCell>
-                    <TableCell className="text-right tabular-nums text-red-500">{r.overdue}</TableCell>
+                    <TableCell className="text-xs text-muted-foreground">
+                      {idx + 1}
+                    </TableCell>
+                    <TableCell className="font-medium">
+                      {r.user_name ?? r.user_id}
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums">
+                      {r.total}
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums text-green-600">
+                      {r.done}
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums">
+                      {r.on_time}
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums text-red-500">
+                      {r.overdue}
+                    </TableCell>
                     <TableCell className="text-right">
-                      <span className={r.completion_pct >= 80 ? "font-semibold text-green-600" : ""}>
+                      <span
+                        className={
+                          r.completion_pct >= 80
+                            ? "font-semibold text-green-600"
+                            : ""
+                        }
+                      >
                         {r.completion_pct}%
                       </span>
                     </TableCell>
@@ -654,11 +755,20 @@ function DashboardReportsPage() {
               </TableHeader>
               <TableBody>
                 {allOverdue.map((t) => (
-                  <TableRow key={`${t.project_id}-${t.severity}`} className="hover:bg-red-50/40">
-                    <TableCell className="font-medium">{t.nearest_task_name}</TableCell>
-                    <TableCell className="text-muted-foreground text-sm">{t.project_name ?? t.project_id}</TableCell>
+                  <TableRow
+                    key={`${t.project_id}-${t.severity}`}
+                    className="hover:bg-red-50/40"
+                  >
+                    <TableCell className="font-medium">
+                      {t.nearest_task_name}
+                    </TableCell>
+                    <TableCell className="text-muted-foreground text-sm">
+                      {t.project_name ?? t.project_id}
+                    </TableCell>
                     <TableCell className="text-sm">—</TableCell>
-                    <TableCell className="font-medium text-red-600">{fmtDate(t.nearest_task_end_time)}</TableCell>
+                    <TableCell className="font-medium text-red-600">
+                      {fmtDate(t.nearest_task_end_time)}
+                    </TableCell>
                     <TableCell>
                       {t.severity === "critical" ? (
                         <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700">
@@ -690,9 +800,16 @@ function DashboardReportsPage() {
           </div>
           <div className="grid grid-cols-2 gap-2 p-4 sm:grid-cols-3 md:grid-cols-4">
             {(membersQuery.data ?? []).map((m) => (
-              <div key={"user_id" in m ? m.user_id : m.id} className="rounded-lg border bg-muted/20 px-3 py-2 text-sm">
-                <p className="truncate font-medium">{"full_name" in m ? m.full_name : null}</p>
-                <p className="truncate text-xs text-muted-foreground">{"email" in m ? m.email : ""}</p>
+              <div
+                key={"user_id" in m ? m.user_id : m.id}
+                className="rounded-lg border bg-muted/20 px-3 py-2 text-sm"
+              >
+                <p className="truncate font-medium">
+                  {"full_name" in m ? m.full_name : null}
+                </p>
+                <p className="truncate text-xs text-muted-foreground">
+                  {"email" in m ? m.email : ""}
+                </p>
               </div>
             ))}
           </div>

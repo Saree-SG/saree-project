@@ -34,12 +34,12 @@ import { Textarea } from "@/components/ui/textarea"
 import { useCan } from "@/hooks/useMyPermissions"
 import { listProjectsForAttendance } from "@/modules/attendance/attendanceApi"
 import {
-  INCIDENT_CATEGORIES,
-  INCIDENT_SEVERITIES,
-  type Incident,
   categoryLabel,
   createIncident,
   getIncident,
+  INCIDENT_CATEGORIES,
+  INCIDENT_SEVERITIES,
+  type Incident,
   listIncidents,
   resolveIncident,
   severityLabel,
@@ -95,7 +95,8 @@ function IncidentsPage() {
             <AlertTriangle className="text-primary size-6" /> Sự cố thi công
           </h1>
           <p className="text-muted-foreground mt-1 text-sm">
-            Ghi nhận lỗi/sự cố kèm nguyên nhân &amp; giải pháp — tra cứu cho lần sau.
+            Ghi nhận lỗi/sự cố kèm nguyên nhân &amp; giải pháp — tra cứu cho lần
+            sau.
           </p>
         </div>
         <Button onClick={() => setCreateOpen(true)}>
@@ -144,7 +145,9 @@ function IncidentsPage() {
       {/* List */}
       <div className="space-y-2">
         {listQuery.isLoading ? (
-          <p className="text-muted-foreground py-6 text-center text-sm">Đang tải…</p>
+          <p className="text-muted-foreground py-6 text-center text-sm">
+            Đang tải…
+          </p>
         ) : incidents.length === 0 ? (
           <div className="text-muted-foreground flex flex-col items-center gap-2 py-10 text-sm">
             <AlertTriangle className="size-8 opacity-40" />
@@ -173,13 +176,17 @@ function IncidentsPage() {
                     {it.description}
                   </p>
                   <div className="flex flex-wrap items-center gap-2 pt-1 text-xs">
-                    <Badge variant="outline">{categoryLabel(it.category)}</Badge>
+                    <Badge variant="outline">
+                      {categoryLabel(it.category)}
+                    </Badge>
                     <span
                       className={`rounded-full px-2 py-0.5 ${SEVERITY_STYLE[it.severity]}`}
                     >
                       {severityLabel(it.severity)}
                     </span>
-                    <span className="text-muted-foreground">{fmtDate(it.created_at)}</span>
+                    <span className="text-muted-foreground">
+                      {fmtDate(it.created_at)}
+                    </span>
                   </div>
                 </div>
               </CardContent>
@@ -261,7 +268,8 @@ function CreateIncidentDialog({
         <DialogHeader>
           <DialogTitle>Báo sự cố thi công</DialogTitle>
           <DialogDescription>
-            Mô tả sự cố. Nguyên nhân &amp; giải pháp có thể bổ sung sau khi xử lý.
+            Mô tả sự cố. Nguyên nhân &amp; giải pháp có thể bổ sung sau khi xử
+            lý.
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-3">
@@ -320,7 +328,10 @@ function CreateIncidentDialog({
           <Button variant="outline" onClick={onClose}>
             Huỷ
           </Button>
-          <Button disabled={mutation.isPending} onClick={() => mutation.mutate()}>
+          <Button
+            disabled={mutation.isPending}
+            onClick={() => mutation.mutate()}
+          >
             {mutation.isPending ? "Đang lưu…" : "Ghi nhận"}
           </Button>
         </DialogFooter>
@@ -380,14 +391,18 @@ function IncidentDetailDialog({
       refresh()
     },
     onError: (e: any) =>
-      toast.error(e?.response?.data?.detail ?? e?.message ?? "Tải ảnh thất bại"),
+      toast.error(
+        e?.response?.data?.detail ?? e?.message ?? "Tải ảnh thất bại",
+      ),
   })
 
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="max-h-[90vh] overflow-auto">
         {!it ? (
-          <p className="text-muted-foreground py-6 text-center text-sm">Đang tải…</p>
+          <p className="text-muted-foreground py-6 text-center text-sm">
+            Đang tải…
+          </p>
         ) : (
           <>
             <DialogHeader>

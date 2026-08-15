@@ -8,7 +8,10 @@ import {
   Zap,
 } from "lucide-react"
 
-import { fetchDelayWarnings, type DelayWarning } from "@/modules/project/delayApi"
+import {
+  type DelayWarning,
+  fetchDelayWarnings,
+} from "@/modules/project/delayApi"
 
 // ---------------------------------------------------------------------------
 // Severity config
@@ -64,9 +67,7 @@ function WarningCard({
       className={`rounded-lg border p-4 ${cfg.bg} transition-shadow hover:shadow-md`}
     >
       <div className="flex items-start gap-3">
-        <IconComponent
-          className={`mt-0.5 h-5 w-5 shrink-0 ${cfg.icon}`}
-        />
+        <IconComponent className={`mt-0.5 h-5 w-5 shrink-0 ${cfg.icon}`} />
         <div className="min-w-0 flex-1">
           <div className="mb-1 flex flex-wrap items-center gap-2">
             <span className="font-medium text-gray-900">{warning.title}</span>
@@ -174,7 +175,8 @@ export function DelayWarnings({ projectId }: DelayWarningsProps) {
         <div className="flex items-center gap-2 rounded-lg border border-green-200 bg-green-50 px-4 py-3">
           <CheckCircle2 className="h-5 w-5 text-green-500" />
           <p className="text-sm text-green-700">
-            Không phát hiện rủi ro trễ tiến độ. Dự án đang diễn ra đúng kế hoạch.
+            Không phát hiện rủi ro trễ tiến độ. Dự án đang diễn ra đúng kế
+            hoạch.
           </p>
         </div>
       ) : (

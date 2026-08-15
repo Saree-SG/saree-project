@@ -42,7 +42,9 @@ export type MapOverviewData = {
   staff: MapStaff[]
 }
 
-export async function fetchMapOverview(companyId?: string): Promise<MapOverviewData> {
+export async function fetchMapOverview(
+  companyId?: string,
+): Promise<MapOverviewData> {
   const params = companyId ? { company_id: companyId } : {}
   const res = await axios.get<MapOverviewData>(
     `${OpenAPI.BASE}/api/v1/dashboard/map`,

@@ -20,8 +20,8 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import {
-  type YearSummaryRow,
   getYearSummary,
+  type YearSummaryRow,
 } from "@/modules/dashboard/yearSummaryApi"
 
 const COLUMNS: { key: string; label: string }[] = [
@@ -73,7 +73,11 @@ function exportExcel(rows: YearSummaryRow[], periodLabel: string) {
 }
 
 /** Year-end productivity ranking + Excel export, reusable inside tabs/pages. */
-export default function YearSummaryPanel({ showHeader = true }: { showHeader?: boolean }) {
+export default function YearSummaryPanel({
+  showHeader = true,
+}: {
+  showHeader?: boolean
+}) {
   const [year, setYear] = useState<number>(new Date().getFullYear())
 
   const query = useQuery({
@@ -109,7 +113,9 @@ export default function YearSummaryPanel({ showHeader = true }: { showHeader?: b
               min={2020}
               max={2100}
               onChange={(e) =>
-                setYear(parseInt(e.target.value, 10) || new Date().getFullYear())
+                setYear(
+                  parseInt(e.target.value, 10) || new Date().getFullYear(),
+                )
               }
               className="w-28"
             />
@@ -132,7 +138,9 @@ export default function YearSummaryPanel({ showHeader = true }: { showHeader?: b
             </span>
             <span>Hoàn thành {Math.round(data.weights.completion * 100)}%</span>
             <span>· Đúng hạn {Math.round(data.weights.on_time * 100)}%</span>
-            <span>· Chuyên cần {Math.round(data.weights.attendance * 100)}%</span>
+            <span>
+              · Chuyên cần {Math.round(data.weights.attendance * 100)}%
+            </span>
             <span>· Chất lượng {Math.round(data.weights.quality * 100)}%</span>
           </CardContent>
         </Card>
@@ -148,7 +156,9 @@ export default function YearSummaryPanel({ showHeader = true }: { showHeader?: b
         </CardHeader>
         <CardContent className="overflow-x-auto">
           {query.isLoading ? (
-            <p className="text-muted-foreground py-6 text-center text-sm">Đang tải…</p>
+            <p className="text-muted-foreground py-6 text-center text-sm">
+              Đang tải…
+            </p>
           ) : query.isError ? (
             <p className="text-destructive py-6 text-center text-sm">
               Không tải được dữ liệu (cần quyền xem báo cáo).
@@ -193,15 +203,21 @@ export default function YearSummaryPanel({ showHeader = true }: { showHeader?: b
                     <TableCell className="text-right">
                       {r.tasks_done}/{r.tasks_total}
                     </TableCell>
-                    <TableCell className="text-right">{r.completion_pct}%</TableCell>
-                    <TableCell className="text-right">{r.on_time_pct}%</TableCell>
+                    <TableCell className="text-right">
+                      {r.completion_pct}%
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {r.on_time_pct}%
+                    </TableCell>
                     <TableCell className="text-right text-red-500">
                       {r.tasks_overdue || ""}
                     </TableCell>
                     <TableCell className="text-right">
                       {r.work_hours.toFixed(1)}
                     </TableCell>
-                    <TableCell className="text-right">{r.days_worked}</TableCell>
+                    <TableCell className="text-right">
+                      {r.days_worked}
+                    </TableCell>
                     <TableCell className="text-right">
                       {r.quality_pct != null ? `${r.quality_pct}%` : "—"}
                     </TableCell>

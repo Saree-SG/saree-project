@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query"
-import { Link, createFileRoute } from "@tanstack/react-router"
+import { createFileRoute, Link } from "@tanstack/react-router"
 import { useMemo, useState } from "react"
 
 import { Badge } from "@/components/ui/badge"
@@ -72,7 +72,8 @@ function AdminActivity() {
     return data.filter((r) => {
       if (entityFilter !== ALL && r.entity_type !== entityFilter) return false
       if (q) {
-        const hay = `${r.actor_name ?? ""} ${r.actor_email ?? ""} ${r.action} ${r.entity_type}`.toLowerCase()
+        const hay =
+          `${r.actor_name ?? ""} ${r.actor_email ?? ""} ${r.action} ${r.entity_type}`.toLowerCase()
         if (!hay.includes(q)) return false
       }
       return true
@@ -131,13 +132,19 @@ function AdminActivity() {
               <TableBody>
                 {isLoading ? (
                   <TableRow>
-                    <TableCell colSpan={5} className="text-center text-muted-foreground">
+                    <TableCell
+                      colSpan={5}
+                      className="text-center text-muted-foreground"
+                    >
                       Đang tải...
                     </TableCell>
                   </TableRow>
                 ) : filtered.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={5} className="text-center text-muted-foreground">
+                    <TableCell
+                      colSpan={5}
+                      className="text-center text-muted-foreground"
+                    >
                       Không có hoạt động.
                     </TableCell>
                   </TableRow>

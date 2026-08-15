@@ -109,15 +109,22 @@ export default function CompanyRolesTab({ company }: Props) {
             <TableBody>
               {roles.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center text-muted-foreground">
+                  <TableCell
+                    colSpan={5}
+                    className="text-center text-muted-foreground"
+                  >
                     Chưa có vai trò. Thêm bên dưới.
                   </TableCell>
                 </TableRow>
               ) : (
                 roles.map((r) => (
                   <TableRow key={r.id}>
-                    <TableCell className="font-medium">{r.display_name}</TableCell>
-                    <TableCell className="text-muted-foreground">{r.name}</TableCell>
+                    <TableCell className="font-medium">
+                      {r.display_name}
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {r.name}
+                    </TableCell>
                     <TableCell>
                       <Badge variant="outline">L{r.level}</Badge>
                     </TableCell>
@@ -130,8 +137,7 @@ export default function CompanyRolesTab({ company }: Props) {
                         variant="outline"
                         disabled={!r.id}
                         onClick={() =>
-                          r.id &&
-                          setEditing({ id: r.id, name: r.display_name })
+                          r.id && setEditing({ id: r.id, name: r.display_name })
                         }
                       >
                         Sửa quyền

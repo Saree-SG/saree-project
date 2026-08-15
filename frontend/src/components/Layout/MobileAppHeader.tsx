@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import useAuth from "@/hooks/useAuth"
 import { cn } from "@/lib/utils"
-import { APP_VERSION_LABEL } from "@/utils/appVersion"
+import { APP_VERSION_SHORT } from "@/utils/appVersion"
 
 type Crumb = { label: string; to?: string }
 
@@ -87,7 +87,10 @@ function resolveMobileBackTarget(pathname: string): string | "history" | null {
   if (/^\/quotations\/[^/]+$/.test(normalized)) {
     return "/quotations"
   }
-  if (normalized === "/quotations/new" || normalized === "/quotations/reports") {
+  if (
+    normalized === "/quotations/new" ||
+    normalized === "/quotations/reports"
+  ) {
     return "/quotations"
   }
   return "history"
@@ -134,7 +137,8 @@ export function MobileAppHeader() {
   return (
     <header
       className={cn(
-        "fixed left-0 right-0 top-0 z-40 border-b bg-background pt-[env(safe-area-inset-top,0px)] md:hidden",
+        // Gradient phủ luôn safe-area trên cùng để status bar iOS ăn màu xanh
+        "app-chrome fixed left-0 right-0 top-0 z-40 pt-[env(safe-area-inset-top,0px)] md:hidden",
       )}
     >
       <div className="flex h-14 min-h-14 items-center gap-1 px-4">
@@ -158,19 +162,17 @@ export function MobileAppHeader() {
                 className="flex items-center gap-1"
               >
                 {index > 0 ? (
-                  <span className="text-muted-foreground">/</span>
+                  <span className="text-header-muted">/</span>
                 ) : null}
                 {crumb.to && index < crumbs.length - 1 ? (
                   <Link
                     to={crumb.to}
-                    className="font-medium text-muted-foreground hover:text-foreground"
+                    className="font-medium text-header-muted hover:text-white"
                   >
                     {crumb.label}
                   </Link>
                 ) : (
-                  <span className="font-semibold text-foreground">
-                    {crumb.label}
-                  </span>
+                  <span className="font-semibold">{crumb.label}</span>
                 )}
               </li>
             ))}
@@ -181,7 +183,7 @@ export function MobileAppHeader() {
             to="/help"
             title="Hướng dẫn sử dụng"
             aria-label="Hướng dẫn sử dụng"
-            className="inline-flex size-9 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
+            className="inline-flex size-9 items-center justify-center rounded-md"
           >
             <HelpCircle className="size-5" />
           </Link>
@@ -189,8 +191,8 @@ export function MobileAppHeader() {
           <NotificationBell />
         </div>
       </div>
-      <div className="flex h-8 min-h-8 items-center justify-between gap-2 border-t bg-muted/30 px-4">
-        <p className="min-w-0 truncate text-xs text-foreground">
+      <div className="flex h-8 min-h-8 items-center justify-between gap-2 border-t border-white/15 bg-black/10 px-4">
+        <p className="min-w-0 truncate text-xs">
           Xin chào{greetingName ? ", " : ""}
           <span className="font-semibold">{greetingName}</span>
         </p>
@@ -198,13 +200,16 @@ export function MobileAppHeader() {
           {roleLabel ? (
             <Badge
               variant="secondary"
-              className="px-1.5 py-0 text-[10px] font-medium"
+              className="bg-white/15 px-1.5 py-0 text-[10px] font-medium text-white ring-1 ring-white/25 ring-inset"
             >
               {roleLabel}
             </Badge>
           ) : null}
-          <span className="text-[10px] text-muted-foreground" title="Phiên bản ứng dụng">
-            {APP_VERSION_LABEL}
+          <span
+            className="text-[10px] text-header-muted"
+            title="Phiên bản ứng dụng"
+          >
+            {APP_VERSION_SHORT}
           </span>
         </div>
       </div>

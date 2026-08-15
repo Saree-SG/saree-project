@@ -1,6 +1,13 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query"
+import { Link } from "@tanstack/react-router"
+import { ArrowRight } from "lucide-react"
 
 import { UsersService } from "@/client"
+import {
+  ItemTypeBadge,
+  ReleaseHero,
+} from "@/components/Common/releaseNotes/ReleaseVisuals"
+import { Button } from "@/components/ui/button"
 import {
   Dialog,
   DialogContent,
@@ -14,6 +21,10 @@ type ReleaseNotesDialogProps = {
   open: boolean
   onOpenChange: (open: boolean) => void
 }
+
+// Popup only teases the newest release — the full history lives at /releases.
+const PREVIEW_COUNT = 1
+const PREVIEW_ITEMS = 4
 
 /**
  * "Có gì mới" popup. Opening it marks the latest release version as seen for
@@ -38,6 +49,8 @@ export function ReleaseNotesDialog({
     },
   })
 
+  const preview = RELEASE_NOTES.slice(0, PREVIEW_COUNT)
+
   return (
     <Dialog
       open={open}
@@ -53,28 +66,58 @@ export function ReleaseNotesDialog({
         }
       }}
     >
-      <DialogContent className="max-h-[80vh] max-w-lg overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>🎉 Có gì mới</DialogTitle>
+      <DialogContent className="max-h-[85vh] max-w-md overflow-y-auto p-0">
+        <DialogHeader className="px-5 pt-5">
+          <DialogTitle className="text-base">🎉 Có gì mới</DialogTitle>
         </DialogHeader>
-        <div className="space-y-5">
-          {RELEASE_NOTES.map((note) => (
-            <div key={note.version} className="space-y-2">
-              <div className="flex items-baseline justify-between gap-2">
-                <h3 className="text-sm font-bold text-foreground">
-                  {note.title}
-                </h3>
-                <span className="shrink-0 text-[11px] text-muted-foreground">
-                  {note.date}
-                </span>
+
+        <div className="space-y-5 px-5 pb-5">
+          {preview.map((note, index) => (
+            <div key={note.version} className="space-y-3">
+              <div className="flex items-start gap-3">
+                <ReleaseHero icon={note.icon} index={index} size="sm" />
+                <div className="min-w-0 pt-0.5">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="rounded-md bg-brand-900 px-1.5 py-0.5 text-[11px] font-bold tracking-wide text-white">
+                      v{note.version}
+                    </span>
+                    <span className="text-[11px] text-muted-foreground">
+                      {note.date}
+                    </span>
+                  </div>
+                  <h3 className="mt-1 text-sm font-bold text-foreground">
+                    {note.title}
+                  </h3>
+                  <p className="mt-0.5 text-xs text-muted-foreground">
+                    {note.summary}
+                  </p>
+                </div>
               </div>
-              <ul className="list-disc space-y-1 pl-5 text-sm text-muted-foreground">
-                {note.items.map((item, index) => (
-                  <li key={index}>{item}</li>
+
+              <ul className="space-y-2 pl-1">
+                {note.items.slice(0, PREVIEW_ITEMS).map((item, itemIndex) => (
+                  <li key={itemIndex} className="flex items-start gap-2">
+                    <ItemTypeBadge type={item.type} className="mt-0.5" />
+                    <span className="text-sm leading-relaxed text-foreground/90">
+                      {item.text}
+                    </span>
+                  </li>
                 ))}
               </ul>
+              {note.items.length > PREVIEW_ITEMS ? (
+                <p className="pl-1 text-xs text-muted-foreground">
+                  + {note.items.length - PREVIEW_ITEMS} thay đổi khác…
+                </p>
+              ) : null}
             </div>
           ))}
+
+          <Button asChild className="w-full">
+            <Link to="/releases" onClick={() => onOpenChange(false)}>
+              Xem toàn bộ nhật ký phát hành
+              <ArrowRight className="ml-1.5 size-4" />
+            </Link>
+          </Button>
         </div>
       </DialogContent>
     </Dialog>

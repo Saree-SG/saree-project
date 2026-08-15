@@ -15,9 +15,9 @@ import {
 } from "@/components/ui/table"
 import useCustomToast from "@/hooks/useCustomToast"
 import {
-  deleteUserMembership,
   type AdminUserDetail,
   type AdminUserMembership,
+  deleteUserMembership,
 } from "@/modules/admin/adminUsersApi"
 import { handleError } from "@/utils"
 
@@ -35,7 +35,9 @@ export default function MembershipTab({ user }: Props) {
     mutationFn: (companyId: string) => deleteUserMembership(user.id, companyId),
     onSuccess: async () => {
       showSuccessToast("Đã xoá vai trò khỏi công ty")
-      await qc.invalidateQueries({ queryKey: ["admin", "user-detail", user.id] })
+      await qc.invalidateQueries({
+        queryKey: ["admin", "user-detail", user.id],
+      })
       await qc.invalidateQueries({ queryKey: ["admin", "users"] })
     },
     onError: handleError.bind(showErrorToast),
@@ -69,7 +71,10 @@ export default function MembershipTab({ user }: Props) {
           <TableBody>
             {user.memberships.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={5} className="text-center text-muted-foreground">
+                <TableCell
+                  colSpan={5}
+                  className="text-center text-muted-foreground"
+                >
                   Người dùng chưa được gán vào công ty nào.
                 </TableCell>
               </TableRow>
@@ -138,9 +143,7 @@ export default function MembershipTab({ user }: Props) {
         onClose={() => setDialogOpen(false)}
         userId={user.id}
         editing={editing}
-        currentDepartmentId={
-          editing && editing.is_primary ? user.department_id : null
-        }
+        currentDepartmentId={editing?.is_primary ? user.department_id : null}
       />
     </Card>
   )

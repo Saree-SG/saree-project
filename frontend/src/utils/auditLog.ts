@@ -2,7 +2,9 @@ import type { AuditLogPublic } from "@/client"
 
 export type AuditLogWithActor = AuditLogPublic & { actor_name?: string | null }
 
-export function isPlainObject(value: unknown): value is Record<string, unknown> {
+export function isPlainObject(
+  value: unknown,
+): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value)
 }
 
@@ -77,27 +79,36 @@ export function formatAuditValue(value: unknown): string | null {
 
   if (typeof value === "string") {
     switch (value) {
-      case "todo": return "Chờ xử lý"
-      case "in_progress": return "Đang làm"
-      case "done": return "Hoàn thành"
+      case "todo":
+        return "Chờ xử lý"
+      case "in_progress":
+        return "Đang làm"
+      case "done":
+        return "Hoàn thành"
       case "approved":
-      case "APPROVED": return "Đã duyệt"
+      case "APPROVED":
+        return "Đã duyệt"
       case "rejected":
-      case "REJECTED": return "Bị từ chối"
+      case "REJECTED":
+        return "Bị từ chối"
       case "pending":
-      case "PENDING": return "Chờ duyệt"
-      default: return value
+      case "PENDING":
+        return "Chờ duyệt"
+      default:
+        return value
     }
   }
 
-  if (typeof value === "number" || typeof value === "boolean") return String(value)
+  if (typeof value === "number" || typeof value === "boolean")
+    return String(value)
 
   if (isPlainObject(value)) {
     const status = value.status
     if (typeof status === "string") return formatAuditValue(status)
 
     const approvalStatus = value.approval_status
-    if (typeof approvalStatus === "string") return formatAuditValue(approvalStatus)
+    if (typeof approvalStatus === "string")
+      return formatAuditValue(approvalStatus)
 
     const endTime = value.end_time
     if (typeof endTime === "string") {

@@ -183,7 +183,8 @@ function extractRoomId(evt: ChatWsEvent): string | null {
     evt.type === "unsubscribed"
   )
     return evt.room_id
-  if (evt.type === "error" && typeof evt.room_id === "string") return evt.room_id
+  if (evt.type === "error" && typeof evt.room_id === "string")
+    return evt.room_id
   return null
 }
 
@@ -222,7 +223,8 @@ function scheduleReconnect() {
     setStatus("idle")
     return
   }
-  const delay = RECONNECT_DELAYS[Math.min(retryCount, RECONNECT_DELAYS.length - 1)]
+  const delay =
+    RECONNECT_DELAYS[Math.min(retryCount, RECONNECT_DELAYS.length - 1)]
   retryCount += 1
   const epoch = reconnectEpoch
   retryTimer = setTimeout(() => {
@@ -299,7 +301,14 @@ async function openSocket(): Promise<void> {
     }
     ws.onclose = (e) => {
       clearTimeout(connectTimeout)
-      console.warn("[chatWs] onclose code=", e.code, "reason=", e.reason, "wasClean=", e.wasClean)
+      console.warn(
+        "[chatWs] onclose code=",
+        e.code,
+        "reason=",
+        e.reason,
+        "wasClean=",
+        e.wasClean,
+      )
       lastCloseCode = e.code
       lastCloseReason = e.reason || ""
       const wasUs = socket === ws

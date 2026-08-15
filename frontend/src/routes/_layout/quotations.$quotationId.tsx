@@ -1,11 +1,18 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { createFileRoute, Link, redirect, useNavigate } from "@tanstack/react-router"
+import {
+  createFileRoute,
+  Link,
+  redirect,
+  useNavigate,
+} from "@tanstack/react-router"
 import {
   AlertCircle,
   AlignLeft,
   ArrowLeft,
   Bold,
   Clock,
+  Eye,
+  EyeOff,
   FileText,
   Heading2,
   Info,
@@ -13,8 +20,6 @@ import {
   List,
   ListOrdered,
   Loader2,
-  Eye,
-  EyeOff,
   Paperclip,
   Plus,
   Strikethrough,
@@ -24,12 +29,22 @@ import {
   Users,
 } from "lucide-react"
 import { useEffect, useMemo, useRef, useState } from "react"
-
-import { StageTransitionTimeline, type ActionConfig, type TransitionAttachment, type TransitionEntry } from "@/components/Common/StageTransitionTimeline"
-import { QuotationActionsPanel, type QuotationActionId } from "@/components/Quotation/QuotationActionsPanel"
-import { QUOTATION_CREATE_STEP, StageStepper } from "@/components/Quotation/StageStepper"
+import { RolesService } from "@/client"
+import {
+  type ActionConfig,
+  StageTransitionTimeline,
+  type TransitionAttachment,
+  type TransitionEntry,
+} from "@/components/Common/StageTransitionTimeline"
+import {
+  type QuotationActionId,
+  QuotationActionsPanel,
+} from "@/components/Quotation/QuotationActionsPanel"
+import {
+  QUOTATION_CREATE_STEP,
+  StageStepper,
+} from "@/components/Quotation/StageStepper"
 import { Button } from "@/components/ui/button"
-import { FileTypeIcon } from "@/components/ui/FileTypeIcon"
 import {
   Dialog,
   DialogContent,
@@ -38,6 +53,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import { FileTypeIcon } from "@/components/ui/FileTypeIcon"
 import { Input } from "@/components/ui/input"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import useCustomToast from "@/hooks/useCustomToast"
@@ -67,6 +83,12 @@ import {
   submitSurvey,
   uploadQuotationAttachmentFile,
 } from "@/modules/quotation/quotationApi"
+import type {
+  ApprovalParticipant,
+  QuotationAttachmentPublic,
+  QuotationStage,
+  QuotationStageTransitionPublic,
+} from "@/modules/quotation/quotationTypes"
 import {
   CONTACT_METHOD_LABELS,
   DIRECTOR_REJECT_STAGES,
@@ -76,10 +98,8 @@ import {
   STAGE_ORDER,
   STATUS_CONFIG,
 } from "@/modules/quotation/stageConfig"
-import type { ApprovalParticipant, QuotationAttachmentPublic, QuotationStage, QuotationStageTransitionPublic } from "@/modules/quotation/quotationTypes"
-import { listCompanyMembers } from "@/modules/rbac/rbacApi"
 import type { CompanyMember } from "@/modules/rbac/rbacApi"
-import { RolesService } from "@/client"
+import { listCompanyMembers } from "@/modules/rbac/rbacApi"
 import { hasPermission } from "@/utils/accountAccess"
 import { resolveBackendMediaUrl } from "@/utils/mediaUrl"
 
@@ -127,16 +147,22 @@ function normalizeHistoryAction(input: {
     return aliasMap[action]
   }
   if (action === "approve") {
-    if (input.from_stage === "S2_DIRECTOR_APPROVE_SURVEY") return "approve_survey"
-    if (input.from_stage === "S4_DIRECTOR_APPROVE_DESIGN") return "approve_design"
+    if (input.from_stage === "S2_DIRECTOR_APPROVE_SURVEY")
+      return "approve_survey"
+    if (input.from_stage === "S4_DIRECTOR_APPROVE_DESIGN")
+      return "approve_design"
     if (input.from_stage === "S7_DIRECTOR_APPROVE_QUOTE") return "approve_final"
-    if (input.from_stage === "S8B_NEGOTIATION_REVIEW") return "approve_negotiation"
+    if (input.from_stage === "S8B_NEGOTIATION_REVIEW")
+      return "approve_negotiation"
   }
   if (action === "reject") {
-    if (input.from_stage === "S2_DIRECTOR_APPROVE_SURVEY") return "reject_survey"
-    if (input.from_stage === "S4_DIRECTOR_APPROVE_DESIGN") return "reject_design"
+    if (input.from_stage === "S2_DIRECTOR_APPROVE_SURVEY")
+      return "reject_survey"
+    if (input.from_stage === "S4_DIRECTOR_APPROVE_DESIGN")
+      return "reject_design"
     if (input.from_stage === "S7_DIRECTOR_APPROVE_QUOTE") return "reject_final"
-    if (input.from_stage === "S8B_NEGOTIATION_REVIEW") return "reject_negotiation"
+    if (input.from_stage === "S8B_NEGOTIATION_REVIEW")
+      return "reject_negotiation"
   }
   return action
 }
@@ -151,13 +177,31 @@ function resolveQuotationHistoryGroup(input: {
   negotiationRound?: number
 }): { groupKey: string; groupSubject?: string } {
   const action = normalizeHistoryAction(input)
-  if (action === "submit_survey" || action === "approve_survey" || action === "reject_survey") {
-    return { groupKey: "review_survey", groupSubject: "Khảo sát trình Giám đốc duyệt" }
+  if (
+    action === "submit_survey" ||
+    action === "approve_survey" ||
+    action === "reject_survey"
+  ) {
+    return {
+      groupKey: "review_survey",
+      groupSubject: "Khảo sát trình Giám đốc duyệt",
+    }
   }
-  if (action === "submit_design" || action === "approve_design" || action === "reject_design") {
-    return { groupKey: "review_design", groupSubject: "Thiết kế kỹ thuật trình Giám đốc duyệt" }
+  if (
+    action === "submit_design" ||
+    action === "approve_design" ||
+    action === "reject_design"
+  ) {
+    return {
+      groupKey: "review_design",
+      groupSubject: "Thiết kế kỹ thuật trình Giám đốc duyệt",
+    }
   }
-  if (action === "finalize" || action === "approve_final" || action === "reject_final") {
+  if (
+    action === "finalize" ||
+    action === "approve_final" ||
+    action === "reject_final"
+  ) {
     const round = input.negotiationRound ?? 0
     if (round > 0) {
       return {
@@ -165,16 +209,29 @@ function resolveQuotationHistoryGroup(input: {
         groupSubject: `Chào giá điều chỉnh lần ${round} trình Giám đốc duyệt`,
       }
     }
-    return { groupKey: "review_final_quote", groupSubject: "Chào giá hoàn thiện trình Giám đốc duyệt" }
+    return {
+      groupKey: "review_final_quote",
+      groupSubject: "Chào giá hoàn thiện trình Giám đốc duyệt",
+    }
   }
-  if (action === "submit_negotiation" || action === "approve_negotiation" || action === "reject_negotiation") {
-    return { groupKey: "review_negotiation", groupSubject: "Thương lượng giá trình Giám đốc duyệt" }
+  if (
+    action === "submit_negotiation" ||
+    action === "approve_negotiation" ||
+    action === "reject_negotiation"
+  ) {
+    return {
+      groupKey: "review_negotiation",
+      groupSubject: "Thương lượng giá trình Giám đốc duyệt",
+    }
   }
   if (action === "submit_pricing") {
     return { groupKey: "pricing", groupSubject: "Vật tư báo đơn giá" }
   }
   if (action === "send_to_client") {
-    return { groupKey: "send_to_client", groupSubject: "Gửi báo giá cho khách hàng" }
+    return {
+      groupKey: "send_to_client",
+      groupSubject: "Gửi báo giá cho khách hàng",
+    }
   }
   if (action === "close_won" || action === "close_lost") {
     return { groupKey: "closing", groupSubject: "Kết quả báo giá" }
@@ -186,16 +243,25 @@ function resolveQuotationHistoryGroup(input: {
 }
 
 function resolveQuotationAttachmentGroupKey(stageUploaded: string): string {
-  if (stageUploaded === "S1_SALES_COLLECT" || stageUploaded === "S2_DIRECTOR_APPROVE_SURVEY") {
+  if (
+    stageUploaded === "S1_SALES_COLLECT" ||
+    stageUploaded === "S2_DIRECTOR_APPROVE_SURVEY"
+  ) {
     return "review_survey"
   }
-  if (stageUploaded === "S3_TECH_DESIGN" || stageUploaded === "S4_DIRECTOR_APPROVE_DESIGN") {
+  if (
+    stageUploaded === "S3_TECH_DESIGN" ||
+    stageUploaded === "S4_DIRECTOR_APPROVE_DESIGN"
+  ) {
     return "review_design"
   }
   if (stageUploaded === "S5_PROCUREMENT_PRICING") {
     return "pricing"
   }
-  if (stageUploaded === "S6_SALES_FINALIZE" || stageUploaded === "S7_DIRECTOR_APPROVE_QUOTE") {
+  if (
+    stageUploaded === "S6_SALES_FINALIZE" ||
+    stageUploaded === "S7_DIRECTOR_APPROVE_QUOTE"
+  ) {
     return "review_final_quote"
   }
   if (stageUploaded === "S8B_NEGOTIATION_REVIEW") {
@@ -211,16 +277,25 @@ function resolveAttachmentLibraryGroup(stageUploaded: string): {
   key: "survey" | "design" | "pricing" | "final_quote" | "other"
   label: string
 } {
-  if (stageUploaded === "S1_SALES_COLLECT" || stageUploaded === "S2_DIRECTOR_APPROVE_SURVEY") {
+  if (
+    stageUploaded === "S1_SALES_COLLECT" ||
+    stageUploaded === "S2_DIRECTOR_APPROVE_SURVEY"
+  ) {
     return { key: "survey", label: "File khảo sát" }
   }
-  if (stageUploaded === "S3_TECH_DESIGN" || stageUploaded === "S4_DIRECTOR_APPROVE_DESIGN") {
+  if (
+    stageUploaded === "S3_TECH_DESIGN" ||
+    stageUploaded === "S4_DIRECTOR_APPROVE_DESIGN"
+  ) {
     return { key: "design", label: "File thiết kế" }
   }
   if (stageUploaded === "S5_PROCUREMENT_PRICING") {
     return { key: "pricing", label: "File định giá" }
   }
-  if (stageUploaded === "S6_SALES_FINALIZE" || stageUploaded === "S7_DIRECTOR_APPROVE_QUOTE") {
+  if (
+    stageUploaded === "S6_SALES_FINALIZE" ||
+    stageUploaded === "S7_DIRECTOR_APPROVE_QUOTE"
+  ) {
     return { key: "final_quote", label: "File hồ sơ chào giá" }
   }
   return { key: "other", label: "File khác" }
@@ -230,45 +305,51 @@ function buildQuotationTimelineEntries(
   entries: QuotationStageTransitionPublic[],
 ): TransitionEntry[] {
   const chronological = [...entries].sort(
-    (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
+    (a, b) =>
+      new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
   )
   let negotiationRound = 0
 
-  return chronological.map((entry) => {
-    const group = resolveQuotationHistoryGroup({
-      action: entry.action,
-      from_stage: entry.from_stage,
-      to_stage: entry.to_stage,
-      negotiationRound,
-    })
-    const normalizedAction = normalizeHistoryAction({
-      action: entry.action,
-      from_stage: entry.from_stage,
-      to_stage: entry.to_stage,
-    })
+  return chronological
+    .map((entry) => {
+      const group = resolveQuotationHistoryGroup({
+        action: entry.action,
+        from_stage: entry.from_stage,
+        to_stage: entry.to_stage,
+        negotiationRound,
+      })
+      const normalizedAction = normalizeHistoryAction({
+        action: entry.action,
+        from_stage: entry.from_stage,
+        to_stage: entry.to_stage,
+      })
 
-    if (
-      normalizedAction === "approve_negotiation" ||
-      normalizedAction === "reject_negotiation"
-    ) {
-      negotiationRound += 1
-    }
+      if (
+        normalizedAction === "approve_negotiation" ||
+        normalizedAction === "reject_negotiation"
+      ) {
+        negotiationRound += 1
+      }
 
-    const sameStage = Boolean(entry.from_stage) && entry.from_stage === entry.to_stage
-    return {
-      ...group,
-      id: entry.id,
-      from_key: sameStage ? undefined : entry.from_stage,
-      to_key: entry.to_stage,
-      from_label: sameStage ? undefined : (entry.from_stage_label ?? entry.from_stage ?? undefined),
-      to_label: entry.to_stage_label ?? entry.to_stage,
-      attachmentKey: group.groupKey,
-      action: normalizedAction,
-      actor_name: entry.actor_name,
-      created_at: entry.created_at,
-      note: entry.note,
-    }
-  }).reverse()
+      const sameStage =
+        Boolean(entry.from_stage) && entry.from_stage === entry.to_stage
+      return {
+        ...group,
+        id: entry.id,
+        from_key: sameStage ? undefined : entry.from_stage,
+        to_key: entry.to_stage,
+        from_label: sameStage
+          ? undefined
+          : (entry.from_stage_label ?? entry.from_stage ?? undefined),
+        to_label: entry.to_stage_label ?? entry.to_stage,
+        attachmentKey: group.groupKey,
+        action: normalizedAction,
+        actor_name: entry.actor_name,
+        created_at: entry.created_at,
+        note: entry.note,
+      }
+    })
+    .reverse()
 }
 
 function buildQuotationTimelineAttachments(
@@ -293,10 +374,15 @@ function buildQuotationTimelineAttachments(
       attachment.stage_uploaded === "S7_DIRECTOR_APPROVE_QUOTE"
     ) {
       const uploadedAt = new Date(attachment.uploaded_at).getTime()
-      const round = negotiationDecisionTimes.filter((time) => time < uploadedAt).length
+      const round = negotiationDecisionTimes.filter(
+        (time) => time < uploadedAt,
+      ).length
       return {
         id: attachment.id,
-        stage_key: round > 0 ? `review_final_quote_round_${round + 1}` : "review_final_quote",
+        stage_key:
+          round > 0
+            ? `review_final_quote_round_${round + 1}`
+            : "review_final_quote",
         file_name: attachment.file_name,
         file_url: attachment.file_url,
         file_type: attachment.file_type,
@@ -393,7 +479,9 @@ function renderLightMarkdown(note: string): string {
         html.push("</ul>")
         inList = false
       }
-      html.push(`<h3 class="mt-3 mb-1 text-sm font-semibold">${line.slice(3)}</h3>`)
+      html.push(
+        `<h3 class="mt-3 mb-1 text-sm font-semibold">${line.slice(3)}</h3>`,
+      )
       continue
     }
     if (line.startsWith("# ")) {
@@ -401,7 +489,9 @@ function renderLightMarkdown(note: string): string {
         html.push("</ul>")
         inList = false
       }
-      html.push(`<h2 class="mb-2 text-base font-semibold">${line.slice(2)}</h2>`)
+      html.push(
+        `<h2 class="mb-2 text-base font-semibold">${line.slice(2)}</h2>`,
+      )
       continue
     }
     if (line.startsWith("- ")) {
@@ -436,10 +526,7 @@ function renderLightMarkdown(note: string): string {
 /**
  * Build a formatted note block from title, content, and image URL.
  */
-function buildWorkflowNote(
-  title: string,
-  contentHtml: string,
-): string {
+function buildWorkflowNote(title: string, contentHtml: string): string {
   const blocks: string[] = []
   if (title.trim()) {
     blocks.push(`# ${title.trim()}`)
@@ -455,25 +542,109 @@ function buildWorkflowNote(
  * subject = tên tài liệu/đối tượng, status = kết quả rõ ràng cho khách đọc.
  */
 const QUOTATION_ACTION_CONFIG: Record<string, ActionConfig> = {
-  create:              { subject: "Hồ sơ báo giá",         status: "Đã tạo",                statusType: "created",  groupKey: "created" },
-  submit_survey:       { subject: "Thông tin khảo sát",    status: "Đã nộp – chờ phê duyệt", statusType: "pending",  groupKey: "survey" },
-  approve_survey:      { subject: "Thông tin khảo sát",    status: "Đã được phê duyệt",      statusType: "approved", groupKey: "survey" },
-  reject_survey:       { subject: "Thông tin khảo sát",    status: "Cần bổ sung thêm",        statusType: "rejected", groupKey: "survey" },
-  submit_design:       { subject: "Hồ sơ thiết kế",        status: "Đã nộp – chờ phê duyệt", statusType: "pending",  groupKey: "design" },
-  approve_design:      { subject: "Hồ sơ thiết kế",        status: "Đã được phê duyệt",      statusType: "approved", groupKey: "design" },
-  reject_design:       { subject: "Hồ sơ thiết kế",        status: "Cần chỉnh sửa",           statusType: "rejected", groupKey: "design" },
-  submit_pricing:      { subject: "Bảng định giá nội bộ",  status: "Đã nộp – chờ hoàn thiện hồ sơ chào giá", statusType: "pending",  groupKey: "pricing" },
-  finalize:            { subject: "Hồ sơ chào giá",        status: "Nộp hồ sơ chào giá",           statusType: "pending",  groupKey: "final_quote" },
-  approve_final:       { subject: "Hồ sơ chào giá",        status: "Đã được phê duyệt",      statusType: "approved", groupKey: "final_quote" },
-  reject_final:        { subject: "Hồ sơ chào giá",        status: "Cần điều chỉnh lại",      statusType: "rejected", groupKey: "final_quote" },
-  send_to_client:      { subject: "Gửi báo giá",            status: "Đã ghi nhận gửi khách",  statusType: "sent",     groupKey: "client_send" },
-  submit_negotiation:  { subject: "Đề xuất điều chỉnh giá", status: "Đang chờ BGĐ phê duyệt", statusType: "pending",  groupKey: "negotiation" },
-  approve_negotiation: { subject: "Đề xuất điều chỉnh giá", status: "Được chấp thuận",         statusType: "approved", groupKey: "negotiation" },
-  reject_negotiation:  { subject: "Đề xuất điều chỉnh giá", status: "Chưa đồng ý",             statusType: "rejected", groupKey: "negotiation" },
-  close_won:           { subject: "Kết quả đàm phán",      status: "Thắng hợp đồng 🎉",       statusType: "won",      groupKey: "closing" },
-  close_lost:          { subject: "Kết quả đàm phán",      status: "Không thành công",        statusType: "lost",     groupKey: "closing" },
+  create: {
+    subject: "Hồ sơ báo giá",
+    status: "Đã tạo",
+    statusType: "created",
+    groupKey: "created",
+  },
+  submit_survey: {
+    subject: "Thông tin khảo sát",
+    status: "Đã nộp – chờ phê duyệt",
+    statusType: "pending",
+    groupKey: "survey",
+  },
+  approve_survey: {
+    subject: "Thông tin khảo sát",
+    status: "Đã được phê duyệt",
+    statusType: "approved",
+    groupKey: "survey",
+  },
+  reject_survey: {
+    subject: "Thông tin khảo sát",
+    status: "Cần bổ sung thêm",
+    statusType: "rejected",
+    groupKey: "survey",
+  },
+  submit_design: {
+    subject: "Hồ sơ thiết kế",
+    status: "Đã nộp – chờ phê duyệt",
+    statusType: "pending",
+    groupKey: "design",
+  },
+  approve_design: {
+    subject: "Hồ sơ thiết kế",
+    status: "Đã được phê duyệt",
+    statusType: "approved",
+    groupKey: "design",
+  },
+  reject_design: {
+    subject: "Hồ sơ thiết kế",
+    status: "Cần chỉnh sửa",
+    statusType: "rejected",
+    groupKey: "design",
+  },
+  submit_pricing: {
+    subject: "Bảng định giá nội bộ",
+    status: "Đã nộp – chờ hoàn thiện hồ sơ chào giá",
+    statusType: "pending",
+    groupKey: "pricing",
+  },
+  finalize: {
+    subject: "Hồ sơ chào giá",
+    status: "Nộp hồ sơ chào giá",
+    statusType: "pending",
+    groupKey: "final_quote",
+  },
+  approve_final: {
+    subject: "Hồ sơ chào giá",
+    status: "Đã được phê duyệt",
+    statusType: "approved",
+    groupKey: "final_quote",
+  },
+  reject_final: {
+    subject: "Hồ sơ chào giá",
+    status: "Cần điều chỉnh lại",
+    statusType: "rejected",
+    groupKey: "final_quote",
+  },
+  send_to_client: {
+    subject: "Gửi báo giá",
+    status: "Đã ghi nhận gửi khách",
+    statusType: "sent",
+    groupKey: "client_send",
+  },
+  submit_negotiation: {
+    subject: "Đề xuất điều chỉnh giá",
+    status: "Đang chờ BGĐ phê duyệt",
+    statusType: "pending",
+    groupKey: "negotiation",
+  },
+  approve_negotiation: {
+    subject: "Đề xuất điều chỉnh giá",
+    status: "Được chấp thuận",
+    statusType: "approved",
+    groupKey: "negotiation",
+  },
+  reject_negotiation: {
+    subject: "Đề xuất điều chỉnh giá",
+    status: "Chưa đồng ý",
+    statusType: "rejected",
+    groupKey: "negotiation",
+  },
+  close_won: {
+    subject: "Kết quả đàm phán",
+    status: "Thắng hợp đồng 🎉",
+    statusType: "won",
+    groupKey: "closing",
+  },
+  close_lost: {
+    subject: "Kết quả đàm phán",
+    status: "Không thành công",
+    statusType: "lost",
+    groupKey: "closing",
+  },
 }
-
 
 /**
  * Resolve card title for the latest reject request by current stage.
@@ -499,9 +670,10 @@ export const Route = createFileRoute("/_layout/quotations/$quotationId")({
       "attachments",
       "history",
     ]
-    const tab = typeof tabRaw === "string" && allowedTabs.includes(tabRaw as QuotationTab)
-      ? (tabRaw as QuotationTab)
-      : "history"
+    const tab =
+      typeof tabRaw === "string" && allowedTabs.includes(tabRaw as QuotationTab)
+        ? (tabRaw as QuotationTab)
+        : "history"
     return { tab }
   },
   beforeLoad: async () => {
@@ -531,7 +703,13 @@ export const Route = createFileRoute("/_layout/quotations/$quotationId")({
 })
 
 /** Compact label+value display used in overview cards. */
-function Field({ label, value }: { label: string; value: string | null | undefined }) {
+function Field({
+  label,
+  value,
+}: {
+  label: string
+  value: string | null | undefined
+}) {
   return (
     <div>
       <p className="text-xs text-muted-foreground">{label}</p>
@@ -552,17 +730,21 @@ function QuotationDetailPage() {
   const { showErrorToast, showSuccessToast } = useCustomToast()
 
   const [dialogOpen, setDialogOpen] = useState(false)
-  const [selectedAction, setSelectedAction] = useState<QuotationActionId | null>(null)
-  const [targetRejectStage, setTargetRejectStage] = useState<QuotationStage | null>(null)
+  const [selectedAction, setSelectedAction] =
+    useState<QuotationActionId | null>(null)
+  const [targetRejectStage, setTargetRejectStage] =
+    useState<QuotationStage | null>(null)
   const [noteTitle, setNoteTitle] = useState("")
   const [noteBodyHtml, setNoteBodyHtml] = useState("")
   const [uploadingAttachment, setUploadingAttachment] = useState(false)
-  const [dialogUploadedAttachments, setDialogUploadedAttachments] = useState<{
-    id: string
-    file_url: string
-    file_name: string
-    file_type: string
-  }[]>([])
+  const [dialogUploadedAttachments, setDialogUploadedAttachments] = useState<
+    {
+      id: string
+      file_url: string
+      file_name: string
+      file_type: string
+    }[]
+  >([])
   const [totalContractValueInput, setTotalContractValueInput] = useState("")
   const [validUntil, setValidUntil] = useState("")
   const [clientResponseDeadline, setClientResponseDeadline] = useState("")
@@ -572,7 +754,9 @@ function QuotationDetailPage() {
   const [surveyLocation, setSurveyLocation] = useState("")
   const [surveyStartDate, setSurveyStartDate] = useState("")
   const [surveyEndDate, setSurveyEndDate] = useState("")
-  const [lostReasonCategory, setLostReasonCategory] = useState<"price" | "design" | "marketing" | "other">("price")
+  const [lostReasonCategory, setLostReasonCategory] = useState<
+    "price" | "design" | "marketing" | "other"
+  >("price")
   const [lostReasonDetail, setLostReasonDetail] = useState("")
   const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null)
   const [imagePreviewName, setImagePreviewName] = useState("")
@@ -580,14 +764,20 @@ function QuotationDetailPage() {
   // Approval participants (A3)
   const [showAddParticipant, setShowAddParticipant] = useState(false)
   const [participantUserId, setParticipantUserId] = useState("")
-  const [participantRole, setParticipantRole] = useState<"co_approver" | "delegate">("co_approver")
+  const [participantRole, setParticipantRole] = useState<
+    "co_approver" | "delegate"
+  >("co_approver")
   const [participantNote, setParticipantNote] = useState("")
   const [participantSearch, setParticipantSearch] = useState("")
-  const [confirmRemoveParticipantId, setConfirmRemoveParticipantId] = useState<string | null>(null)
+  const [confirmRemoveParticipantId, setConfirmRemoveParticipantId] = useState<
+    string | null
+  >(null)
 
   // Add negotiation log state (Negotiations tab, S8)
   const [addLogOpen, setAddLogOpen] = useState(false)
-  const [logDate, setLogDate] = useState(() => new Date().toISOString().slice(0, 10))
+  const [logDate, setLogDate] = useState(() =>
+    new Date().toISOString().slice(0, 10),
+  )
   const [logMethod, setLogMethod] = useState("phone")
   const [logSummary, setLogSummary] = useState("")
   const [logFeedback, setLogFeedback] = useState("")
@@ -625,7 +815,14 @@ function QuotationDetailPage() {
 
   // Approval participants (A3) — only for director stages
   const isDirectorStage = quotationQuery.data
-    ? (["S2_DIRECTOR_APPROVE_SURVEY", "S4_DIRECTOR_APPROVE_DESIGN", "S7_DIRECTOR_APPROVE_QUOTE", "S8B_NEGOTIATION_REVIEW"] as string[]).includes(quotationQuery.data.current_stage)
+    ? (
+        [
+          "S2_DIRECTOR_APPROVE_SURVEY",
+          "S4_DIRECTOR_APPROVE_DESIGN",
+          "S7_DIRECTOR_APPROVE_QUOTE",
+          "S8B_NEGOTIATION_REVIEW",
+        ] as string[]
+      ).includes(quotationQuery.data.current_stage)
     : false
 
   const approvalParticipantsQuery = useQuery({
@@ -649,14 +846,19 @@ function QuotationDetailPage() {
   const companyMembersQuery = useQuery({
     queryKey: ["company-members", primaryMembership?.company_id],
     queryFn: () => listCompanyMembers(primaryMembership!.company_id),
-    enabled: isDirectorStage && Boolean(primaryMembership?.company_id) && showAddParticipant,
+    enabled:
+      isDirectorStage &&
+      Boolean(primaryMembership?.company_id) &&
+      showAddParticipant,
   })
 
   const addParticipantMutation = useMutation({
     mutationFn: (body: { user_id: string; role: string }) =>
       addApprovalParticipant(quotationId, body),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["quotation", quotationId, "approval-participants"] })
+      queryClient.invalidateQueries({
+        queryKey: ["quotation", quotationId, "approval-participants"],
+      })
       setShowAddParticipant(false)
       setParticipantUserId("")
       setParticipantRole("co_approver")
@@ -671,7 +873,9 @@ function QuotationDetailPage() {
     mutationFn: (participantId: string) =>
       removeApprovalParticipant(quotationId, participantId),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["quotation", quotationId, "approval-participants"] })
+      queryClient.invalidateQueries({
+        queryKey: ["quotation", quotationId, "approval-participants"],
+      })
     },
     onError: (err: unknown) => {
       const e = err as { response?: { data?: { detail?: string } } }
@@ -683,8 +887,12 @@ function QuotationDetailPage() {
     mutationFn: (note?: string) => participantApprove(quotationId, { note }),
     onSuccess: (data) => {
       queryClient.setQueryData(["quotation", quotationId], data)
-      queryClient.invalidateQueries({ queryKey: ["quotation", quotationId, "approval-participants"] })
-      queryClient.invalidateQueries({ queryKey: ["quotation", quotationId, "history"] })
+      queryClient.invalidateQueries({
+        queryKey: ["quotation", quotationId, "approval-participants"],
+      })
+      queryClient.invalidateQueries({
+        queryKey: ["quotation", quotationId, "history"],
+      })
       showSuccessToast("Đã xác nhận duyệt thành công")
       setParticipantNote("")
     },
@@ -695,7 +903,10 @@ function QuotationDetailPage() {
   })
 
   const workflowMutation = useMutation({
-    mutationFn: async (args: { actionId: QuotationActionId; payload: WorkflowPayload }) => {
+    mutationFn: async (args: {
+      actionId: QuotationActionId
+      payload: WorkflowPayload
+    }) => {
       const { actionId, payload } = args
       if (actionId === "submit_survey") {
         return submitSurvey(quotationId, {
@@ -777,20 +988,30 @@ function QuotationDetailPage() {
         })
       }
       if (actionId === "submit_negotiation") {
-        if (!payload.note) throw new Error("Bạn phải nhập nội dung thương lượng.")
+        if (!payload.note)
+          throw new Error("Bạn phải nhập nội dung thương lượng.")
         return submitNegotiation(quotationId, { note: payload.note })
       }
       if (actionId === "approve_negotiation") {
-        return approveNegotiation(quotationId, { action: "approve", note: payload.note || undefined })
+        return approveNegotiation(quotationId, {
+          action: "approve",
+          note: payload.note || undefined,
+        })
       }
       if (actionId === "reject_negotiation") {
-        return approveNegotiation(quotationId, { action: "reject", note: payload.note || undefined, target_stage: payload.targetStage || undefined })
+        return approveNegotiation(quotationId, {
+          action: "reject",
+          note: payload.note || undefined,
+          target_stage: payload.targetStage || undefined,
+        })
       }
       if (actionId === "close_won") {
         return closeQuotation(quotationId, {
           outcome: "won",
           note: payload.note || undefined,
-          extra_role_ids: payload.extraRoleIds?.length ? payload.extraRoleIds : undefined,
+          extra_role_ids: payload.extraRoleIds?.length
+            ? payload.extraRoleIds
+            : undefined,
         })
       }
       return closeQuotation(quotationId, {
@@ -803,16 +1024,21 @@ function QuotationDetailPage() {
     onSuccess: async (_result, variables) => {
       setDialogOpen(false)
       showSuccessToast("Cập nhật workflow thành công.")
-      await queryClient.invalidateQueries({ queryKey: ["quotation", quotationId] })
+      await queryClient.invalidateQueries({
+        queryKey: ["quotation", quotationId],
+      })
       await queryClient.invalidateQueries({ queryKey: ["quotations"] })
-      await queryClient.invalidateQueries({ queryKey: ["quotation", quotationId, "history"] })
+      await queryClient.invalidateQueries({
+        queryKey: ["quotation", quotationId, "history"],
+      })
       if (variables.actionId === "close_won") {
         const contracts = await listContracts({ limit: 200 })
         const matchedContract = [...contracts.data]
           .filter((item) => item.quotation_id === quotationId)
           .sort(
             (a, b) =>
-              new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+              new Date(b.created_at).getTime() -
+              new Date(a.created_at).getTime(),
           )[0]
         if (matchedContract) {
           navigate({
@@ -843,12 +1069,17 @@ function QuotationDetailPage() {
       setLogFeedback("")
       setLogFollowUp("")
       setLogDate(new Date().toISOString().slice(0, 10))
-      await queryClient.invalidateQueries({ queryKey: ["quotation", quotationId, "negotiations"] })
+      await queryClient.invalidateQueries({
+        queryKey: ["quotation", quotationId, "negotiations"],
+      })
     },
     onError: (error) => showErrorToast(getErrorDetail(error)),
   })
 
-  const requiresRejectNote = selectedAction === "reject_survey" || selectedAction === "reject_design" || selectedAction === "reject_final"
+  const requiresRejectNote =
+    selectedAction === "reject_survey" ||
+    selectedAction === "reject_design" ||
+    selectedAction === "reject_final"
   const requiresNote = selectedAction === "submit_negotiation"
   const showsTotalContractValue = selectedAction === "submit_pricing"
   const requiresLostReason = selectedAction === "close_lost"
@@ -867,7 +1098,8 @@ function QuotationDetailPage() {
     if (selectedAction === "approve_final") return "Duyệt báo giá cuối"
     if (selectedAction === "reject_final") return "Yêu cầu sửa báo giá"
     if (selectedAction === "send_to_client") return "Ghi nhận gửi khách hàng"
-    if (selectedAction === "submit_negotiation") return "Trình thương lượng lên Giám đốc"
+    if (selectedAction === "submit_negotiation")
+      return "Trình thương lượng lên Giám đốc"
     if (selectedAction === "approve_negotiation") return "Đồng ý điều chỉnh giá"
     if (selectedAction === "reject_negotiation") return "Tiếp tục trao đổi thêm"
     if (selectedAction === "close_won") return "Đóng hồ sơ thắng"
@@ -879,7 +1111,14 @@ function QuotationDetailPage() {
     if (!historyQuery.data?.length) {
       return null
     }
-    const submitActions = new Set(["submit_survey", "submit_design", "submit_pricing", "finalize", "send_to_client", "submit_negotiation"])
+    const submitActions = new Set([
+      "submit_survey",
+      "submit_design",
+      "submit_pricing",
+      "finalize",
+      "send_to_client",
+      "submit_negotiation",
+    ])
     const candidates = historyQuery.data.filter(
       (entry) =>
         entry.to_stage === quotationQuery.data?.current_stage &&
@@ -903,7 +1142,12 @@ function QuotationDetailPage() {
     if (!currentStage) {
       return null
     }
-    const rejectActions = new Set(["reject_survey", "reject_design", "reject_final", "reject_negotiation"])
+    const rejectActions = new Set([
+      "reject_survey",
+      "reject_design",
+      "reject_final",
+      "reject_negotiation",
+    ])
     const candidates = historyQuery.data.filter(
       (entry) =>
         entry.to_stage === currentStage &&
@@ -928,7 +1172,11 @@ function QuotationDetailPage() {
       return null
     }
     return latestReject
-  }, [historyQuery.data, latestSubmittedForCurrentStage, quotationQuery.data?.current_stage])
+  }, [
+    historyQuery.data,
+    latestSubmittedForCurrentStage,
+    quotationQuery.data?.current_stage,
+  ])
 
   const historyEntriesNewestFirst = useMemo(() => {
     if (!historyQuery.data?.length) {
@@ -967,7 +1215,11 @@ function QuotationDetailPage() {
   )
 
   const timelineAttachments = useMemo(
-    () => buildQuotationTimelineAttachments(attachmentsQuery.data ?? [], historyQuery.data ?? []),
+    () =>
+      buildQuotationTimelineAttachments(
+        attachmentsQuery.data ?? [],
+        historyQuery.data ?? [],
+      ),
     [attachmentsQuery.data, historyQuery.data],
   )
   const groupedLibraryAttachments = useMemo(() => {
@@ -985,12 +1237,16 @@ function QuotationDetailPage() {
     >()
 
     const sortedAttachments = [...(attachmentsQuery.data ?? [])].sort(
-      (a, b) => new Date(a.uploaded_at).getTime() - new Date(b.uploaded_at).getTime(),
+      (a, b) =>
+        new Date(a.uploaded_at).getTime() - new Date(b.uploaded_at).getTime(),
     )
 
     for (const attachment of sortedAttachments) {
       const group = resolveAttachmentLibraryGroup(attachment.stage_uploaded)
-      const existingGroup = grouped.get(group.key) ?? { label: group.label, items: [] }
+      const existingGroup = grouped.get(group.key) ?? {
+        label: group.label,
+        items: [],
+      }
       const versionNumber = existingGroup.items.length + 1
 
       existingGroup.items.push({
@@ -1007,7 +1263,11 @@ function QuotationDetailPage() {
       .map((group) => ({
         ...group,
         items: [...group.items]
-          .sort((a, b) => new Date(b.uploaded_at).getTime() - new Date(a.uploaded_at).getTime())
+          .sort(
+            (a, b) =>
+              new Date(b.uploaded_at).getTime() -
+              new Date(a.uploaded_at).getTime(),
+          )
           .map((item, index) => ({
             ...item,
             isApprovedVersion: index === 0,
@@ -1050,7 +1310,7 @@ function QuotationDetailPage() {
     if (noteBodyRef.current) {
       noteBodyRef.current.innerHTML = ""
     }
-  }, [dialogOpen])
+  }, [])
 
   function resetWorkflowForm() {
     setNoteTitle("")
@@ -1093,7 +1353,10 @@ function QuotationDetailPage() {
       replace: true,
     })
     requestAnimationFrame(() => {
-      historyTabRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })
+      historyTabRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      })
     })
   }
 
@@ -1108,14 +1371,19 @@ function QuotationDetailPage() {
       return
     }
     if (showsTotalContractValue) {
-      const parsed = Number.parseFloat(totalContractValueInput.replace(/[,.]/g, ""))
+      const parsed = Number.parseFloat(
+        totalContractValueInput.replace(/[,.]/g, ""),
+      )
       if (Number.isNaN(parsed) || parsed <= 0) {
         showErrorToast("Vui lòng nhập tổng giá trị hợp đồng hợp lệ (> 0).")
         return
       }
       workflowMutation.mutate({
         actionId: selectedAction,
-        payload: { totalContractValue: parsed, note: buildWorkflowNote(noteTitle, noteBodyHtml) || undefined },
+        payload: {
+          totalContractValue: parsed,
+          note: buildWorkflowNote(noteTitle, noteBodyHtml) || undefined,
+        },
       })
       return
     }
@@ -1160,7 +1428,9 @@ function QuotationDetailPage() {
   /**
    * Upload selected files and persist as quotation attachments.
    */
-  async function handlePickFiles(eventValue: React.ChangeEvent<HTMLInputElement>) {
+  async function handlePickFiles(
+    eventValue: React.ChangeEvent<HTMLInputElement>,
+  ) {
     const files = Array.from(eventValue.target.files ?? [])
     if (!files.length) {
       return
@@ -1168,7 +1438,11 @@ function QuotationDetailPage() {
     setUploadingAttachment(true)
     try {
       for (const file of files) {
-        const uploaded = await uploadQuotationAttachmentFile(quotationId, file, noteTitle || undefined)
+        const uploaded = await uploadQuotationAttachmentFile(
+          quotationId,
+          file,
+          noteTitle || undefined,
+        )
         setDialogUploadedAttachments((prev) => [
           ...prev,
           {
@@ -1194,7 +1468,11 @@ function QuotationDetailPage() {
   /**
    * Open image attachments in popup, download non-image files.
    */
-  function handleViewAttachment(fileUrl: string, fileName: string, fileType: string | null) {
+  function handleViewAttachment(
+    fileUrl: string,
+    fileName: string,
+    fileType: string | null,
+  ) {
     if (isImageAttachment(fileType, fileName)) {
       setImagePreviewUrl(resolveBackendMediaUrl(fileUrl))
       setImagePreviewName(fileName)
@@ -1227,18 +1505,27 @@ function QuotationDetailPage() {
     <div className="flex flex-col gap-4 p-4 md:p-6 max-w-3xl mx-auto">
       <div className="flex items-start justify-between gap-3">
         <div className="space-y-1">
-          <Link to="/quotations" className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
+          <Link
+            to="/quotations"
+            className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+          >
             <ArrowLeft className="h-3.5 w-3.5" />
             Danh sách báo giá
           </Link>
           <h1 className="text-2xl font-bold">{quotation.quote_number}</h1>
-          <p className="text-sm text-muted-foreground">{quotation.project_name}</p>
+          <p className="text-sm text-muted-foreground">
+            {quotation.project_name}
+          </p>
         </div>
         <div className="flex flex-col items-end gap-1 text-xs">
-          <span className={`rounded-full px-2 py-0.5 font-medium ${statusConfig.badgeBg} ${statusConfig.badgeText}`}>
+          <span
+            className={`rounded-full px-2 py-0.5 font-medium ${statusConfig.badgeBg} ${statusConfig.badgeText}`}
+          >
             {statusConfig.label}
           </span>
-          <span className={`rounded-full px-2 py-0.5 font-medium ${stageConfig.badgeBg} ${stageConfig.badgeText}`}>
+          <span
+            className={`rounded-full px-2 py-0.5 font-medium ${stageConfig.badgeBg} ${stageConfig.badgeText}`}
+          >
             {stageConfig.label}
           </span>
         </div>
@@ -1264,7 +1551,9 @@ function QuotationDetailPage() {
               </p>
               <p className="text-xs text-amber-700 mt-0.5">
                 {latestRejectForCurrentStage.actor_name ?? "Người duyệt"} ·{" "}
-                {new Date(latestRejectForCurrentStage.created_at).toLocaleString("vi-VN")}
+                {new Date(
+                  latestRejectForCurrentStage.created_at,
+                ).toLocaleString("vi-VN")}
               </p>
             </div>
           </div>
@@ -1300,286 +1589,375 @@ function QuotationDetailPage() {
       />
 
       {/* A3: Approval Participants Panel — shown for director stages */}
-      {isDirectorStage && (() => {
-        const participants: ApprovalParticipant[] = approvalParticipantsQuery.data ?? []
-        const isDirector =
-          hasPermission(permissions, "QUOTATION_APPROVE_SURVEY") ||
-          hasPermission(permissions, "QUOTATION_APPROVE_DESIGN") ||
-          hasPermission(permissions, "QUOTATION_APPROVE_FINAL") ||
-          hasPermission(permissions, "QUOTATION_APPROVE_NEGOTIATION")
-        const myParticipant = participants.find(
-          (p) => p.user_id === currentUserId && (p.role === "co_approver" || p.role === "delegate"),
-        )
-        const delegate = participants.find((p) => p.role === "delegate")
-        const coApprovers = participants.filter((p) => p.role === "co_approver")
-        const primaryRecord = participants.find((p) => p.role === "primary")
-
-        // Filtered member list for search
-        const searchLower = participantSearch.trim().toLowerCase()
-        const filteredMembers = (companyMembersQuery.data ?? []).filter((m: CompanyMember) => {
-          if (m.user_id === currentUserId) return false
-          if (participants.some((p) => p.user_id === m.user_id && p.role !== "primary")) return false
-          if (!searchLower) return true
-          return (
-            (m.full_name ?? "").toLowerCase().includes(searchLower) ||
-            m.email.toLowerCase().includes(searchLower) ||
-            m.role_display_name.toLowerCase().includes(searchLower)
+      {isDirectorStage &&
+        (() => {
+          const participants: ApprovalParticipant[] =
+            approvalParticipantsQuery.data ?? []
+          const isDirector =
+            hasPermission(permissions, "QUOTATION_APPROVE_SURVEY") ||
+            hasPermission(permissions, "QUOTATION_APPROVE_DESIGN") ||
+            hasPermission(permissions, "QUOTATION_APPROVE_FINAL") ||
+            hasPermission(permissions, "QUOTATION_APPROVE_NEGOTIATION")
+          const myParticipant = participants.find(
+            (p) =>
+              p.user_id === currentUserId &&
+              (p.role === "co_approver" || p.role === "delegate"),
           )
-        })
+          const delegate = participants.find((p) => p.role === "delegate")
+          const coApprovers = participants.filter(
+            (p) => p.role === "co_approver",
+          )
+          const primaryRecord = participants.find((p) => p.role === "primary")
 
-        function initials(name: string | null | undefined) {
-          if (!name) return "?"
-          return name.split(" ").map((w) => w[0]).slice(-2).join("").toUpperCase()
-        }
+          // Filtered member list for search
+          const searchLower = participantSearch.trim().toLowerCase()
+          const filteredMembers = (companyMembersQuery.data ?? []).filter(
+            (m: CompanyMember) => {
+              if (m.user_id === currentUserId) return false
+              if (
+                participants.some(
+                  (p) => p.user_id === m.user_id && p.role !== "primary",
+                )
+              )
+                return false
+              if (!searchLower) return true
+              return (
+                (m.full_name ?? "").toLowerCase().includes(searchLower) ||
+                m.email.toLowerCase().includes(searchLower) ||
+                m.role_display_name.toLowerCase().includes(searchLower)
+              )
+            },
+          )
 
-        return (
-          <div className="rounded-xl border bg-white shadow-sm overflow-hidden">
-            {/* Header */}
-            <div className="flex items-center justify-between gap-2 px-4 py-3 border-b bg-slate-50">
-              <div className="flex items-center gap-2">
-                <Users className="h-4 w-4 text-slate-500" />
-                <span className="text-sm font-semibold text-slate-700">Người duyệt</span>
-                <span className="rounded-full bg-slate-200 px-2 py-0.5 text-[10px] font-bold text-slate-600">
-                  {1 + participants.filter((p) => p.role !== "primary").length}
-                </span>
-              </div>
-              {isDirector && !showAddParticipant && (
-                <button
-                  type="button"
-                  className="flex items-center gap-1 rounded-md border bg-white px-2.5 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50 shadow-sm"
-                  onClick={() => { setShowAddParticipant(true); setParticipantUserId(""); setParticipantSearch("") }}
-                >
-                  <Plus className="h-3.5 w-3.5" /> Thêm người
-                </button>
-              )}
-            </div>
+          function initials(name: string | null | undefined) {
+            if (!name) return "?"
+            return name
+              .split(" ")
+              .map((w) => w[0])
+              .slice(-2)
+              .join("")
+              .toUpperCase()
+          }
 
-            {/* Participant list */}
-            <div className="divide-y">
-              {/* Director row */}
-              {isDirector && (
-                <div className="flex items-center gap-3 px-4 py-3">
-                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-violet-100 text-xs font-bold text-violet-700">
-                    {initials(profileQuery.data?.full_name)}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-semibold text-slate-800">
-                      {profileQuery.data?.full_name ?? "Giám đốc"}{" "}
-                      <span className="text-xs font-normal text-slate-400">(bạn)</span>
-                    </p>
-                    <p className="text-xs text-slate-400">Ban Giám Đốc</p>
-                  </div>
-                  <div className="shrink-0">
-                    {delegate ? (
-                      <span className="rounded-full bg-orange-100 px-2.5 py-1 text-[11px] font-semibold text-orange-600">
-                        Đã ủy quyền
-                      </span>
-                    ) : primaryRecord?.has_approved ? (
-                      <span className="flex items-center gap-1 rounded-full bg-green-100 px-2.5 py-1 text-[11px] font-semibold text-green-700">
-                        <UserCheck className="h-3 w-3" /> Đã duyệt
-                      </span>
-                    ) : (
-                      <span className="rounded-full bg-blue-50 px-2.5 py-1 text-[11px] font-semibold text-blue-600">
-                        Chờ duyệt
-                      </span>
-                    )}
-                  </div>
+          return (
+            <div className="rounded-xl border bg-white shadow-sm overflow-hidden">
+              {/* Header */}
+              <div className="flex items-center justify-between gap-2 px-4 py-3 border-b bg-slate-50">
+                <div className="flex items-center gap-2">
+                  <Users className="h-4 w-4 text-slate-500" />
+                  <span className="text-sm font-semibold text-slate-700">
+                    Người duyệt
+                  </span>
+                  <span className="rounded-full bg-slate-200 px-2 py-0.5 text-[10px] font-bold text-slate-600">
+                    {1 +
+                      participants.filter((p) => p.role !== "primary").length}
+                  </span>
                 </div>
-              )}
+                {isDirector && !showAddParticipant && (
+                  <button
+                    type="button"
+                    className="flex items-center gap-1 rounded-md border bg-white px-2.5 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50 shadow-sm"
+                    onClick={() => {
+                      setShowAddParticipant(true)
+                      setParticipantUserId("")
+                      setParticipantSearch("")
+                    }}
+                  >
+                    <Plus className="h-3.5 w-3.5" /> Thêm người
+                  </button>
+                )}
+              </div>
 
-              {/* Added participants */}
-              {participants.filter((p) => p.role !== "primary").map((p) => (
-                <div key={p.id} className="flex items-center gap-3 px-4 py-3">
-                  <div className={[
-                    "flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-bold",
-                    p.role === "delegate" ? "bg-orange-100 text-orange-700" : "bg-blue-100 text-blue-700",
-                  ].join(" ")}>
-                    {initials(p.user_name)}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
+              {/* Participant list */}
+              <div className="divide-y">
+                {/* Director row */}
+                {isDirector && (
+                  <div className="flex items-center gap-3 px-4 py-3">
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-violet-100 text-xs font-bold text-violet-700">
+                      {initials(profileQuery.data?.full_name)}
+                    </div>
+                    <div className="min-w-0 flex-1">
                       <p className="truncate text-sm font-semibold text-slate-800">
-                        {p.user_name ?? p.user_id}
+                        {profileQuery.data?.full_name ?? "Giám đốc"}{" "}
+                        <span className="text-xs font-normal text-slate-400">
+                          (bạn)
+                        </span>
                       </p>
-                      <span className={[
-                        "shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold",
-                        p.role === "delegate"
-                          ? "bg-orange-100 text-orange-600"
-                          : "bg-blue-100 text-blue-600",
-                      ].join(" ")}>
-                        {p.role === "delegate" ? "Ủy quyền" : "Co-duyệt"}
-                      </span>
+                      <p className="text-xs text-slate-400">Ban Giám Đốc</p>
+                    </div>
+                    <div className="shrink-0">
+                      {delegate ? (
+                        <span className="rounded-full bg-orange-100 px-2.5 py-1 text-[11px] font-semibold text-orange-600">
+                          Đã ủy quyền
+                        </span>
+                      ) : primaryRecord?.has_approved ? (
+                        <span className="flex items-center gap-1 rounded-full bg-green-100 px-2.5 py-1 text-[11px] font-semibold text-green-700">
+                          <UserCheck className="h-3 w-3" /> Đã duyệt
+                        </span>
+                      ) : (
+                        <span className="rounded-full bg-blue-50 px-2.5 py-1 text-[11px] font-semibold text-blue-600">
+                          Chờ duyệt
+                        </span>
+                      )}
                     </div>
                   </div>
-                  <div className="flex shrink-0 items-center gap-2">
-                    {p.has_approved ? (
-                      <span className="flex items-center gap-1 rounded-full bg-green-100 px-2.5 py-1 text-[11px] font-semibold text-green-700">
-                        <UserCheck className="h-3 w-3" /> Đã duyệt
-                      </span>
-                    ) : (
-                      <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-semibold text-slate-500">
-                        Chờ duyệt
-                      </span>
-                    )}
-                    {isDirector && (
-                      <button
-                        type="button"
-                        title="Xóa"
-                        className="rounded-md p-1 text-slate-400 hover:bg-red-50 hover:text-red-500"
-                        onClick={() => setConfirmRemoveParticipantId(p.id)}
-                        disabled={removeParticipantMutation.isPending}
+                )}
+
+                {/* Added participants */}
+                {participants
+                  .filter((p) => p.role !== "primary")
+                  .map((p) => (
+                    <div
+                      key={p.id}
+                      className="flex items-center gap-3 px-4 py-3"
+                    >
+                      <div
+                        className={[
+                          "flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-bold",
+                          p.role === "delegate"
+                            ? "bg-orange-100 text-orange-700"
+                            : "bg-blue-100 text-blue-700",
+                        ].join(" ")}
                       >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </button>
+                        {initials(p.user_name)}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <p className="truncate text-sm font-semibold text-slate-800">
+                            {p.user_name ?? p.user_id}
+                          </p>
+                          <span
+                            className={[
+                              "shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold",
+                              p.role === "delegate"
+                                ? "bg-orange-100 text-orange-600"
+                                : "bg-blue-100 text-blue-600",
+                            ].join(" ")}
+                          >
+                            {p.role === "delegate" ? "Ủy quyền" : "Co-duyệt"}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="flex shrink-0 items-center gap-2">
+                        {p.has_approved ? (
+                          <span className="flex items-center gap-1 rounded-full bg-green-100 px-2.5 py-1 text-[11px] font-semibold text-green-700">
+                            <UserCheck className="h-3 w-3" /> Đã duyệt
+                          </span>
+                        ) : (
+                          <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-semibold text-slate-500">
+                            Chờ duyệt
+                          </span>
+                        )}
+                        {isDirector && (
+                          <button
+                            type="button"
+                            title="Xóa"
+                            className="rounded-md p-1 text-slate-400 hover:bg-red-50 hover:text-red-500"
+                            onClick={() => setConfirmRemoveParticipantId(p.id)}
+                            disabled={removeParticipantMutation.isPending}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+              </div>
+
+              {/* Notice banners */}
+              {isDirector && delegate && (
+                <div className="mx-4 mb-3 rounded-lg border border-orange-200 bg-orange-50 px-3 py-2 text-xs text-orange-700">
+                  Bạn đã ủy quyền — <strong>{delegate.user_name}</strong> sẽ
+                  duyệt thay bạn.
+                </div>
+              )}
+              {isDirector && coApprovers.length > 0 && !primaryRecord && (
+                <div className="mx-4 mb-3 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-700">
+                  Nhấn nút <strong>Duyệt</strong> để xác nhận phần của bạn. Bước
+                  sẽ chuyển khi tất cả đã xác nhận.
+                </div>
+              )}
+
+              {/* Add participant form */}
+              {showAddParticipant && (
+                <div className="border-t bg-slate-50 px-4 py-4 space-y-3">
+                  <p className="text-xs font-semibold text-slate-600">
+                    Thêm người duyệt
+                  </p>
+
+                  {/* Role selector — 2 card buttons */}
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setParticipantRole("co_approver")}
+                      className={[
+                        "rounded-lg border p-3 text-left transition-colors",
+                        participantRole === "co_approver"
+                          ? "border-blue-400 bg-blue-50 ring-1 ring-blue-400"
+                          : "border-slate-200 bg-white hover:border-blue-300",
+                      ].join(" ")}
+                    >
+                      <p className="text-xs font-semibold text-slate-700">
+                        Cùng duyệt
+                      </p>
+                      <p className="mt-0.5 text-[10px] text-slate-400">
+                        Tất cả phải duyệt mới qua
+                      </p>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setParticipantRole("delegate")}
+                      className={[
+                        "rounded-lg border p-3 text-left transition-colors",
+                        participantRole === "delegate"
+                          ? "border-orange-400 bg-orange-50 ring-1 ring-orange-400"
+                          : "border-slate-200 bg-white hover:border-orange-300",
+                      ].join(" ")}
+                    >
+                      <p className="text-xs font-semibold text-slate-700">
+                        Ủy quyền
+                      </p>
+                      <p className="mt-0.5 text-[10px] text-slate-400">
+                        Người này duyệt thay bạn
+                      </p>
+                    </button>
+                  </div>
+
+                  {/* Search input */}
+                  <div className="space-y-1">
+                    <Input
+                      placeholder="Tìm theo tên, email, bộ phận..."
+                      value={participantSearch}
+                      onChange={(e) => {
+                        setParticipantSearch(e.target.value)
+                        setParticipantUserId("")
+                      }}
+                      className="bg-white text-sm"
+                    />
+                  </div>
+
+                  {/* User list */}
+                  <div className="max-h-52 overflow-y-auto rounded-lg border bg-white divide-y">
+                    {companyMembersQuery.isLoading ? (
+                      <p className="p-3 text-xs text-muted-foreground">
+                        Đang tải...
+                      </p>
+                    ) : filteredMembers.length === 0 ? (
+                      <p className="p-3 text-xs text-muted-foreground">
+                        Không tìm thấy nhân viên phù hợp.
+                      </p>
+                    ) : (
+                      filteredMembers.map((m: CompanyMember) => {
+                        const selected = participantUserId === m.user_id
+                        return (
+                          <button
+                            key={m.user_id}
+                            type="button"
+                            className={[
+                              "flex w-full items-center gap-3 px-3 py-2.5 text-left transition-colors",
+                              selected ? "bg-primary/10" : "hover:bg-slate-50",
+                            ].join(" ")}
+                            onClick={() =>
+                              setParticipantUserId(selected ? "" : m.user_id)
+                            }
+                          >
+                            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-200 text-xs font-bold text-slate-600">
+                              {(m.full_name ?? m.email)
+                                .split(" ")
+                                .map((w: string) => w[0])
+                                .slice(-2)
+                                .join("")
+                                .toUpperCase()}
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate text-sm font-medium text-slate-800">
+                                {m.full_name ?? "—"}
+                              </p>
+                              <p className="truncate text-[11px] text-slate-400">
+                                {m.role_display_name} · {m.email}
+                              </p>
+                            </div>
+                            {selected && (
+                              <UserCheck className="h-4 w-4 shrink-0 text-primary" />
+                            )}
+                          </button>
+                        )
+                      })
                     )}
                   </div>
+
+                  {/* Actions */}
+                  <div className="flex gap-2 pt-1">
+                    <Button
+                      type="button"
+                      size="sm"
+                      disabled={
+                        !participantUserId || addParticipantMutation.isPending
+                      }
+                      onClick={() =>
+                        addParticipantMutation.mutate({
+                          user_id: participantUserId,
+                          role: participantRole,
+                        })
+                      }
+                    >
+                      {addParticipantMutation.isPending ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" />
+                      ) : null}
+                      Xác nhận
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        setShowAddParticipant(false)
+                        setParticipantUserId("")
+                        setParticipantSearch("")
+                      }}
+                    >
+                      Hủy
+                    </Button>
+                  </div>
                 </div>
-              ))}
-            </div>
+              )}
 
-            {/* Notice banners */}
-            {isDirector && delegate && (
-              <div className="mx-4 mb-3 rounded-lg border border-orange-200 bg-orange-50 px-3 py-2 text-xs text-orange-700">
-                Bạn đã ủy quyền — <strong>{delegate.user_name}</strong> sẽ duyệt thay bạn.
-              </div>
-            )}
-            {isDirector && coApprovers.length > 0 && !primaryRecord && (
-              <div className="mx-4 mb-3 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-700">
-                Nhấn nút <strong>Duyệt</strong> để xác nhận phần của bạn. Bước sẽ chuyển khi tất cả đã xác nhận.
-              </div>
-            )}
-
-            {/* Add participant form */}
-            {showAddParticipant && (
-              <div className="border-t bg-slate-50 px-4 py-4 space-y-3">
-                <p className="text-xs font-semibold text-slate-600">Thêm người duyệt</p>
-
-                {/* Role selector — 2 card buttons */}
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setParticipantRole("co_approver")}
-                    className={[
-                      "rounded-lg border p-3 text-left transition-colors",
-                      participantRole === "co_approver"
-                        ? "border-blue-400 bg-blue-50 ring-1 ring-blue-400"
-                        : "border-slate-200 bg-white hover:border-blue-300",
-                    ].join(" ")}
-                  >
-                    <p className="text-xs font-semibold text-slate-700">Cùng duyệt</p>
-                    <p className="mt-0.5 text-[10px] text-slate-400">Tất cả phải duyệt mới qua</p>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setParticipantRole("delegate")}
-                    className={[
-                      "rounded-lg border p-3 text-left transition-colors",
-                      participantRole === "delegate"
-                        ? "border-orange-400 bg-orange-50 ring-1 ring-orange-400"
-                        : "border-slate-200 bg-white hover:border-orange-300",
-                    ].join(" ")}
-                  >
-                    <p className="text-xs font-semibold text-slate-700">Ủy quyền</p>
-                    <p className="mt-0.5 text-[10px] text-slate-400">Người này duyệt thay bạn</p>
-                  </button>
-                </div>
-
-                {/* Search input */}
-                <div className="space-y-1">
+              {/* Participant approve button */}
+              {myParticipant && !myParticipant.has_approved && (
+                <div className="border-t bg-blue-50 px-4 py-4 space-y-2">
+                  <p className="text-sm font-semibold text-blue-800">
+                    {myParticipant.role === "delegate"
+                      ? "Bạn được ủy quyền duyệt bước này"
+                      : "Bạn được mời co-duyệt bước này"}
+                  </p>
                   <Input
-                    placeholder="Tìm theo tên, email, bộ phận..."
-                    value={participantSearch}
-                    onChange={(e) => { setParticipantSearch(e.target.value); setParticipantUserId("") }}
-                    className="bg-white text-sm"
+                    placeholder="Ghi chú (tuỳ chọn)"
+                    value={participantNote}
+                    onChange={(e) => setParticipantNote(e.target.value)}
+                    className="bg-white"
                   />
-                </div>
-
-                {/* User list */}
-                <div className="max-h-52 overflow-y-auto rounded-lg border bg-white divide-y">
-                  {companyMembersQuery.isLoading ? (
-                    <p className="p-3 text-xs text-muted-foreground">Đang tải...</p>
-                  ) : filteredMembers.length === 0 ? (
-                    <p className="p-3 text-xs text-muted-foreground">Không tìm thấy nhân viên phù hợp.</p>
-                  ) : filteredMembers.map((m: CompanyMember) => {
-                    const selected = participantUserId === m.user_id
-                    return (
-                      <button
-                        key={m.user_id}
-                        type="button"
-                        className={[
-                          "flex w-full items-center gap-3 px-3 py-2.5 text-left transition-colors",
-                          selected ? "bg-primary/10" : "hover:bg-slate-50",
-                        ].join(" ")}
-                        onClick={() => setParticipantUserId(selected ? "" : m.user_id)}
-                      >
-                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-200 text-xs font-bold text-slate-600">
-                          {(m.full_name ?? m.email).split(" ").map((w: string) => w[0]).slice(-2).join("").toUpperCase()}
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <p className="truncate text-sm font-medium text-slate-800">
-                            {m.full_name ?? "—"}
-                          </p>
-                          <p className="truncate text-[11px] text-slate-400">
-                            {m.role_display_name} · {m.email}
-                          </p>
-                        </div>
-                        {selected && (
-                          <UserCheck className="h-4 w-4 shrink-0 text-primary" />
-                        )}
-                      </button>
-                    )
-                  })}
-                </div>
-
-                {/* Actions */}
-                <div className="flex gap-2 pt-1">
                   <Button
                     type="button"
                     size="sm"
-                    disabled={!participantUserId || addParticipantMutation.isPending}
-                    onClick={() => addParticipantMutation.mutate({ user_id: participantUserId, role: participantRole })}
+                    disabled={participantApproveMutation.isPending}
+                    onClick={() =>
+                      participantApproveMutation.mutate(
+                        participantNote || undefined,
+                      )
+                    }
                   >
-                    {addParticipantMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : null}
-                    Xác nhận
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => { setShowAddParticipant(false); setParticipantUserId(""); setParticipantSearch("") }}
-                  >
-                    Hủy
+                    {participantApproveMutation.isPending ? (
+                      <Loader2 className="h-4 w-4 animate-spin mr-1" />
+                    ) : null}
+                    {myParticipant.role === "delegate"
+                      ? "Duyệt (được ủy quyền)"
+                      : "Xác nhận co-duyệt"}
                   </Button>
                 </div>
-              </div>
-            )}
-
-            {/* Participant approve button */}
-            {myParticipant && !myParticipant.has_approved && (
-              <div className="border-t bg-blue-50 px-4 py-4 space-y-2">
-                <p className="text-sm font-semibold text-blue-800">
-                  {myParticipant.role === "delegate" ? "Bạn được ủy quyền duyệt bước này" : "Bạn được mời co-duyệt bước này"}
-                </p>
-                <Input
-                  placeholder="Ghi chú (tuỳ chọn)"
-                  value={participantNote}
-                  onChange={(e) => setParticipantNote(e.target.value)}
-                  className="bg-white"
-                />
-                <Button
-                  type="button"
-                  size="sm"
-                  disabled={participantApproveMutation.isPending}
-                  onClick={() => participantApproveMutation.mutate(participantNote || undefined)}
-                >
-                  {participantApproveMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null}
-                  {myParticipant.role === "delegate" ? "Duyệt (được ủy quyền)" : "Xác nhận co-duyệt"}
-                </Button>
-              </div>
-            )}
-          </div>
-        )
-      })()}
+              )}
+            </div>
+          )
+        })()}
 
       {/* Outcome banner */}
       {quotation.outcome === "won" && (
@@ -1599,7 +1977,9 @@ function QuotationDetailPage() {
       {quotation.outcome === "lost" && (
         <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
           <span className="font-medium">Hồ sơ thua —</span>{" "}
-          {LOST_REASON_LABELS[quotation.lost_reason_category ?? ""] ?? quotation.lost_reason_category ?? "Không rõ lý do"}
+          {LOST_REASON_LABELS[quotation.lost_reason_category ?? ""] ??
+            quotation.lost_reason_category ??
+            "Không rõ lý do"}
           {quotation.lost_reason_detail ? (
             <p className="mt-1 text-xs">{quotation.lost_reason_detail}</p>
           ) : null}
@@ -1608,10 +1988,15 @@ function QuotationDetailPage() {
 
       {/* Thông tin khách hàng */}
       <div className="rounded-lg border bg-card p-4 space-y-3">
-        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Khách hàng</p>
+        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          Khách hàng
+        </p>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <Field label="Tên công ty" value={quotation.client_company_name} />
-          <Field label="Hạng mục thiết bị" value={quotation.equipment_category} />
+          <Field
+            label="Hạng mục thiết bị"
+            value={quotation.equipment_category}
+          />
           <Field label="Người liên hệ" value={quotation.client_contact_name} />
           <Field label="Điện thoại" value={quotation.client_contact_phone} />
           <Field label="Email" value={quotation.client_contact_email} />
@@ -1621,7 +2006,9 @@ function QuotationDetailPage() {
 
       {/* Phụ trách */}
       <div className="rounded-lg border bg-card p-4 space-y-3">
-        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Phụ trách</p>
+        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          Phụ trách
+        </p>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           <Field label="Kinh doanh" value={quotation.sales_owner_name} />
           <Field label="Kỹ thuật" value={quotation.technical_owner_name} />
@@ -1632,7 +2019,9 @@ function QuotationDetailPage() {
       {/* Tài chính */}
       <div className="rounded-lg border bg-card p-4 space-y-3">
         <div className="flex items-center justify-between gap-3">
-          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Tài chính</p>
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            Tài chính
+          </p>
           <Button
             type="button"
             variant="outline"
@@ -1653,7 +2042,11 @@ function QuotationDetailPage() {
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <Field
             label="Tổng giá trị hợp đồng"
-            value={priceVisible ? formatVnd(quotation.total_contract_value) : "••••••"}
+            value={
+              priceVisible
+                ? formatVnd(quotation.total_contract_value)
+                : "••••••"
+            }
           />
           <Field label="Đồng tiền" value={quotation.currency} />
         </div>
@@ -1661,20 +2054,38 @@ function QuotationDetailPage() {
 
       {/* Mốc thời gian */}
       <div className="rounded-lg border bg-card p-4 space-y-3">
-        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Thời gian</p>
+        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          Thời gian
+        </p>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <Field label="Ngày tạo" value={formatDate(quotation.created_at)} />
-          <Field label="Ngày khảo sát" value={formatDate(quotation.site_survey_date)} />
-          <Field label="Hiệu lực báo giá đến" value={formatDate(quotation.valid_until)} />
-          <Field label="Hạn phản hồi KH" value={formatDate(quotation.client_response_deadline)} />
-          <Field label="Ngày gửi KH" value={formatDate(quotation.sent_to_client_at)} />
+          <Field
+            label="Ngày khảo sát"
+            value={formatDate(quotation.site_survey_date)}
+          />
+          <Field
+            label="Hiệu lực báo giá đến"
+            value={formatDate(quotation.valid_until)}
+          />
+          <Field
+            label="Hạn phản hồi KH"
+            value={formatDate(quotation.client_response_deadline)}
+          />
+          <Field
+            label="Ngày gửi KH"
+            value={formatDate(quotation.sent_to_client_at)}
+          />
         </div>
       </div>
 
       {quotation.notes ? (
         <div className="rounded-lg border bg-card p-4">
-          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">Ghi chú</p>
-          <p className="text-sm whitespace-pre-wrap text-muted-foreground">{quotation.notes}</p>
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">
+            Ghi chú
+          </p>
+          <p className="text-sm whitespace-pre-wrap text-muted-foreground">
+            {quotation.notes}
+          </p>
         </div>
       ) : null}
 
@@ -1705,8 +2116,14 @@ function QuotationDetailPage() {
                 </p>
                 <div className="flex gap-2">
                   <div className="flex-1 space-y-1">
-                    <p className="text-xs text-muted-foreground">Ngày tiếp xúc *</p>
-                    <Input type="date" value={logDate} onChange={(e) => setLogDate(e.target.value)} />
+                    <p className="text-xs text-muted-foreground">
+                      Ngày tiếp xúc *
+                    </p>
+                    <Input
+                      type="date"
+                      value={logDate}
+                      onChange={(e) => setLogDate(e.target.value)}
+                    />
                   </div>
                   <div className="w-44 space-y-1">
                     <p className="text-xs text-muted-foreground">Hình thức *</p>
@@ -1716,9 +2133,13 @@ function QuotationDetailPage() {
                       onChange={(e) => setLogMethod(e.target.value)}
                       className="h-9 w-full rounded-md border bg-background px-3 text-sm"
                     >
-                      {Object.entries(CONTACT_METHOD_LABELS).map(([key, label]) => (
-                        <option key={key} value={key}>{label}</option>
-                      ))}
+                      {Object.entries(CONTACT_METHOD_LABELS).map(
+                        ([key, label]) => (
+                          <option key={key} value={key}>
+                            {label}
+                          </option>
+                        ),
+                      )}
                     </select>
                   </div>
                 </div>
@@ -1733,8 +2154,14 @@ function QuotationDetailPage() {
                   onChange={(e) => setLogFeedback(e.target.value)}
                 />
                 <div className="space-y-1">
-                  <p className="text-xs text-muted-foreground">Lịch follow-up (tuỳ chọn)</p>
-                  <Input type="date" value={logFollowUp} onChange={(e) => setLogFollowUp(e.target.value)} />
+                  <p className="text-xs text-muted-foreground">
+                    Lịch follow-up (tuỳ chọn)
+                  </p>
+                  <Input
+                    type="date"
+                    value={logFollowUp}
+                    onChange={(e) => setLogFollowUp(e.target.value)}
+                  />
                 </div>
                 <div className="flex gap-2 pt-1">
                   <Button
@@ -1744,13 +2171,21 @@ function QuotationDetailPage() {
                   >
                     {addLogMutation.isPending ? "Đang lưu..." : "Lưu bản ghi"}
                   </Button>
-                  <Button size="sm" variant="ghost" onClick={() => setAddLogOpen(false)}>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => setAddLogOpen(false)}
+                  >
                     Huỷ
                   </Button>
                 </div>
               </div>
             ) : (
-              <Button size="sm" variant="outline" onClick={() => setAddLogOpen(true)}>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setAddLogOpen(true)}
+              >
                 + Thêm bản ghi thương lượng
               </Button>
             )}
@@ -1761,9 +2196,13 @@ function QuotationDetailPage() {
             {negotiationsQuery.isLoading ? (
               <p className="p-4 text-sm text-muted-foreground">Đang tải...</p>
             ) : negotiationsQuery.isError ? (
-              <p className="p-4 text-sm text-destructive">Không thể tải bản ghi thương lượng.</p>
+              <p className="p-4 text-sm text-destructive">
+                Không thể tải bản ghi thương lượng.
+              </p>
             ) : !negotiationsQuery.data?.length ? (
-              <p className="p-4 text-sm text-muted-foreground">Chưa có bản ghi thương lượng nào.</p>
+              <p className="p-4 text-sm text-muted-foreground">
+                Chưa có bản ghi thương lượng nào.
+              </p>
             ) : (
               <div className="divide-y">
                 {negotiationsQuery.data.map((log) => (
@@ -1771,7 +2210,10 @@ function QuotationDetailPage() {
                     <div className="flex items-center gap-2 text-xs text-muted-foreground">
                       <span>{formatDate(log.contact_date)}</span>
                       <span>·</span>
-                      <span>{CONTACT_METHOD_LABELS[log.contact_method] ?? log.contact_method}</span>
+                      <span>
+                        {CONTACT_METHOD_LABELS[log.contact_method] ??
+                          log.contact_method}
+                      </span>
                       <span>·</span>
                       <span>{log.logged_by_name ?? "—"}</span>
                     </div>
@@ -1813,7 +2255,9 @@ function QuotationDetailPage() {
               <Paperclip className="mr-1.5 h-4 w-4" />
               {uploadingAttachment ? "Đang upload..." : "Upload file đính kèm"}
             </Button>
-            <p className="text-xs text-muted-foreground">Hỗ trợ mọi định dạng file.</p>
+            <p className="text-xs text-muted-foreground">
+              Hỗ trợ mọi định dạng file.
+            </p>
           </div>
 
           {/* File list with icons */}
@@ -1821,9 +2265,13 @@ function QuotationDetailPage() {
             {attachmentsQuery.isLoading ? (
               <p className="p-4 text-sm text-muted-foreground">Đang tải...</p>
             ) : attachmentsQuery.isError ? (
-              <p className="p-4 text-sm text-destructive">Không thể tải file đính kèm.</p>
+              <p className="p-4 text-sm text-destructive">
+                Không thể tải file đính kèm.
+              </p>
             ) : !groupedLibraryAttachments.length ? (
-              <p className="p-4 text-sm text-muted-foreground">Chưa có file đính kèm nào.</p>
+              <p className="p-4 text-sm text-muted-foreground">
+                Chưa có file đính kèm nào.
+              </p>
             ) : (
               <div className="divide-y">
                 {groupedLibraryAttachments.map((group) => (
@@ -1845,7 +2293,11 @@ function QuotationDetailPage() {
                             type="button"
                             className="min-w-0 flex-1 text-left"
                             onClick={() =>
-                              handleViewAttachment(item.file_url, item.file_name, item.file_type)
+                              handleViewAttachment(
+                                item.file_url,
+                                item.file_name,
+                                item.file_type,
+                              )
                             }
                           >
                             <div className="flex flex-wrap items-center gap-2">
@@ -1862,12 +2314,15 @@ function QuotationDetailPage() {
                               {item.file_name}
                             </p>
                             <p className="text-xs text-muted-foreground">
-                              {STAGE_CONFIG[item.stage_uploaded as QuotationStage]?.label ??
-                                item.stage_uploaded}
+                              {STAGE_CONFIG[
+                                item.stage_uploaded as QuotationStage
+                              ]?.label ?? item.stage_uploaded}
                               {" · "}
                               {item.uploaded_by_name ?? "—"}
                               {" · "}
-                              {new Date(item.uploaded_at).toLocaleDateString("vi-VN")}
+                              {new Date(item.uploaded_at).toLocaleDateString(
+                                "vi-VN",
+                              )}
                             </p>
                           </button>
                         </li>
@@ -1895,21 +2350,36 @@ function QuotationDetailPage() {
                     : getStageFilterLabel(selectedHistoryStage)}
                 </span>
               </p>
-              <Button type="button" size="sm" variant="outline" onClick={() => setSelectedHistoryStage(null)}>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={() => setSelectedHistoryStage(null)}
+              >
                 Bỏ lọc
               </Button>
             </div>
           ) : null}
           {historyQuery.isLoading ? (
-            <p className="text-sm text-muted-foreground">Đang tải lịch sử chuyển bước...</p>
+            <p className="text-sm text-muted-foreground">
+              Đang tải lịch sử chuyển bước...
+            </p>
           ) : historyQuery.isError ? (
-            <p className="text-sm text-destructive">Không thể tải lịch sử chuyển bước.</p>
+            <p className="text-sm text-destructive">
+              Không thể tải lịch sử chuyển bước.
+            </p>
           ) : (
             <StageTransitionTimeline
               entries={timelineEntries}
               attachments={timelineAttachments}
               actionConfig={QUOTATION_ACTION_CONFIG}
-              onViewAttachment={(att) => handleViewAttachment(att.file_url, att.file_name, att.file_type ?? null)}
+              onViewAttachment={(att) =>
+                handleViewAttachment(
+                  att.file_url,
+                  att.file_name,
+                  att.file_type ?? null,
+                )
+              }
             />
           )}
         </TabsContent>
@@ -1937,47 +2407,71 @@ function QuotationDetailPage() {
             {selectedAction === "submit_survey" ? (
               <div className="grid gap-3 rounded-md border p-3">
                 <div className="space-y-1">
-                  <p className="text-xs font-medium text-muted-foreground">Tên khách hàng</p>
+                  <p className="text-xs font-medium text-muted-foreground">
+                    Tên khách hàng
+                  </p>
                   <Input
                     value={surveyContactName}
-                    onChange={(eventValue) => setSurveyContactName(eventValue.target.value)}
+                    onChange={(eventValue) =>
+                      setSurveyContactName(eventValue.target.value)
+                    }
                   />
                 </div>
                 <div className="space-y-1">
-                  <p className="text-xs font-medium text-muted-foreground">SDT</p>
+                  <p className="text-xs font-medium text-muted-foreground">
+                    SDT
+                  </p>
                   <Input
                     value={surveyContactPhone}
-                    onChange={(eventValue) => setSurveyContactPhone(eventValue.target.value)}
+                    onChange={(eventValue) =>
+                      setSurveyContactPhone(eventValue.target.value)
+                    }
                   />
                 </div>
                 <div className="space-y-1">
-                  <p className="text-xs font-medium text-muted-foreground">Chức vụ</p>
+                  <p className="text-xs font-medium text-muted-foreground">
+                    Chức vụ
+                  </p>
                   <Input
                     value={surveyContactTitle}
-                    onChange={(eventValue) => setSurveyContactTitle(eventValue.target.value)}
+                    onChange={(eventValue) =>
+                      setSurveyContactTitle(eventValue.target.value)
+                    }
                   />
                 </div>
                 <div className="space-y-1">
-                  <p className="text-xs font-medium text-muted-foreground">Vị trí khảo sát</p>
+                  <p className="text-xs font-medium text-muted-foreground">
+                    Vị trí khảo sát
+                  </p>
                   <Input
                     value={surveyLocation}
-                    onChange={(eventValue) => setSurveyLocation(eventValue.target.value)}
+                    onChange={(eventValue) =>
+                      setSurveyLocation(eventValue.target.value)
+                    }
                   />
                 </div>
                 <div className="space-y-1">
-                  <p className="text-xs font-medium text-muted-foreground">Thời gian bắt đầu khảo sát</p>
+                  <p className="text-xs font-medium text-muted-foreground">
+                    Thời gian bắt đầu khảo sát
+                  </p>
                   <Input
                     type="date"
                     value={surveyStartDate}
-                    onChange={(eventValue) => setSurveyStartDate(eventValue.target.value)}
+                    onChange={(eventValue) =>
+                      setSurveyStartDate(eventValue.target.value)
+                    }
                   />
                 </div>
                 <div className="space-y-1">
-                  <p className="text-xs font-medium text-muted-foreground">Thời gian kết thúc khảo sát</p>
+                  <p className="text-xs font-medium text-muted-foreground">
+                    Thời gian kết thúc khảo sát
+                  </p>
                   <Input
                     type="date"
                     value={surveyEndDate}
-                    onChange={(eventValue) => setSurveyEndDate(eventValue.target.value)}
+                    onChange={(eventValue) =>
+                      setSurveyEndDate(eventValue.target.value)
+                    }
                   />
                 </div>
               </div>
@@ -1986,7 +2480,8 @@ function QuotationDetailPage() {
             {showsTotalContractValue ? (
               <div className="space-y-1">
                 <p className="text-xs font-medium text-muted-foreground">
-                  Tổng giá trị hợp đồng (VND) <span className="text-destructive">*</span>
+                  Tổng giá trị hợp đồng (VND){" "}
+                  <span className="text-destructive">*</span>
                 </p>
                 <Input
                   inputMode="decimal"
@@ -2003,19 +2498,27 @@ function QuotationDetailPage() {
             {requiresClientDates ? (
               <>
                 <div className="space-y-1">
-                  <p className="text-xs font-medium text-muted-foreground">Hiệu lực báo giá</p>
+                  <p className="text-xs font-medium text-muted-foreground">
+                    Hiệu lực báo giá
+                  </p>
                   <Input
                     type="date"
                     value={validUntil}
-                    onChange={(eventValue) => setValidUntil(eventValue.target.value)}
+                    onChange={(eventValue) =>
+                      setValidUntil(eventValue.target.value)
+                    }
                   />
                 </div>
                 <div className="space-y-1">
-                  <p className="text-xs font-medium text-muted-foreground">Hạn phản hồi khách hàng</p>
+                  <p className="text-xs font-medium text-muted-foreground">
+                    Hạn phản hồi khách hàng
+                  </p>
                   <Input
                     type="date"
                     value={clientResponseDeadline}
-                    onChange={(eventValue) => setClientResponseDeadline(eventValue.target.value)}
+                    onChange={(eventValue) =>
+                      setClientResponseDeadline(eventValue.target.value)
+                    }
                   />
                 </div>
               </>
@@ -2023,18 +2526,30 @@ function QuotationDetailPage() {
 
             {selectedAction === "close_won" ? (
               <p className="text-xs text-muted-foreground rounded-lg border bg-blue-50 px-3 py-2">
-                💡 Sau khi thắng hợp đồng, vào dự án và chuyển trạng thái sang <span className="font-semibold">"Đang thực hiện"</span> để thiết lập nhân sự tham gia.
+                💡 Sau khi thắng hợp đồng, vào dự án và chuyển trạng thái sang{" "}
+                <span className="font-semibold">"Đang thực hiện"</span> để thiết
+                lập nhân sự tham gia.
               </p>
             ) : null}
 
             {requiresLostReason ? (
               <>
                 <div className="space-y-1">
-                  <p className="text-xs font-medium text-muted-foreground">Lý do thua</p>
+                  <p className="text-xs font-medium text-muted-foreground">
+                    Lý do thua
+                  </p>
                   <select
                     title="Chọn lý do thua"
                     value={lostReasonCategory}
-                    onChange={(eventValue) => setLostReasonCategory(eventValue.target.value as "price" | "design" | "marketing" | "other")}
+                    onChange={(eventValue) =>
+                      setLostReasonCategory(
+                        eventValue.target.value as
+                          | "price"
+                          | "design"
+                          | "marketing"
+                          | "other",
+                      )
+                    }
                     className="h-9 w-full rounded-md border bg-background px-3 text-sm"
                   >
                     {Object.entries(LOST_REASON_LABELS).map(([key, label]) => (
@@ -2045,28 +2560,45 @@ function QuotationDetailPage() {
                   </select>
                 </div>
                 <div className="space-y-1">
-                  <p className="text-xs font-medium text-muted-foreground">Chi tiết</p>
+                  <p className="text-xs font-medium text-muted-foreground">
+                    Chi tiết
+                  </p>
                   <Input
                     placeholder="Mô tả chi tiết lý do thua"
                     value={lostReasonDetail}
-                    onChange={(eventValue) => setLostReasonDetail(eventValue.target.value)}
+                    onChange={(eventValue) =>
+                      setLostReasonDetail(eventValue.target.value)
+                    }
                   />
                 </div>
               </>
             ) : null}
 
             {/* Target stage selector — shown for director reject actions */}
-            {(selectedAction === "reject_survey" || selectedAction === "reject_design" || selectedAction === "reject_final" || selectedAction === "reject_negotiation") && DIRECTOR_REJECT_STAGES.includes(quotation.current_stage) ? (
+            {(selectedAction === "reject_survey" ||
+              selectedAction === "reject_design" ||
+              selectedAction === "reject_final" ||
+              selectedAction === "reject_negotiation") &&
+            DIRECTOR_REJECT_STAGES.includes(quotation.current_stage) ? (
               <div className="space-y-1">
-                <p className="text-xs font-medium text-muted-foreground">Quay về giai đoạn</p>
+                <p className="text-xs font-medium text-muted-foreground">
+                  Quay về giai đoạn
+                </p>
                 <select
                   title="Chọn giai đoạn muốn quay về"
                   value={targetRejectStage ?? ""}
-                  onChange={(e) => setTargetRejectStage((e.target.value as QuotationStage) || null)}
+                  onChange={(e) =>
+                    setTargetRejectStage(
+                      (e.target.value as QuotationStage) || null,
+                    )
+                  }
                   className="h-9 w-full rounded-md border bg-background px-3 text-sm"
                 >
                   <option value="">Mặc định (giai đoạn liền trước)</option>
-                  {STAGE_ORDER.slice(0, STAGE_ORDER.indexOf(quotation.current_stage)).map((stage) => (
+                  {STAGE_ORDER.slice(
+                    0,
+                    STAGE_ORDER.indexOf(quotation.current_stage),
+                  ).map((stage) => (
                     <option key={stage} value={stage}>
                       {STAGE_CONFIG[stage].label}
                     </option>
@@ -2078,7 +2610,10 @@ function QuotationDetailPage() {
             {/* Note body — contentEditable, NO dangerouslySetInnerHTML to avoid cursor-flip */}
             <div className="space-y-2 rounded-md border p-3">
               <p className="text-xs font-medium text-muted-foreground">
-                Nội dung cho bước này {(requiresRejectNote || requiresNote) ? "(bắt buộc)" : "(tuỳ chọn)"}
+                Nội dung cho bước này{" "}
+                {requiresRejectNote || requiresNote
+                  ? "(bắt buộc)"
+                  : "(tuỳ chọn)"}
               </p>
               <Input
                 placeholder="Tiêu đề"
@@ -2086,28 +2621,76 @@ function QuotationDetailPage() {
                 onChange={(eventValue) => setNoteTitle(eventValue.target.value)}
               />
               <div className="flex flex-wrap items-center gap-1 rounded-md border bg-muted/30 p-1">
-                <Button type="button" variant="ghost" size="sm" onClick={() => applyEditorCommand("bold")} title="Đậm">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => applyEditorCommand("bold")}
+                  title="Đậm"
+                >
                   <Bold className="h-4 w-4" />
                 </Button>
-                <Button type="button" variant="ghost" size="sm" onClick={() => applyEditorCommand("italic")} title="Nghiêng">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => applyEditorCommand("italic")}
+                  title="Nghiêng"
+                >
                   <Italic className="h-4 w-4" />
                 </Button>
-                <Button type="button" variant="ghost" size="sm" onClick={() => applyEditorCommand("underline")} title="Gạch chân">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => applyEditorCommand("underline")}
+                  title="Gạch chân"
+                >
                   <Underline className="h-4 w-4" />
                 </Button>
-                <Button type="button" variant="ghost" size="sm" onClick={() => applyEditorCommand("strikeThrough")} title="Gạch ngang">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => applyEditorCommand("strikeThrough")}
+                  title="Gạch ngang"
+                >
                   <Strikethrough className="h-4 w-4" />
                 </Button>
-                <Button type="button" variant="ghost" size="sm" onClick={() => applyEditorCommand("formatBlock", "h2")} title="Heading">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => applyEditorCommand("formatBlock", "h2")}
+                  title="Heading"
+                >
                   <Heading2 className="h-4 w-4" />
                 </Button>
-                <Button type="button" variant="ghost" size="sm" onClick={() => applyEditorCommand("justifyLeft")} title="Căn trái">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => applyEditorCommand("justifyLeft")}
+                  title="Căn trái"
+                >
                   <AlignLeft className="h-4 w-4" />
                 </Button>
-                <Button type="button" variant="ghost" size="sm" onClick={() => applyEditorCommand("insertUnorderedList")} title="Danh sách bullet">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => applyEditorCommand("insertUnorderedList")}
+                  title="Danh sách bullet"
+                >
                   <List className="h-4 w-4" />
                 </Button>
-                <Button type="button" variant="ghost" size="sm" onClick={() => applyEditorCommand("insertOrderedList")} title="Danh sách số">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => applyEditorCommand("insertOrderedList")}
+                  title="Danh sách số"
+                >
                   <ListOrdered className="h-4 w-4" />
                 </Button>
               </div>
@@ -2120,7 +2703,9 @@ function QuotationDetailPage() {
                 suppressContentEditableWarning
                 className="min-h-40 w-full rounded-md border bg-background p-3 text-sm outline-none focus:ring-1 focus:ring-ring"
                 onInput={(eventValue) =>
-                  setNoteBodyHtml((eventValue.currentTarget as HTMLDivElement).innerHTML)
+                  setNoteBodyHtml(
+                    (eventValue.currentTarget as HTMLDivElement).innerHTML,
+                  )
                 }
               />
             </div>
@@ -2166,7 +2751,9 @@ function QuotationDetailPage() {
               </Button>
             </div>
             {uploadingAttachment ? (
-              <p className="text-xs text-muted-foreground">Đang upload file vào hệ thống...</p>
+              <p className="text-xs text-muted-foreground">
+                Đang upload file vào hệ thống...
+              </p>
             ) : null}
             {dialogUploadedAttachments.length ? (
               <div className="rounded-md border bg-muted/10 p-3">
@@ -2180,7 +2767,13 @@ function QuotationDetailPage() {
                       type="button"
                       className="block max-w-full truncate text-left text-xs text-primary underline"
                       title={att.file_name}
-                      onClick={() => handleViewAttachment(att.file_url, att.file_name, att.file_type)}
+                      onClick={() =>
+                        handleViewAttachment(
+                          att.file_url,
+                          att.file_name,
+                          att.file_type,
+                        )
+                      }
                     >
                       {att.file_name}
                     </button>
@@ -2198,7 +2791,10 @@ function QuotationDetailPage() {
             >
               Huỷ
             </Button>
-            <Button disabled={workflowMutation.isPending} onClick={handleConfirmAction}>
+            <Button
+              disabled={workflowMutation.isPending}
+              onClick={handleConfirmAction}
+            >
               {workflowMutation.isPending ? "Đang xử lý..." : "Xác nhận"}
             </Button>
           </DialogFooter>
@@ -2243,17 +2839,25 @@ function QuotationDetailPage() {
       {/* Confirm remove participant */}
       <Dialog
         open={!!confirmRemoveParticipantId}
-        onOpenChange={(open) => { if (!open) setConfirmRemoveParticipantId(null) }}
+        onOpenChange={(open) => {
+          if (!open) setConfirmRemoveParticipantId(null)
+        }}
       >
         <DialogContent className="max-w-sm">
           <DialogHeader>
             <DialogTitle>Xác nhận xóa người duyệt</DialogTitle>
             <DialogDescription>
-              Bạn có chắc muốn xóa người này khỏi danh sách duyệt không? Hành động này không thể hoàn tác.
+              Bạn có chắc muốn xóa người này khỏi danh sách duyệt không? Hành
+              động này không thể hoàn tác.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setConfirmRemoveParticipantId(null)}>Hủy</Button>
+            <Button
+              variant="outline"
+              onClick={() => setConfirmRemoveParticipantId(null)}
+            >
+              Hủy
+            </Button>
             <Button
               variant="destructive"
               disabled={removeParticipantMutation.isPending}
@@ -2278,17 +2882,32 @@ function QuotationDetailPage() {
 // ---------------------------------------------------------------------------
 
 type QuotationStep = { label: string; detail?: string; urgent?: boolean }
-type QuotationNextStepsConfig = { title: string; color: string; steps: QuotationStep[] }
+type QuotationNextStepsConfig = {
+  title: string
+  color: string
+  steps: QuotationStep[]
+}
 
 const QUOTATION_NEXT_STEPS: Record<QuotationStage, QuotationNextStepsConfig> = {
   S1_SALES_COLLECT: {
     title: "Bước khảo sát — Kinh doanh thu thập thông tin",
     color: "border-blue-200 bg-blue-50",
     steps: [
-      { label: "Liên hệ khách hàng, xác nhận người phụ trách và địa chỉ khảo sát" },
-      { label: "Ghi nhận thông tin liên hệ đầy đủ: họ tên, chức vụ, số điện thoại" },
-      { label: "Đính kèm file biên bản khảo sát, hình ảnh hiện trường (nếu có)" },
-      { label: 'Bấm "Nộp khảo sát" khi đã thu thập đủ thông tin', urgent: true },
+      {
+        label:
+          "Liên hệ khách hàng, xác nhận người phụ trách và địa chỉ khảo sát",
+      },
+      {
+        label:
+          "Ghi nhận thông tin liên hệ đầy đủ: họ tên, chức vụ, số điện thoại",
+      },
+      {
+        label: "Đính kèm file biên bản khảo sát, hình ảnh hiện trường (nếu có)",
+      },
+      {
+        label: 'Bấm "Nộp khảo sát" khi đã thu thập đủ thông tin',
+        urgent: true,
+      },
     ],
   },
   S2_DIRECTOR_APPROVE_SURVEY: {
@@ -2296,8 +2915,15 @@ const QUOTATION_NEXT_STEPS: Record<QuotationStage, QuotationNextStepsConfig> = {
     color: "border-violet-200 bg-violet-50",
     steps: [
       { label: "Giám đốc xem xét thông tin khảo sát và file đính kèm" },
-      { label: 'Nếu đầy đủ: bấm "Duyệt khảo sát" để chuyển sang giai đoạn thiết kế', urgent: true },
-      { label: 'Nếu cần bổ sung: bấm "Yêu cầu sửa khảo sát" để trả về Kinh doanh' },
+      {
+        label:
+          'Nếu đầy đủ: bấm "Duyệt khảo sát" để chuyển sang giai đoạn thiết kế',
+        urgent: true,
+      },
+      {
+        label:
+          'Nếu cần bổ sung: bấm "Yêu cầu sửa khảo sát" để trả về Kinh doanh',
+      },
     ],
   },
   S3_TECH_DESIGN: {
@@ -2305,19 +2931,34 @@ const QUOTATION_NEXT_STEPS: Record<QuotationStage, QuotationNextStepsConfig> = {
     color: "border-cyan-200 bg-cyan-50",
     steps: [
       { label: "Phòng Kỹ thuật nghiên cứu yêu cầu từ biên bản khảo sát" },
-      { label: "Lập bản vẽ kỹ thuật, tính toán thông số và lựa chọn thiết bị phù hợp" },
+      {
+        label:
+          "Lập bản vẽ kỹ thuật, tính toán thông số và lựa chọn thiết bị phù hợp",
+      },
       { label: "Đính kèm file bản vẽ (DWG, PDF) khi hoàn thành" },
-      { label: 'Bấm "Nộp thiết kế" để chuyển sang bước bóc tách khối lượng', urgent: true },
+      {
+        label: 'Bấm "Nộp thiết kế" để chuyển sang bước bóc tách khối lượng',
+        urgent: true,
+      },
     ],
   },
   S3B_BOC_TACH: {
     title: "Bóc tách khối lượng",
     color: "border-sky-200 bg-sky-50",
     steps: [
-      { label: "Dựa trên bản vẽ thiết kế, liệt kê chi tiết từng hạng mục vật tư và số lượng" },
-      { label: "Kiểm tra đầy đủ: thiết bị chính, phụ kiện, vật tư lắp đặt, đường ống, điện" },
+      {
+        label:
+          "Dựa trên bản vẽ thiết kế, liệt kê chi tiết từng hạng mục vật tư và số lượng",
+      },
+      {
+        label:
+          "Kiểm tra đầy đủ: thiết bị chính, phụ kiện, vật tư lắp đặt, đường ống, điện",
+      },
       { label: "Đính kèm file bảng bóc tách (Excel) vào tab Tài liệu" },
-      { label: 'Bấm "Hoàn thành bóc tách" để trình Giám đốc duyệt thiết kế', urgent: true },
+      {
+        label: 'Bấm "Hoàn thành bóc tách" để trình Giám đốc duyệt thiết kế',
+        urgent: true,
+      },
     ],
   },
   S4_DIRECTOR_APPROVE_DESIGN: {
@@ -2325,55 +2966,101 @@ const QUOTATION_NEXT_STEPS: Record<QuotationStage, QuotationNextStepsConfig> = {
     color: "border-violet-200 bg-violet-50",
     steps: [
       { label: "Giám đốc kiểm tra bản vẽ kỹ thuật và thông số thiết bị" },
-      { label: 'Nếu ổn: bấm "Duyệt thiết kế" để chuyển sang bộ phận Vật tư định giá', urgent: true },
-      { label: 'Nếu cần điều chỉnh: bấm "Yêu cầu sửa thiết kế" để trả về Kỹ thuật' },
+      {
+        label:
+          'Nếu ổn: bấm "Duyệt thiết kế" để chuyển sang bộ phận Vật tư định giá',
+        urgent: true,
+      },
+      {
+        label:
+          'Nếu cần điều chỉnh: bấm "Yêu cầu sửa thiết kế" để trả về Kỹ thuật',
+      },
     ],
   },
   S5_PROCUREMENT_PRICING: {
     title: "Vật tư định giá",
     color: "border-orange-200 bg-orange-50",
     steps: [
-      { label: "Phòng Vật tư tra cứu giá từ nhà cung cấp theo danh sách thiết bị trong bản vẽ" },
+      {
+        label:
+          "Phòng Vật tư tra cứu giá từ nhà cung cấp theo danh sách thiết bị trong bản vẽ",
+      },
       {
         label: "Khảo sát ≥3 nhà cung cấp cho từng hạng mục thiết bị chính",
         detail: "Lưu lại báo giá nhà cung cấp để đính kèm làm chứng từ",
       },
       { label: "Điền tổng giá trị vật tư vào form định giá" },
-      { label: 'Bấm "Xác nhận định giá" và nhập tổng giá trị hợp đồng để chuyển sang Kinh doanh hoàn thiện hồ sơ', urgent: true },
-      { label: "⚠️ Bộ phận Vật tư phải hoàn thành bước này trước — Kinh doanh không thể làm S6 nếu S5 chưa xong." },
+      {
+        label:
+          'Bấm "Xác nhận định giá" và nhập tổng giá trị hợp đồng để chuyển sang Kinh doanh hoàn thiện hồ sơ',
+        urgent: true,
+      },
+      {
+        label:
+          "⚠️ Bộ phận Vật tư phải hoàn thành bước này trước — Kinh doanh không thể làm S6 nếu S5 chưa xong.",
+      },
     ],
   },
   S6_SALES_FINALIZE: {
     title: "Kinh doanh hoàn thiện hồ sơ chào giá",
     color: "border-blue-200 bg-blue-50",
     steps: [
-      { label: "⚠️ Lưu ý: Bước này chỉ thực hiện được sau khi Vật tư (S5) đã hoàn thành định giá.", urgent: true },
-      { label: "Kinh doanh nhận giá từ Vật tư, điều chỉnh tỷ lệ lợi nhuận và điều khoản thương mại" },
+      {
+        label:
+          "⚠️ Lưu ý: Bước này chỉ thực hiện được sau khi Vật tư (S5) đã hoàn thành định giá.",
+        urgent: true,
+      },
+      {
+        label:
+          "Kinh doanh nhận giá từ Vật tư, điều chỉnh tỷ lệ lợi nhuận và điều khoản thương mại",
+      },
       { label: "Soạn file báo giá chính thức (Excel/PDF) theo mẫu công ty" },
       { label: "Đính kèm file báo giá hoàn chỉnh vào hồ sơ" },
-      { label: 'Bấm "Hoàn thiện báo giá" để trình Giám đốc phê duyệt lần cuối', urgent: true },
+      {
+        label: 'Bấm "Hoàn thiện báo giá" để trình Giám đốc phê duyệt lần cuối',
+        urgent: true,
+      },
     ],
   },
   S7_DIRECTOR_APPROVE_QUOTE: {
     title: "Chờ Giám đốc duyệt báo giá cuối",
     color: "border-violet-200 bg-violet-50",
     steps: [
-      { label: "Giám đốc kiểm tra file báo giá, giá trị hợp đồng và các điều khoản" },
-      { label: 'Nếu ổn: bấm "Duyệt báo giá cuối" để cho phép gửi khách hàng', urgent: true },
-      { label: 'Nếu cần điều chỉnh: bấm "Yêu cầu sửa báo giá" để trả về Kinh doanh' },
+      {
+        label:
+          "Giám đốc kiểm tra file báo giá, giá trị hợp đồng và các điều khoản",
+      },
+      {
+        label: 'Nếu ổn: bấm "Duyệt báo giá cuối" để cho phép gửi khách hàng',
+        urgent: true,
+      },
+      {
+        label:
+          'Nếu cần điều chỉnh: bấm "Yêu cầu sửa báo giá" để trả về Kinh doanh',
+      },
     ],
   },
   S8_SENT_TO_CLIENT: {
     title: "Đã gửi báo giá — chờ phản hồi khách hàng",
     color: "border-teal-200 bg-teal-50",
     steps: [
-      { label: "Ghi nhận lại mỗi lần liên hệ với khách hàng trong tab Trao đổi với khách" },
-      { label: "Theo dõi hạn phản hồi; nhắc khách hàng trước 2–3 ngày nếu chưa có phản hồi" },
       {
-        label: 'Nếu khách hàng đồng ý: bấm "Đóng hồ sơ thắng" — hệ thống sẽ tự tạo hợp đồng',
+        label:
+          "Ghi nhận lại mỗi lần liên hệ với khách hàng trong tab Trao đổi với khách",
+      },
+      {
+        label:
+          "Theo dõi hạn phản hồi; nhắc khách hàng trước 2–3 ngày nếu chưa có phản hồi",
+      },
+      {
+        label:
+          'Nếu khách hàng đồng ý: bấm "Đóng hồ sơ thắng" — hệ thống sẽ tự tạo hợp đồng',
         urgent: true,
       },
-      { label: 'Nếu khách hàng yêu cầu điều chỉnh giá: bấm "Trình thương lượng lên Giám đốc"' },
+      {
+        label:
+          'Nếu khách hàng yêu cầu điều chỉnh giá: bấm "Trình thương lượng lên Giám đốc"',
+      },
       { label: 'Nếu không thành công: bấm "Đóng hồ sơ thua" và ghi rõ lý do' },
     ],
   },
@@ -2382,8 +3069,15 @@ const QUOTATION_NEXT_STEPS: Record<QuotationStage, QuotationNextStepsConfig> = {
     color: "border-amber-200 bg-amber-50",
     steps: [
       { label: "Giám đốc xem xét đề xuất điều chỉnh giá từ Kinh doanh" },
-      { label: 'Nếu chấp thuận: bấm "Đồng ý điều chỉnh giá" — Kinh doanh tiếp tục đàm phán', urgent: true },
-      { label: 'Nếu chưa phù hợp: bấm "Tiếp tục trao đổi thêm" để trả về Kinh doanh thương lượng lại' },
+      {
+        label:
+          'Nếu chấp thuận: bấm "Đồng ý điều chỉnh giá" — Kinh doanh tiếp tục đàm phán',
+        urgent: true,
+      },
+      {
+        label:
+          'Nếu chưa phù hợp: bấm "Tiếp tục trao đổi thêm" để trả về Kinh doanh thương lượng lại',
+      },
     ],
   },
   S9_CLOSED: {
@@ -2397,10 +3091,21 @@ const QUOTATION_NEXT_STEPS: Record<QuotationStage, QuotationNextStepsConfig> = {
 // PendingReviewCard — hiển thị nội dung đã nộp đang chờ BGĐ duyệt
 // ---------------------------------------------------------------------------
 
-const PENDING_REVIEW_LABELS: Partial<Record<QuotationStage, { subject: string; submitter: string }>> = {
-  S2_DIRECTOR_APPROVE_SURVEY:    { subject: "Hồ sơ khảo sát",    submitter: "Kinh doanh" },
-  S4_DIRECTOR_APPROVE_DESIGN:    { subject: "Hồ sơ thiết kế",     submitter: "Kỹ thuật" },
-  S7_DIRECTOR_APPROVE_QUOTE:     { subject: "Hồ sơ chào giá",     submitter: "Kinh doanh" },
+const PENDING_REVIEW_LABELS: Partial<
+  Record<QuotationStage, { subject: string; submitter: string }>
+> = {
+  S2_DIRECTOR_APPROVE_SURVEY: {
+    subject: "Hồ sơ khảo sát",
+    submitter: "Kinh doanh",
+  },
+  S4_DIRECTOR_APPROVE_DESIGN: {
+    subject: "Hồ sơ thiết kế",
+    submitter: "Kỹ thuật",
+  },
+  S7_DIRECTOR_APPROVE_QUOTE: {
+    subject: "Hồ sơ chào giá",
+    submitter: "Kinh doanh",
+  },
 }
 
 function PendingReviewCard({
@@ -2413,7 +3118,11 @@ function PendingReviewCard({
 }: {
   stage: QuotationStage
   isLoading: boolean
-  submission: { actor_name: string | null; created_at: string; note: string | null } | null
+  submission: {
+    actor_name: string | null
+    created_at: string
+    note: string | null
+  } | null
   attachments: QuotationAttachmentPublic[]
   attachmentsLoading: boolean
   onViewAttachment: (url: string, name: string, type: string | null) => void
@@ -2443,7 +3152,9 @@ function PendingReviewCard({
       ) : submission?.note ? (
         <div
           className="text-sm text-foreground/80 leading-relaxed pl-6"
-          dangerouslySetInnerHTML={{ __html: renderLightMarkdown(submission.note) }}
+          dangerouslySetInnerHTML={{
+            __html: renderLightMarkdown(submission.note),
+          }}
         />
       ) : null}
 
@@ -2458,7 +3169,13 @@ function PendingReviewCard({
                 <button
                   type="button"
                   className="flex items-center gap-2 text-left text-xs text-violet-700 hover:text-violet-900 hover:underline"
-                  onClick={() => onViewAttachment(file.file_url, file.file_name, file.file_type)}
+                  onClick={() =>
+                    onViewAttachment(
+                      file.file_url,
+                      file.file_name,
+                      file.file_type,
+                    )
+                  }
                 >
                   <FileText className="w-3.5 h-3.5 shrink-0" />
                   <span className="truncate max-w-xs">{file.file_name}</span>
@@ -2467,7 +3184,9 @@ function PendingReviewCard({
             ))}
           </ul>
         ) : (
-          <p className="text-xs text-muted-foreground">Chưa có file đính kèm.</p>
+          <p className="text-xs text-muted-foreground">
+            Chưa có file đính kèm.
+          </p>
         )}
       </div>
     </div>
@@ -2489,13 +3208,17 @@ function QuotationNextStepsGuide({ stage }: { stage: QuotationStage }) {
           <li key={i} className="flex gap-2.5">
             <span
               className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[11px] font-bold ${
-                step.urgent ? "bg-amber-500 text-white" : "bg-muted text-muted-foreground"
+                step.urgent
+                  ? "bg-amber-500 text-white"
+                  : "bg-muted text-muted-foreground"
               }`}
             >
               {i + 1}
             </span>
             <div className="space-y-0.5">
-              <p className={`text-sm ${step.urgent ? "font-medium" : ""}`}>{step.label}</p>
+              <p className={`text-sm ${step.urgent ? "font-medium" : ""}`}>
+                {step.label}
+              </p>
               {step.detail && (
                 <p className="text-xs text-muted-foreground">{step.detail}</p>
               )}

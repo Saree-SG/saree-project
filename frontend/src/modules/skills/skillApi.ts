@@ -31,18 +31,31 @@ export async function fetchSkills(): Promise<Skill[]> {
   return res.data
 }
 
-export async function createSkill(data: { name: string; category?: string; description?: string }): Promise<Skill> {
+export async function createSkill(data: {
+  name: string
+  category?: string
+  description?: string
+}): Promise<Skill> {
   const res = await axios.post<Skill>(base(), data, { headers: authHeaders() })
   return res.data
 }
 
 export async function fetchUserSkills(userId: string): Promise<UserSkill[]> {
-  const res = await axios.get<UserSkill[]>(`${base()}/users/${userId}`, { headers: authHeaders() })
+  const res = await axios.get<UserSkill[]>(`${base()}/users/${userId}`, {
+    headers: authHeaders(),
+  })
   return res.data
 }
 
-export async function saveUserSkills(userId: string, skills: { skill_id: string; level: number }[]): Promise<UserSkill[]> {
-  const res = await axios.put<UserSkill[]>(`${base()}/users/${userId}`, skills, { headers: authHeaders() })
+export async function saveUserSkills(
+  userId: string,
+  skills: { skill_id: string; level: number }[],
+): Promise<UserSkill[]> {
+  const res = await axios.put<UserSkill[]>(
+    `${base()}/users/${userId}`,
+    skills,
+    { headers: authHeaders() },
+  )
   return res.data
 }
 
@@ -59,7 +72,9 @@ export type SkillRequest = {
   reviewed_by?: string
 }
 
-export async function submitSkillRequest(skills: { skill_id: string; level: number }[]): Promise<SkillRequest> {
+export async function submitSkillRequest(
+  skills: { skill_id: string; level: number }[],
+): Promise<SkillRequest> {
   const res = await axios.post<SkillRequest>(
     `${OpenAPI.BASE}/api/v1/skills/requests`,
     { requested_skills: skills },
@@ -69,21 +84,38 @@ export async function submitSkillRequest(skills: { skill_id: string; level: numb
 }
 
 export async function fetchPendingSkillRequests(): Promise<SkillRequest[]> {
-  const res = await axios.get<SkillRequest[]>(`${OpenAPI.BASE}/api/v1/skills/requests/pending`, { headers: authHeaders() })
+  const res = await axios.get<SkillRequest[]>(
+    `${OpenAPI.BASE}/api/v1/skills/requests/pending`,
+    { headers: authHeaders() },
+  )
   return res.data
 }
 
 export async function fetchMySkillRequests(): Promise<SkillRequest[]> {
-  const res = await axios.get<SkillRequest[]>(`${OpenAPI.BASE}/api/v1/skills/requests/my`, { headers: authHeaders() })
+  const res = await axios.get<SkillRequest[]>(
+    `${OpenAPI.BASE}/api/v1/skills/requests/my`,
+    { headers: authHeaders() },
+  )
   return res.data
 }
 
 export async function approveSkillRequest(id: string): Promise<SkillRequest> {
-  const res = await axios.post<SkillRequest>(`${OpenAPI.BASE}/api/v1/skills/requests/${id}/approve`, {}, { headers: authHeaders() })
+  const res = await axios.post<SkillRequest>(
+    `${OpenAPI.BASE}/api/v1/skills/requests/${id}/approve`,
+    {},
+    { headers: authHeaders() },
+  )
   return res.data
 }
 
-export async function rejectSkillRequest(id: string, note?: string): Promise<SkillRequest> {
-  const res = await axios.post<SkillRequest>(`${OpenAPI.BASE}/api/v1/skills/requests/${id}/reject`, { note }, { headers: authHeaders() })
+export async function rejectSkillRequest(
+  id: string,
+  note?: string,
+): Promise<SkillRequest> {
+  const res = await axios.post<SkillRequest>(
+    `${OpenAPI.BASE}/api/v1/skills/requests/${id}/reject`,
+    { note },
+    { headers: authHeaders() },
+  )
   return res.data
 }

@@ -96,7 +96,9 @@ export async function getVapidKey(): Promise<string | null> {
   return r.data.public_key
 }
 
-export async function subscribePush(payload: PushSubscribePayload): Promise<void> {
+export async function subscribePush(
+  payload: PushSubscribePayload,
+): Promise<void> {
   await axios.post(
     `${OpenAPI.BASE}/api/v1/notifications/push/subscribe`,
     payload,
@@ -104,7 +106,9 @@ export async function subscribePush(payload: PushSubscribePayload): Promise<void
   )
 }
 
-export async function unsubscribePush(payload: PushSubscribePayload): Promise<void> {
+export async function unsubscribePush(
+  payload: PushSubscribePayload,
+): Promise<void> {
   await axios.delete(`${OpenAPI.BASE}/api/v1/notifications/push/unsubscribe`, {
     data: payload,
     headers: authHeaders(),

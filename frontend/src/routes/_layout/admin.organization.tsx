@@ -1,12 +1,10 @@
 import { useQuery } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
+import axios from "axios"
 import { Download } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
 
-import axios from "axios"
-
-import { OpenAPI, RolesService, type CompanyPublic } from "@/client"
-import { getAccessToken } from "@/modules/auth/tokenStore"
+import { type CompanyPublic, OpenAPI, RolesService } from "@/client"
 import OrgChart from "@/components/Admin/Organization/OrgChart"
 import { Button } from "@/components/ui/button"
 import {
@@ -18,6 +16,7 @@ import {
 } from "@/components/ui/select"
 import useAuth from "@/hooks/useAuth"
 import useCustomToast from "@/hooks/useCustomToast"
+import { getAccessToken } from "@/modules/auth/tokenStore"
 import { getOrgTree } from "@/modules/org/orgTreeApi"
 
 export const Route = createFileRoute("/_layout/admin/organization")({
@@ -73,7 +72,11 @@ function AdminOrganization() {
     }
   }, [companies, companyId])
 
-  const { data: tree, isLoading, error } = useQuery({
+  const {
+    data: tree,
+    isLoading,
+    error,
+  } = useQuery({
     queryKey: ["roles", "org-tree", companyId],
     queryFn: () => getOrgTree({ companyId }),
     enabled: Boolean(companyId),

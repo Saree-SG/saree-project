@@ -10,8 +10,8 @@ import type {
   QuotationAttachmentPublic,
   QuotationByClientRow,
   QuotationByEquipmentRow,
-  QuotationCompanyProfile,
   QuotationCloseRequest,
+  QuotationCompanyProfile,
   QuotationCreate,
   QuotationFinalizeRequest,
   QuotationListParams,
@@ -27,9 +27,9 @@ import type {
   QuotationSubmitNegotiationRequest,
   QuotationSubmitPricingRequest,
   QuotationSubmitSurveyRequest,
+  QuotationsPublic,
   QuotationUpdate,
   QuotationVersionPublic,
-  QuotationsPublic,
 } from "./quotationTypes"
 
 const BASE = () => `${OpenAPI.BASE}/api/v1`
@@ -49,8 +49,10 @@ export async function listQuotations(
   if (params.status) query.set("status", params.status)
   if (params.current_stage) query.set("current_stage", params.current_stage)
   if (params.outcome) query.set("outcome", params.outcome)
-  if (params.equipment_category) query.set("equipment_category", params.equipment_category)
-  if (params.client_company_name) query.set("client_company_name", params.client_company_name)
+  if (params.equipment_category)
+    query.set("equipment_category", params.equipment_category)
+  if (params.client_company_name)
+    query.set("client_company_name", params.client_company_name)
   if (params.sales_owner_id) query.set("sales_owner_id", params.sales_owner_id)
   if (params.date_from) query.set("date_from", params.date_from)
   if (params.date_to) query.set("date_to", params.date_to)
@@ -71,14 +73,15 @@ export async function getMyPendingQuotations(): Promise<QuotationPublic[]> {
 }
 
 export async function listQuotationCompanies(): Promise<string[]> {
-  const res = await axios.get<string[]>(
-    `${BASE()}/quotations/companies`,
-    { headers: authHeaders() },
-  )
+  const res = await axios.get<string[]>(`${BASE()}/quotations/companies`, {
+    headers: authHeaders(),
+  })
   return res.data
 }
 
-export async function listQuotationCompanyProfiles(): Promise<QuotationCompanyProfile[]> {
+export async function listQuotationCompanyProfiles(): Promise<
+  QuotationCompanyProfile[]
+> {
   const res = await axios.get<QuotationCompanyProfile[]>(
     `${BASE()}/quotations/company-profiles`,
     { headers: authHeaders() },
@@ -87,19 +90,18 @@ export async function listQuotationCompanyProfiles(): Promise<QuotationCompanyPr
 }
 
 export async function getQuotation(id: string): Promise<QuotationPublic> {
-  const res = await axios.get<QuotationPublic>(
-    `${BASE()}/quotations/${id}`,
-    { headers: authHeaders() },
-  )
+  const res = await axios.get<QuotationPublic>(`${BASE()}/quotations/${id}`, {
+    headers: authHeaders(),
+  })
   return res.data
 }
 
-export async function createQuotation(body: QuotationCreate): Promise<QuotationPublic> {
-  const res = await axios.post<QuotationPublic>(
-    `${BASE()}/quotations/`,
-    body,
-    { headers: authHeaders() },
-  )
+export async function createQuotation(
+  body: QuotationCreate,
+): Promise<QuotationPublic> {
+  const res = await axios.post<QuotationPublic>(`${BASE()}/quotations/`, body, {
+    headers: authHeaders(),
+  })
   return res.data
 }
 
@@ -405,8 +407,10 @@ export async function reportSummary(params?: {
   const query = new URLSearchParams()
   if (params?.date_from) query.set("date_from", params.date_from)
   if (params?.date_to) query.set("date_to", params.date_to)
-  if (params?.equipment_category) query.set("equipment_category", params.equipment_category)
-  if (params?.client_company_name) query.set("client_company_name", params.client_company_name)
+  if (params?.equipment_category)
+    query.set("equipment_category", params.equipment_category)
+  if (params?.client_company_name)
+    query.set("client_company_name", params.client_company_name)
 
   const res = await axios.get<QuotationReportSummary>(
     `${BASE()}/quotations/reports/summary${query.toString() ? `?${query}` : ""}`,

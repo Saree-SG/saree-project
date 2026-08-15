@@ -14,7 +14,10 @@ import "./index.css"
 import { setupAuthInterceptor } from "./modules/auth/authInterceptor"
 import { clearSession, getAccessToken } from "./modules/auth/tokenStore"
 import { routeTree } from "./routeTree.gen"
-import { ngrokBypassRequestHeaders, syncNgrokBypassAxiosDefaults } from "./utils/ngrokBypass"
+import {
+  ngrokBypassRequestHeaders,
+  syncNgrokBypassAxiosDefaults,
+} from "./utils/ngrokBypass"
 
 OpenAPI.BASE = import.meta.env.VITE_API_URL
 OpenAPI.TOKEN = async () => {

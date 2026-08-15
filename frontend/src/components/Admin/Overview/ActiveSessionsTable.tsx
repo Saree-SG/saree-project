@@ -83,13 +83,19 @@ export default function ActiveSessionsTable() {
             <TableBody>
               {isLoading ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center text-muted-foreground">
+                  <TableCell
+                    colSpan={6}
+                    className="text-center text-muted-foreground"
+                  >
                     Đang tải...
                   </TableCell>
                 </TableRow>
               ) : !data || data.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center text-muted-foreground">
+                  <TableCell
+                    colSpan={6}
+                    className="text-center text-muted-foreground"
+                  >
                     Không có phiên đang hoạt động.
                   </TableCell>
                 </TableRow>
@@ -103,14 +109,18 @@ export default function ActiveSessionsTable() {
                           params={{ userId: s.user_id }}
                           className="block hover:underline"
                         >
-                          <div className="font-medium">{s.full_name || "—"}</div>
+                          <div className="font-medium">
+                            {s.full_name || "—"}
+                          </div>
                           <div className="text-xs text-muted-foreground">
                             {s.email || s.user_id}
                           </div>
                         </Link>
                       ) : (
                         <>
-                          <div className="font-medium">{s.full_name || "—"}</div>
+                          <div className="font-medium">
+                            {s.full_name || "—"}
+                          </div>
                           <div className="text-xs text-muted-foreground">
                             {s.email || "—"}
                           </div>
@@ -126,7 +136,9 @@ export default function ActiveSessionsTable() {
                     >
                       {shortUA(s.user_agent)}
                     </TableCell>
-                    <TableCell className="text-xs">{formatTime(s.login_at)}</TableCell>
+                    <TableCell className="text-xs">
+                      {formatTime(s.login_at)}
+                    </TableCell>
                     <TableCell className="text-xs">
                       {formatRelative(s.last_seen_at)}
                     </TableCell>
