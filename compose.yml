@@ -2,7 +2,7 @@
 # Trên máy dev, Docker tự ghép thêm compose.override.yml — xem DOCKER_COMPOSE.md.
 services:
   db:
-    image: postgres:16-alpine
+    image: postgres:18-alpine
     container_name: saree-db
     environment:
       POSTGRES_USER: saree
