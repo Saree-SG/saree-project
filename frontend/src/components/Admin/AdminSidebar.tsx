@@ -4,6 +4,7 @@ import {
   Building2,
   LayoutDashboard,
   Network,
+  ScrollText,
   Users,
 } from "lucide-react"
 
@@ -36,6 +37,12 @@ const items: NavItem[] = [
     to: "/admin/companies",
     label: "Công ty & Phân quyền",
     icon: Building2,
+    superuserOnly: true,
+  },
+  {
+    to: "/admin/logs",
+    label: "Nhật ký hệ thống",
+    icon: ScrollText,
     superuserOnly: true,
   },
 ]

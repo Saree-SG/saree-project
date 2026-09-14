@@ -12,6 +12,7 @@ import {
 } from "lucide-react"
 import { useState } from "react"
 
+import { QuotationsPageGuide } from "@/components/Guide/QuotationsPageGuide"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import {
@@ -405,6 +406,7 @@ function QuotationsPage() {
 
   return (
     <div className="flex flex-col gap-6 p-6">
+      <QuotationsPageGuide />
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>

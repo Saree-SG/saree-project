@@ -17,6 +17,7 @@ import {
 import { useEffect, useMemo, useRef, useState } from "react"
 import { z } from "zod"
 import { RolesService } from "@/client"
+import { ChatPageGuide } from "@/components/Guide/ChatPageGuide"
 import {
   Dialog,
   DialogContent,
@@ -476,6 +477,7 @@ function ChatPage() {
 
   return (
     <div className="flex h-full min-h-0 w-full flex-1 overflow-hidden bg-background">
+      <ChatPageGuide />
       {/* ── Room list sidebar ─────────────────────────────────────────── */}
       <aside
         className={[

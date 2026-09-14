@@ -102,10 +102,10 @@ class ContractService:
         )
 
     async def get_contract(
-        self, contract_id: uuid.UUID, company_id: uuid.UUID
+        self, contract_id: uuid.UUID, current_user: User
     ) -> ContractWithDetailsPublic:
         c = await self._repo.get_or_404(contract_id)
-        _assert_company(c, company_id)
+        _assert_company(c, current_user)
         attachments = await self._repo.get_attachments(contract_id)
         transitions = await self._repo.get_transitions(contract_id)
         pub = ContractWithDetailsPublic.model_validate(_to_public(c).model_dump())
@@ -160,7 +160,7 @@ class ContractService:
         self, contract_id: uuid.UUID, body: ContractUpdate, current_user: User
     ) -> ContractPublic:
         c = await self._repo.get_or_404(contract_id)
-        _assert_company(c, current_user.company_id)
+        _assert_company(c, current_user)
         if c.status not in ("draft",):
             raise HTTPException(
                 status_code=400, detail="Chỉ có thể chỉnh sửa hợp đồng ở trạng thái draft"
@@ -174,7 +174,7 @@ class ContractService:
 
     async def delete_contract(self, contract_id: uuid.UUID, current_user: User) -> None:
         c = await self._repo.get_or_404(contract_id)
-        _assert_company(c, current_user.company_id)
+        _assert_company(c, current_user)
         if c.status not in ("draft",):
             raise HTTPException(
                 status_code=400, detail="Chỉ có thể xóa hợp đồng ở trạng thái draft"
@@ -199,7 +199,7 @@ class ContractService:
         advance_paid_at: datetime | None = None,
     ) -> ContractPublic:
         c = await self._repo.get_or_404(contract_id)
-        _assert_company(c, current_user.company_id)
+        _assert_company(c, current_user)
 
         key = (c.status, action)
         next_status = _TRANSITIONS.get(key)
@@ -264,7 +264,7 @@ class ContractService:
         phase: str | None = None,
     ) -> ContractAttachmentPublic:
         c = await self._repo.get_or_404(contract_id)
-        _assert_company(c, current_user.company_id)
+        _assert_company(c, current_user)
 
         if self._storage is None:
             raise HTTPException(status_code=500, detail="Storage not configured")
@@ -285,7 +285,7 @@ class ContractService:
         self, contract_id: uuid.UUID, att_id: uuid.UUID, current_user: User
     ) -> None:
         c = await self._repo.get_or_404(contract_id)
-        _assert_company(c, current_user.company_id)
+        _assert_company(c, current_user)
         att = await self._repo.get_attachment_or_404(contract_id, att_id)
         await self._repo.delete_attachment(att)
 
@@ -470,6 +470,8 @@ def _to_public(c: Contract) -> ContractPublic:
     return pub
 
 
-def _assert_company(contract: Contract, company_id: uuid.UUID | None) -> None:
-    if contract.company_id != company_id:
+def _assert_company(contract: Contract, current_user: User) -> None:
+    if current_user.is_superuser:
+        return
+    if contract.company_id != current_user.company_id:
         raise HTTPException(status_code=403, detail="Access denied")

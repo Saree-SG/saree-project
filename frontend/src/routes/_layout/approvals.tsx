@@ -9,6 +9,7 @@ import {
   XCircle,
 } from "lucide-react"
 import { useState } from "react"
+import { ApprovalsPageGuide } from "@/components/Guide/ApprovalsPageGuide"
 import { useCan } from "@/hooks/useMyPermissions"
 import { cn } from "@/lib/utils"
 import { listContracts } from "@/modules/contract/contractApi"
@@ -555,6 +556,7 @@ function ApprovalsPage() {
           </div>
         )}
       </div>
+      <ApprovalsPageGuide />
     </div>
   )
 }

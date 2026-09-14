@@ -19,6 +19,7 @@ import { toast } from "sonner"
 
 import { CameraCapture } from "@/components/Common/CameraCapture"
 import { CustomerCompanyFormDialog } from "@/components/Company/CustomerCompanyFormDialog"
+import { AttendancePageGuide } from "@/components/Guide/AttendancePageGuide"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
@@ -326,6 +327,7 @@ function AttendancePage() {
 
   return (
     <div className="mx-auto w-full max-w-2xl space-y-5 p-4 pb-10">
+      <AttendancePageGuide />
       <div>
         <div className="flex items-start justify-between gap-2">
           <h1 className="text-2xl font-semibold tracking-tight">Chấm công</h1>

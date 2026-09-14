@@ -16,6 +16,7 @@ import {
 } from "recharts"
 
 import { DashboardService, RolesService } from "@/client"
+import { ReportsPageGuide } from "@/components/Guide/ReportsPageGuide"
 import { Button } from "@/components/ui/button"
 import {
   Select,
@@ -815,6 +816,7 @@ function DashboardReportsPage() {
           </div>
         </div>
       )}
+      <ReportsPageGuide />
     </div>
   )
 }

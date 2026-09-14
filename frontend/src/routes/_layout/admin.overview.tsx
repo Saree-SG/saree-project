@@ -6,6 +6,7 @@ import ActiveSessionsTable from "@/components/Admin/Overview/ActiveSessionsTable
 import KpiCard from "@/components/Admin/Overview/KpiCard"
 import LoginFrequencyChart from "@/components/Admin/Overview/LoginFrequencyChart"
 import TopUsersChart from "@/components/Admin/Overview/TopUsersChart"
+import { AdminOverviewPageGuide } from "@/components/Guide/AdminOverviewPageGuide"
 import { getAdminOverview } from "@/modules/admin/adminStatsApi"
 
 export const Route = createFileRoute("/_layout/admin/overview")({
@@ -78,6 +79,7 @@ function AdminOverview() {
         Dữ liệu tự refresh mỗi 30s.
         <Network className="h-3 w-3 ml-2" />
       </div>
+      <AdminOverviewPageGuide />
     </div>
   )
 }

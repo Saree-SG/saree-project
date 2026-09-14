@@ -20,6 +20,11 @@ services:
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD?Variable not set}
       - POSTGRES_USER=${POSTGRES_USER?Variable not set}
       - POSTGRES_DB=${POSTGRES_DB?Variable not set}
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "5"
 
   redis:
     image: redis:7.4-alpine
@@ -32,6 +37,11 @@ services:
       interval: 5s
       timeout: 3s
       retries: 20
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "5"
 
   adminer:
     image: adminer
@@ -55,6 +65,11 @@ services:
       - traefik.http.routers.${STACK_NAME?Variable not set}-adminer-https.tls=true
       - traefik.http.routers.${STACK_NAME?Variable not set}-adminer-https.tls.certresolver=le
       - traefik.http.services.${STACK_NAME?Variable not set}-adminer.loadbalancer.server.port=8080
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "5"
 
   prestart:
     image: '${DOCKER_IMAGE_BACKEND?Variable not set}:${TAG-latest}'
@@ -150,6 +165,11 @@ services:
       dockerfile: backend/Dockerfile
     labels:
       - traefik.enable=false
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "5"
 
   celery_worker:
     image: '${DOCKER_IMAGE_BACKEND?Variable not set}:${TAG-latest}'
@@ -181,6 +201,11 @@ services:
     volumes:
       - app-uploads-data:/data/uploads
     command: ["celery", "-A", "app.core.celery_app.celery_app", "worker", "--loglevel=info", "--concurrency=2"]
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "5"
 
   celery_beat:
     image: '${DOCKER_IMAGE_BACKEND?Variable not set}:${TAG-latest}'
@@ -207,6 +232,11 @@ services:
       - REDIS_URL=redis://redis:6379/0
       - SENTRY_DSN=${SENTRY_DSN}
     command: ["celery", "-A", "app.core.celery_app.celery_app", "beat", "--loglevel=info"]
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "5"
 
   frontend:
     image: '${DOCKER_IMAGE_FRONTEND?Variable not set}:${TAG-latest}'
@@ -236,6 +266,11 @@ services:
       interval: 10s
       timeout: 5s
       retries: 10
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "5"
 
 volumes:
   app-db-data:

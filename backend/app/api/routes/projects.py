@@ -84,10 +84,10 @@ async def create_project(
 async def get_project(
     project_id: uuid.UUID,
     session: AsyncSessionDep,
-    _current_user: CurrentUser,
+    current_user: CurrentUser,
 ) -> ProjectPublic:
     """Return a project by ID."""
-    return await _svc(session).get_project(project_id)
+    return await _svc(session).get_project(project_id, current_user)
 
 
 @router.patch("/{project_id}", response_model=ProjectPublic)
@@ -134,10 +134,10 @@ async def upsert_level_config(
 async def get_level_configs(
     project_id: uuid.UUID,
     session: AsyncSessionDep,
-    _current_user: CurrentUser,
+    current_user: CurrentUser,
 ) -> list[TaskLevelConfigPublic]:
     """List level configs for a project."""
-    return await _svc(session).list_level_configs(project_id)
+    return await _svc(session).list_level_configs(project_id, current_user)
 
 
 # ---------------------------------------------------------------------------
@@ -148,22 +148,22 @@ async def get_level_configs(
 async def get_members(
     project_id: uuid.UUID,
     session: AsyncSessionDep,
-    _current_user: CurrentUser,
+    current_user: CurrentUser,
 ) -> list[ProjectMemberWithUserPublic]:
     """List project members with user info."""
-    return await _svc(session).get_members(project_id)
+    return await _svc(session).get_members(project_id, current_user)
 
 
 @router.post("/{project_id}/members", status_code=status.HTTP_201_CREATED)
 async def add_member(
     project_id: uuid.UUID,
     session: AsyncSessionDep,
-    _current_user: User = Depends(require_permission("PROJECT_MANAGE_MEMBERS")),
+    current_user: User = Depends(require_permission("PROJECT_MANAGE_MEMBERS")),
     user_id: uuid.UUID = Query(...),
     role_id: uuid.UUID = Query(...),
 ) -> dict:
     """Add or update a project member."""
-    return await _svc(session).add_member(project_id, user_id, role_id)
+    return await _svc(session).add_member(project_id, user_id, role_id, current_user)
 
 
 @router.delete(
@@ -174,20 +174,20 @@ async def remove_member(
     project_id: uuid.UUID,
     user_id: uuid.UUID,
     session: AsyncSessionDep,
-    _current_user: User = Depends(require_permission("PROJECT_MANAGE_MEMBERS")),
+    current_user: User = Depends(require_permission("PROJECT_MANAGE_MEMBERS")),
 ) -> None:
     """Remove a member from a project."""
-    await _svc(session).remove_member(project_id, user_id)
+    await _svc(session).remove_member(project_id, user_id, current_user)
 
 
 @router.get("/{project_id}/delay-warnings", response_model=DelayWarningsPublic)
 async def get_delay_warnings(
     project_id: uuid.UUID,
     session: AsyncSessionDep,
-    _current_user: CurrentUser,
+    current_user: CurrentUser,
 ) -> DelayWarningsPublic:
     """Run 4-layer delay prediction for a project and return all active warnings."""
-    return await _svc(session).get_delay_warnings(project_id)
+    return await _svc(session).get_delay_warnings(project_id, current_user)
 
 
 @router.post(

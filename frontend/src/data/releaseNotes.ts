@@ -42,6 +42,40 @@ export type ReleaseNote = {
 
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    version: "1.3.0",
+    date: "13/09/2026",
+    title: "Hướng dẫn theo từng trang & tài liệu tổng hợp mới",
+    summary:
+      "Gần như mọi trang giờ có nút Hướng dẫn riêng; trang Hướng dẫn sử dụng được viết lại đầy đủ hơn nhiều.",
+    icon: "BookOpen",
+    items: [
+      {
+        type: "new",
+        text: "Thêm nút Hướng dẫn trang này cho phần lớn các trang: Dự án, Gantt tổng, Bản đồ, Điều phối, Nhân viên, KPI, Báo cáo, Công ty, Phê duyệt, Yêu cầu kỹ năng, toàn bộ khu Admin, Hồ sơ, Cài đặt và Nhật ký phát hành.",
+      },
+      {
+        type: "new",
+        text: "Viết lại trang Hướng dẫn sử dụng (/help): gộp nội dung mọi hướng dẫn theo trang vào một tài liệu, có mục lục và tìm kiếm.",
+      },
+      {
+        type: "fixed",
+        text: "Điều phối nhân sự: nút gợi ý nhân sự cho công việc thiếu người từng báo lỗi, giờ đã hoạt động.",
+      },
+      {
+        type: "fixed",
+        text: "Admin — Người dùng: thêm vai trò/công ty cho một tài khoản từng báo lỗi, giờ đã hoạt động.",
+      },
+      {
+        type: "fixed",
+        text: "Bản đồ chọn vị trí (chấm công theo công ty) đôi khi hiện đè lên panel hướng dẫn hoặc hộp thoại đang mở — đã sửa.",
+      },
+      {
+        type: "improved",
+        text: "Củng cố việc tách dữ liệu giữa các công ty ở nhiều màn hình (báo giá, hợp đồng, dự án, công việc, vai trò/phân quyền, nghỉ phép) để đảm bảo mỗi công ty chỉ thấy đúng dữ liệu của mình.",
+      },
+    ],
+  },
+  {
     version: "1.2.0",
     date: "26/07/2026",
     title: "Bản đồ mới, trang phê duyệt chung & quản lý kỹ năng",

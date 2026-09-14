@@ -17,6 +17,7 @@ import {
 import { useMemo, useRef, useState } from "react"
 import { toast } from "sonner"
 
+import { ContractWorkflowGuide } from "@/components/Guide/ContractWorkflowGuide"
 import {
   type ActionConfig,
   StageTransitionTimeline,
@@ -204,6 +205,7 @@ function ContractDetailPage() {
   } | null>(null)
   const [selectedHistoryStatus, setSelectedHistoryStatus] =
     useState<ContractStatus | null>(null)
+  const historySectionRef = useRef<HTMLDivElement | null>(null)
 
   // sign
   const [signingDate, setSigningDate] = useState(
@@ -462,8 +464,19 @@ function ContractDetailPage() {
     }
   }
 
+  function handleStatusStepClick(nextStatus: ContractStatus | null) {
+    setSelectedHistoryStatus(nextStatus)
+    requestAnimationFrame(() => {
+      historySectionRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      })
+    })
+  }
+
   return (
     <div className="p-4 md:p-6 max-w-3xl mx-auto space-y-6">
+      <ContractWorkflowGuide currentStatus={status} />
       {/* Header */}
       <div className="flex items-center gap-3">
         <Button
@@ -487,7 +500,7 @@ function ContractDetailPage() {
       <StatusStepper
         currentStatus={status}
         selectedStatus={selectedHistoryStatus}
-        onStepClick={setSelectedHistoryStatus}
+        onStepClick={handleStatusStepClick}
       />
 
       {/* Next steps guide */}
@@ -513,7 +526,7 @@ function ContractDetailPage() {
       )}
 
       {/* Contract info */}
-      <div className="rounded-lg border p-4 space-y-3">
+      <div ref={historySectionRef} className="rounded-lg border p-4 space-y-3">
         <h2 className="font-medium text-sm text-muted-foreground uppercase tracking-wide">
           Thông tin hợp đồng
         </h2>
@@ -1209,11 +1222,20 @@ function StatusStepper({
         const done = i < currentIdx
         const active = i === currentIdx
         const selected = selectedStatus === s
+        const canInspectHistory = done || active
         return (
           <div key={s} className="flex items-center gap-1 shrink-0">
             <button
               type="button"
-              onClick={() => onStepClick(selected ? null : s)}
+              disabled={!canInspectHistory}
+              title={
+                canInspectHistory
+                  ? `Xem lịch sử: ${CONTRACT_STATUS_LABELS[s]}`
+                  : "Bước này chưa diễn ra"
+              }
+              onClick={() => {
+                if (canInspectHistory) onStepClick(selected ? null : s)
+              }}
               className={`text-xs px-2 py-1 rounded-full font-medium transition-colors ${
                 selected
                   ? "ring-2 ring-primary/40 bg-primary/10 text-primary"
@@ -1221,7 +1243,7 @@ function StatusStepper({
                     ? "bg-green-100 text-green-700"
                     : active
                       ? "bg-blue-600 text-white"
-                      : "bg-gray-100 text-gray-400"
+                      : "cursor-not-allowed bg-gray-100 text-gray-400 opacity-60"
               }`}
             >
               {done && <CheckCircle2 className="w-3 h-3 inline mr-0.5" />}

@@ -13,6 +13,7 @@ import { useState } from "react"
 
 import { RolesService } from "@/client"
 import CompanyOrgChartPanel from "@/components/Company/CompanyOrgChartPanel"
+import { ProfilePageGuide } from "@/components/Guide/ProfilePageGuide"
 import UserInformation from "@/components/UserSettings/UserInformation"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -210,6 +211,7 @@ function ProfilePage() {
 
       {/* Làm mới ứng dụng / xóa cache */}
       <ClearCacheSection />
+      <ProfilePageGuide />
     </div>
   )
 }

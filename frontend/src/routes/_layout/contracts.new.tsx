@@ -141,7 +141,7 @@ function NewContractPage() {
             <option value="">
               {wonQuotationsQuery.isLoading || existingContractsQuery.isLoading
                 ? "Đang tải danh sách báo giá..."
-                : "Chọn báo giá đã thắng"}
+                : "Chọn báo giá đã thành công"}
             </option>
             {selectableWonQuotations.map((q) => (
               <option key={q.id} value={q.id}>

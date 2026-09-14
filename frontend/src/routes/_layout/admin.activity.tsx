@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query"
 import { createFileRoute, Link } from "@tanstack/react-router"
 import { useMemo, useState } from "react"
 
+import { AdminActivityPageGuide } from "@/components/Guide/AdminActivityPageGuide"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -195,6 +196,7 @@ function AdminActivity() {
           </div>
         </CardContent>
       </Card>
+      <AdminActivityPageGuide />
     </div>
   )
 }

@@ -599,6 +599,24 @@ class TaskService:
         self._outbox_repo = OutboxRepository(session)
         self._cascade_repo = CascadeRepository(session)
 
+    async def _assert_task_company(self, task: Task, current_user: User) -> None:
+        """Raise 403 unless the task's project belongs to the caller's company."""
+        if current_user.is_superuser:
+            return
+        project = await self._session.get(Project, task.project_id)
+        if project is None or project.company_id != current_user.company_id:
+            raise HTTPException(status_code=403, detail="Access denied")
+
+    async def _assert_project_company(
+        self, project_id: uuid.UUID, current_user: User
+    ) -> None:
+        """Raise 403 unless the given project belongs to the caller's company."""
+        if current_user.is_superuser:
+            return
+        project = await self._session.get(Project, project_id)
+        if project is None or project.company_id != current_user.company_id:
+            raise HTTPException(status_code=403, detail="Access denied")
+
     async def _emit_task_ws(self, task_id: uuid.UUID, event: str, data: dict[str, Any]) -> None:
         """Push a task event to WebSocket subscribers; ignore transport failures."""
         try:
@@ -737,6 +755,8 @@ class TaskService:
         if body.progress_weight is not None and not (1 <= body.progress_weight <= 100):
             raise HTTPException(422, "progress_weight phải từ 1 đến 100 (hoặc để trống = tự động 100%).")
 
+        await self._assert_project_company(body.project_id, current_user)
+
         update_data = body.model_dump()
         try:
             await validate_timeline(
@@ -818,14 +838,16 @@ class TaskService:
     # Read
     # ------------------------------------------------------------------
 
-    async def get_task(self, task_id: uuid.UUID) -> TaskPublic:
+    async def get_task(self, task_id: uuid.UUID, current_user: User) -> TaskPublic:
         """Return enriched task or 404."""
         task = await self._task_repo.get_or_404(task_id)
+        await self._assert_task_company(task, current_user)
         return await _enrich(task, self._session)
 
     async def list_project_tasks(
         self,
         project_id: uuid.UUID,
+        current_user: User,
         parent_id: uuid.UUID | None = None,
         filter_root_only: bool = False,
         assignee_id: uuid.UUID | None = None,
@@ -833,6 +855,7 @@ class TaskService:
         limit: int = 100,
     ) -> TasksPublic:
         """Return paginated tasks for a project."""
+        await self._assert_project_company(project_id, current_user)
         tasks, total = await self._task_repo.list_by_project(
             project_id,
             parent_id=parent_id,
@@ -951,6 +974,7 @@ class TaskService:
     ) -> TaskPublic:
         """Update task fields; re-validate timeline; enqueue cascade if delayed."""
         task = await self._task_repo.get_or_404(task_id)
+        await self._assert_task_company(task, current_user)
         old_data = task.model_dump()
         update_data = body.model_dump(exclude_unset=True)
 
@@ -1050,6 +1074,7 @@ class TaskService:
         """Update task status; enforce assignee-only rule; emit outbox event."""
         # Lock row to serialize concurrent status updates (e.g. double-click "done").
         task = await self._task_repo.lock_for_update(task_id)
+        await self._assert_task_company(task, current_user)
         old_status = task.status
 
         is_assignee = await self._task_repo.is_assignee(task_id, current_user.id)
@@ -1194,6 +1219,7 @@ class TaskService:
     ) -> TaskPublic:
         """Add a co-worker to a task; idempotent if already assigned."""
         task = await self._task_repo.get_or_404(task_id)
+        await self._assert_task_company(task, current_user)
 
         if body.user_id == task.assignee_id:
             raise HTTPException(400, "Người này đã là người phụ trách chính của task.")
@@ -1247,6 +1273,7 @@ class TaskService:
     ) -> TaskPublic:
         """Remove a co-worker from a task."""
         task = await self._task_repo.get_or_404(task_id)
+        await self._assert_task_company(task, current_user)
         row = await self._task_repo.get_extra_assignee(task_id, user_id)
         if row is None:
             raise HTTPException(404, "Người này không có trong danh sách phụ trách task.")
@@ -1269,6 +1296,7 @@ class TaskService:
     ) -> TaskPublic:
         """Add a watch-only observer to a task."""
         task = await self._task_repo.get_or_404(task_id)
+        await self._assert_task_company(task, current_user)
 
         if body.user_id == task.assignee_id:
             raise HTTPException(400, "Người phụ trách chính không thể là observer.")
@@ -1307,6 +1335,7 @@ class TaskService:
     ) -> TaskPublic:
         """Remove an observer from a task."""
         task = await self._task_repo.get_or_404(task_id)
+        await self._assert_task_company(task, current_user)
         row = await self._task_repo.get_observer(task_id, user_id)
         if row is None:
             raise HTTPException(404, "Người này không trong danh sách observer.")
@@ -1334,6 +1363,7 @@ class TaskService:
         assignee, that row is removed to avoid duplication.
         """
         task = await self._task_repo.get_or_404(task_id)
+        await self._assert_task_company(task, current_user)
         old_assignee_id = task.assignee_id
 
         if body.new_assignee_id == old_assignee_id:
@@ -1421,6 +1451,7 @@ class TaskService:
     async def delete_task(self, task_id: uuid.UUID, current_user: User) -> None:
         """Soft-delete a task and all descendants (BFS) — keeps tree consistent."""
         root = await self._task_repo.get_or_404(task_id)
+        await self._assert_task_company(root, current_user)
 
         to_visit: list[uuid.UUID] = [root.id]
         collected: list[Task] = []
@@ -1451,8 +1482,11 @@ class TaskService:
     # Gantt / Critical Path
     # ------------------------------------------------------------------
 
-    async def get_project_gantt(self, project_id: uuid.UUID) -> GanttPublic:
+    async def get_project_gantt(
+        self, project_id: uuid.UUID, current_user: User
+    ) -> GanttPublic:
         """Return all tasks + all dependency links for the Gantt chart view."""
+        await self._assert_project_company(project_id, current_user)
         raw_tasks = list(await self._task_repo.list_all_project_tasks(project_id))
         raw_deps = list(await self._task_repo.list_project_dependencies(project_id))
 
@@ -1562,6 +1596,7 @@ class TaskService:
         if dep is None or dep.blocking_task_id != task_id:
             raise HTTPException(404, "Dependency not found")
         task = await self._task_repo.get_or_404(task_id)
+        await self._assert_task_company(task, current_user)
 
         # Authorization: assignor or user with TASK_UPDATE permission
         if task.assignor_id != current_user.id and not current_user.is_superuser:
@@ -1588,6 +1623,7 @@ class TaskService:
     ) -> TaskPublic:
         """Clone a task and its entire subtree."""
         root = await self._task_repo.get_or_404(task_id)
+        await self._assert_task_company(root, current_user)
         cloned_root = await self._clone_recursive(root, root.parent_id, current_user, new_assignee_id)
         return await _enrich(cloned_root, self._session)
 
@@ -1627,6 +1663,7 @@ class TaskService:
     ) -> TaskCommentPublic:
         """Add a task comment; validate delay_justification fields."""
         task = await self._task_repo.get_or_404(task_id)
+        await self._assert_task_company(task, current_user)
         if body.comment_type == "delay_justification":
             if task.status == "done":
                 raise HTTPException(422, "Cannot request delay for a completed task")
@@ -1708,9 +1745,12 @@ class TaskService:
 
         return _comment_to_public(comment, current_user)
 
-    async def list_comments(self, task_id: uuid.UUID) -> list[TaskCommentPublic]:
+    async def list_comments(
+        self, task_id: uuid.UUID, current_user: User
+    ) -> list[TaskCommentPublic]:
         """List task comments with author display names."""
-        await self._task_repo.get_or_404(task_id)
+        task = await self._task_repo.get_or_404(task_id)
+        await self._assert_task_company(task, current_user)
         comments = await self._task_repo.list_comments(task_id)
         author_ids = list({c.author_id for c in comments})
         authors = await self._user_repo.list_by_ids(author_ids)
@@ -1726,6 +1766,7 @@ class TaskService:
     ) -> TaskCommentPublic:
         """Approve or reject a delay request; update task deadline if approved."""
         task = await self._task_repo.get_or_404(task_id)
+        await self._assert_task_company(task, current_user)
         comment = await self._task_repo.get_comment_or_404(comment_id)
         if comment.task_id != task_id:
             raise HTTPException(404, "Comment not found")
@@ -1899,6 +1940,7 @@ class TaskService:
     ) -> dict:
         """Create a dependency link between two tasks."""
         task = await self._task_repo.get_or_404(task_id)
+        await self._assert_task_company(task, current_user)
 
         # Authorization: assignor or user with TASK_UPDATE permission
         if task.assignor_id != current_user.id and not current_user.is_superuser:
@@ -1950,6 +1992,7 @@ class TaskService:
         # Lock the task row so two concurrent submissions can't both pass the
         # 100% cap below (P1-5). No-op on SQLite, real FOR UPDATE on Postgres.
         task = await self._task_repo.lock_for_update(task_id)
+        await self._assert_task_company(task, current_user)
         if task.status == "done":
             raise HTTPException(422, "Task is already completed")
 
@@ -2106,10 +2149,11 @@ class TaskService:
         return _report_to_public(report, current_user, task)
 
     async def list_progress_reports(
-        self, task_id: uuid.UUID
+        self, task_id: uuid.UUID, current_user: User
     ) -> list[TaskProgressReportPublic]:
         """List progress reports with reporter display names."""
         task = await self._task_repo.get_or_404(task_id)
+        await self._assert_task_company(task, current_user)
         rows = await self._task_repo.list_progress_reports(task_id)
         reporter_ids = list({r.reporter_id for r in rows})
         reporters = await self._user_repo.list_by_ids(reporter_ids)
@@ -2128,6 +2172,8 @@ class TaskService:
         if review_status not in ("approved", "rejected"):
             raise HTTPException(422, "review_status must be approved | rejected")
 
+        task_for_auth = await self._task_repo.get_or_404(task_id)
+        await self._assert_task_company(task_for_auth, current_user)
         report = await self._task_repo.get_progress_report_or_404(report_id, task_id)
         old_status = report.review_status
         report = await self._task_repo.update_progress_report(
@@ -2206,9 +2252,10 @@ class TaskService:
     # Misc
     # ------------------------------------------------------------------
 
-    async def check_conflicts(self, task_id: uuid.UUID) -> dict:
+    async def check_conflicts(self, task_id: uuid.UUID, current_user: User) -> dict:
         """Check timeline conflicts for an existing task."""
         task = await self._task_repo.get_or_404(task_id)
+        await self._assert_task_company(task, current_user)
         try:
             soft = await validate_timeline(
                 self._task_repo,
@@ -2220,9 +2267,12 @@ class TaskService:
             return {"has_hard_conflict": True, "detail": str(exc), "soft_conflicts": []}
         return {"has_hard_conflict": False, "soft_conflicts": soft}
 
-    async def get_audit(self, task_id: uuid.UUID) -> list[AuditLogPublic]:
+    async def get_audit(
+        self, task_id: uuid.UUID, current_user: User
+    ) -> list[AuditLogPublic]:
         """Return audit log entries for a task."""
-        await self._task_repo.get_or_404(task_id)
+        task = await self._task_repo.get_or_404(task_id)
+        await self._assert_task_company(task, current_user)
         entries = await self._task_repo.list_audit(task_id)
         if not entries:
             return []

@@ -1,0 +1,46 @@
+# Dozzle — xem log realtime mọi container qua trình duyệt.
+# Chạy như một stack riêng, không đụng vào compose.prod.yml.
+#
+#   docker compose --env-file .env -f compose.logging.yml -p saree-logging up -d
+#
+# Truy cập: nhúng trong trang Quản trị của ERP (cùng tên miền, không port mới).
+# Cloudflare Tunnel -> Public Hostname:
+#   app.${DOMAIN}  path: /_logs*  ->  http://dozzle:8080
+# Trang /admin/logs của ERP nhúng iframe trỏ tới /_logs/.
+# Xem docs/dozzle-setup.md.
+services:
+
+  dozzle:
+    image: amir20/dozzle:v8
+    restart: always
+    networks:
+      # cùng mạng với cloudflared để tunnel gọi được theo tên service
+      - traefik-public
+    volumes:
+      # :ro — Dozzle chỉ cần đọc. Xem cảnh báo bảo mật trong doc.
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      # users.yml cho đăng nhập (tạo bằng lệnh trong doc)
+      - ./monitoring/dozzle:/data
+    environment:
+      # Lớp xác thực thứ hai, sau Cloudflare Access
+      - DOZZLE_AUTH_PROVIDER=simple
+      # Không cho stop/restart container từ giao diện web
+      - DOZZLE_ENABLE_ACTIONS=false
+      # Không lọc: để thấy cả app (${STACK_NAME}) lẫn cloudflared (saree-tunnel)
+      # và traefik. Khi web không vào được, cần nhìn cả tunnel lẫn backend.
+      - DOZZLE_LEVEL=info
+      # Chạy dưới path con để nhúng cùng origin với ERP.
+      # Đổi giá trị này thì phải đổi cả rule trong tunnel VÀ iframe src ở FE.
+      - DOZZLE_BASE=/_logs
+    labels:
+      # Tunnel lo việc expose, Traefik không cần biết tới service này
+      - traefik.enable=false
+    healthcheck:
+      test: ["CMD", "/dozzle", "healthcheck"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+networks:
+  traefik-public:
+    external: true

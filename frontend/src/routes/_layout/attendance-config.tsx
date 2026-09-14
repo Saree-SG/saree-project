@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react"
 import { toast } from "sonner"
 
 import { SiteMapPicker } from "@/components/Map/SiteMapPicker"
+import { AttendanceConfigPageGuide } from "@/components/Guide/AttendanceConfigPageGuide"
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -58,6 +59,7 @@ function AttendanceConfigPage() {
 
   return (
     <div className="mx-auto w-full max-w-2xl space-y-5 p-4 pb-10">
+      <AttendanceConfigPageGuide />
       <div className="space-y-2">
         <Button asChild variant="ghost" size="sm" className="-ml-2 h-8 gap-1">
           <Link to="/attendance">

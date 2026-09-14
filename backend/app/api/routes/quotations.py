@@ -143,7 +143,7 @@ async def get_quotation(
     current_user: User = Depends(require_any_permission("QUOTATION_VIEW", "QUOTATION_VIEW_ALL")),
 ) -> QuotationPublic:
     """Chi tiết 1 hồ sơ báo giá."""
-    return await _svc(session).get_quotation(quotation_id)
+    return await _svc(session).get_quotation(quotation_id, current_user)
 
 
 @router.patch("/{quotation_id}", response_model=QuotationPublic)
@@ -321,7 +321,7 @@ async def list_approval_participants(
     current_user: User = Depends(require_any_permission("QUOTATION_VIEW", "QUOTATION_VIEW_ALL")),
 ) -> list[QuotationApprovalParticipantPublic]:
     """Danh sách người duyệt (co-duyệt / ủy quyền) cho giai đoạn hiện tại."""
-    return await _svc(session).list_approval_participants(quotation_id)
+    return await _svc(session).list_approval_participants(quotation_id, current_user)
 
 
 @router.post(
@@ -356,7 +356,7 @@ async def remove_approval_participant(
     )),
 ) -> None:
     """Giám đốc xóa người co-duyệt hoặc ủy quyền."""
-    await _svc(session).remove_approval_participant(quotation_id, participant_id)
+    await _svc(session).remove_approval_participant(quotation_id, participant_id, current_user)
 
 
 @router.post("/{quotation_id}/participant-approve", response_model=QuotationPublic)
@@ -384,7 +384,7 @@ async def list_history(
     current_user: User = Depends(require_any_permission("QUOTATION_VIEW", "QUOTATION_VIEW_ALL")),
 ) -> list[QuotationStageTransitionPublic]:
     """Lịch sử các bước chuyển giai đoạn của hồ sơ."""
-    return await _svc(session).list_history(quotation_id)
+    return await _svc(session).list_history(quotation_id, current_user)
 
 
 # ---------------------------------------------------------------------------
@@ -401,7 +401,7 @@ async def list_negotiations(
     current_user: User = Depends(require_any_permission("QUOTATION_VIEW", "QUOTATION_VIEW_ALL")),
 ) -> list[QuotationNegotiationLogPublic]:
     """Lịch sử trao đổi thương lượng với khách hàng."""
-    return await _svc(session).list_negotiations(quotation_id)
+    return await _svc(session).list_negotiations(quotation_id, current_user)
 
 
 @router.post(
@@ -433,7 +433,7 @@ async def list_attachments(
     current_user: User = Depends(require_any_permission("QUOTATION_VIEW", "QUOTATION_VIEW_ALL")),
 ) -> list[QuotationAttachmentPublic]:
     """Danh sách file đính kèm (bản vẽ, tài liệu kỹ thuật)."""
-    return await _svc(session).list_attachments(quotation_id)
+    return await _svc(session).list_attachments(quotation_id, current_user)
 
 
 @router.post(
@@ -508,7 +508,7 @@ async def list_versions(
     current_user: User = Depends(require_any_permission("QUOTATION_VIEW", "QUOTATION_VIEW_ALL")),
 ) -> list[QuotationVersionPublic]:
     """Danh sách các phiên bản snapshot của bảng báo giá."""
-    return await _svc(session).list_versions(quotation_id)
+    return await _svc(session).list_versions(quotation_id, current_user)
 
 
 @router.get(
@@ -522,7 +522,7 @@ async def get_version(
     current_user: User = Depends(require_any_permission("QUOTATION_VIEW", "QUOTATION_VIEW_ALL")),
 ) -> QuotationVersionPublic:
     """Xem nội dung một phiên bản snapshot cụ thể."""
-    return await _svc(session).get_version(quotation_id, version_id)
+    return await _svc(session).get_version(quotation_id, version_id, current_user)
 
 
 @router.post(

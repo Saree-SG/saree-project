@@ -9,7 +9,9 @@ from app.api.routes import (
     contracts,
     customer_companies,
     dashboard,
+    documents,
     export,
+    files,
     incidents,
     leave,
     login,
@@ -52,6 +54,8 @@ api_router.include_router(attendance.router)
 api_router.include_router(incidents.router)
 api_router.include_router(leave.router)
 api_router.include_router(skills.router)
+api_router.include_router(files.router)
+api_router.include_router(documents.router)
 
 if settings.ENVIRONMENT == "local":
     api_router.include_router(private.router)

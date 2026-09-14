@@ -12,6 +12,7 @@ import { useMemo, useState } from "react"
 import { toast } from "sonner"
 
 import type { LeaveRequestPublic } from "@/client"
+import { LeavePageGuide } from "@/components/Guide/LeavePageGuide"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
@@ -220,6 +221,7 @@ function LeavePage() {
 
   return (
     <div className="mx-auto w-full max-w-5xl space-y-6 px-1 pb-10 sm:px-2">
+      <LeavePageGuide />
       <div>
         <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
           <CalendarOff className="size-6 text-primary" /> Xin nghỉ phép

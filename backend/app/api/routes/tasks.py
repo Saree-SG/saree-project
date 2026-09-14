@@ -117,6 +117,7 @@ async def create_child_task(
     """Create a child task up to level 4 (5 levels: Hạng mục → Công việc → Đầu việc → Bước → Chi tiết)."""
     svc = _svc(session)
     parent = await svc._task_repo.get_or_404(parent_id)
+    await svc._assert_task_company(parent, current_user)
     if parent.level >= 4:
         raise HTTPException(
             422,
@@ -149,17 +150,17 @@ async def my_dashboard(
 async def get_task(
     task_id: uuid.UUID,
     session: AsyncSessionDep,
-    _current_user: CurrentUser,
+    current_user: CurrentUser,
 ) -> TaskPublic:
     """Fetch a task with computed status."""
-    return await _svc(session).get_task(task_id)
+    return await _svc(session).get_task(task_id, current_user)
 
 
 @router.get("/projects/{project_id}/tasks", response_model=TasksPublic)
 async def list_project_tasks(
     project_id: uuid.UUID,
     session: AsyncSessionDep,
-    _current_user: CurrentUser,
+    current_user: CurrentUser,
     parent_id: uuid.UUID | None = Query(default=None),
     assignee_id: uuid.UUID | None = Query(default=None),
     skip: int = 0,
@@ -169,6 +170,7 @@ async def list_project_tasks(
     root_only = parent_id is None
     return await _svc(session).list_project_tasks(
         project_id,
+        current_user,
         parent_id=parent_id,
         filter_root_only=root_only,
         assignee_id=assignee_id,
@@ -335,10 +337,10 @@ async def add_comment(
 async def list_comments(
     task_id: uuid.UUID,
     session: AsyncSessionDep,
-    _current_user: CurrentUser,
+    current_user: CurrentUser,
 ) -> list[TaskCommentPublic]:
     """List task comments with author names."""
-    return await _svc(session).list_comments(task_id)
+    return await _svc(session).list_comments(task_id, current_user)
 
 
 @router.patch(
@@ -362,10 +364,10 @@ async def add_dependency(
     task_id: uuid.UUID,
     body: TaskDependencyCreate,
     session: AsyncSessionDep,
-    _current_user: CurrentUser,
+    current_user: CurrentUser,
 ) -> dict:
     """Create a dependency link between two tasks."""
-    return await _svc(session).add_dependency(task_id, body, _current_user)
+    return await _svc(session).add_dependency(task_id, body, current_user)
 
 
 @router.delete(
@@ -376,10 +378,10 @@ async def remove_dependency(
     task_id: uuid.UUID,
     dep_id: uuid.UUID,
     session: AsyncSessionDep,
-    _current_user: CurrentUser,
+    current_user: CurrentUser,
 ) -> None:
     """Remove a dependency link and recalculate the critical path."""
-    await _svc(session).remove_dependency(task_id, dep_id, _current_user)
+    await _svc(session).remove_dependency(task_id, dep_id, current_user)
 
 
 # ---------------------------------------------------------------------------
@@ -390,10 +392,10 @@ async def remove_dependency(
 async def get_project_gantt(
     project_id: uuid.UUID,
     session: AsyncSessionDep,
-    _current_user: CurrentUser,
+    current_user: CurrentUser,
 ) -> GanttPublic:
     """Return all tasks + dependency links for the project Gantt chart."""
-    return await _svc(session).get_project_gantt(project_id)
+    return await _svc(session).get_project_gantt(project_id, current_user)
 
 
 # ---------------------------------------------------------------------------
@@ -414,6 +416,7 @@ async def upload_progress_report_photo(
     """Persist an image from the assignee's device; returns photo_url."""
     svc = _svc(session)
     task = await svc._task_repo.get_or_404(task_id)
+    await svc._assert_task_company(task, current_user)
     if task.status == "done":
         raise HTTPException(422, "Task is already completed")
     if task.assignee_id != current_user.id and not current_user.is_superuser:
@@ -457,6 +460,7 @@ async def add_progress_report(
 
     svc = _svc(session)
     task = await svc._task_repo.get_or_404(task_id)
+    await svc._assert_task_company(task, current_user)
     has_gps = gps_lat is not None and gps_lng is not None
     checkin_skipped = False
     if task.requires_checkin and not has_gps:
@@ -495,10 +499,10 @@ async def add_progress_report(
 async def list_progress_reports(
     task_id: uuid.UUID,
     session: AsyncSessionDep,
-    _current_user: CurrentUser,
+    current_user: CurrentUser,
 ) -> list[TaskProgressReportPublic]:
     """List worker progress submissions for a task."""
-    return await _svc(session).list_progress_reports(task_id)
+    return await _svc(session).list_progress_reports(task_id, current_user)
 
 
 @router.patch(
@@ -527,10 +531,10 @@ async def review_progress_report(
 async def get_task_audit(
     task_id: uuid.UUID,
     session: AsyncSessionDep,
-    _current_user: CurrentUser,
+    current_user: CurrentUser,
 ) -> list[AuditLogPublic]:
     """Return audit log for a task."""
-    return await _svc(session).get_audit(task_id)
+    return await _svc(session).get_audit(task_id, current_user)
 
 
 # ---------------------------------------------------------------------------
@@ -541,10 +545,10 @@ async def get_task_audit(
 async def check_conflicts(
     task_id: uuid.UUID,
     session: AsyncSessionDep,
-    _current_user: CurrentUser,
+    current_user: CurrentUser,
 ) -> dict:
     """Check timeline conflicts for a task."""
-    return await _svc(session).check_conflicts(task_id)
+    return await _svc(session).check_conflicts(task_id, current_user)
 
 
 # ---------------------------------------------------------------------------
@@ -660,7 +664,7 @@ async def handoff_task(
     - Task gốc chuyển sang status=paused với pause_note ghi lý do bàn giao.
     - Chỉ assignee hiện tại hoặc assignor hoặc superuser được bàn giao.
     """
-    task = await _svc(session).get_task(task_id)
+    task = await _svc(session).get_task(task_id, current_user)
     if task.status == "done":
         raise HTTPException(422, "Công việc đã hoàn thành, không thể bàn giao.")
 
@@ -734,7 +738,7 @@ async def handoff_task(
     )
 
     await session.refresh(new_task)
-    return await _svc(session).get_task(new_task.id)
+    return await _svc(session).get_task(new_task.id, current_user)
 
 
 # ── Điều phối: gợi ý nhân sự ─────────────────────────────────────────────────

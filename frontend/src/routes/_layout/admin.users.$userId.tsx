@@ -3,6 +3,7 @@ import { createFileRoute, Link } from "@tanstack/react-router"
 import { ArrowLeft } from "lucide-react"
 
 import ActivityTab from "@/components/Admin/Users/ActivityTab"
+import { AdminUserDetailPageGuide } from "@/components/Guide/AdminUserDetailPageGuide"
 import InfoTab from "@/components/Admin/Users/InfoTab"
 import MembershipTab from "@/components/Admin/Users/MembershipTab"
 import PermissionsTab from "@/components/Admin/Users/PermissionsTab"
@@ -120,6 +121,7 @@ function AdminUserDetailPage() {
           <PermissionsTab userId={user.id} />
         </TabsContent>
       </Tabs>
+      <AdminUserDetailPageGuide />
     </div>
   )
 }

@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
 import { CheckCircle2, Clock, Inbox, Star, XCircle } from "lucide-react"
 import { useState } from "react"
+import { SkillRequestsPageGuide } from "@/components/Guide/SkillRequestsPageGuide"
 import { useMyPermissions } from "@/hooks/useMyPermissions"
 import { cn } from "@/lib/utils"
 import {
@@ -291,6 +292,7 @@ function SkillRequestsPage() {
           <MyRequests />
         </section>
       </div>
+      <SkillRequestsPageGuide />
     </div>
   )
 }

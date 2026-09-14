@@ -8,6 +8,7 @@ import {
 import { ArrowLeft, FolderOpen, Plus } from "lucide-react"
 import { useMemo, useState } from "react"
 import { ProjectsService, RolesService, UsersService } from "@/client"
+import { ProjectsPageGuide } from "@/components/Guide/ProjectsPageGuide"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -376,6 +377,7 @@ function ProjectsIndexPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      <ProjectsPageGuide />
     </div>
   )
 }

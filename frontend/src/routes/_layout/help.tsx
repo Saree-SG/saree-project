@@ -1,7 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router"
-import { Search } from "lucide-react"
-import { useEffect, useMemo, useState } from "react"
+import { ChevronDown, ChevronUp, Search } from "lucide-react"
+import { useEffect, useMemo, useRef, useState } from "react"
 
+import { HelpPageGuide } from "@/components/Guide/HelpPageGuide"
 import { Input } from "@/components/ui/input"
 
 export const Route = createFileRoute("/_layout/help")({
@@ -22,6 +23,9 @@ function HelpPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [query, setQuery] = useState("")
+  const [activeMatch, setActiveMatch] = useState(0)
+  const [matchCount, setMatchCount] = useState(0)
+  const articleRef = useRef<HTMLElement>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -53,6 +57,34 @@ function HelpPage() {
     return highlight(html, query.trim())
   }, [html, query])
 
+  const goToMatch = (index: number) => {
+    const marks = articleRef.current?.querySelectorAll<HTMLElement>("mark[data-search-mark]")
+    if (!marks || marks.length === 0) return
+    const normalized = ((index % marks.length) + marks.length) % marks.length
+    marks.forEach((m, i) => m.classList.toggle("mark-active", i === normalized))
+    marks[normalized].scrollIntoView({ behavior: "smooth", block: "center" })
+    setActiveMatch(normalized)
+  }
+
+  // Jump to the first match as soon as a new search turns up results.
+  useEffect(() => {
+    const marks = articleRef.current?.querySelectorAll<HTMLElement>("mark[data-search-mark]")
+    const count = marks?.length ?? 0
+    setMatchCount(count)
+    if (count > 0) {
+      goToMatch(0)
+    } else {
+      setActiveMatch(0)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [displayHtml])
+
+  const handleSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key !== "Enter" || matchCount === 0) return
+    e.preventDefault()
+    goToMatch(activeMatch + (e.shiftKey ? -1 : 1))
+  }
+
   if (loading) {
     return (
       <div className="py-8 text-center text-muted-foreground">
@@ -78,9 +110,35 @@ function HelpPage() {
             <Input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Tìm trong hướng dẫn..."
-              className="pl-8"
+              onKeyDown={handleSearchKeyDown}
+              placeholder="Tìm trong hướng dẫn... (Enter để nhảy tới)"
+              className="pl-8 pr-20"
             />
+            {query.trim() && (
+              <div className="absolute right-1 top-1/2 flex -translate-y-1/2 items-center gap-0.5">
+                <span className="mr-1 text-xs text-muted-foreground">
+                  {matchCount > 0 ? `${activeMatch + 1}/${matchCount}` : "0/0"}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => goToMatch(activeMatch - 1)}
+                  disabled={matchCount === 0}
+                  className="rounded p-1 hover:bg-muted disabled:opacity-30"
+                  aria-label="Kết quả trước"
+                >
+                  <ChevronUp className="size-3.5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => goToMatch(activeMatch + 1)}
+                  disabled={matchCount === 0}
+                  className="rounded p-1 hover:bg-muted disabled:opacity-30"
+                  aria-label="Kết quả tiếp theo"
+                >
+                  <ChevronDown className="size-3.5" />
+                </button>
+              </div>
+            )}
           </div>
         </div>
         <nav className="flex flex-col gap-1 text-sm">
@@ -103,10 +161,12 @@ function HelpPage() {
       </aside>
 
       <article
+        ref={articleRef}
         className="manual-content min-w-0 flex-1"
         // biome-ignore lint/security/noDangerouslySetInnerHtml: trusted static asset
         dangerouslySetInnerHTML={{ __html: displayHtml }}
       />
+      <HelpPageGuide />
     </div>
   )
 }
@@ -159,6 +219,6 @@ function highlight(html: string, q: string): string {
   return html.replace(
     /(>)([^<]+)(<)/g,
     (_m, a: string, text: string, b: string) =>
-      `${a}${text.replace(re, '<mark class="bg-yellow-200 dark:bg-yellow-700">$1</mark>')}${b}`,
+      `${a}${text.replace(re, '<mark data-search-mark class="bg-yellow-200 dark:bg-yellow-700">$1</mark>')}${b}`,
   )
 }

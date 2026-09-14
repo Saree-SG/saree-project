@@ -285,3 +285,64 @@ def test_config_requires_exactly_one_target(client: TestClient, env: dict) -> No
         headers=env["director"],
     )
     assert r.status_code == 422
+
+
+# ---------------------------------------------------------------------------
+# Cross-company isolation — a manager/director in company B must not read or
+# write company A's leave data/config just by passing its company_id in the URL.
+# ---------------------------------------------------------------------------
+
+@pytest.fixture(scope="module")
+def other_env(client: TestClient, mdb: Session) -> dict:
+    company = Company(
+        name=f"LvOther-{uuid.uuid4().hex[:6]}", slug=f"lvother-{uuid.uuid4().hex[:6]}"
+    )
+    mdb.add(company)
+    mdb.commit()
+    mdb.refresh(company)
+
+    manager_role = Role(
+        company_id=company.id,
+        name=f"mgr_{uuid.uuid4().hex[:6]}",
+        display_name="Manager",
+        level=2,
+    )
+    mdb.add(manager_role)
+    mdb.flush()
+    _grant(mdb, manager_role.id, ["LEAVE_CREATE", "LEAVE_APPROVE", "LEAVE_VIEW_TEAM", "LEAVE_CONFIG"])
+    mdb.commit()
+
+    manager_headers = _make_user(mdb, client, company.id, manager_role.id)
+    return {"company_id": str(company.id), "manager": manager_headers}
+
+
+def test_cannot_view_other_company_leave_requests(
+    client: TestClient, env: dict, other_env: dict
+) -> None:
+    _create_request(client, env["worker"])
+    r = client.get(
+        f"{API}/companies/{env['company_id']}/leave-requests",
+        headers=other_env["manager"],
+    )
+    assert r.status_code == 403
+
+
+def test_cannot_read_other_company_approver_config(
+    client: TestClient, env: dict, other_env: dict
+) -> None:
+    r = client.get(
+        f"{API}/companies/{env['company_id']}/leave-approver-config",
+        headers=other_env["manager"],
+    )
+    assert r.status_code == 403
+
+
+def test_cannot_write_other_company_approver_config(
+    client: TestClient, env: dict, other_env: dict
+) -> None:
+    r = client.put(
+        f"{API}/companies/{env['company_id']}/leave-approver-config",
+        json={"items": []},
+        headers=other_env["manager"],
+    )
+    assert r.status_code == 403

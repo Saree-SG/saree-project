@@ -3,6 +3,7 @@ import { createFileRoute } from "@tanstack/react-router"
 
 import AddUser from "@/components/Admin/AddUser"
 import UserListTable from "@/components/Admin/Users/UserListTable"
+import { AdminUsersPageGuide } from "@/components/Guide/AdminUsersPageGuide"
 import { Skeleton } from "@/components/ui/skeleton"
 import { listAdminUsers } from "@/modules/admin/adminUsersApi"
 
@@ -42,6 +43,7 @@ function AdminUsers() {
       ) : (
         <UserListTable users={data ?? []} />
       )}
+      <AdminUsersPageGuide />
     </div>
   )
 }

@@ -5,6 +5,7 @@ import { useState } from "react"
 
 import { DetailProvider } from "@/components/demo/detail"
 import { LiveStaff } from "@/components/demo/live"
+import { StaffPageGuide } from "@/components/Guide/StaffPageGuide"
 import {
   approveSkillRequest,
   fetchPendingSkillRequests,
@@ -161,6 +162,7 @@ function StaffPage() {
         <SkillApprovalPanel />
         <LiveStaff />
       </div>
+      <StaffPageGuide />
     </DetailProvider>
   )
 }

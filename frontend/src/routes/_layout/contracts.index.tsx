@@ -3,6 +3,7 @@ import { createFileRoute, Link, redirect } from "@tanstack/react-router"
 import { FileSignature, Plus } from "lucide-react"
 import { useState } from "react"
 
+import { ContractsPageGuide } from "@/components/Guide/ContractsPageGuide"
 import { Button } from "@/components/ui/button"
 import {
   Select,
@@ -90,6 +91,7 @@ function ContractsPage() {
 
   return (
     <div className="p-4 md:p-6 max-w-6xl mx-auto space-y-4">
+      <ContractsPageGuide />
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold flex items-center gap-2">
           <FileSignature className="w-5 h-5" />

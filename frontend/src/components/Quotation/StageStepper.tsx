@@ -49,6 +49,7 @@ export function StageStepper({
             const stage = STAGE_CONFIG[stageKey]
             const isDone = index < currentIndex
             const isCurrent = stageKey === currentStage
+            const canInspectHistory = isDone || isCurrent
             const isLast = index === STAGE_ORDER.length - 1
 
             return (
@@ -57,7 +58,9 @@ export function StageStepper({
                   type="button"
                   className={[
                     "flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium whitespace-nowrap transition-colors",
-                    "cursor-pointer hover:bg-muted/50",
+                    canInspectHistory
+                      ? "cursor-pointer hover:bg-muted/50"
+                      : "cursor-not-allowed opacity-50",
                     isCurrent
                       ? `${stage.badgeBg} ${stage.badgeText} ring-1 ring-current/30`
                       : "",
@@ -67,7 +70,16 @@ export function StageStepper({
                     isDone ? "text-green-700" : "",
                     !isDone && !isCurrent ? "text-muted-foreground" : "",
                   ].join(" ")}
-                  onClick={() => onStepClick?.(stageKey)}
+                  disabled={!canInspectHistory}
+                  aria-disabled={!canInspectHistory}
+                  title={
+                    canInspectHistory
+                      ? `Xem lịch sử: ${stage.label}`
+                      : "Bước này chưa diễn ra"
+                  }
+                  onClick={() => {
+                    if (canInspectHistory) onStepClick?.(stageKey)
+                  }}
                 >
                   <span className="shrink-0">
                     {isDone ? (

@@ -4,6 +4,7 @@ import { CalendarRange } from "lucide-react"
 import { useMemo, useRef, useState } from "react"
 
 import { ProjectsService, RolesService } from "@/client"
+import { GanttPageGuide } from "@/components/Guide/GanttPageGuide"
 import GanttToolbar from "@/components/Gantt/GanttToolbar"
 import ProjectTimelineCard from "@/components/Gantt/ProjectTimelineCard"
 import TaskTimeline from "@/components/Gantt/TaskTimeline"
@@ -217,6 +218,7 @@ function CompanyGanttPage() {
           )}
         </>
       )}
+      <GanttPageGuide />
     </div>
   )
 }

@@ -5,6 +5,7 @@ import {
   ItemTypeBadge,
   ReleaseHero,
 } from "@/components/Common/releaseNotes/ReleaseVisuals"
+import { ReleasesPageGuide } from "@/components/Guide/ReleasesPageGuide"
 import { RELEASE_NOTES } from "@/data/releaseNotes"
 import { APP_VERSION_SHORT } from "@/utils/appVersion"
 
@@ -77,6 +78,7 @@ function ReleasesPage() {
           ← Về trang tổng quan
         </Link>
       </div>
+      <ReleasesPageGuide />
     </div>
   )
 }

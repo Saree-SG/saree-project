@@ -1,0 +1,22 @@
+name: Deploy Logging (Dozzle)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: [self-hosted]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Docker Compose up
+        shell: cmd
+        run: |
+          docker compose -f compose.logging.yml -p saree-logging up -d --pull missing
+
+      - name: Check Dozzle status
+        shell: cmd
+        run: |
+          docker logs saree-logging-dozzle-1 --tail 20

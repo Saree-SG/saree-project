@@ -8,6 +8,7 @@ import {
 import { ArrowLeft, Loader2 } from "lucide-react"
 import { useEffect, useState } from "react"
 
+import { NewQuotationPageGuide } from "@/components/Guide/NewQuotationPageGuide"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -168,6 +169,7 @@ function NewQuotationPage() {
 
   return (
     <div className="flex flex-col gap-6 p-6 max-w-2xl mx-auto">
+      <NewQuotationPageGuide />
       {/* Header */}
       <div className="flex items-center gap-3">
         <Link to="/quotations">

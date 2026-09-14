@@ -378,7 +378,7 @@ async def add_membership(
         user.company_id = body.company_id
     session.add(user)
 
-    await session.commit()
+    await session.flush()
     await session.refresh(ucr)
 
     return AdminUserMembership(
@@ -469,7 +469,7 @@ async def update_membership(
 
     session.add(target)
     session.add(user)
-    await session.commit()
+    await session.flush()
 
     # return all memberships for the user (caller can refresh easily)
     roles_map = await _role_map(session)
@@ -621,5 +621,5 @@ async def delete_membership(
         if dept is not None and dept.company_id == company_id:
             user.department_id = None
     session.add(user)
-    await session.commit()
+    await session.flush()
     return None

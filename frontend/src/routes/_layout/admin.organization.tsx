@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from "react"
 
 import { type CompanyPublic, OpenAPI, RolesService } from "@/client"
 import OrgChart from "@/components/Admin/Organization/OrgChart"
+import { AdminOrganizationPageGuide } from "@/components/Guide/AdminOrganizationPageGuide"
 import { Button } from "@/components/ui/button"
 import {
   Select,
@@ -134,6 +135,7 @@ function AdminOrganization() {
       ) : (
         <OrgChart ref={chartRef} data={tree} />
       )}
+      <AdminOrganizationPageGuide />
     </div>
   )
 }

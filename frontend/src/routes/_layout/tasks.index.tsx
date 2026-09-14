@@ -11,6 +11,7 @@ import {
 import { useMemo, useState } from "react"
 
 import { type TaskPublic, TasksService } from "@/client"
+import { TasksPageGuide } from "@/components/Guide/TasksPageGuide"
 import { useCan } from "@/hooks/useMyPermissions"
 import { cn } from "@/lib/utils"
 import { listContracts } from "@/modules/contract/contractApi"
@@ -426,6 +427,7 @@ function MyTasksPage() {
 
   return (
     <div className="min-h-screen bg-slate-50">
+      <TasksPageGuide />
       {/* Page header */}
       <div className="border-b bg-white px-4 py-4 sm:px-6">
         <div className="flex flex-wrap items-start justify-between gap-3">

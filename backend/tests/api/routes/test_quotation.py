@@ -11,6 +11,8 @@ Coverage:
   - Delegate: delegate can approve and it counts as main approval
   - Non-director cannot use approval endpoints (403)
   - Creating contract from non-S9 quotation fails (TC-07-02)
+  - Cross-company isolation: user from another company cannot view/update/
+    act on a quotation via direct ID, and it never appears in their list
 """
 
 from __future__ import annotations
@@ -175,6 +177,33 @@ def engineer_headers(client: TestClient, engineer_user: tuple[User, str]) -> dic
 @pytest.fixture(scope="module")
 def materials_headers(client: TestClient, materials_user: tuple[User, str]) -> dict:
     user, pw = materials_user
+    return _login(client, user.email, pw)
+
+
+# --- Second (foreign) company, to test cross-company isolation ---
+
+@pytest.fixture(scope="module")
+def other_company(mdb: Session) -> Company:
+    c = Company(name=f"OtherQuoteCo-{uuid.uuid4().hex[:6]}", slug=f"otherquoteco-{uuid.uuid4().hex[:6]}")
+    mdb.add(c)
+    mdb.commit()
+    mdb.refresh(c)
+    return c
+
+
+@pytest.fixture(scope="module")
+def other_sales_role(mdb: Session, other_company: Company) -> Role:
+    return _make_role(mdb, other_company, "Sales", 2, SALES_PERMS)
+
+
+@pytest.fixture(scope="module")
+def other_sales_user(mdb: Session, other_company: Company, other_sales_role: Role) -> tuple[User, str]:
+    return _make_user(mdb, other_company, other_sales_role, "othersales")
+
+
+@pytest.fixture(scope="module")
+def other_sales_headers(client: TestClient, other_sales_user: tuple[User, str]) -> dict:
+    user, pw = other_sales_user
     return _login(client, user.email, pw)
 
 
@@ -641,3 +670,56 @@ class TestContractFromQuotation:
         r = client.get(f"{API}/quotations/", headers=sales_headers)
         assert r.status_code == 200
         assert "data" in r.json() or isinstance(r.json(), (list, dict))
+
+
+# ---------------------------------------------------------------------------
+# TC-02-22: Cross-company isolation
+# ---------------------------------------------------------------------------
+
+class TestQuotationCrossCompanyIsolation:
+    """User ở công ty khác không được xem/sửa/thao tác báo giá công ty này,
+    kể cả khi biết trực tiếp UUID (direct URL/API)."""
+
+    def test_cannot_get_quotation_from_other_company(
+        self, client: TestClient, sales_headers: dict, other_sales_headers: dict
+    ) -> None:
+        q = _create_quotation(client, sales_headers)
+        r = client.get(f"{API}/quotations/{q['id']}", headers=other_sales_headers)
+        assert r.status_code in (403, 404)
+
+    def test_cannot_update_quotation_from_other_company(
+        self, client: TestClient, sales_headers: dict, other_sales_headers: dict
+    ) -> None:
+        q = _create_quotation(client, sales_headers)
+        r = client.patch(f"{API}/quotations/{q['id']}",
+                          json={"project_name": "hack"}, headers=other_sales_headers)
+        assert r.status_code in (403, 404)
+
+    def test_cannot_submit_survey_from_other_company(
+        self, client: TestClient, sales_headers: dict, other_sales_headers: dict
+    ) -> None:
+        q = _create_quotation(client, sales_headers)
+        r = client.post(f"{API}/quotations/{q['id']}/submit-survey", json={
+            "client_contact_name": "hack",
+            "site_survey_date": str(date.today()),
+        }, headers=other_sales_headers)
+        assert r.status_code in (403, 404)
+
+    def test_cannot_view_history_or_attachments_from_other_company(
+        self, client: TestClient, sales_headers: dict, other_sales_headers: dict
+    ) -> None:
+        q = _create_quotation(client, sales_headers)
+        r = client.get(f"{API}/quotations/{q['id']}/history", headers=other_sales_headers)
+        assert r.status_code in (403, 404)
+        r = client.get(f"{API}/quotations/{q['id']}/attachments", headers=other_sales_headers)
+        assert r.status_code in (403, 404)
+
+    def test_quotation_not_leaked_in_other_company_list(
+        self, client: TestClient, sales_headers: dict, other_sales_headers: dict
+    ) -> None:
+        q = _create_quotation(client, sales_headers)
+        r = client.get(f"{API}/quotations/", headers=other_sales_headers)
+        assert r.status_code == 200
+        body = r.json()
+        items = body["data"] if isinstance(body, dict) and "data" in body else body
+        assert all(item["id"] != q["id"] for item in items)

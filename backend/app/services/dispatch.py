@@ -55,6 +55,9 @@ async def suggest_assignees(
         return []
 
     project = await session.get(Project, task.project_id) if task.project_id else None
+    if project is not None and project.company_id != company_id:
+        # Task belongs to another tenant — never suggest candidates across companies.
+        return []
 
     # 2. Yêu cầu kỹ năng từ task_profiles (task.required_skill_ids nếu có)
     #    Fallback: lấy tất cả skill của công ty
@@ -89,8 +92,9 @@ async def suggest_assignees(
     wl_q = await session.execute(
         select(TaskAssignee.user_id, func.count(Task.id).label("cnt"))
         .join(Task, TaskAssignee.task_id == Task.id)
+        .join(Project, Task.project_id == Project.id)
         .where(
-            Task.company_id == company_id,
+            Project.company_id == company_id,
             Task.status == "in_progress",
             Task.is_deleted == False,  # noqa: E712
         )
@@ -102,8 +106,9 @@ async def suggest_assignees(
     current_task_q = await session.execute(
         select(TaskAssignee.user_id, Task.id, Task.name, Task.project_id)
         .join(Task, TaskAssignee.task_id == Task.id)
+        .join(Project, Task.project_id == Project.id)
         .where(
-            Task.company_id == company_id,
+            Project.company_id == company_id,
             Task.status == "in_progress",
             Task.is_deleted == False,  # noqa: E712
         )

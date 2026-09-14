@@ -1,4 +1,5 @@
 import {
+  BookOpen,
   ClipboardCheck,
   GanttChartSquare,
   type LucideIcon,
@@ -13,6 +14,7 @@ const ICON_MAP: Record<string, LucideIcon> = {
   Map,
   GanttChartSquare,
   ClipboardCheck,
+  BookOpen,
 }
 
 export function getReleaseIcon(icon: string): LucideIcon {

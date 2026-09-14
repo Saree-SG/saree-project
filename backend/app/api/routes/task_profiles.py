@@ -49,6 +49,25 @@ async def _get_profile_or_404(session: AsyncSession, profile_id: uuid.UUID) -> T
     return p
 
 
+def _assert_profile_company(profile: TaskProfile, current_user: User) -> None:
+    if current_user.is_superuser:
+        return
+    if profile.company_id is not None and profile.company_id != current_user.company_id:
+        raise HTTPException(403, "Access denied")
+
+
+async def _assert_project_company(
+    session: AsyncSession, project_id: uuid.UUID, current_user: User
+) -> None:
+    if current_user.is_superuser:
+        return
+    from app.models.project import Project
+
+    project = await session.get(Project, project_id)
+    if project is None or project.company_id != current_user.company_id:
+        raise HTTPException(403, "Access denied")
+
+
 async def _build_profile_public(session: AsyncSession, profile: TaskProfile) -> TaskProfilePublic:
     # Load items
     items_result = await session.execute(
@@ -106,9 +125,14 @@ async def list_profiles(
     current_user: CurrentUser,
     company_id: Optional[uuid.UUID] = Query(default=None),
 ) -> list[TaskProfilePublic]:
+    if company_id is not None and company_id != current_user.company_id and not current_user.is_superuser:
+        raise HTTPException(403, "Access denied")
+    effective_company_id = company_id or (
+        None if current_user.is_superuser else current_user.company_id
+    )
     stmt = select(TaskProfile).order_by(TaskProfile.created_at.desc())
-    if company_id is not None:
-        stmt = stmt.where(TaskProfile.company_id == company_id)
+    if effective_company_id is not None:
+        stmt = stmt.where(TaskProfile.company_id == effective_company_id)
     result = await session.execute(stmt)
     profiles = result.scalars().all()
     return [await _build_profile_public(session, p) for p in profiles]
@@ -120,11 +144,13 @@ async def create_profile(
     session: AsyncSessionDep,
     current_user: CurrentUser,
 ) -> TaskProfilePublic:
+    if body.company_id is not None and body.company_id != current_user.company_id and not current_user.is_superuser:
+        raise HTTPException(403, "Access denied")
     profile = TaskProfile(
         name=body.name,
         description=body.description,
         created_by=current_user.id,
-        company_id=body.company_id,
+        company_id=body.company_id or current_user.company_id,
     )
     session.add(profile)
     await session.flush()
@@ -138,6 +164,7 @@ async def get_profile(
     current_user: CurrentUser,
 ) -> TaskProfilePublic:
     profile = await _get_profile_or_404(session, profile_id)
+    _assert_profile_company(profile, current_user)
     return await _build_profile_public(session, profile)
 
 
@@ -149,6 +176,7 @@ async def update_profile(
     current_user: CurrentUser,
 ) -> TaskProfilePublic:
     profile = await _get_profile_or_404(session, profile_id)
+    _assert_profile_company(profile, current_user)
     if body.name is not None:
         profile.name = body.name
     if body.description is not None:
@@ -166,6 +194,7 @@ async def delete_profile(
     current_user: CurrentUser,
 ) -> None:
     profile = await _get_profile_or_404(session, profile_id)
+    _assert_profile_company(profile, current_user)
     await session.delete(profile)
     await session.flush()
 
@@ -182,6 +211,7 @@ async def add_profile_item(
     current_user: CurrentUser,
 ) -> TaskProfileItemPublic:
     profile = await _get_profile_or_404(session, profile_id)
+    _assert_profile_company(profile, current_user)
 
     # Determine level
     level = 0
@@ -226,6 +256,9 @@ async def update_profile_item(
     item = result.scalars().first()
     if not item:
         raise HTTPException(404, "Không tìm thấy mục.")
+    _assert_profile_company(
+        await _get_profile_or_404(session, item.profile_id), current_user
+    )
     if body.name is not None:
         item.name = body.name
     if body.duration_days is not None:
@@ -253,6 +286,9 @@ async def delete_profile_item(
     item = result.scalars().first()
     if not item:
         raise HTTPException(404, "Không tìm thấy mục.")
+    _assert_profile_company(
+        await _get_profile_or_404(session, item.profile_id), current_user
+    )
 
     # Delete entire subtree bottom-up (children first to avoid FK violations)
     async def _delete_subtree(node_id: uuid.UUID) -> None:
@@ -286,6 +322,8 @@ async def apply_profile(
     to parent end_time to keep timeline consistent.
     """
     profile = await _get_profile_or_404(session, profile_id)
+    _assert_profile_company(profile, current_user)
+    await _assert_project_company(session, body.project_id, current_user)
 
     # Load all items sorted by level then order_index
     items_result = await session.execute(
@@ -318,6 +356,8 @@ async def apply_profile(
         parent_task = parent_result.scalars().first()
         if not parent_task:
             raise HTTPException(404, "Không tìm thấy task cha.")
+        if parent_task.project_id != body.project_id:
+            raise HTTPException(422, "Task cha phải cùng dự án với project_id.")
         if parent_task.is_deleted:
             raise HTTPException(422, "Task cha đã bị xóa.")
         if parent_task.status == "done":
@@ -433,6 +473,9 @@ async def save_task_as_profile(
     if root.level != 0:
         raise HTTPException(422, "Chỉ Hạng mục (tầng 0) mới được lưu làm mẫu.")
     root_level = root.level
+
+    if root.project_id is not None:
+        await _assert_project_company(session, root.project_id, current_user)
 
     # Fallback: if client didn't pass company_id, infer from the task's project
     inferred_company_id = body.company_id

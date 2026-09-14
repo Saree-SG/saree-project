@@ -5,3 +5,8 @@ node_modules
 .claude/
 # macOS
 .DS_Store
+
+# Dozzle: file user chứa hash mật khẩu, tạo trực tiếp trên server
+monitoring/dozzle/users.yml
+docs/
+*.pdf

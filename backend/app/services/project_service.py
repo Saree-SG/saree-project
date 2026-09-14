@@ -6,6 +6,7 @@ import uuid
 
 from datetime import datetime, timezone
 
+from fastapi import HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.org import ProjectMemberWithUserPublic, Role
@@ -13,6 +14,7 @@ from app.models.chat import ChatRoomPublic
 from app.models.project import (
     DelayWarningPublic,
     DelayWarningsPublic,
+    Project,
     ProjectCreate,
     ProjectPublic,
     ProjectsPublic,
@@ -32,6 +34,13 @@ from app.services.delay_analyzer import ProjectDelayAnalyzer
 from app.services.task_service import rollup_progress_for_projects
 from app.shared.permission import has_company_wide_scope
 from app.shared.task_realtime import broadcast_task_user_event
+
+
+def _assert_company(project: Project, current_user: User) -> None:
+    if current_user.is_superuser:
+        return
+    if project.company_id != current_user.company_id:
+        raise HTTPException(status_code=403, detail="Access denied")
 
 
 class ProjectService:
@@ -97,6 +106,7 @@ class ProjectService:
     ) -> ChatRoomPublic:
         """Create a chat room for a project when missing, and link it to the project."""
         project = await self._project_repo.get_or_404(project_id)
+        _assert_company(project, current_user)
         if project.chat_room_id:
             room = await ChatRepository(self._session).get_room_or_404(
                 project.chat_room_id
@@ -206,9 +216,12 @@ class ProjectService:
             for p, dept_name in rows
         ]
 
-    async def get_project(self, project_id: uuid.UUID) -> ProjectPublic:
+    async def get_project(
+        self, project_id: uuid.UUID, current_user: User
+    ) -> ProjectPublic:
         """Return project or raise 404."""
         project = await self._project_repo.get_or_404(project_id)
+        _assert_company(project, current_user)
         return ProjectPublic(**project.model_dump())
 
     # ------------------------------------------------------------------
@@ -305,6 +318,7 @@ class ProjectService:
     ) -> ProjectPublic:
         """Apply partial updates to a project."""
         project = await self._project_repo.get_or_404(project_id)
+        _assert_company(project, current_user)
         old_data = project.model_dump()
         update_data = body.model_dump(exclude_unset=True)
 
@@ -325,6 +339,7 @@ class ProjectService:
     ) -> None:
         """Soft-delete a project."""
         project = await self._project_repo.get_or_404(project_id)
+        _assert_company(project, current_user)
         await self._project_repo.soft_delete(project)
         await self._audit_repo.write(
             actor_id=current_user.id,
@@ -338,9 +353,12 @@ class ProjectService:
     # ------------------------------------------------------------------
 
     async def get_members(
-        self, project_id: uuid.UUID
+        self, project_id: uuid.UUID, current_user: User
     ) -> list[ProjectMemberWithUserPublic]:
         """Return project members with user and role info."""
+        _assert_company(
+            await self._project_repo.get_or_404(project_id), current_user
+        )
         members = await self._project_repo.get_members(project_id)
         return [
             ProjectMemberWithUserPublic(
@@ -355,10 +373,15 @@ class ProjectService:
         ]
 
     async def add_member(
-        self, project_id: uuid.UUID, user_id: uuid.UUID, role_id: uuid.UUID
+        self,
+        project_id: uuid.UUID,
+        user_id: uuid.UUID,
+        role_id: uuid.UUID,
+        current_user: User,
     ) -> dict:
         """Add or update a project member."""
         project = await self._project_repo.get_or_404(project_id)
+        _assert_company(project, current_user)
         await self._project_repo.add_or_update_member(project_id, user_id, role_id)
         await self._sync_project_member_to_chat(project_id, user_id)
         await self._emit_project_user_notification(
@@ -373,9 +396,12 @@ class ProjectService:
         return {"message": "Member added/updated"}
 
     async def remove_member(
-        self, project_id: uuid.UUID, user_id: uuid.UUID
+        self, project_id: uuid.UUID, user_id: uuid.UUID, current_user: User
     ) -> dict:
         """Remove a member from a project."""
+        _assert_company(
+            await self._project_repo.get_or_404(project_id), current_user
+        )
         await self._project_repo.remove_member(project_id, user_id)
         await self._sync_project_member_remove_from_chat(project_id, user_id)
         return {"message": "Member removed"}
@@ -388,7 +414,9 @@ class ProjectService:
         self, project_id: uuid.UUID, body: TaskLevelConfigCreate, current_user: User
     ) -> TaskLevelConfigPublic:
         """Upsert a task level config for a project."""
-        await self._project_repo.get_or_404(project_id)
+        _assert_company(
+            await self._project_repo.get_or_404(project_id), current_user
+        )
         role_ids = (
             [str(r) for r in body.assignable_role_ids]
             if body.assignable_role_ids
@@ -406,9 +434,12 @@ class ProjectService:
         return TaskLevelConfigPublic(**cfg.model_dump())
 
     async def list_level_configs(
-        self, project_id: uuid.UUID
+        self, project_id: uuid.UUID, current_user: User
     ) -> list[TaskLevelConfigPublic]:
         """Return all level configs for a project."""
+        _assert_company(
+            await self._project_repo.get_or_404(project_id), current_user
+        )
         configs = await self._project_repo.list_level_configs(project_id)
         return [TaskLevelConfigPublic(**c.model_dump()) for c in configs]
 
@@ -416,11 +447,14 @@ class ProjectService:
     # Delay warnings
     # ------------------------------------------------------------------
 
-    async def get_delay_warnings(self, project_id: uuid.UUID) -> DelayWarningsPublic:
+    async def get_delay_warnings(
+        self, project_id: uuid.UUID, current_user: User
+    ) -> DelayWarningsPublic:
         """Run the 4-layer delay prediction engine for a project."""
         from datetime import timezone as _tz
 
         project = await self._project_repo.get_or_404(project_id)
+        _assert_company(project, current_user)
         task_repo = TaskRepository(self._session)
 
         tasks = await task_repo.list_all_project_tasks(project_id)

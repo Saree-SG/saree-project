@@ -68,6 +68,13 @@ def _utcnow() -> datetime:
     return datetime.now(timezone.utc)
 
 
+def _assert_company(quotation: Quotation, current_user: User) -> None:
+    if current_user.is_superuser:
+        return
+    if quotation.company_id != current_user.company_id:
+        raise HTTPException(status_code=403, detail="Access denied")
+
+
 # ---------------------------------------------------------------------------
 # Stage → status mapping
 # ---------------------------------------------------------------------------
@@ -310,8 +317,10 @@ class QuotationService:
     async def list_approval_participants(
         self,
         quotation_id: uuid.UUID,
+        current_user: User,
     ) -> list[QuotationApprovalParticipantPublic]:
         q = await self._repo.get_or_404(quotation_id)
+        _assert_company(q, current_user)
         participants = await self._get_participants(quotation_id, q.current_stage)
         result = []
         for p in participants:
@@ -337,6 +346,7 @@ class QuotationService:
         current_user: User,
     ) -> QuotationApprovalParticipantPublic:
         q = await self._repo.get_or_404(quotation_id)
+        _assert_company(q, current_user)
         if q.current_stage not in self.DIRECTOR_STAGES:
             raise HTTPException(422, "Chỉ có thể thêm người duyệt ở giai đoạn Giám đốc duyệt.")
 
@@ -405,7 +415,9 @@ class QuotationService:
         self,
         quotation_id: uuid.UUID,
         participant_id: uuid.UUID,
+        current_user: User,
     ) -> None:
+        _assert_company(await self._repo.get_or_404(quotation_id), current_user)
         stmt = select(QuotationApprovalParticipant).where(
             QuotationApprovalParticipant.id == participant_id,
             QuotationApprovalParticipant.quotation_id == quotation_id,
@@ -457,6 +469,7 @@ class QuotationService:
     ) -> "QuotationPublic":
         """Co-approver or delegate calls this to record their approval."""
         q = await self._repo.get_or_404(quotation_id)
+        _assert_company(q, current_user)
         if q.current_stage not in self.DIRECTOR_STAGES:
             raise HTTPException(422, "Hồ sơ không ở giai đoạn cần duyệt.")
 
@@ -670,9 +683,10 @@ class QuotationService:
         return await _enrich_quotation(quotation, self._user_repo)
 
     async def get_quotation(
-        self, quotation_id: uuid.UUID
+        self, quotation_id: uuid.UUID, current_user: User
     ) -> QuotationPublic:
         q = await self._repo.get_or_404(quotation_id)
+        _assert_company(q, current_user)
         return await _enrich_quotation(q, self._user_repo)
 
     async def list_client_companies(self, current_user: User) -> list[str]:
@@ -736,6 +750,7 @@ class QuotationService:
         current_user: User,
     ) -> QuotationPublic:
         q = await self._repo.get_or_404(quotation_id)
+        _assert_company(q, current_user)
         if q.current_stage == "S9_CLOSED":
             raise HTTPException(422, "Không thể chỉnh sửa hồ sơ đã đóng.")
 
@@ -771,6 +786,7 @@ class QuotationService:
         self, quotation_id: uuid.UUID, current_user: User
     ) -> None:
         q = await self._repo.get_or_404(quotation_id)
+        _assert_company(q, current_user)
         q.is_deleted = True
         q.deleted_at = _utcnow()
         await self._repo.save(q)
@@ -793,6 +809,7 @@ class QuotationService:
     ) -> QuotationPublic:
         """S1 → S2: KD nộp thông tin khảo sát, chờ BGĐ duyệt."""
         q = await self._repo.get_or_404(quotation_id)
+        _assert_company(q, current_user)
         await self._require_stage(q, "S1_SALES_COLLECT")
 
         q.client_contact_name = body.client_contact_name
@@ -844,6 +861,7 @@ class QuotationService:
     ) -> QuotationPublic:
         """S2: BGĐ approve → S3 (KT thiết kế) | reject → S1 (KD chỉnh sửa)."""
         q = await self._repo.get_or_404(quotation_id)
+        _assert_company(q, current_user)
         await self._require_stage(q, "S2_DIRECTOR_APPROVE_SURVEY")
 
         if body.action == "approve":
@@ -905,6 +923,7 @@ class QuotationService:
     ) -> QuotationPublic:
         """S3 → S3B: KT nộp thiết kế, chuyển sang bóc tách khối lượng."""
         q = await self._repo.get_or_404(quotation_id)
+        _assert_company(q, current_user)
         await self._require_stage(q, "S3_TECH_DESIGN")
 
         attachments = await self._repo.get_attachments(q.id)
@@ -953,6 +972,7 @@ class QuotationService:
     ) -> QuotationPublic:
         """S3B → S4: KT hoàn thành bóc tách khối lượng, nộp BGĐ duyệt thiết kế."""
         q = await self._repo.get_or_404(quotation_id)
+        _assert_company(q, current_user)
         await self._require_stage(q, "S3B_BOC_TACH")
 
         old_stage = q.current_stage
@@ -994,6 +1014,7 @@ class QuotationService:
     ) -> QuotationPublic:
         """S4: BGĐ approve → S5 (VT định giá) | reject → S3 (KT chỉnh sửa)."""
         q = await self._repo.get_or_404(quotation_id)
+        _assert_company(q, current_user)
         await self._require_stage(q, "S4_DIRECTOR_APPROVE_DESIGN")
 
         if body.action == "approve":
@@ -1053,6 +1074,7 @@ class QuotationService:
     ) -> QuotationPublic:
         """S5 → S6: VT xác nhận đã điền đủ đơn giá."""
         q = await self._repo.get_or_404(quotation_id)
+        _assert_company(q, current_user)
         await self._require_stage(q, "S5_PROCUREMENT_PRICING")
 
         attachments = await self._repo.get_attachments(q.id)
@@ -1099,6 +1121,7 @@ class QuotationService:
     ) -> QuotationPublic:
         """S6 → S7: KD upload file hợp đồng chào giá, nộp GĐ duyệt."""
         q = await self._repo.get_or_404(quotation_id)
+        _assert_company(q, current_user)
         await self._require_stage(q, "S6_SALES_FINALIZE")
 
         attachments = await self._repo.get_attachments(q.id)
@@ -1144,6 +1167,7 @@ class QuotationService:
     ) -> QuotationPublic:
         """S7: BGĐ duyệt báo giá cuối → S8 | reject → S6 (KD chỉnh lại)."""
         q = await self._repo.get_or_404(quotation_id)
+        _assert_company(q, current_user)
         await self._require_stage(q, "S7_DIRECTOR_APPROVE_QUOTE")
 
         if body.action == "approve":
@@ -1202,6 +1226,7 @@ class QuotationService:
     ) -> QuotationPublic:
         """S8: Ghi nhận đã gửi cho khách hàng."""
         q = await self._repo.get_or_404(quotation_id)
+        _assert_company(q, current_user)
         await self._require_stage(q, "S8_SENT_TO_CLIENT")
 
         q.sent_to_client_at = datetime.utcnow()  # naive UTC — column is TIMESTAMP WITHOUT TIME ZONE
@@ -1250,6 +1275,7 @@ class QuotationService:
     ) -> QuotationPublic:
         """S8 → S8B: KD ghi nhận thương lượng của khách và trình GĐ duyệt."""
         q = await self._repo.get_or_404(quotation_id)
+        _assert_company(q, current_user)
         await self._require_stage(q, "S8_SENT_TO_CLIENT")
 
         old_stage = q.current_stage
@@ -1289,6 +1315,7 @@ class QuotationService:
     ) -> QuotationPublic:
         """S8B: GĐ duyệt thương lượng → S6 (KD cập nhật bảng giá) | reject → S8 (tiếp tục chờ)."""
         q = await self._repo.get_or_404(quotation_id)
+        _assert_company(q, current_user)
         await self._require_stage(q, "S8B_NEGOTIATION_REVIEW")
 
         if body.action == "approve":
@@ -1347,6 +1374,7 @@ class QuotationService:
     ) -> QuotationPublic:
         """S8 → S9: Đóng hồ sơ (won hoặc lost)."""
         q = await self._repo.get_or_404(quotation_id)
+        _assert_company(q, current_user)
         await self._require_stage(q, "S8_SENT_TO_CLIENT")
 
         if q.sent_to_client_at is None and q.status not in ("sent", "negotiating"):
@@ -1492,9 +1520,9 @@ class QuotationService:
     # ------------------------------------------------------------------
 
     async def list_history(
-        self, quotation_id: uuid.UUID
+        self, quotation_id: uuid.UUID, current_user: User
     ) -> list[QuotationStageTransitionPublic]:
-        await self._repo.get_or_404(quotation_id)
+        _assert_company(await self._repo.get_or_404(quotation_id), current_user)
         transitions = await self._repo.get_transitions(quotation_id)
         actor_ids = list({t.actor_id for t in transitions if t.actor_id})
         actors = {u.id: u for u in await self._user_repo.list_by_ids(actor_ids)}
@@ -1514,9 +1542,9 @@ class QuotationService:
     # ------------------------------------------------------------------
 
     async def list_negotiations(
-        self, quotation_id: uuid.UUID
+        self, quotation_id: uuid.UUID, current_user: User
     ) -> list[QuotationNegotiationLogPublic]:
-        await self._repo.get_or_404(quotation_id)
+        _assert_company(await self._repo.get_or_404(quotation_id), current_user)
         logs = await self._repo.get_negotiations(quotation_id)
         user_ids = list({log.logged_by for log in logs if log.logged_by})
         users = {u.id: u for u in await self._user_repo.list_by_ids(user_ids)}
@@ -1534,7 +1562,7 @@ class QuotationService:
         body: QuotationNegotiationLogCreate,
         current_user: User,
     ) -> QuotationNegotiationLogPublic:
-        await self._repo.get_or_404(quotation_id)
+        _assert_company(await self._repo.get_or_404(quotation_id), current_user)
         log = await self._repo.add_negotiation({
             **body.model_dump(),
             "quotation_id": quotation_id,
@@ -1549,9 +1577,9 @@ class QuotationService:
     # ------------------------------------------------------------------
 
     async def list_attachments(
-        self, quotation_id: uuid.UUID
+        self, quotation_id: uuid.UUID, current_user: User
     ) -> list[QuotationAttachmentPublic]:
-        await self._repo.get_or_404(quotation_id)
+        _assert_company(await self._repo.get_or_404(quotation_id), current_user)
         atts = await self._repo.get_attachments(quotation_id)
         user_ids = list({att.uploaded_by for att in atts if att.uploaded_by})
         users = {u.id: u for u in await self._user_repo.list_by_ids(user_ids)}
@@ -1570,6 +1598,7 @@ class QuotationService:
         current_user: User,
     ) -> QuotationAttachmentPublic:
         q = await self._repo.get_or_404(quotation_id)
+        _assert_company(q, current_user)
         att = await self._repo.add_attachment({
             **body.model_dump(),
             "quotation_id": quotation_id,
@@ -1586,7 +1615,7 @@ class QuotationService:
         att_id: uuid.UUID,
         current_user: User,
     ) -> None:
-        await self._repo.get_or_404(quotation_id)
+        _assert_company(await self._repo.get_or_404(quotation_id), current_user)
         att = await self._repo.get_attachment_or_404(quotation_id, att_id)
         await self._repo.delete_attachment(att)
 
@@ -1595,9 +1624,9 @@ class QuotationService:
     # ------------------------------------------------------------------
 
     async def list_versions(
-        self, quotation_id: uuid.UUID
+        self, quotation_id: uuid.UUID, current_user: User
     ) -> list[QuotationVersionPublic]:
-        await self._repo.get_or_404(quotation_id)
+        _assert_company(await self._repo.get_or_404(quotation_id), current_user)
         versions = await self._repo.get_versions(quotation_id)
         user_ids = list({v.created_by for v in versions if v.created_by})
         users = {u.id: u for u in await self._user_repo.list_by_ids(user_ids)}
@@ -1610,8 +1639,9 @@ class QuotationService:
         return result
 
     async def get_version(
-        self, quotation_id: uuid.UUID, version_id: uuid.UUID
+        self, quotation_id: uuid.UUID, version_id: uuid.UUID, current_user: User
     ) -> QuotationVersionPublic:
+        _assert_company(await self._repo.get_or_404(quotation_id), current_user)
         v = await self._repo.get_version_or_404(quotation_id, version_id)
         user = await self._user_repo.get_by_id(v.created_by)
         row = QuotationVersionPublic.model_validate(v, from_attributes=True)
@@ -1625,6 +1655,7 @@ class QuotationService:
         reason: str = "manual",
     ) -> QuotationVersionPublic:
         q = await self._repo.get_or_404(quotation_id)
+        _assert_company(q, current_user)
         await self._snapshot(q, current_user.id, reason)
         versions = await self._repo.get_versions(quotation_id)
         latest = versions[-1]

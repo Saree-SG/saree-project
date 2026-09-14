@@ -9,6 +9,7 @@ import {
   type TaskPublic,
   TasksService,
 } from "@/client"
+import { TaskDetailPageGuide } from "@/components/Guide/TaskDetailPageGuide"
 import { TaskTree } from "@/components/Tasks/TaskTree"
 import { Button } from "@/components/ui/button"
 import {
@@ -1191,8 +1192,9 @@ function TaskDetailPage() {
 
   return (
     <div className="mx-auto w-full max-w-3xl space-y-6 px-2 pb-24 pt-3 sm:px-4">
+      <TaskDetailPageGuide />
       <section className="space-y-1 pt-1">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-2">
           {task?.parent_id ? (
             <Link
               to="/tasks/$taskId"
@@ -1246,106 +1248,108 @@ function TaskDetailPage() {
                   >
                     {headline.emoji} {headline.text} · {progress}%
                   </p>
-                  {canEditTask && (
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <button
-                          type="button"
-                          title="Tác vụ quản lý"
-                          aria-label="Tác vụ quản lý"
-                          className="h-9 w-9 rounded-md border text-xl leading-none text-muted-foreground hover:bg-muted"
+                  <div className="flex shrink-0 items-center gap-2">
+                    {canEditTask && (
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <button
+                            type="button"
+                            title="Tác vụ quản lý"
+                            aria-label="Tác vụ quản lý"
+                            className="h-9 w-9 rounded-md border text-xl leading-none text-muted-foreground hover:bg-muted"
+                          >
+                            ⋯
+                          </button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent
+                          align="end"
+                          className="min-w-[220px]"
                         >
-                          ⋯
-                        </button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent
-                        align="end"
-                        className="min-w-[220px]"
-                      >
-                        <DropdownMenuItem
-                          onClick={() => setTaskEditDialogOpen(true)}
-                        >
-                          ✏️ Sửa thông tin việc
-                        </DropdownMenuItem>
-                        {canUpdateTaskDeadline && (
                           <DropdownMenuItem
+                            onClick={() => setTaskEditDialogOpen(true)}
+                          >
+                            ✏️ Sửa thông tin việc
+                          </DropdownMenuItem>
+                          {canUpdateTaskDeadline && (
+                            <DropdownMenuItem
+                              onClick={() => {
+                                setTaskStartDraft(
+                                  toLocalDateTimeInputValue(task.start_time),
+                                )
+                                setTaskDeadlineDraft(
+                                  toLocalDateTimeInputValue(task.end_time),
+                                )
+                                setDeadlineDialogOpen(true)
+                              }}
+                            >
+                              🗓 Đổi thời gian
+                            </DropdownMenuItem>
+                          )}
+                          {canManageExtraAssignees && (
+                            <>
+                              <DropdownMenuItem
+                                onClick={() => setReassignDialogOpen(true)}
+                              >
+                                🔄 Đổi người làm chính
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={() => setExtraAssigneeDialogOpen(true)}
+                              >
+                                ➕ Thêm người làm cùng
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={() => setObserverDialogOpen(true)}
+                              >
+                                👀 Thêm người theo dõi
+                              </DropdownMenuItem>
+                            </>
+                          )}
+                          <DropdownMenuItem
+                            disabled={task.status === "todo"}
+                            onClick={() => updateStatusMutation.mutate("todo")}
+                          >
+                            ⏸ Đánh dấu: Chờ làm
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            disabled={task.status === "in_progress"}
+                            onClick={() =>
+                              updateStatusMutation.mutate("in_progress")
+                            }
+                          >
+                            ▶ Đánh dấu: Đang làm
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            disabled={task.status === "done"}
                             onClick={() => {
-                              setTaskStartDraft(
-                                toLocalDateTimeInputValue(task.start_time),
-                              )
-                              setTaskDeadlineDraft(
-                                toLocalDateTimeInputValue(task.end_time),
-                              )
-                              setDeadlineDialogOpen(true)
+                              if ((task.reported_progress_total ?? 0) < 100) {
+                                showErrorToast(
+                                  "Chưa thể đánh dấu hoàn thành khi tiến độ chưa đạt 100%",
+                                )
+                                return
+                              }
+                              updateStatusMutation.mutate("done")
                             }}
                           >
-                            🗓 Đổi thời gian
+                            ✅ Đánh dấu: Hoàn thành
                           </DropdownMenuItem>
-                        )}
-                        {canManageExtraAssignees && (
-                          <>
-                            <DropdownMenuItem
-                              onClick={() => setReassignDialogOpen(true)}
-                            >
-                              🔄 Đổi người làm chính
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              onClick={() => setExtraAssigneeDialogOpen(true)}
-                            >
-                              ➕ Thêm người làm cùng
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              onClick={() => setObserverDialogOpen(true)}
-                            >
-                              👀 Thêm người theo dõi
-                            </DropdownMenuItem>
-                          </>
-                        )}
-                        <DropdownMenuItem
-                          disabled={task.status === "todo"}
-                          onClick={() => updateStatusMutation.mutate("todo")}
-                        >
-                          ⏸ Đánh dấu: Chờ làm
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          disabled={task.status === "in_progress"}
-                          onClick={() =>
-                            updateStatusMutation.mutate("in_progress")
-                          }
-                        >
-                          ▶ Đánh dấu: Đang làm
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          disabled={task.status === "done"}
-                          onClick={() => {
-                            if ((task.reported_progress_total ?? 0) < 100) {
-                              showErrorToast(
-                                "Chưa thể đánh dấu hoàn thành khi tiến độ chưa đạt 100%",
-                              )
-                              return
+                          <DropdownMenuItem
+                            disabled={
+                              task.status === "done" || task.status === "paused"
                             }
-                            updateStatusMutation.mutate("done")
-                          }}
-                        >
-                          ✅ Đánh dấu: Hoàn thành
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          disabled={
-                            task.status === "done" || task.status === "paused"
-                          }
-                          onClick={() => setPauseDialogOpen(true)}
-                        >
-                          ⏸ Tạm dừng công việc
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          disabled={task.status === "done"}
-                          onClick={() => setHandoffDialogOpen(true)}
-                        >
-                          🔄 Bàn giao cho người khác
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  )}
+                            onClick={() => setPauseDialogOpen(true)}
+                          >
+                            ⏸ Tạm dừng công việc
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            disabled={task.status === "done"}
+                            onClick={() => setHandoffDialogOpen(true)}
+                          >
+                            🔄 Bàn giao cho người khác
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    )}
+                  </div>
                 </div>
 
                 {/* Breadcrumb path: Project / Ancestor / Parent */}

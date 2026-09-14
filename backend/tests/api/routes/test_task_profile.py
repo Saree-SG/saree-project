@@ -233,11 +233,22 @@ class TestProfileList:
         profiles = r.json()
         assert all(p["company_id"] == str(company.id) for p in profiles)
 
+    def test_cannot_create_profile_for_other_company(
+        self, client: TestClient, pm_headers: dict, company2: Company
+    ) -> None:
+        """TC-06-10: User của C1 không được tạo mẫu gắn company_id của C2 → 403."""
+        r = client.post(f"{API}/task-profiles/", json={
+            "name": "C2 Profile",
+            "company_id": str(company2.id),
+        }, headers=pm_headers)
+        assert r.status_code == 403
+
     def test_other_company_profile_not_visible(
         self, client: TestClient, pm_headers: dict, company: Company, company2: Company
     ) -> None:
-        """TC-06-10: Mẫu của C2 không xuất hiện khi filter C1."""
-        _create_profile(client, pm_headers, str(company2.id), "C2 Profile")
+        """TC-06-10b: Mẫu của C2 không xuất hiện khi filter C1 (dù ?company_id bị đổi)."""
+        r = client.get(f"{API}/task-profiles/", params={"company_id": str(company2.id)}, headers=pm_headers)
+        assert r.status_code == 403
         r = client.get(f"{API}/task-profiles/", params={"company_id": str(company.id)}, headers=pm_headers)
         assert r.status_code == 200
         for p in r.json():

@@ -1,0 +1,23 @@
+# Dozzle bản máy dev — test trước khi đưa lên server.
+# Khác bản server (compose.logging.yml): mở cổng 8888 ra localhost thay vì đi
+# qua Cloudflare Tunnel, và không cần network traefik-public.
+#
+#   docker compose -f compose.logging.local.yml -p saree-logging-local up -d
+#   open http://localhost:8888
+#
+services:
+
+  dozzle:
+    image: amir20/dozzle:v8
+    restart: unless-stopped
+    ports:
+      # Chỉ bind vào loopback — không cho máy khác trong LAN truy cập
+      - "127.0.0.1:8888:8080"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./monitoring/dozzle:/data
+    environment:
+      - DOZZLE_AUTH_PROVIDER=simple
+      - DOZZLE_ENABLE_ACTIONS=false
+      - DOZZLE_LEVEL=info
+      - DOZZLE_BASE=/_logs

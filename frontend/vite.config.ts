@@ -93,6 +93,18 @@ export default defineConfig({
       // Vite detects the change and triggers another regen cycle.
       ignored: ["**/routeTree.gen.ts"],
     },
+    proxy: {
+      // Nhật ký hệ thống (/admin/logs) nhúng Dozzle qua iframe cùng origin.
+      // Trên server, Cloudflare Tunnel trỏ path /_logs* thẳng vào container
+      // dozzle. Ở máy dev thì proxy này thay vai trò đó, để iframe cùng origin
+      // giống hệt production. Cần chạy:
+      //   docker compose -f compose.logging.local.yml -p saree-logging-local up -d
+      "/_logs": {
+        target: "http://localhost:8888",
+        changeOrigin: true,
+        ws: true, // Dozzle stream log realtime
+      },
+    },
   },
   resolve: {
     alias: {

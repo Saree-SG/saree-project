@@ -1,5 +1,5 @@
 """
-Integration tests for Contract — TC-07 (Part A).
+Integration tests for Contract — TC-07 (Part A + B).
 
 Coverage:
   - TC-07-01: Tạo hợp đồng từ báo giá S9 (won)
@@ -7,6 +7,12 @@ Coverage:
   - TC-07-03: Xem danh sách hợp đồng
   - TC-07-04: Cập nhật hợp đồng
   - TC-07-05: Không tạo hợp đồng trùng quotation → 409
+  - TC-07-06: State machine đầy đủ draft → ... → completed, và các
+    transition không hợp lệ bị chặn (400).
+  - TC-07-07: Từ chối (reject) đưa hợp đồng về draft.
+  - TC-07-08: Timeline (transitions) ghi đúng thứ tự thao tác.
+  - TC-07-09: Upload/xóa tài liệu hợp đồng.
+  - TC-07-10: Phân quyền — thiếu quyền → 403; khác công ty → 403/404.
 """
 
 from __future__ import annotations
@@ -202,12 +208,16 @@ SALES_PERMS = [
     "QUOTATION_SUBMIT_SURVEY", "QUOTATION_FINALIZE",
     "QUOTATION_SEND_CLIENT", "QUOTATION_LOG_NEGOTIATION", "QUOTATION_CLOSE",
     "CONTRACT_CREATE", "CONTRACT_VIEW", "CONTRACT_UPDATE",
+    "CONTRACT_SUBMIT", "CONTRACT_SIGN", "CONTRACT_CONFIRM_ADVANCE",
+    "CONTRACT_START_PRODUCTION", "CONTRACT_COMPLETE",
 ]
 DIRECTOR_PERMS = [
     "QUOTATION_VIEW_ALL", "QUOTATION_APPROVE_SURVEY", "QUOTATION_APPROVE_DESIGN",
     "QUOTATION_APPROVE_FINAL", "QUOTATION_APPROVE_NEGOTIATION",
-    "CONTRACT_VIEW_ALL",
+    "CONTRACT_VIEW_ALL", "CONTRACT_APPROVE",
 ]
+# A role with no CONTRACT_* permission at all, for permission-denial tests.
+NO_CONTRACT_PERMS = ["QUOTATION_VIEW"]
 ENGINEER_PERMS = ["QUOTATION_VIEW", "QUOTATION_DESIGN", "QUOTATION_BOC_TACH"]
 MATERIALS_PERMS = ["QUOTATION_VIEW", "QUOTATION_FILL_PRICE"]
 
@@ -273,6 +283,49 @@ def engineer_headers(client: TestClient, engineer_user: tuple[User, str]) -> dic
 @pytest.fixture(scope="module")
 def materials_headers(client: TestClient, materials_user: tuple[User, str]) -> dict:
     user, pw = materials_user
+    return _login(client, user.email, pw)
+
+
+@pytest.fixture(scope="module")
+def outsider_role(mdb: Session, company: Company) -> Role:
+    return _make_role(mdb, company, "Outsider", 3, NO_CONTRACT_PERMS)
+
+
+@pytest.fixture(scope="module")
+def outsider_user(mdb: Session, company: Company, outsider_role: Role) -> tuple[User, str]:
+    return _make_user(mdb, company, outsider_role, "out")
+
+
+@pytest.fixture(scope="module")
+def outsider_headers(client: TestClient, outsider_user: tuple[User, str]) -> dict:
+    user, pw = outsider_user
+    return _login(client, user.email, pw)
+
+
+# --- Second (foreign) company, to test cross-company isolation ---
+
+@pytest.fixture(scope="module")
+def other_company(mdb: Session) -> Company:
+    c = Company(name=f"OtherCo-{uuid.uuid4().hex[:6]}", slug=f"otherco-{uuid.uuid4().hex[:6]}")
+    mdb.add(c)
+    mdb.commit()
+    mdb.refresh(c)
+    return c
+
+
+@pytest.fixture(scope="module")
+def other_sales_role(mdb: Session, other_company: Company) -> Role:
+    return _make_role(mdb, other_company, "Sales", 2, SALES_PERMS)
+
+
+@pytest.fixture(scope="module")
+def other_sales_user(mdb: Session, other_company: Company, other_sales_role: Role) -> tuple[User, str]:
+    return _make_user(mdb, other_company, other_sales_role, "othersales")
+
+
+@pytest.fixture(scope="module")
+def other_sales_headers(client: TestClient, other_sales_user: tuple[User, str]) -> dict:
+    user, pw = other_sales_user
     return _login(client, user.email, pw)
 
 
@@ -382,3 +435,237 @@ class TestContractUpdate:
                          json={"notes": new_notes}, headers=sales_headers)
         assert r.status_code == 200
         assert r.json()["notes"] == new_notes
+
+
+# ---------------------------------------------------------------------------
+# TC-07-06/07: State machine đầy đủ
+# ---------------------------------------------------------------------------
+
+class TestContractStateMachine:
+
+    def test_full_lifecycle_draft_to_completed(
+        self, client: TestClient, sales_headers: dict,
+        director_headers: dict, engineer_headers: dict, materials_headers: dict,
+    ) -> None:
+        """TC-07-06: draft → pending_approval → sent → signed →
+        advance_received → in_production → completed."""
+        won = _advance_to_won(client, sales_headers, director_headers, engineer_headers, materials_headers)
+        c = _get_contract_for_quotation(client, sales_headers, won["id"])
+        cid = c["id"]
+        assert c["status"] == "draft"
+
+        r = client.post(f"{API}/contracts/{cid}/submit", json={"note": "Trình duyệt"}, headers=sales_headers)
+        assert r.status_code == 200, r.text
+        assert r.json()["status"] == "pending_approval"
+
+        r = client.post(f"{API}/contracts/{cid}/approve", json={"note": "Duyệt"}, headers=director_headers)
+        assert r.status_code == 200, r.text
+        assert r.json()["status"] == "sent"
+
+        r = client.post(f"{API}/contracts/{cid}/sign",
+                         json={"note": "Khách ký", "signing_date": str(date.today())},
+                         headers=sales_headers)
+        assert r.status_code == 200, r.text
+        assert r.json()["status"] == "signed"
+
+        r = client.post(f"{API}/contracts/{cid}/confirm-advance",
+                         json={
+                             "note": "Đã nhận tạm ứng",
+                             "advance_amount": 100_000_000,
+                             "advance_paid_at": datetime.now(timezone.utc).isoformat(),
+                         },
+                         headers=sales_headers)
+        assert r.status_code == 200, r.text
+        assert r.json()["status"] == "advance_received"
+
+        r = client.post(f"{API}/contracts/{cid}/start-production",
+                         json={"note": "Bắt đầu sản xuất"}, headers=sales_headers)
+        assert r.status_code == 200, r.text
+        assert r.json()["status"] == "in_production"
+
+        r = client.post(f"{API}/contracts/{cid}/complete",
+                         json={"note": "Hoàn thành"}, headers=sales_headers)
+        assert r.status_code == 200, r.text
+        assert r.json()["status"] == "completed"
+
+        # No transition is valid from a terminal state.
+        r = client.post(f"{API}/contracts/{cid}/complete", json={"note": "x"}, headers=sales_headers)
+        assert r.status_code == 400
+
+    def test_reject_returns_to_draft(
+        self, client: TestClient, sales_headers: dict,
+        director_headers: dict, engineer_headers: dict, materials_headers: dict,
+    ) -> None:
+        """TC-07-07: pending_approval --reject--> draft."""
+        won = _advance_to_won(client, sales_headers, director_headers, engineer_headers, materials_headers)
+        c = _get_contract_for_quotation(client, sales_headers, won["id"])
+        cid = c["id"]
+
+        r = client.post(f"{API}/contracts/{cid}/submit", json={"note": "Trình duyệt"}, headers=sales_headers)
+        assert r.status_code == 200, r.text
+
+        r = client.post(f"{API}/contracts/{cid}/reject", json={"note": "Cần sửa"}, headers=director_headers)
+        assert r.status_code == 200, r.text
+        assert r.json()["status"] == "draft"
+
+        # Rejected contract can be edited again since it's back to draft.
+        r = client.patch(f"{API}/contracts/{cid}", json={"notes": "Đã sửa"}, headers=sales_headers)
+        assert r.status_code == 200, r.text
+
+    def test_invalid_transition_rejected(
+        self, client: TestClient, sales_headers: dict,
+        director_headers: dict, engineer_headers: dict, materials_headers: dict,
+    ) -> None:
+        """Skipping a stage (draft --sign--> ...) must be blocked."""
+        won = _advance_to_won(client, sales_headers, director_headers, engineer_headers, materials_headers)
+        c = _get_contract_for_quotation(client, sales_headers, won["id"])
+        r = client.post(f"{API}/contracts/{c['id']}/sign",
+                         json={"note": "x", "signing_date": str(date.today())},
+                         headers=sales_headers)
+        assert r.status_code == 400
+
+    def test_cannot_update_after_submit(
+        self, client: TestClient, sales_headers: dict,
+        director_headers: dict, engineer_headers: dict, materials_headers: dict,
+    ) -> None:
+        """Once out of draft, PATCH must be rejected (400)."""
+        won = _advance_to_won(client, sales_headers, director_headers, engineer_headers, materials_headers)
+        c = _get_contract_for_quotation(client, sales_headers, won["id"])
+        cid = c["id"]
+        r = client.post(f"{API}/contracts/{cid}/submit", json={"note": "Trình duyệt"}, headers=sales_headers)
+        assert r.status_code == 200, r.text
+
+        r = client.patch(f"{API}/contracts/{cid}", json={"notes": "x"}, headers=sales_headers)
+        assert r.status_code == 400
+
+
+# ---------------------------------------------------------------------------
+# TC-07-08: Timeline
+# ---------------------------------------------------------------------------
+
+class TestContractTimeline:
+
+    def test_transitions_recorded_in_order(
+        self, client: TestClient, sales_headers: dict,
+        director_headers: dict, engineer_headers: dict, materials_headers: dict,
+    ) -> None:
+        won = _advance_to_won(client, sales_headers, director_headers, engineer_headers, materials_headers)
+        c = _get_contract_for_quotation(client, sales_headers, won["id"])
+        cid = c["id"]
+
+        r = client.post(f"{API}/contracts/{cid}/submit", json={"note": "Trình duyệt"}, headers=sales_headers)
+        assert r.status_code == 200, r.text
+        r = client.post(f"{API}/contracts/{cid}/approve", json={"note": "Duyệt"}, headers=director_headers)
+        assert r.status_code == 200, r.text
+
+        r = client.get(f"{API}/contracts/{cid}", headers=sales_headers)
+        assert r.status_code == 200
+        transitions = r.json()["transitions"]
+        actions = [t["action"] for t in transitions]
+        assert actions == ["create", "submit", "approve"]
+        assert transitions[0]["from_status"] is None
+        assert transitions[0]["to_status"] == "draft"
+        assert transitions[-1]["to_status"] == "sent"
+
+
+# ---------------------------------------------------------------------------
+# TC-07-09: Tài liệu (attachments)
+# ---------------------------------------------------------------------------
+
+class TestContractAttachments:
+
+    def test_upload_and_delete_attachment(
+        self, client: TestClient, sales_headers: dict,
+        director_headers: dict, engineer_headers: dict, materials_headers: dict,
+    ) -> None:
+        won = _advance_to_won(client, sales_headers, director_headers, engineer_headers, materials_headers)
+        c = _get_contract_for_quotation(client, sales_headers, won["id"])
+        cid = c["id"]
+
+        r = client.post(
+            f"{API}/contracts/{cid}/attachments/upload",
+            files={"file": ("hop_dong.pdf", b"%PDF-1.4 fake content", "application/pdf")},
+            headers=sales_headers,
+        )
+        assert r.status_code == 201, r.text
+        att = r.json()
+        assert att["file_name"] == "hop_dong.pdf"
+
+        r = client.get(f"{API}/contracts/{cid}", headers=sales_headers)
+        assert r.status_code == 200
+        assert any(a["id"] == att["id"] for a in r.json()["attachments"])
+
+        r = client.delete(f"{API}/contracts/{cid}/attachments/{att['id']}", headers=sales_headers)
+        assert r.status_code == 204
+
+        r = client.get(f"{API}/contracts/{cid}", headers=sales_headers)
+        assert r.status_code == 200
+        assert all(a["id"] != att["id"] for a in r.json()["attachments"])
+
+
+# ---------------------------------------------------------------------------
+# TC-07-10: Phân quyền
+# ---------------------------------------------------------------------------
+
+class TestContractPermissions:
+
+    def test_user_without_permission_cannot_view(
+        self, client: TestClient, sales_headers: dict,
+        director_headers: dict, engineer_headers: dict, materials_headers: dict,
+        outsider_headers: dict,
+    ) -> None:
+        won = _advance_to_won(client, sales_headers, director_headers, engineer_headers, materials_headers)
+        c = _get_contract_for_quotation(client, sales_headers, won["id"])
+
+        r = client.get(f"{API}/contracts/{c['id']}", headers=outsider_headers)
+        assert r.status_code == 403
+
+        r = client.get(f"{API}/contracts/", headers=outsider_headers)
+        assert r.status_code == 403
+
+    def test_user_without_permission_cannot_submit(
+        self, client: TestClient, sales_headers: dict,
+        director_headers: dict, engineer_headers: dict, materials_headers: dict,
+        outsider_headers: dict,
+    ) -> None:
+        won = _advance_to_won(client, sales_headers, director_headers, engineer_headers, materials_headers)
+        c = _get_contract_for_quotation(client, sales_headers, won["id"])
+
+        r = client.post(f"{API}/contracts/{c['id']}/submit", json={"note": "x"}, headers=outsider_headers)
+        assert r.status_code == 403
+
+    def test_sales_cannot_approve_own_submission(
+        self, client: TestClient, sales_headers: dict,
+        director_headers: dict, engineer_headers: dict, materials_headers: dict,
+    ) -> None:
+        """Sales has no CONTRACT_APPROVE — must not be able to self-approve."""
+        won = _advance_to_won(client, sales_headers, director_headers, engineer_headers, materials_headers)
+        c = _get_contract_for_quotation(client, sales_headers, won["id"])
+        cid = c["id"]
+        r = client.post(f"{API}/contracts/{cid}/submit", json={"note": "x"}, headers=sales_headers)
+        assert r.status_code == 200, r.text
+
+        r = client.post(f"{API}/contracts/{cid}/approve", json={"note": "x"}, headers=sales_headers)
+        assert r.status_code == 403
+
+    def test_cross_company_cannot_view_contract(
+        self, client: TestClient, sales_headers: dict,
+        director_headers: dict, engineer_headers: dict, materials_headers: dict,
+        other_sales_headers: dict,
+    ) -> None:
+        """A user from another company must not see or act on this contract."""
+        won = _advance_to_won(client, sales_headers, director_headers, engineer_headers, materials_headers)
+        c = _get_contract_for_quotation(client, sales_headers, won["id"])
+
+        r = client.get(f"{API}/contracts/{c['id']}", headers=other_sales_headers)
+        assert r.status_code in (403, 404)
+
+        r = client.patch(f"{API}/contracts/{c['id']}", json={"notes": "hack"}, headers=other_sales_headers)
+        assert r.status_code in (403, 404)
+
+        # Cross-company list must not leak the contract either.
+        r = client.get(f"{API}/contracts/", headers=other_sales_headers)
+        assert r.status_code == 200
+        body = r.json()
+        items = body["data"] if isinstance(body, dict) and "data" in body else body
+        assert all(item["id"] != c["id"] for item in items)

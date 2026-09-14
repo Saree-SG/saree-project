@@ -90,6 +90,18 @@ async def _ensure_company_manage_permission(
     raise HTTPException(403, "Only superuser or company director can perform this action")
 
 
+async def _ensure_company_member(
+    repo: RoleRepository, current_user: User, company_id: uuid.UUID
+) -> None:
+    """Allow read-only catalog access only for superuser or a member of the company."""
+    if current_user.is_superuser:
+        return
+    assignments = await repo.get_user_company_roles(current_user.id, company_id)
+    if assignments:
+        return
+    raise HTTPException(403, "Access denied")
+
+
 async def _can_assign_role(
     session: AsyncSession,
     repo: RoleRepository,
@@ -145,12 +157,13 @@ async def _sync_user_company_id(
 @router.get("/", response_model=list[RoleDependencyPublic])
 async def list_role_dependencies(
     session: AsyncSessionDep,
-    _current_user: CurrentUser,
+    current_user: CurrentUser,
     company_id: uuid.UUID = Query(...),
     relation_type: str | None = Query(default=None),
 ) -> list[RoleDependencyPublic]:
     """List role dependencies for a company."""
     repo = RoleRepository(session)
+    await _ensure_company_member(repo, current_user, company_id)
     rows = await repo.list_role_dependencies(company_id, relation_type)
     result: list[RoleDependencyPublic] = []
     for row in rows:
@@ -182,6 +195,7 @@ async def list_company_roles(
 ) -> list[Role]:
     """List roles in a company for UI dropdowns."""
     repo = RoleRepository(session)
+    await _ensure_company_member(repo, current_user, company_id)
     return list(await repo.list_company_roles(company_id, exclude_admin=not current_user.is_superuser))
 
 
@@ -464,10 +478,11 @@ async def create_department(
 async def list_departments(
     company_id: uuid.UUID,
     session: AsyncSessionDep,
-    _current_user: CurrentUser,
+    current_user: CurrentUser,
 ) -> list[DepartmentPublic]:
     """List departments for a company."""
     repo = RoleRepository(session)
+    await _ensure_company_member(repo, current_user, company_id)
     rows = await repo.list_departments(company_id)
     return [
         DepartmentPublic(
@@ -845,9 +860,15 @@ async def remove_company_member_role(
 async def list_user_company_roles(
     user_id: uuid.UUID,
     session: AsyncSessionDep,
-    _current_user: CurrentUser,
+    current_user: CurrentUser,
 ) -> list[UserCompanyRolePublic]:
     """List role assignments of a user across companies."""
+    if (
+        not current_user.is_superuser
+        and current_user.id != user_id
+        and not await has_permission(session, current_user, "USER_MANAGE")
+    ):
+        raise HTTPException(403, "Access denied")
     result = await session.execute(
         select(UserCompanyRole).where(UserCompanyRole.user_id == user_id)
     )

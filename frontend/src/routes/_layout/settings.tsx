@@ -2,6 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router"
 import { LogOut, ShieldCheck, UserRound } from "lucide-react"
 import ChangePassword from "@/components/UserSettings/ChangePassword"
 import DeleteAccount from "@/components/UserSettings/DeleteAccount"
+import { SettingsPageGuide } from "@/components/Guide/SettingsPageGuide"
 import { Button } from "@/components/ui/button"
 import useAuth from "@/hooks/useAuth"
 
@@ -75,6 +76,7 @@ function UserSettings() {
         </p>
         <DeleteAccount />
       </section>
+      <SettingsPageGuide />
     </div>
   )
 }

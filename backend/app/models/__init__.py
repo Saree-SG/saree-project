@@ -8,6 +8,12 @@ Import order matters: base models first, then relations.
 from app.models.push_subscription import PushSubscription  # noqa: F401
 from app.models.skill_request import SkillChangeRequest  # noqa: F401
 
+# Attachment version history (online Office editing)
+from app.models.attachment_version import (  # noqa: F401
+    AttachmentVersion,
+    AttachmentVersionPublic,
+)
+
 # Notifications
 from app.models.notification import (  # noqa: F401
     Notification,

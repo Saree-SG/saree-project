@@ -5,7 +5,7 @@ from __future__ import annotations
 import uuid
 from datetime import date
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import AsyncSessionDep, CurrentUser
@@ -27,6 +27,14 @@ router = APIRouter(tags=["leave"])
 
 def _svc(session: AsyncSession) -> LeaveService:
     return LeaveService(session)
+
+
+def _assert_own_company(current_user: User, company_id: uuid.UUID) -> None:
+    """Block a manager/director in one company from using another company's UUID."""
+    if current_user.is_superuser:
+        return
+    if current_user.company_id != company_id:
+        raise HTTPException(403, "Access denied")
 
 
 async def _to_public(svc: LeaveService, records: list) -> LeaveRequestsPublic:
@@ -135,6 +143,7 @@ async def company_leave_requests(
     date_to: date | None = Query(default=None),
 ) -> LeaveRequestsPublic:
     """List all leave requests in a company (managers / HR)."""
+    _assert_own_company(current_user, company_id)
     svc = _svc(session)
     records = await svc.list_for_company(company_id, status, date_from, date_to)
     return await _to_public(svc, records)
@@ -153,6 +162,7 @@ async def get_leave_approver_config(
     current_user: User = Depends(require_permission("LEAVE_CONFIG")),
 ) -> LeaveApproverConfigListPublic:
     """Return the company's configured approver chain (or default note)."""
+    _assert_own_company(current_user, company_id)
     svc = _svc(session)
     rows, uses_default, role_names, user_names = await svc.get_approver_config(
         company_id
@@ -187,6 +197,7 @@ async def set_leave_approver_config(
     current_user: User = Depends(require_permission("LEAVE_CONFIG")),
 ) -> LeaveApproverConfigListPublic:
     """Replace the company's approver chain."""
+    _assert_own_company(current_user, company_id)
     svc = _svc(session)
     await svc.set_approver_config(company_id, body.items)
     rows, uses_default, role_names, user_names = await svc.get_approver_config(

@@ -73,7 +73,7 @@ async def get_contract(
         require_any_permission("CONTRACT_VIEW", "CONTRACT_VIEW_ALL")
     ),
 ) -> ContractWithDetailsPublic:
-    return await _svc(session).get_contract(contract_id, current_user.company_id)
+    return await _svc(session).get_contract(contract_id, current_user)
 
 
 @router.patch("/{contract_id}", response_model=ContractPublic)

@@ -23,6 +23,7 @@ import LeaveApprovalConfigPanel from "@/components/Company/LeaveApprovalConfigPa
 import OwnCompaniesPanel from "@/components/Company/OwnCompaniesPanel"
 import ProductivityPanel from "@/components/Company/ProductivityPanel"
 import YearSummaryPanel from "@/components/Company/YearSummaryPanel"
+import { CompanyPageGuide } from "@/components/Guide/CompanyPageGuide"
 import {
   Select,
   SelectContent,
@@ -220,6 +221,7 @@ function CompanyPage() {
           </TabsContent>
         ) : null}
       </Tabs>
+      <CompanyPageGuide />
     </div>
   )
 }

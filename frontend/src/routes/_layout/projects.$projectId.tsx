@@ -29,6 +29,7 @@ import {
   UsersService,
 } from "@/client"
 import ProjectGantt from "@/components/Gantt/ProjectGanttV2"
+import { ProjectDetailPageGuide } from "@/components/Guide/ProjectDetailPageGuide"
 import { PermissionGuard } from "@/components/PermissionGuard"
 import { DelayWarnings } from "@/components/Project/DelayWarnings"
 import EditProfileDialog from "@/components/TaskProfile/EditProfileDialog"
@@ -2362,6 +2363,7 @@ function ProjectTaskDashboardPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      <ProjectDetailPageGuide />
     </div>
   )
 }

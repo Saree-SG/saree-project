@@ -57,6 +57,18 @@ class Settings(BaseSettings):
     INCIDENT_UPLOAD_DIR: str = str(_BACKEND_ROOT / "uploads" / "incident")
     PUBLIC_BASE_URL: AnyUrl | None = None
 
+    # Online Office editing (ONLYOFFICE Document Server). Version files are
+    # stored separately from the module upload dirs above until the GĐ1
+    # storage rewrite unifies everything under one STORAGE_ROOT.
+    OFFICE_VERSION_DIR: str = str(_BACKEND_ROOT / "uploads" / "office_versions")
+    ONLYOFFICE_INTERNAL_URL: str = ""  # e.g. http://onlyoffice — backend/callback -> docs server
+    ONLYOFFICE_PUBLIC_URL: str = ""  # e.g. https://docs.example.com — browser -> docs server
+    ONLYOFFICE_JWT_SECRET: str = ""
+    MAX_UPLOAD_MB: int = 10
+    MAX_OFFICE_SAVE_MB: int = 75
+    FILE_SIGNED_URL_TTL_SECONDS: int = 300
+    OFFICE_EDIT_SIGNED_URL_TTL_SECONDS: int = 1800
+
     BACKEND_CORS_ORIGINS: Annotated[
         list[AnyUrl] | str, BeforeValidator(parse_cors)
     ] = []

@@ -30,6 +30,7 @@ import {
 } from "lucide-react"
 import { useEffect, useMemo, useRef, useState } from "react"
 import { RolesService } from "@/client"
+import { QuotationWorkflowGuide } from "@/components/Guide/QuotationWorkflowGuide"
 import {
   type ActionConfig,
   StageTransitionTimeline,
@@ -1503,6 +1504,7 @@ function QuotationDetailPage() {
 
   return (
     <div className="flex flex-col gap-4 p-4 md:p-6 max-w-3xl mx-auto">
+      <QuotationWorkflowGuide currentStage={quotation.current_stage} />
       <div className="flex items-start justify-between gap-3">
         <div className="space-y-1">
           <Link

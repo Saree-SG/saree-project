@@ -365,6 +365,9 @@
 .manual-content a {
   @apply text-primary underline underline-offset-2;
 }
+.manual-content a.open-page-link {
+  @apply mt-1 mb-2 inline-flex items-center gap-1 rounded-full bg-primary/10 px-3 py-1 text-sm font-semibold text-primary no-underline hover:bg-primary/15;
+}
 .manual-content img {
   @apply my-4 max-w-full rounded border;
 }
@@ -378,32 +381,38 @@
 .manual-content blockquote {
   @apply my-4 border-l-4 border-muted pl-4 italic text-muted-foreground;
 }
+.manual-content mark.mark-active {
+  @apply bg-orange-400 text-black ring-2 ring-orange-500 dark:bg-orange-500;
+}
 
-/* Constrain Leaflet z-index so Radix dialogs/sheets render above the map */
+/* Constrain Leaflet z-index so Radix dialogs/sheets render above the map.
+   !important is required because per-chunk "leaflet/dist/leaflet.css" imports
+   (e.g. lazy-loaded map pickers) can inject after this global stylesheet and
+   would otherwise reassert Leaflet's much higher default z-indices. */
 .leaflet-pane,
 .leaflet-top,
 .leaflet-bottom,
 .leaflet-control {
-  z-index: 10;
+  z-index: 10 !important;
 }
 .leaflet-tile-pane {
-  z-index: 1;
+  z-index: 1 !important;
 }
 .leaflet-overlay-pane {
-  z-index: 4;
+  z-index: 4 !important;
 }
 .leaflet-shadow-pane {
-  z-index: 5;
+  z-index: 5 !important;
 }
 .leaflet-marker-pane {
-  z-index: 6;
+  z-index: 6 !important;
 }
 .leaflet-tooltip-pane {
-  z-index: 7;
+  z-index: 7 !important;
 }
 .leaflet-popup-pane {
-  z-index: 8;
+  z-index: 8 !important;
 }
 .leaflet-control {
-  z-index: 10;
+  z-index: 10 !important;
 }

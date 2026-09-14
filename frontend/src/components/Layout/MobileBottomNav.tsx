@@ -1,57 +1,29 @@
-import { useQuery } from "@tanstack/react-query"
 import { Link as RouterLink, useRouterState } from "@tanstack/react-router"
 import { Menu } from "lucide-react"
 import { useState } from "react"
 
-import { RolesService } from "@/client"
-import {
-  buildMobileBottomNavItems,
-  isLayoutNavItemActive,
-  type LayoutNavItem,
-} from "@/config/layoutNav"
-import useAuth, { isLoggedIn } from "@/hooks/useAuth"
-import { useMyPermissions } from "@/hooks/useMyPermissions"
+import { buildMobileNavGroups, isLayoutNavItemActive } from "@/config/layoutNav"
+import { useLayoutNavAccess } from "@/hooks/useLayoutNavAccess"
 import { cn } from "@/lib/utils"
-import {
-  canAccessContract,
-  canAccessDashboard,
-  canAccessProject,
-  canAccessQuotation,
-  isCompanyDirector,
-  isManagementUser,
-} from "@/utils/accountAccess"
 
 export function MobileBottomNav() {
-  const { user: currentUser } = useAuth()
   const [moreOpen, setMoreOpen] = useState(false)
   const pathname = useRouterState({ select: (s) => s.location.pathname })
 
-  const profileQuery = useQuery({
-    queryKey: ["roles", "my-account-profile"],
-    queryFn: () => RolesService.myAccountProfile(),
-    enabled: Boolean(currentUser) && isLoggedIn(),
-  })
-  const permissionsQuery = useMyPermissions()
-  const permissions = permissionsQuery.data ?? []
+  const { access } = useLayoutNavAccess()
+  const groups = buildMobileNavGroups(access)
 
-  const isSuperuser = Boolean(currentUser?.is_superuser)
+  // 4 tab chính lấy từ nhóm đầu tiên (Cá nhân) + nút "Thêm" mở drawer chia
+  // nhóm cho phần còn lại (đủ cho worker: Công việc/Chấm công/Nghỉ phép/Sự cố).
+  const [firstGroup, ...restGroups] = groups
+  const tabItems = firstGroup?.items.slice(0, 4) ?? []
+  const overflowFromFirstGroup = firstGroup?.items.slice(4) ?? []
+  const drawerGroups = overflowFromFirstGroup.length
+    ? [{ ...firstGroup, items: overflowFromFirstGroup }, ...restGroups]
+    : restGroups
 
-  const allItems: LayoutNavItem[] = buildMobileBottomNavItems(
-    isSuperuser,
-    isSuperuser ||
-      isManagementUser(profileQuery.data) ||
-      canAccessDashboard(permissions),
-    isCompanyDirector(profileQuery.data),
-    isSuperuser || canAccessProject(permissions),
-    isSuperuser || canAccessQuotation(permissions),
-    isSuperuser || canAccessContract(permissions),
-  )
-
-  // 4 tab chính + nút "Thêm" = 5 mục (đủ cho worker: Công việc/Chấm công/Nghỉ phép/Sự cố).
-  const tabItems = allItems.slice(0, 4)
-  const drawerItems = allItems.slice(4)
-  const drawerHasActive = drawerItems.some((i) =>
-    isLayoutNavItemActive(i, pathname),
+  const drawerHasActive = drawerGroups.some((group) =>
+    group.items.some((item) => isLayoutNavItemActive(item, pathname)),
   )
 
   return (
@@ -96,26 +68,35 @@ export function MobileBottomNav() {
             className="fixed inset-0 z-70 bg-black/50"
             onClick={() => setMoreOpen(false)}
           />
-          <div className="fixed inset-x-0 bottom-0 z-80 rounded-t-2xl border-t bg-background pb-[env(safe-area-inset-bottom,0px)]">
-            <div className="border-b px-4 py-3">
+          <div className="fixed inset-x-0 bottom-0 z-80 max-h-[80vh] overflow-y-auto rounded-t-2xl border-t bg-background pb-[env(safe-area-inset-bottom,0px)]">
+            <div className="sticky top-0 border-b bg-background px-4 py-3">
               <p className="font-semibold text-foreground">Điều hướng khác</p>
             </div>
-            <div className="p-3 space-y-1">
-              {drawerItems.map((item) => (
-                <RouterLink
-                  key={item.path}
-                  to={item.path}
-                  onClick={() => setMoreOpen(false)}
-                  className={cn(
-                    "flex items-center gap-3 rounded-lg border px-3 py-2.5 text-sm font-medium transition-colors",
-                    isLayoutNavItemActive(item, pathname)
-                      ? "border-primary/40 bg-primary/5 text-primary"
-                      : "border-border text-foreground",
-                  )}
-                >
-                  <item.icon className="size-4 shrink-0" />
-                  <span>{item.title}</span>
-                </RouterLink>
+            <div className="p-3 space-y-4">
+              {drawerGroups.map((group) => (
+                <div key={group.key} className="space-y-1">
+                  <p className="px-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                    {group.label}
+                  </p>
+                  <div className="space-y-1">
+                    {group.items.map((item) => (
+                      <RouterLink
+                        key={item.path}
+                        to={item.path}
+                        onClick={() => setMoreOpen(false)}
+                        className={cn(
+                          "flex items-center gap-3 rounded-lg border px-3 py-2.5 text-sm font-medium transition-colors",
+                          isLayoutNavItemActive(item, pathname)
+                            ? "border-primary/40 bg-primary/5 text-primary"
+                            : "border-border text-foreground",
+                        )}
+                      >
+                        <item.icon className="size-4 shrink-0" />
+                        <span>{item.title}</span>
+                      </RouterLink>
+                    ))}
+                  </div>
+                </div>
               ))}
             </div>
           </div>

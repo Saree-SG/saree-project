@@ -12,6 +12,7 @@ import { useRef, useState } from "react"
 import { toast } from "sonner"
 
 import { Badge } from "@/components/ui/badge"
+import { IncidentsPageGuide } from "@/components/Guide/IncidentsPageGuide"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import {
@@ -89,6 +90,7 @@ function IncidentsPage() {
 
   return (
     <div className="mx-auto w-full max-w-4xl space-y-5 p-4 pb-10">
+      <IncidentsPageGuide />
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="flex items-center gap-2 text-2xl font-semibold tracking-tight">

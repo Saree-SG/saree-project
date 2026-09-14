@@ -52,6 +52,7 @@ import { Route as LayoutContractsNewRouteImport } from './routes/_layout/contrac
 import { Route as LayoutContractsContractIdRouteImport } from './routes/_layout/contracts.$contractId'
 import { Route as LayoutAdminOverviewRouteImport } from './routes/_layout/admin.overview'
 import { Route as LayoutAdminOrganizationRouteImport } from './routes/_layout/admin.organization'
+import { Route as LayoutAdminLogsRouteImport } from './routes/_layout/admin.logs'
 import { Route as LayoutAdminCompaniesRouteImport } from './routes/_layout/admin.companies'
 import { Route as LayoutAdminActivityRouteImport } from './routes/_layout/admin.activity'
 import { Route as LayoutAdminUsersIndexRouteImport } from './routes/_layout/admin.users.index'
@@ -274,6 +275,11 @@ const LayoutAdminOrganizationRoute = LayoutAdminOrganizationRouteImport.update({
   path: '/organization',
   getParentRoute: () => LayoutAdminRoute,
 } as any)
+const LayoutAdminLogsRoute = LayoutAdminLogsRouteImport.update({
+  id: '/logs',
+  path: '/logs',
+  getParentRoute: () => LayoutAdminRoute,
+} as any)
 const LayoutAdminCompaniesRoute = LayoutAdminCompaniesRouteImport.update({
   id: '/companies',
   path: '/companies',
@@ -331,6 +337,7 @@ export interface FileRoutesByFullPath {
   '/year-summary': typeof LayoutYearSummaryRoute
   '/admin/activity': typeof LayoutAdminActivityRoute
   '/admin/companies': typeof LayoutAdminCompaniesRoute
+  '/admin/logs': typeof LayoutAdminLogsRoute
   '/admin/organization': typeof LayoutAdminOrganizationRoute
   '/admin/overview': typeof LayoutAdminOverviewRoute
   '/contracts/$contractId': typeof LayoutContractsContractIdRoute
@@ -379,6 +386,7 @@ export interface FileRoutesByTo {
   '/': typeof LayoutIndexRoute
   '/admin/activity': typeof LayoutAdminActivityRoute
   '/admin/companies': typeof LayoutAdminCompaniesRoute
+  '/admin/logs': typeof LayoutAdminLogsRoute
   '/admin/organization': typeof LayoutAdminOrganizationRoute
   '/admin/overview': typeof LayoutAdminOverviewRoute
   '/contracts/$contractId': typeof LayoutContractsContractIdRoute
@@ -430,6 +438,7 @@ export interface FileRoutesById {
   '/_layout/': typeof LayoutIndexRoute
   '/_layout/admin/activity': typeof LayoutAdminActivityRoute
   '/_layout/admin/companies': typeof LayoutAdminCompaniesRoute
+  '/_layout/admin/logs': typeof LayoutAdminLogsRoute
   '/_layout/admin/organization': typeof LayoutAdminOrganizationRoute
   '/_layout/admin/overview': typeof LayoutAdminOverviewRoute
   '/_layout/contracts/$contractId': typeof LayoutContractsContractIdRoute
@@ -481,6 +490,7 @@ export interface FileRouteTypes {
     | '/year-summary'
     | '/admin/activity'
     | '/admin/companies'
+    | '/admin/logs'
     | '/admin/organization'
     | '/admin/overview'
     | '/contracts/$contractId'
@@ -529,6 +539,7 @@ export interface FileRouteTypes {
     | '/'
     | '/admin/activity'
     | '/admin/companies'
+    | '/admin/logs'
     | '/admin/organization'
     | '/admin/overview'
     | '/contracts/$contractId'
@@ -579,6 +590,7 @@ export interface FileRouteTypes {
     | '/_layout/'
     | '/_layout/admin/activity'
     | '/_layout/admin/companies'
+    | '/_layout/admin/logs'
     | '/_layout/admin/organization'
     | '/_layout/admin/overview'
     | '/_layout/contracts/$contractId'
@@ -910,6 +922,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LayoutAdminOrganizationRouteImport
       parentRoute: typeof LayoutAdminRoute
     }
+    '/_layout/admin/logs': {
+      id: '/_layout/admin/logs'
+      path: '/logs'
+      fullPath: '/admin/logs'
+      preLoaderRoute: typeof LayoutAdminLogsRouteImport
+      parentRoute: typeof LayoutAdminRoute
+    }
     '/_layout/admin/companies': {
       id: '/_layout/admin/companies'
       path: '/companies'
@@ -951,6 +970,7 @@ declare module '@tanstack/react-router' {
 interface LayoutAdminRouteChildren {
   LayoutAdminActivityRoute: typeof LayoutAdminActivityRoute
   LayoutAdminCompaniesRoute: typeof LayoutAdminCompaniesRoute
+  LayoutAdminLogsRoute: typeof LayoutAdminLogsRoute
   LayoutAdminOrganizationRoute: typeof LayoutAdminOrganizationRoute
   LayoutAdminOverviewRoute: typeof LayoutAdminOverviewRoute
   LayoutAdminIndexRoute: typeof LayoutAdminIndexRoute
@@ -961,6 +981,7 @@ interface LayoutAdminRouteChildren {
 const LayoutAdminRouteChildren: LayoutAdminRouteChildren = {
   LayoutAdminActivityRoute: LayoutAdminActivityRoute,
   LayoutAdminCompaniesRoute: LayoutAdminCompaniesRoute,
+  LayoutAdminLogsRoute: LayoutAdminLogsRoute,
   LayoutAdminOrganizationRoute: LayoutAdminOrganizationRoute,
   LayoutAdminOverviewRoute: LayoutAdminOverviewRoute,
   LayoutAdminIndexRoute: LayoutAdminIndexRoute,

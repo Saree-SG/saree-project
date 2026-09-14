@@ -9,6 +9,7 @@ import CompanyInfoTab from "@/components/Admin/Companies/CompanyInfoTab"
 import CompanyMembersTab from "@/components/Admin/Companies/CompanyMembersTab"
 import CompanyRolesTab from "@/components/Admin/Companies/CompanyRolesTab"
 import CreateCompany from "@/components/Admin/CreateCompany"
+import { AdminCompaniesPageGuide } from "@/components/Guide/AdminCompaniesPageGuide"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
 export const Route = createFileRoute("/_layout/admin/companies")({
@@ -93,6 +94,7 @@ function AdminCompanies() {
           )}
         </div>
       </div>
+      <AdminCompaniesPageGuide />
     </div>
   )
 }

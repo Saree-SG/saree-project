@@ -1,7 +1,10 @@
+import { useQuery } from "@tanstack/react-query"
 import { Link, useNavigate } from "@tanstack/react-router"
 import L from "leaflet"
 import {
+  AlertOctagon,
   AlertTriangle,
+  CalendarOff,
   CheckCircle2,
   Clock,
   FolderOpen,
@@ -11,9 +14,12 @@ import {
 import { MapContainer, Marker, TileLayer } from "react-leaflet"
 import "leaflet/dist/leaflet.css"
 
+import ProjectTimelineCard from "@/components/Gantt/ProjectTimelineCard"
 import { Card } from "@/components/ui/card"
 import { StatCard } from "@/components/ui/stat-card"
 import { cn } from "@/lib/utils"
+import { listIncidents } from "@/modules/incident/incidentApi"
+import { listPendingLeaveRequests } from "@/modules/leave/leaveApi"
 
 // Fix Leaflet icon paths in Vite
 delete (L.Icon.Default.prototype as unknown as Record<string, unknown>)
@@ -506,6 +512,24 @@ export type OverviewProps = {
   overdue?: number
   understaffed?: number
 }
+/** Số sự cố đang mở — dùng cho stat card, bấm vào đi thẳng trang Sự cố. */
+function useOpenIncidentsCount() {
+  const { data } = useQuery({
+    queryKey: ["live", "incidents", "open-count"],
+    queryFn: () => listIncidents(),
+  })
+  return (data?.data ?? []).filter((i) => i.status !== "resolved").length
+}
+
+/** Số đơn nghỉ chờ duyệt — dùng cho stat card, bấm vào đi thẳng trang Phê duyệt. */
+function usePendingLeaveCount() {
+  const { data } = useQuery({
+    queryKey: ["live", "leave", "pending-count"],
+    queryFn: () => listPendingLeaveRequests(),
+  })
+  return data?.data?.length ?? 0
+}
+
 export function OverviewView({
   projects = SITES,
   staff = STAFF,
@@ -579,13 +603,18 @@ export function OverviewView({
     </div>
   )
 
+  const openIncidents = useOpenIncidentsCount()
+  const pendingLeave = usePendingLeaveCount()
+
   return (
     <div className="space-y-5">
-      {/* Stat cards — 2x2 horizontal compact */}
-      <div className="grid grid-cols-2 gap-3">
-        <button
-          type="button"
-          className="text-left"
+      {/* Stat cards */}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+        <StatCard
+          label="Dự án"
+          value={projects.length}
+          tone="info"
+          icon={FolderOpen}
           onClick={() =>
             open({
               title: "Danh sách công trình",
@@ -593,17 +622,13 @@ export function OverviewView({
               body: projectList,
             })
           }
-        >
-          <StatCard
-            label="Dự án"
-            value={projects.length}
-            tone="info"
-            icon={FolderOpen}
-          />
-        </button>
-        <button
-          type="button"
-          className="text-left"
+        />
+        <StatCard
+          label="Hoàn thành TB"
+          value={completionAvg}
+          suffix="%"
+          tone="success"
+          icon={CheckCircle2}
           onClick={() =>
             open({
               title: "Tiến độ công trình",
@@ -611,18 +636,12 @@ export function OverviewView({
               body: projectList,
             })
           }
-        >
-          <StatCard
-            label="Hoàn thành TB"
-            value={completionAvg}
-            suffix="%"
-            tone="success"
-            icon={CheckCircle2}
-          />
-        </button>
-        <button
-          type="button"
-          className="text-left"
+        />
+        <StatCard
+          label="Đang rảnh"
+          value={free.length}
+          tone="warning"
+          icon={UserCheck}
           onClick={() =>
             open({
               title: "Nhân viên đang rảnh",
@@ -630,17 +649,12 @@ export function OverviewView({
               body: staffList(free),
             })
           }
-        >
-          <StatCard
-            label="Đang rảnh"
-            value={free.length}
-            tone="warning"
-            icon={UserCheck}
-          />
-        </button>
-        <button
-          type="button"
-          className="text-left"
+        />
+        <StatCard
+          label="Trễ tiến độ"
+          value={overdue}
+          tone="danger"
+          icon={Clock}
           onClick={() =>
             open({
               title: "Nhân viên quá tải",
@@ -648,14 +662,21 @@ export function OverviewView({
               body: staffList(overloaded),
             })
           }
-        >
-          <StatCard
-            label="Trễ tiến độ"
-            value={overdue}
-            tone="danger"
-            icon={Clock}
-          />
-        </button>
+        />
+        <StatCard
+          label="Sự cố đang mở"
+          value={openIncidents}
+          tone={openIncidents > 0 ? "danger" : "neutral"}
+          icon={AlertOctagon}
+          onClick={() => navigate({ to: "/incidents" })}
+        />
+        <StatCard
+          label="Đơn nghỉ chờ duyệt"
+          value={pendingLeave}
+          tone={pendingLeave > 0 ? "warning" : "neutral"}
+          icon={CalendarOff}
+          onClick={() => navigate({ to: "/approvals" })}
+        />
       </div>
 
       {understaffed > 0 && (
@@ -706,6 +727,11 @@ export function OverviewView({
             </button>
           ))}
         </div>
+      </section>
+
+      {/* Gantt tổng — bấm vào một dự án để mở chi tiết */}
+      <section className="space-y-2.5">
+        <ProjectTimelineCard />
       </section>
 
       {/* Hiệu suất nhân sự */}

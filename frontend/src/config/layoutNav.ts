@@ -26,49 +26,61 @@ export type LayoutNavItem = {
   matchPrefix?: boolean
 }
 
+export type LayoutNavGroup = {
+  key: string
+  label: string
+  items: LayoutNavItem[]
+}
+
+export type LayoutNavAccess = {
+  isSuperuser: boolean
+  showManagement: boolean
+  showCompanyManagement: boolean
+  canAccessProjects?: boolean
+  canAccessQuotations?: boolean
+  canAccessContracts?: boolean
+}
+
 /**
- * Builds primary sidebar / app navigation items from role (management vs staff).
+ * Builds grouped sidebar / app navigation from role/permission access flags.
+ * Groups with no visible items are dropped entirely.
  */
-export function buildLayoutNavItems(
-  isSuperuser: boolean,
-  showManagement: boolean,
-  showCompanyManagement: boolean,
-  canAccessProjects?: boolean,
-  canAccessQuotations?: boolean,
-  canAccessContracts?: boolean,
-): LayoutNavItem[] {
-  const items: LayoutNavItem[] = []
+export function buildLayoutNavGroups(
+  access: LayoutNavAccess,
+): LayoutNavGroup[] {
+  const {
+    isSuperuser,
+    showManagement,
+    showCompanyManagement,
+    canAccessProjects,
+    canAccessQuotations,
+    canAccessContracts,
+  } = access
+
+  const personal: LayoutNavItem[] = [
+    {
+      icon: ClipboardList,
+      title: "Công việc",
+      path: "/tasks",
+      matchPrefix: true,
+    },
+    { icon: ClipboardCheck, title: "Chấm công", path: "/attendance" },
+    { icon: CalendarOff, title: "Nghỉ phép", path: "/leave" },
+    {
+      icon: AlertTriangle,
+      title: "Sự cố",
+      path: "/incidents",
+      matchPrefix: true,
+    },
+    { icon: MessageCircle, title: "Chat", path: "/chat" },
+  ]
+
+  const ops: LayoutNavItem[] = []
   if (showManagement) {
-    items.push({
-      icon: LayoutDashboard,
-      title: "Tổng quan",
-      path: "/",
-    })
+    ops.push({ icon: LayoutDashboard, title: "Tổng quan", path: "/" })
   }
-  items.push({
-    icon: ClipboardList,
-    title: "Công việc",
-    path: "/tasks",
-    matchPrefix: true,
-  })
-  items.push({
-    icon: ClipboardCheck,
-    title: "Chấm công",
-    path: "/attendance",
-  })
-  items.push({
-    icon: CalendarOff,
-    title: "Nghỉ phép",
-    path: "/leave",
-  })
-  items.push({
-    icon: AlertTriangle,
-    title: "Sự cố",
-    path: "/incidents",
-    matchPrefix: true,
-  })
   if (canAccessProjects) {
-    items.push({
+    ops.push({
       icon: FolderOpen,
       title: "Dự án",
       path: "/projects",
@@ -76,34 +88,15 @@ export function buildLayoutNavItems(
     })
   }
   if (showManagement) {
-    items.push({
-      icon: CalendarRange,
-      title: "Gantt tổng",
-      path: "/gantt",
-    })
-    items.push({
-      icon: Map,
-      title: "Bản đồ",
-      path: "/map",
-    })
-    items.push({
-      icon: Users,
-      title: "Nhân viên",
-      path: "/staff",
-    })
-    items.push({
-      icon: Workflow,
-      title: "Điều phối",
-      path: "/dispatch",
-    })
-    items.push({
-      icon: BarChart3,
-      title: "KPI",
-      path: "/kpi",
-    })
+    ops.push({ icon: CalendarRange, title: "Gantt tổng", path: "/gantt" })
+    ops.push({ icon: Map, title: "Bản đồ", path: "/map" })
+    ops.push({ icon: Workflow, title: "Điều phối", path: "/dispatch" })
+    ops.push({ icon: BarChart3, title: "KPI", path: "/kpi" })
   }
+
+  const biz: LayoutNavItem[] = []
   if (canAccessQuotations) {
-    items.push({
+    biz.push({
       icon: FileText,
       title: "Báo Giá",
       path: "/quotations",
@@ -111,46 +104,62 @@ export function buildLayoutNavItems(
     })
   }
   if (canAccessContracts) {
-    items.push({
+    biz.push({
       icon: FileSignature,
       title: "Hợp Đồng",
       path: "/contracts",
       matchPrefix: true,
     })
   }
-  items.push({ icon: MessageCircle, title: "Chat", path: "/chat" })
+
+  const org: LayoutNavItem[] = []
+  if (showManagement) {
+    org.push({ icon: Users, title: "Nhân viên", path: "/staff" })
+  }
   if (showCompanyManagement || showManagement) {
-    items.push({ icon: Building2, title: "Công ty", path: "/company" })
+    org.push({ icon: Building2, title: "Công ty", path: "/company" })
   }
+
+  const system: LayoutNavItem[] = []
   if (isSuperuser) {
-    items.push({ icon: Users, title: "Admin", path: "/admin" })
+    system.push({ icon: Users, title: "Admin", path: "/admin" })
   }
-  return items
+
+  const groups: LayoutNavGroup[] = [
+    { key: "personal", label: "Cá nhân", items: personal },
+    { key: "ops", label: "Vận hành", items: ops },
+    { key: "biz", label: "Kinh doanh", items: biz },
+    { key: "org", label: "Tổ chức", items: org },
+    { key: "system", label: "Hệ thống", items: system },
+  ]
+
+  return groups.filter((group) => group.items.length > 0)
 }
 
 /**
- * Builds bottom navigation items including Cài đặt for mobile shell.
+ * Flattens grouped nav items — used where a flat list is still needed
+ * (mobile bottom nav tabs/drawer).
  */
-export function buildMobileBottomNavItems(
-  isSuperuser: boolean,
-  showManagement: boolean,
-  showCompanyManagement: boolean,
-  canAccessProjects?: boolean,
-  canAccessQuotations?: boolean,
-  canAccessContracts?: boolean,
+export function flattenLayoutNavGroups(
+  groups: LayoutNavGroup[],
 ): LayoutNavItem[] {
-  return [
-    ...buildLayoutNavItems(
-      isSuperuser,
-      showManagement,
-      showCompanyManagement,
-      canAccessProjects,
-      canAccessQuotations,
-      canAccessContracts,
-    ),
+  return groups.flatMap((group) => group.items)
+}
+
+/**
+ * Builds bottom navigation groups including Cài đặt items for mobile shell.
+ * The first group's items become the fixed tabs; the rest render inside the
+ * "Thêm" drawer, grouped the same way as desktop.
+ */
+export function buildMobileNavGroups(
+  access: LayoutNavAccess,
+): LayoutNavGroup[] {
+  const groups = buildLayoutNavGroups(access)
+  const extras: LayoutNavItem[] = [
     { icon: UserRound, title: "Hồ sơ", path: "/profile" },
     { icon: Settings, title: "Cài đặt", path: "/settings" },
   ]
+  return [...groups, { key: "account", label: "Tài khoản", items: extras }]
 }
 
 /**
