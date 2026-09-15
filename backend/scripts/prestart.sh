@@ -13,7 +13,7 @@ python app/backend_pre_start.py
 # Solution: if no migration has ever run (fresh DB), run only 0001 then stamp
 # head so Alembic considers everything applied. On an existing DB that already
 # has partial migrations, do a normal upgrade head.
-CURRENT=$(alembic current 2>&1 | grep -E "[0-9a-f]" | head -1 || true)
+CURRENT=$(alembic current 2>/dev/null)
 if [ -z "$CURRENT" ]; then
   echo "Fresh database detected — creating schema and stamping head"
   alembic upgrade 0001_initial_schema
