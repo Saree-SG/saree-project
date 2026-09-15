@@ -12,11 +12,9 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Docker Compose up
-        shell: cmd
         run: |
           docker compose -f compose.logging.yml -p saree-logging up -d --pull missing
 
       - name: Check Dozzle status
-        shell: cmd
         run: |
           docker logs saree-logging-dozzle-1 --tail 20

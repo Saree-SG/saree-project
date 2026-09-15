@@ -15,12 +15,10 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Ensure traefik-public network
-        shell: cmd
         run: |
-          docker network inspect traefik-public >NUL 2>&1 || docker network create traefik-public
+          docker network inspect traefik-public >/dev/null 2>&1 || docker network create traefik-public
 
       - name: Docker Compose up Traefik
-        shell: cmd
         env:
           EMAIL: ${{ secrets.TRAEFIK_EMAIL }}
           USERNAME: ${{ secrets.TRAEFIK_USERNAME }}
@@ -29,6 +27,5 @@ jobs:
           docker compose -f compose.traefik.yml -p traefik up -d
 
       - name: Show Traefik logs (tail)
-        shell: cmd
         run: |
           docker logs --tail 80 traefik-traefik-1
