@@ -5,6 +5,11 @@ services:
     command: tunnel --no-autoupdate run
     environment:
       - TUNNEL_TOKEN=${CLOUDFLARE_TUNNEL_TOKEN?Variable not set}
+      # cloudflared's cgo resolver bypasses resolv.conf and hard-codes a query to
+      # 127.0.0.53 (systemd-resolved's stub), which doesn't exist in the container
+      # netns — force Go's pure-Go resolver so it actually reads /etc/resolv.conf
+      # (and resolves other container names via the Docker embedded DNS at 127.0.0.11).
+      - GODEBUG=netdns=go
     networks:
       traefik-public:
         aliases:
