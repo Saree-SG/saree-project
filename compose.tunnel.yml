@@ -5,17 +5,11 @@ services:
     command: tunnel --no-autoupdate run
     environment:
       - TUNNEL_TOKEN=${CLOUDFLARE_TUNNEL_TOKEN?Variable not set}
-    # The cloudflared image's glibc resolver ignores /etc/resolv.conf (it hard-codes
-    # a query to 127.0.0.53, systemd-resolved's stub, which doesn't exist in the
-    # container netns) and GODEBUG=netdns=go has no effect since this build lacks a
-    # pure-Go resolver fallback. /etc/hosts lookups bypass DNS entirely regardless of
-    # resolver backend, so pin the origin containers' current IPs here as a workaround.
-    # NOTE: these IPs can change if saree-prod/-dev is recreated — re-check with
-    # `docker inspect <container> --format '{{(index .NetworkSettings.Networks "traefik-public").IPAddress}}'`
-    # and update this file if the tunnel starts 502'ing again.
-    extra_hosts:
-      - "saree-prod-frontend-1:172.18.0.6"
-      - "saree-prod-backend-1:172.18.0.5"
+    volumes:
+      # See cloudflared-nsswitch.conf: drops the systemd "resolve" NSS module so
+      # glibc actually honors resolv.conf instead of hard-coding a lookup to
+      # 127.0.0.53 (which doesn't exist in this container's netns).
+      - ./cloudflared-nsswitch.conf:/etc/nsswitch.conf:ro
     networks:
       traefik-public:
         aliases:
