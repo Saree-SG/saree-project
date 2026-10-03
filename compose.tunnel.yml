@@ -5,11 +5,6 @@ services:
     command: tunnel --no-autoupdate run
     environment:
       - TUNNEL_TOKEN=${CLOUDFLARE_TUNNEL_TOKEN?Variable not set}
-    volumes:
-      # See cloudflared-nsswitch.conf: drops the systemd "resolve" NSS module so
-      # glibc actually honors resolv.conf instead of hard-coding a lookup to
-      # 127.0.0.53 (which doesn't exist in this container's netns).
-      - ./cloudflared-nsswitch.conf:/etc/nsswitch.conf:ro
     networks:
       traefik-public:
         aliases:
